@@ -1,0 +1,265 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const nodemailer = require('nodemailer');
+
+function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT) || 465;
+  const secure = process.env.SMTP_SECURE === 'true';
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    console.warn('Configuração de SMTP incompleta no arquivo .env. Notificação por e-mail não enviada.');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass
+    }
+  });
+
+  const mailOptions = {
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    to: 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com',
+    subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${loja}`,
+    text: `Olá Bruno e Isabella,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValor.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendente.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
+    html: `<p>Olá Bruno e Isabella,</p>
+<p>O limite de <strong>R$ 1.000,00</strong> em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: <strong>${loja}</strong>.</p>
+<h3>Detalhes:</h3>
+<ul>
+  <li><strong>Novo envelope registrado por:</strong> ${consultor}</li>
+  <li><strong>Valor do novo envelope:</strong> R$ ${novoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Valor total acumulado pendente de retirada nesta loja:</strong> R$ ${totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+</ul>
+<p>Por favor, providencie a retirada.</p>
+<br>
+<p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error('Erro ao enviar e-mail de notificação:', error);
+    } else {
+      console.log('E-mail de notificação enviado com sucesso:', info.response);
+    }
+  });
+}
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json({ limit: '15mb' }));
+
+// Servir os arquivos estáticos da webapp
+app.use(express.static(path.join(__dirname, 'webapp')));
+
+// Conexão com o Banco de Dados SQLite
+const dbPath = path.join(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Erro ao conectar ao banco de dados:', err.message);
+  } else {
+    console.log('Conectado ao banco de dados SQLite.');
+    initDb();
+  }
+});
+
+function initDb() {
+  db.serialize(() => {
+    // Tabela de Configurações
+    db.run(`
+      CREATE TABLE IF NOT EXISTS configuracoes (
+        chave TEXT PRIMARY KEY,
+        valor TEXT
+      )
+    `);
+
+    // Tabela de PINs de usuários
+    db.run(`
+      CREATE TABLE IF NOT EXISTS pins (
+        usuario TEXT PRIMARY KEY,
+        pin TEXT
+      )
+    `);
+
+    // Tabela de Registros de Caixa
+    db.run(`
+      CREATE TABLE IF NOT EXISTS registros (
+        id TEXT PRIMARY KEY,
+        consultor TEXT,
+        loja TEXT,
+        tipoOperacao TEXT,
+        dataOperacao TEXT,
+        fundoCaixa REAL,
+        valorEnvelope REAL,
+        observacoes TEXT,
+        fotoEnvelope TEXT,
+        status TEXT,
+        dataRetirada TEXT,
+        retiradoPor TEXT,
+        confirmadoPorApp TEXT,
+        autorizadoPor TEXT,
+        mensagemGerada INTEGER DEFAULT 0,
+        criadoEm TEXT
+      )
+    `);
+  });
+}
+
+// --- Endpoints da API ---
+
+// 1. Obter todas as configurações
+app.get('/api/config', (req, res) => {
+  db.all('SELECT * FROM configuracoes', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const config = {};
+    rows.forEach(r => config[r.chave] = r.valor);
+    res.json(config);
+  });
+});
+
+// Salvar configuração
+app.post('/api/config', (req, res) => {
+  const { chave, valor } = req.body;
+  db.run(
+    'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
+    [chave, valor, valor],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+// 2. Obter PINs
+app.get('/api/pins', (req, res) => {
+  db.all('SELECT * FROM pins', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const pins = {};
+    rows.forEach(r => pins[r.usuario] = r.pin);
+    res.json(pins);
+  });
+});
+
+// Criar/atualizar PIN
+app.post('/api/pins', (req, res) => {
+  const { usuario, pin } = req.body;
+  db.run(
+    'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
+    [usuario, pin, pin],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+// 3. Obter todos os registros
+app.get('/api/registros', (req, res) => {
+  db.all('SELECT * FROM registros ORDER BY dataOperacao DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    // Converter boolean/integer para boolean
+    const result = rows.map(r => ({
+      ...r,
+      mensagemGerada: !!r.mensagemGerada
+    }));
+    res.json(result);
+  });
+});
+
+// Inserir registro
+app.post('/api/registros', (req, res) => {
+  const r = req.body;
+  db.run(
+    `INSERT INTO registros (
+      id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope, 
+      observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp, 
+      autorizadoPor, mensagemGerada, criadoEm
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
+      r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
+      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      // Envio de e-mail silencioso se for Fechamento e o acumulado for >= 1000
+      if (r.tipoOperacao === 'Fechamento' && r.valorEnvelope) {
+        db.get(
+          `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
+          [r.loja],
+          (sumErr, row) => {
+            if (!sumErr && row && row.total >= 1000) {
+              enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+            }
+          }
+        );
+      }
+
+      res.json({ success: true, id: r.id });
+    }
+  );
+});
+
+// Atualizar registro (ex: marcar retirada, marcar mensagem gerada)
+app.put('/api/registros/:id', (req, res) => {
+  const { id } = req.params;
+  const r = req.body;
+  
+  // Construir consulta dinamicamente para os campos fornecidos
+  const fields = [];
+  const values = [];
+  
+  Object.keys(r).forEach(key => {
+    if (key === 'id') return;
+    fields.push(`${key} = ?`);
+    if (key === 'mensagemGerada') {
+      values.push(r[key] ? 1 : 0);
+    } else {
+      values.push(r[key]);
+    }
+  });
+  
+  if (fields.length === 0) {
+    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  }
+  
+  values.push(id);
+  
+  const sql = `UPDATE registros SET ${fields.join(', ')} WHERE id = ?`;
+  
+  db.run(sql, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// 4. Excluir registro (Somente Bruno pode)
+app.delete('/api/registros/:id', (req, res) => {
+  const { id } = req.params;
+  const { usuario } = req.query;
+  
+  if (usuario !== 'Bruno') {
+    return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros.' });
+  }
+
+  db.run('DELETE FROM registros WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});

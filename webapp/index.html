@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#5c1a2b">
+<title>Controle de Caixa — Cacau Show</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Banner do status offline -->
+<div id="offline-banner" class="offline-banner">
+  ⚠️ Servidor offline. Usando persistência local temporária (dados salvos apenas neste navegador).
+</div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-overlay" class="modal-overlay">
+  <div class="modal login-modal">
+    <div class="logo-dot logo-dot-lg"></div>
+    <h2>Quem é você?</h2>
+    <p class="modal-sub">Selecione seu nome para entrar no Controle de Caixa.</p>
+    <div class="field">
+      <select id="login-select">
+        <option value="" disabled selected>Selecione seu nome</option>
+      </select>
+    </div>
+    <div class="field hidden" id="login-pin-wrap">
+      <label id="login-pin-label">PIN (4 dígitos)</label>
+      <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <div class="field hidden" id="login-pin-confirm-wrap">
+      <label>Confirme o PIN</label>
+      <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <p id="login-msg" class="form-msg-erro hidden"></p>
+    <div class="modal-actions modal-actions-center">
+      <button id="login-entrar" class="btn-primary">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <div>
+        <h1>Controle de Caixa</h1>
+        <span class="subtitle">Franquias Cacau Show</span>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="registro">Novo Registro</button>
+      <button class="tab-btn" data-tab="dashboard">Dashboard de Envelopes</button>
+      <button class="tab-btn" data-tab="historico">Histórico</button>
+      <button class="tab-btn" data-tab="mensal">Dashboard Mensal</button>
+    </nav>
+    <div class="user-box">
+      <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro">🌓</button>
+      <span id="user-badge" class="user-badge"></span>
+      <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
+      <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===================== TAB: NOVO REGISTRO ===================== -->
+    <section id="tab-registro" class="tab-panel active">
+      <form id="form-registro" class="card form-card">
+        <h2>Registrar Movimento de Caixa</h2>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="consultor">Consultor Show *</label>
+            <select id="consultor" required>
+              <option value="" disabled selected>Selecione</option>
+              <option>Ana Júlia</option>
+              <option>Vitória</option>
+              <option>Débora</option>
+              <option>Alexandra</option>
+              <option>Janine</option>
+              <option>Estheffany</option>
+              <option>Sabrina</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="loja">Loja *</label>
+            <select id="loja" required>
+              <option value="" disabled selected>Selecione</option>
+              <option>Marambaia</option>
+              <option>Icoaraci</option>
+              <option>Mário Covas</option>
+              <option>Venda Direta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Tipo de Operação *</label>
+            <div class="segmented" id="tipo-operacao">
+              <button type="button" class="seg-btn" data-value="Abertura">Abertura</button>
+              <button type="button" class="seg-btn" data-value="Fechamento">Fechamento</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="data-operacao">Data e Hora *</label>
+            <input type="datetime-local" id="data-operacao" required>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="fundo-caixa">Fundo de Caixa (R$) *</label>
+            <input type="number" id="fundo-caixa" step="0.01" min="0" placeholder="0,00" required>
+            <span id="fundo-caixa-hint" class="hint hidden"></span>
+          </div>
+
+          <div class="field" id="field-valor-envelope">
+            <label for="valor-envelope">Valor do Envelope (R$) *</label>
+            <input type="number" id="valor-envelope" step="0.01" min="0" placeholder="0,00" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="observacoes">Observações</label>
+          <input type="text" id="observacoes" placeholder="Alguma divergência ou observação?">
+        </div>
+
+        <div class="field" id="field-foto">
+          <label>Foto do Envelope <span id="foto-hint" class="hint">(recomendado no fechamento)</span></label>
+          <div class="photo-upload">
+            <input type="file" id="foto-envelope" accept="image/*" capture="environment">
+            <div id="foto-preview-wrap" class="foto-preview-wrap hidden">
+              <img id="foto-preview" alt="Prévia do envelope">
+              <button type="button" id="foto-remover" class="btn-mini">Remover</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Salvar Registro</button>
+          <span id="form-msg" class="form-msg"></span>
+        </div>
+      </form>
+
+      <!-- Gerador de mensagem WhatsApp pós-fechamento -->
+      <div id="aviso-banner" class="card aviso-banner hidden">
+        <h3>📋 Gerador de Mensagem WhatsApp</h3>
+        <p class="aviso-instrucao">1. Copie a mensagem abaixo. 2. Abra o grupo do WhatsApp da loja/gestão. 3. Cole e envie.</p>
+        <textarea id="aviso-texto" class="aviso-textarea" readonly rows="6"></textarea>
+        <div id="aviso-botoes" class="aviso-botoes">
+          <button type="button" id="btn-copiar-mensagem" class="btn-secondary">📋 Copiar mensagem</button>
+          <a id="btn-abrir-whatsapp" class="btn-whatsapp" target="_blank" rel="noopener noreferrer">📲 Abrir WhatsApp</a>
+        </div>
+        <p id="aviso-status" class="aviso-status hidden">✅ Mensagem gerada — não esqueça de enviar ao grupo!</p>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: DASHBOARD ===================== -->
+    <section id="tab-dashboard" class="tab-panel">
+      <div class="dash-header">
+        <h2>Dinheiro do Envelope por Loja</h2>
+        <div class="dash-total" id="dash-total-geral">R$ 0,00 em trânsito</div>
+      </div>
+
+      <div id="alerta-sem-fechamento" class="card alerta-card hidden">
+        <strong>⚠ Lojas sem fechamento registrado hoje:</strong>
+        <span id="lojas-sem-fechamento"></span>
+      </div>
+
+      <div id="cards-lojas" class="cards-lojas"></div>
+
+      <div class="card">
+        <h3>Comparativo entre lojas (envelope pendente)</h3>
+        <div id="bar-chart" class="bar-chart"></div>
+      </div>
+
+      <div class="card">
+        <div class="table-header">
+          <h3>Envelopes Aguardando Retirada</h3>
+          <div class="filters">
+            <select id="filtro-loja-pendentes">
+              <option value="">Todas as lojas</option>
+              <option>Marambaia</option>
+              <option>Icoaraci</option>
+              <option>Mário Covas</option>
+              <option>Venda Direta</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="tabela-pendentes">
+            <thead>
+              <tr>
+                <th>Loja</th>
+                <th>Consultor</th>
+                <th>Data Fechamento</th>
+                <th>Valor Envelope</th>
+                <th>Dias Aguardando</th>
+                <th>Foto</th>
+                <th>Aviso</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="pendentes-vazio" class="empty-state hidden">Nenhum envelope pendente de retirada 🎉</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: HISTÓRICO ===================== -->
+    <section id="tab-historico" class="tab-panel">
+      <div class="card">
+        <div class="table-header">
+          <h2>Histórico Completo</h2>
+          <div class="filters">
+            <input type="text" id="busca-hist" placeholder="Buscar loja, consultor...">
+            <select id="filtro-loja-hist">
+              <option value="">Todas as lojas</option>
+              <option>Marambaia</option>
+              <option>Icoaraci</option>
+              <option>Mário Covas</option>
+              <option>Venda Direta</option>
+            </select>
+            <select id="filtro-status-hist">
+              <option value="">Todos os status</option>
+              <option value="aberto">Aberto</option>
+              <option value="aguardando_retirada">Aguardando retirada</option>
+              <option value="retirado">Retirado</option>
+            </select>
+            <button id="btn-exportar" class="btn-secondary">Exportar CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="tabela-historico">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Loja</th>
+                <th>Consultor</th>
+                <th>Operação</th>
+                <th>Fundo Caixa</th>
+                <th>Valor Envelope</th>
+                <th>Status</th>
+                <th>Retirada</th>
+                <th>Aviso</th>
+                <th>Foto</th>
+                <th class="col-bruno hidden">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="historico-vazio" class="empty-state hidden">Nenhum registro encontrado.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: DASHBOARD MENSAL (só Bruno/Isabella) ===================== -->
+    <section id="tab-mensal" class="tab-panel">
+      <div class="dash-header">
+        <h2>Dashboard Mensal por Loja</h2>
+        <div class="field mes-picker">
+          <input type="month" id="mensal-mes-filtro">
+        </div>
+      </div>
+
+      <div id="cards-lojas-mensal" class="cards-lojas"></div>
+
+      <div class="card">
+        <h3>Comparativo entre lojas (mês selecionado)</h3>
+        <div id="bar-chart-mensal" class="bar-chart"></div>
+      </div>
+
+      <div class="card">
+        <div class="table-header">
+          <h3>Somatória Mensal por Loja (histórico completo)</h3>
+        </div>
+        <div class="table-wrap">
+          <table id="tabela-mensal">
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Loja</th>
+                <th>Total Envelope</th>
+                <th>Qtd. Fechamentos</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="mensal-vazio" class="empty-state hidden">Nenhum fechamento registrado ainda.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal: marcar retirada -->
+<div id="modal-retirada" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Confirmar Retirada de Dinheiro Físico</h3>
+    <p class="modal-sub" id="modal-sub-info"></p>
+    <div class="field">
+      <label for="retirada-data">Data e Hora da Retirada *</label>
+      <input type="datetime-local" id="retirada-data" required>
+    </div>
+    <div class="field">
+      <label for="retirada-responsavel">Responsável pela Retirada *</label>
+      <input type="text" id="retirada-responsavel" placeholder="Ex: Transportadora Malote Seguro / Nome">
+    </div>
+    <div class="field hidden" id="autorizacao-wrap">
+      <label for="autorizacao-pin">PIN de autorização (Bruno ou Isabella) *</label>
+      <input type="password" id="autorizacao-pin" inputmode="numeric" maxlength="4" placeholder="****">
+      <span class="hint">Alexandra precisa de autorização de Bruno ou Isabella para confirmar a retirada.</span>
+    </div>
+    <div class="modal-actions">
+      <button id="modal-cancelar" class="btn-secondary">Cancelar</button>
+      <button id="modal-confirmar" class="btn-primary">Confirmar Retirada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: trocar PIN -->
+<div id="modal-trocar-pin" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Trocar meu PIN</h3>
+    <div class="field">
+      <label for="pin-atual">PIN atual *</label>
+      <input type="password" id="pin-atual" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <div class="field">
+      <label for="pin-novo">Novo PIN (4 dígitos) *</label>
+      <input type="password" id="pin-novo" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <div class="field">
+      <label for="pin-novo-confirma">Confirme o novo PIN *</label>
+      <input type="password" id="pin-novo-confirma" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <p id="trocar-pin-msg" class="form-msg-erro hidden"></p>
+    <div class="modal-actions">
+      <button id="trocar-pin-cancelar" class="btn-secondary">Cancelar</button>
+      <button id="trocar-pin-salvar" class="btn-primary">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: visualizar foto -->
+<div id="modal-foto" class="modal-overlay hidden">
+  <div class="modal modal-foto">
+    <img id="modal-foto-img" alt="Foto do envelope">
+    <button id="modal-foto-fechar" class="btn-secondary">Fechar</button>
+  </div>
+</div>
+
+
+
+<script src="app.js"></script>
+</body>
+</html>
