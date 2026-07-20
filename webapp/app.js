@@ -43,6 +43,7 @@ const USERS = [
   { nome: "Sabrina", role: "consultora" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
+  { nome: "João", role: "owner" },
 ];
 
 const TABS_POR_ROLE = {
@@ -878,7 +879,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
 
-  const duplicado = loja !== "Venda Direta" && registros.some(r =>
+  const duplicado = consultor !== "João" && loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
     r.tipoOperacao === tipoOperacaoSelecionado &&
     mesmoDia(r.dataOperacao, dataOperacao)
@@ -917,8 +918,6 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   setLoading(btnSubmit, false);
   showToast("Registro salvo com sucesso!", "sucesso");
-
-  const foiFechamento = tipoOperacaoSelecionado === "Fechamento";
 
   // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
   if (tipoOperacaoSelecionado === "Abertura") {
@@ -963,11 +962,20 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     document.getElementById("consultor").value = currentUser.nome;
   }
 
-  if (foiFechamento) mostrarGeradorMensagem(registro);
+  mostrarGeradorMensagem(registro);
 });
 
 // --- Gerador de Mensagem WhatsApp ---
 function mensagemAviso(r) {
+  if (r.tipoOperacao === "Abertura") {
+    return (
+      `🔔 Abertura de Caixa - Cacau Show\n` +
+      `Loja: ${r.loja}\n` +
+      `Consultor: ${r.consultor}\n` +
+      `Data: ${formatDataHora(r.dataOperacao)}\n` +
+      `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}`
+    );
+  }
   return (
     `🔔 Fechamento de Caixa - Cacau Show\n` +
     `Loja: ${r.loja}\n` +

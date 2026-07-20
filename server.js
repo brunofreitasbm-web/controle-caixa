@@ -244,7 +244,7 @@ function registrarLog(registroId, acao, descricao, usuario) {
 // 0. Obter logs (apenas Owners)
 app.get('/api/logs', (req, res) => {
   const { usuario } = req.query;
-  if (usuario !== 'Bruno' && usuario !== 'Isabella') {
+  if (usuario !== 'Bruno' && usuario !== 'Isabella' && usuario !== 'João') {
     return res.status(403).json({ error: 'Acesso negado. Apenas owners podem ver os logs.' });
   }
   db.all('SELECT * FROM logs_auditoria ORDER BY data DESC LIMIT 100', [], (err, rows) => {
