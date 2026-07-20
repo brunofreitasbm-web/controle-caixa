@@ -1046,7 +1046,7 @@ function renderDashboard() {
 
   LOJAS.forEach(loja => {
     const doLoja = pendentes.filter(r => r.loja === loja);
-    const total = doLoja.reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+    const total = doLoja.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     totaisPorLoja[loja] = total;
     totalGeral += total;
     const maisAntigo = doLoja.reduce((max, r) => {
@@ -1262,7 +1262,7 @@ function renderHistorico() {
 
   // KPIs (#9)
   const totalRegistros = lista.length;
-  const totalEnvelope = lista.filter(r => r.valorEnvelope != null).reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+  const totalEnvelope = lista.filter(r => r.valorEnvelope != null).reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
   const qtdFechamentos = lista.filter(r => r.tipoOperacao === "Fechamento").length;
   const media = qtdFechamentos > 0 ? totalEnvelope / qtdFechamentos : 0;
 
@@ -1409,7 +1409,7 @@ function renderMensal() {
 
   LOJAS.forEach(loja => {
     const doMes = fechamentos.filter(r => r.loja === loja && mesKey(r.dataOperacao) === mesSelecionado);
-    const total = doMes.reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+    const total = doMes.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     totaisMes[loja] = total;
 
     const card = document.createElement("div");
@@ -1442,7 +1442,7 @@ function renderMensal() {
   fechamentos.forEach(r => {
     const chave = `${mesKey(r.dataOperacao)}|${r.loja}`;
     if (!somaPorMesLoja[chave]) somaPorMesLoja[chave] = { mes: mesKey(r.dataOperacao), loja: r.loja, total: 0, qtd: 0 };
-    somaPorMesLoja[chave].total += r.valorEnvelope || 0;
+    somaPorMesLoja[chave].total += Number(r.valorEnvelope) || 0;
     somaPorMesLoja[chave].qtd += 1;
   });
 

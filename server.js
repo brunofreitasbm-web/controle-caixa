@@ -81,6 +81,12 @@ function normalizeRow(row) {
     const camelKey = camelCaseMap[key] || key;
     newRow[camelKey] = row[key];
   }
+  if (newRow.fundoCaixa !== undefined && newRow.fundoCaixa !== null) {
+    newRow.fundoCaixa = Number(newRow.fundoCaixa);
+  }
+  if (newRow.valorEnvelope !== undefined && newRow.valorEnvelope !== null) {
+    newRow.valorEnvelope = Number(newRow.valorEnvelope);
+  }
   return newRow;
 }
 
