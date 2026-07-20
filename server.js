@@ -58,6 +58,32 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
   });
 }
 
+const camelCaseMap = {
+  tipooperacao: 'tipoOperacao',
+  dataoperacao: 'dataOperacao',
+  fundocaixa: 'fundoCaixa',
+  valorenvelope: 'valorEnvelope',
+  fotoenvelope: 'fotoEnvelope',
+  dataretirada: 'dataRetirada',
+  retiradopor: 'retiradoPor',
+  confirmadoporapp: 'confirmadoPorApp',
+  autorizadopor: 'autorizadoPor',
+  mensagemgerada: 'mensagemGerada',
+  criadoem: 'criadoEm',
+  deletadoem: 'deletadoEm',
+  registroid: 'registroId'
+};
+
+function normalizeRow(row) {
+  if (!row) return row;
+  const newRow = {};
+  for (const key of Object.keys(row)) {
+    const camelKey = camelCaseMap[key] || key;
+    newRow[camelKey] = row[key];
+  }
+  return newRow;
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -249,7 +275,8 @@ app.get('/api/logs', (req, res) => {
   }
   db.all('SELECT * FROM logs_auditoria ORDER BY data DESC LIMIT 100', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+    const normalized = (rows || []).map(normalizeRow);
+    res.json(normalized);
   });
 });
 
@@ -384,8 +411,9 @@ app.post('/api/divergencia', (req, res) => {
 app.get('/api/registros', (req, res) => {
   db.all('SELECT * FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
+    const normalized = (rows || []).map(normalizeRow);
     // Converter boolean/integer para boolean
-    const result = rows.map(r => ({
+    const result = normalized.map(r => ({
       ...r,
       mensagemGerada: !!r.mensagemGerada
     }));
