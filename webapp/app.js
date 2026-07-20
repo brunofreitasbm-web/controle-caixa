@@ -43,7 +43,6 @@ const USERS = [
   { nome: "Sabrina", role: "consultora" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
-  { nome: "João", role: "owner" },
 ];
 
 const TABS_POR_ROLE = {
@@ -879,7 +878,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
 
-  const duplicado = consultor !== "João" && loja !== "Venda Direta" && registros.some(r =>
+  const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
     r.tipoOperacao === tipoOperacaoSelecionado &&
     mesmoDia(r.dataOperacao, dataOperacao)
