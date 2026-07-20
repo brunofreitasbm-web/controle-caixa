@@ -79,8 +79,12 @@ function carregarJSON(key, fallback) {
 const offlineBanner = document.getElementById("offline-banner");
 
 async function checkApiConnection() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s para Render
+  
   try {
-    const res = await fetch(`${API_BASE}/config`, { method: "GET", signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${API_BASE}/config`, { method: "GET", signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       if (!API_ONLINE) console.log("API Backend conectada!");
       API_ONLINE = true;
