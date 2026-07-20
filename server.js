@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const nodemailer = require('nodemailer');
 
@@ -63,56 +62,136 @@ app.use(express.json({ limit: '15mb' }));
 // Servir os arquivos estáticos da webapp
 app.use(express.static(path.join(__dirname, 'webapp')));
 
-// Conexão com o Banco de Dados SQLite
-const dbPath = path.join(__dirname, 'database.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Erro ao conectar ao banco de dados:', err.message);
-  } else {
-    console.log('Conectado ao banco de dados SQLite.');
-    initDb();
+// Conexão com o Banco de Dados (SQLite localmente ou PostgreSQL em produção)
+let db;
+const isPostgres = !!process.env.DATABASE_URL;
+
+function convertPlaceholder(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+}
+
+function normalizeArgs(params, cb) {
+  if (typeof params === 'function') {
+    return { actualParams: [], actualCb: params };
   }
-});
+  return { actualParams: params || [], actualCb: cb };
+}
+
+if (isPostgres) {
+  console.log('Iniciando conexão com banco de dados PostgreSQL (Supabase)...');
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+
+  db = {
+    all: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      const pgSql = convertPlaceholder(sql);
+      pool.query(pgSql, actualParams, (err, res) => {
+        if (actualCb) actualCb(err, res ? res.rows : null);
+      });
+    },
+    run: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      const pgSql = convertPlaceholder(sql);
+      pool.query(pgSql, actualParams, (err, res) => {
+        if (actualCb) actualCb(err);
+      });
+    },
+    get: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      const pgSql = convertPlaceholder(sql);
+      pool.query(pgSql, actualParams, (err, res) => {
+        if (actualCb) actualCb(err, res && res.rows ? res.rows[0] : null);
+      });
+    }
+  };
+
+  initDb();
+} else {
+  console.log('Iniciando conexão com banco de dados SQLite...');
+  const sqlite3 = require('sqlite3').verbose();
+  const dbPath = path.join(__dirname, 'database.db');
+  const sqliteDb = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Erro ao conectar ao banco de dados SQLite:', err.message);
+    } else {
+      console.log('Conectado ao banco de dados SQLite.');
+      initDb();
+    }
+  });
+
+  db = {
+    all: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      sqliteDb.all(sql, actualParams, actualCb);
+    },
+    run: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      sqliteDb.run(sql, actualParams, actualCb);
+    },
+    get: (sql, params, cb) => {
+      const { actualParams, actualCb } = normalizeArgs(params, cb);
+      sqliteDb.get(sql, actualParams, actualCb);
+    }
+  };
+}
 
 function initDb() {
-  db.serialize(() => {
-    // Tabela de Configurações
-    db.run(`
-      CREATE TABLE IF NOT EXISTS configuracoes (
-        chave TEXT PRIMARY KEY,
-        valor TEXT
-      )
-    `);
+  const initQueries = [
+    `CREATE TABLE IF NOT EXISTS configuracoes (
+      chave TEXT PRIMARY KEY,
+      valor TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS pins (
+      usuario TEXT PRIMARY KEY,
+      pin TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS registros (
+      id TEXT PRIMARY KEY,
+      consultor TEXT,
+      loja TEXT,
+      tipoOperacao TEXT,
+      dataOperacao TEXT,
+      fundoCaixa REAL,
+      valorEnvelope REAL,
+      observacoes TEXT,
+      fotoEnvelope TEXT,
+      status TEXT,
+      dataRetirada TEXT,
+      retiradoPor TEXT,
+      confirmadoPorApp TEXT,
+      autorizadoPor TEXT,
+      mensagemGerada INTEGER DEFAULT 0,
+      criadoEm TEXT
+    )`
+  ];
 
-    // Tabela de PINs de usuários
-    db.run(`
-      CREATE TABLE IF NOT EXISTS pins (
-        usuario TEXT PRIMARY KEY,
-        pin TEXT
-      )
-    `);
+  let promise = Promise.resolve();
+  initQueries.forEach(query => {
+    promise = promise.then(() => {
+      return new Promise((resolve, reject) => {
+        db.run(query, [], (err) => {
+          if (err) {
+            console.error('Erro ao inicializar tabela:', err.message);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    });
+  });
 
-    // Tabela de Registros de Caixa
-    db.run(`
-      CREATE TABLE IF NOT EXISTS registros (
-        id TEXT PRIMARY KEY,
-        consultor TEXT,
-        loja TEXT,
-        tipoOperacao TEXT,
-        dataOperacao TEXT,
-        fundoCaixa REAL,
-        valorEnvelope REAL,
-        observacoes TEXT,
-        fotoEnvelope TEXT,
-        status TEXT,
-        dataRetirada TEXT,
-        retiradoPor TEXT,
-        confirmadoPorApp TEXT,
-        autorizadoPor TEXT,
-        mensagemGerada INTEGER DEFAULT 0,
-        criadoEm TEXT
-      )
-    `);
+  promise.then(() => {
+    console.log('Banco de dados inicializado com sucesso.');
+  }).catch((err) => {
+    console.error('Erro na inicialização do banco de dados:', err);
   });
 }
 
