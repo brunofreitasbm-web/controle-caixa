@@ -1025,7 +1025,7 @@ function mostrarGeradorMensagem(registro) {
 // --- Dashboard ---
 function renderDashboard() {
   const filtroLoja = document.getElementById("filtro-loja-pendentes").value;
-  const pendentes = registros.filter(r => r.status === "aguardando_retirada");
+  const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
 
   const hoje = new Date().toISOString();
   const semFechamento = LOJAS.filter(loja => {
@@ -1641,8 +1641,8 @@ function mostrarResumoMatinal() {
   const hojeISO = new Date().toISOString();
 
   // Dados para o resumo
-  const pendentes = registros.filter(r => r.status === "aguardando_retirada");
-  const totalPendente = pendentes.reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+  const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
+  const totalPendente = pendentes.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
   const pendentesMaisAntigos = pendentes.filter(r => diffDias(r.dataOperacao) >= RISCO_DIAS);
 
   const semFechamentoOntem = LOJAS.filter(loja =>
