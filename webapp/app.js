@@ -48,8 +48,67 @@ const USERS = [
 const TABS_POR_ROLE = {
   consultora: ["registro"],
   consultora_dashboard: ["registro", "dashboard"],
-  owner: ["registro", "dashboard", "historico", "mensal"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria"],
 };
+
+// ==========================================================================
+// UI Helpers (Toast & Loading)
+// ==========================================================================
+function showToast(mensagem, tipo = "info") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${tipo}`;
+  
+  let icon = "ℹ️";
+  if (tipo === "sucesso") icon = "✅";
+  if (tipo === "erro") icon = "❌";
+  
+  toast.innerHTML = `<span>${icon}</span> <span>${mensagem}</span>`;
+  container.appendChild(toast);
+  
+  // Animate in
+  requestAnimationFrame(() => toast.classList.add("show"));
+  
+  // Remove after 3.5s
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+
+function setLoading(btnId, isLoading) {
+  const btn = document.getElementById(btnId) || btnId;
+  if (!btn) return;
+  if (isLoading) {
+    btn.classList.add("btn-loading");
+    btn.disabled = true;
+  } else {
+    btn.classList.remove("btn-loading");
+    btn.disabled = false;
+  }
+}
+
+function formatarMoedaInput(e) {
+  let value = e.target.value.replace(/\D/g, "");
+  if (!value) {
+    e.target.value = "";
+    return;
+  }
+  value = (parseInt(value, 10) / 100).toFixed(2);
+  value = value.replace(".", ",");
+  value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+  e.target.value = value;
+}
+
+function parseMoeda(str) {
+  if (!str) return 0;
+  if (typeof str === "number") return str;
+  return parseFloat(str.replace(/\./g, "").replace(",", "."));
+}
+
+document.getElementById("fundo-caixa").addEventListener("input", formatarMoedaInput);
+document.getElementById("valor-envelope").addEventListener("input", formatarMoedaInput);
 
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
@@ -137,7 +196,7 @@ function carregarDadosLocais() {
 async function salvarRegistroAPI(reg) {
   if (API_ONLINE) {
     try {
-      const res = await fetch(`${API_BASE}/registros`, {
+      const res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reg)
@@ -156,7 +215,7 @@ async function salvarRegistroAPI(reg) {
 async function atualizarRegistroAPI(id, dados) {
   if (API_ONLINE) {
     try {
-      const res = await fetch(`${API_BASE}/registros/${id}`, {
+      const res = await fetch(`${API_BASE}/registros/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dados)
@@ -447,6 +506,7 @@ function ativarTab(tabName) {
   if (tabName === "dashboard") renderDashboard();
   if (tabName === "historico") renderHistorico();
   if (tabName === "mensal") renderMensal();
+  if (tabName === "auditoria") carregarAuditoria();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -489,7 +549,11 @@ document.getElementById("loja").addEventListener("change", () => {
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
 
   if (ultimo) {
-    if (!fundoInput.value) fundoInput.value = ultimo.fundoCaixa;
+    if (!fundoInput.value) {
+      let val = ultimo.fundoCaixa.toFixed(2).replace(".", ",");
+      val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+      fundoInput.value = val;
+    }
     hint.textContent = `Preenchido com o último fundo de caixa registrado em ${loja} (${formatBRL(ultimo.fundoCaixa)}). Edite se for diferente.`;
     hint.classList.remove("hidden");
   } else {
@@ -560,25 +624,30 @@ setAgora(document.getElementById("data-operacao"));
 document.getElementById("form-registro").addEventListener("submit", async e => {
   e.preventDefault();
 
+  const btnSubmit = document.querySelector("#form-registro button[type='submit']");
+  
   const consultor = document.getElementById("consultor").value;
   const loja = document.getElementById("loja").value;
   const dataOperacao = document.getElementById("data-operacao").value;
-  const fundoCaixa = document.getElementById("fundo-caixa").value;
-  const valorEnvelope = document.getElementById("valor-envelope").value;
+  const fundoCaixaRaw = document.getElementById("fundo-caixa").value;
+  const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
   const observacoes = document.getElementById("observacoes").value;
 
   if (!tipoOperacaoSelecionado) {
-    alert("Selecione o tipo de operação (Abertura ou Fechamento).");
+    showToast("Selecione o tipo de operação (Abertura ou Fechamento).", "erro");
     return;
   }
-  if (!consultor || !loja || !dataOperacao || fundoCaixa === "") {
-    alert("Preencha todos os campos obrigatórios.");
+  if (!consultor || !loja || !dataOperacao || fundoCaixaRaw === "") {
+    showToast("Preencha todos os campos obrigatórios.", "erro");
     return;
   }
-  if (tipoOperacaoSelecionado === "Fechamento" && valorEnvelope === "") {
-    alert("Informe o valor do envelope no fechamento.");
+  if (tipoOperacaoSelecionado === "Fechamento" && valorEnvelopeRaw === "") {
+    showToast("Informe o valor do envelope no fechamento.", "erro");
     return;
   }
+
+  const fundoCaixa = parseMoeda(fundoCaixaRaw);
+  const valorEnvelope = parseMoeda(valorEnvelopeRaw);
 
   const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
@@ -586,9 +655,11 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     mesmoDia(r.dataOperacao, dataOperacao)
   );
   if (duplicado) {
-    alert(`Já existe um registro de ${tipoOperacaoSelecionado} para ${loja} nesse dia. Não é possível duplicar.`);
+    showToast(`Já existe um registro de ${tipoOperacaoSelecionado} para ${loja} nesse dia.`, "erro");
     return;
   }
+
+  setLoading(btnSubmit, true);
 
   const registro = {
     id: uid(),
@@ -596,8 +667,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     loja,
     tipoOperacao: tipoOperacaoSelecionado,
     dataOperacao: new Date(dataOperacao).toISOString(),
-    fundoCaixa: Number(fundoCaixa),
-    valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? Number(valorEnvelope) : null,
+    fundoCaixa,
+    valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
     observacoes: observacoes || null,
     fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
     status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -615,8 +686,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     registros.push(registro);
   }
 
-  document.getElementById("form-msg").textContent = "Registro salvo com sucesso!";
-  setTimeout(() => (document.getElementById("form-msg").textContent = ""), 3000);
+  setLoading(btnSubmit, false);
+  showToast("Registro salvo com sucesso!", "sucesso");
 
   const foiFechamento = tipoOperacaoSelecionado === "Fechamento";
 
@@ -1079,3 +1150,47 @@ inicializarDados();
 
 // Polling suave de conectividade a cada 10 segundos
 setInterval(checkApiConnection, 10000);
+
+// ==========================================================================
+// AUDITORIA (Rastreabilidade)
+// ==========================================================================
+async function carregarAuditoria() {
+  if (currentUser?.role !== "owner") return;
+  const tbody = document.querySelector("#tabela-auditoria tbody");
+  const vazioMsg = document.getElementById("auditoria-vazio");
+  const btnAtualizar = document.getElementById("btn-atualizar-auditoria");
+  
+  if (btnAtualizar) setLoading(btnAtualizar, true);
+  
+  try {
+    const res = await fetch(`${API_BASE}/logs?usuario=${encodeURIComponent(currentUser.nome)}`);
+    if (!res.ok) throw new Error("Sem permissão ou falha na API");
+    const logs = await res.json();
+    
+    tbody.innerHTML = "";
+    if (logs.length === 0) {
+      vazioMsg.classList.remove("hidden");
+    } else {
+      vazioMsg.classList.add("hidden");
+      logs.forEach(log => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${new Date(log.data).toLocaleString("pt-BR")}</td>
+          <td><b>${log.usuario}</b></td>
+          <td><span class="status-pill ${log.acao === 'DELETE' ? 'status-aguardando_retirada' : 'status-retirado'}">${log.acao}</span></td>
+          <td>${log.descricao}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch (err) {
+    showToast("Erro ao carregar auditoria: " + err.message, "erro");
+  } finally {
+    if (btnAtualizar) setLoading(btnAtualizar, false);
+  }
+}
+
+const btnAtualizarAuditoria = document.getElementById("btn-atualizar-auditoria");
+if (btnAtualizarAuditoria) {
+  btnAtualizarAuditoria.addEventListener("click", carregarAuditoria);
+}

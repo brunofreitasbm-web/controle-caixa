@@ -171,15 +171,31 @@ function initDb() {
       confirmadoPorApp TEXT,
       autorizadoPor TEXT,
       mensagemGerada INTEGER DEFAULT 0,
-      criadoEm TEXT
+      criadoEm TEXT,
+      deletadoEm TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS logs_auditoria (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      registroId TEXT,
+      acao TEXT,
+      descricao TEXT,
+      usuario TEXT,
+      data TEXT
     )`
   ];
 
   let promise = Promise.resolve();
   initQueries.forEach(query => {
+    // Para logs_auditoria AUTOINCREMENT funciona no SQLite, mas no Postgres seria SERIAL.
+    // Como a tabela logs_auditoria terá insert automático, vamos adaptar para não usar id explícito nas queries se possível.
+    let finalQuery = query;
+    if (isPostgres && query.includes('AUTOINCREMENT')) {
+      finalQuery = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY');
+    }
+    
     promise = promise.then(() => {
       return new Promise((resolve, reject) => {
-        db.run(query, [], (err) => {
+        db.run(finalQuery, [], (err) => {
           if (err) {
             console.error('Erro ao inicializar tabela:', err.message);
             reject(err);
@@ -188,6 +204,13 @@ function initDb() {
           }
         });
       });
+    });
+  });
+
+  // Tenta adicionar a coluna deletadoEm se ela não existir
+  promise = promise.then(() => {
+    return new Promise(resolve => {
+      db.run('ALTER TABLE registros ADD COLUMN deletadoEm TEXT', [], () => resolve());
     });
   });
 
@@ -203,7 +226,32 @@ function initDb() {
   });
 }
 
+}
+
+function registrarLog(registroId, acao, descricao, usuario) {
+  const data = new Date().toISOString();
+  db.run(
+    'INSERT INTO logs_auditoria (registroId, acao, descricao, usuario, data) VALUES (?, ?, ?, ?, ?)',
+    [registroId, acao, descricao, usuario || 'Sistema', data],
+    (err) => {
+      if (err) console.error('Erro ao registrar log de auditoria:', err.message);
+    }
+  );
+}
+
 // --- Endpoints da API ---
+
+// 0. Obter logs (apenas Owners)
+app.get('/api/logs', (req, res) => {
+  const { usuario } = req.query;
+  if (usuario !== 'Bruno' && usuario !== 'Isabella') {
+    return res.status(403).json({ error: 'Acesso negado. Apenas owners podem ver os logs.' });
+  }
+  db.all('SELECT * FROM logs_auditoria ORDER BY data DESC LIMIT 100', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
 
 // 1. Obter todas as configurações
 app.get('/api/config', (req, res) => {
@@ -253,7 +301,7 @@ app.post('/api/pins', (req, res) => {
 
 // 3. Obter todos os registros
 app.get('/api/registros', (req, res) => {
-  db.all('SELECT * FROM registros ORDER BY dataOperacao DESC', [], (err, rows) => {
+  db.all('SELECT * FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     // Converter boolean/integer para boolean
     const result = rows.map(r => ({
@@ -294,6 +342,9 @@ app.post('/api/registros', (req, res) => {
         );
       }
 
+      const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
+      registrarLog(r.id, 'CREATE', `Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
+
       res.json({ success: true, id: r.id });
     }
   );
@@ -328,11 +379,15 @@ app.put('/api/registros/:id', (req, res) => {
   
   db.run(sql, values, function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    
+    const usuarioLog = req.query.usuario || 'Desconhecido';
+    registrarLog(id, 'UPDATE', `Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
+    
     res.json({ success: true });
   });
 });
 
-// 4. Excluir registro (Somente Bruno pode)
+// 4. Excluir registro (Soft delete - Somente Bruno pode)
 app.delete('/api/registros/:id', (req, res) => {
   const { id } = req.params;
   const { usuario } = req.query;
@@ -341,8 +396,12 @@ app.delete('/api/registros/:id', (req, res) => {
     return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros.' });
   }
 
-  db.run('DELETE FROM registros WHERE id = ?', [id], function(err) {
+  const agora = new Date().toISOString();
+  db.run('UPDATE registros SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    
+    registrarLog(id, 'DELETE', `Registro removido logicamente.`, usuario);
+    
     res.json({ success: true });
   });
 });
