@@ -1222,7 +1222,19 @@ document.getElementById("modal-foto-fechar").addEventListener("click", () => {
   modalFoto.classList.add("hidden");
 });
 
-// --- Histórico com Paginação (#4) ---
+const RETIRADA_CUTOFFS = {
+  'Icoaraci': '2026-06-05T23:59:59.999Z',
+  'Marambaia': '2026-06-06T23:59:59.999Z',
+  'Desligado': '2026-06-06T23:59:59.999Z',
+  'Mário Covas': '2026-06-06T23:59:59.999Z',
+  'Venda Direta': '2026-06-06T23:59:59.999Z'
+};
+
+function eHistoricoArquivado(r) {
+  const cutoff = RETIRADA_CUTOFFS[r.loja] || '2026-06-06T23:59:59.999Z';
+  return r.dataOperacao <= cutoff;
+}
+
 const HIST_PER_PAGE = 20;
 let histPaginaAtual = 1;
 
@@ -1233,7 +1245,15 @@ function renderHistorico() {
 
   let lista = [...registros].sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao));
   if (filtroLoja) lista = lista.filter(r => r.loja === filtroLoja);
-  if (filtroStatus) lista = lista.filter(r => r.status === filtroStatus);
+  
+  if (filtroStatus === "ativas") {
+    lista = lista.filter(r => !eHistoricoArquivado(r));
+  } else if (filtroStatus === "arquivados") {
+    lista = lista.filter(r => eHistoricoArquivado(r));
+  } else if (filtroStatus) {
+    lista = lista.filter(r => r.status === filtroStatus);
+  }
+
   if (busca) {
     lista = lista.filter(r =>
       [r.loja, r.consultor, r.observacoes].some(v => (v || "").toLowerCase().includes(busca))

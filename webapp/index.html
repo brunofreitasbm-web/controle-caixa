@@ -257,10 +257,12 @@
               <option>Desligado</option>
             </select>
             <select id="filtro-status-hist" aria-label="Filtrar por status">
-              <option value="">Todos os status</option>
+              <option value="ativas" selected>Operações Ativas (Atuais)</option>
+              <option value="">Todos os registros (com arquivados)</option>
               <option value="aberto">Aberto</option>
               <option value="aguardando_retirada">Aguardando retirada</option>
               <option value="retirado">Retirado</option>
+              <option value="arquivados">Arquivados (Anteriores a 06/Jun)</option>
             </select>
             <button id="btn-exportar" class="btn-secondary">Exportar CSV</button>
           </div>
