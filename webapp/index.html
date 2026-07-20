@@ -6,38 +6,61 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#5c1a2b">
+<meta name="description" content="Sistema de controle de caixa para franquias Cacau Show — gestão de envelopes, aberturas e fechamentos.">
 <title>Controle de Caixa — Cacau Show</title>
+<link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- Skip to content (a11y) -->
+<a href="#main-content" class="skip-link">Ir para o conteúdo principal</a>
+
 <!-- Banner do status offline -->
-<div id="offline-banner" class="offline-banner">
+<div id="offline-banner" class="offline-banner" role="status" aria-live="polite">
   ⚠️ Servidor offline. Usando persistência local temporária (dados salvos apenas neste navegador).
 </div>
 
 <!-- ===================== LOGIN ===================== -->
-<div id="login-overlay" class="modal-overlay">
+<div id="login-overlay" class="modal-overlay" role="dialog" aria-labelledby="login-title" aria-modal="true">
   <div class="modal login-modal">
     <div class="logo-dot logo-dot-lg"></div>
-    <h2>Quem é você?</h2>
+    <h2 id="login-title">Quem é você?</h2>
     <p class="modal-sub">Selecione seu nome para entrar no Controle de Caixa.</p>
     <div class="field">
-      <select id="login-select">
+      <select id="login-select" aria-label="Selecione seu nome">
         <option value="" disabled selected>Selecione seu nome</option>
       </select>
     </div>
     <div class="field hidden" id="login-pin-wrap">
-      <label id="login-pin-label">PIN (4 dígitos)</label>
+      <label id="login-pin-label" for="login-pin">PIN (4 dígitos)</label>
       <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****">
     </div>
     <div class="field hidden" id="login-pin-confirm-wrap">
-      <label>Confirme o PIN</label>
+      <label for="login-pin-confirm">Confirme o PIN</label>
       <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****">
     </div>
-    <p id="login-msg" class="form-msg-erro hidden"></p>
+    <p id="login-msg" class="form-msg-erro hidden" role="alert"></p>
     <div class="modal-actions modal-actions-center">
       <button id="login-entrar" class="btn-primary">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== OVERLAY: SESSÃO EXPIRADA ===================== -->
+<div id="session-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="session-title" aria-modal="true">
+  <div class="modal login-modal">
+    <div class="session-lock-icon">🔒</div>
+    <h2 id="session-title">Sessão pausada</h2>
+    <p class="modal-sub">Você ficou inativo(a). Digite seu PIN para continuar.</p>
+    <div class="field">
+      <label for="session-pin">PIN (4 dígitos)</label>
+      <input type="password" id="session-pin" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <p id="session-msg" class="form-msg-erro hidden" role="alert"></p>
+    <div class="modal-actions modal-actions-center">
+      <button id="session-unlock" class="btn-primary">Desbloquear</button>
+      <button id="session-logout" class="btn-secondary">Trocar usuário</button>
     </div>
   </div>
 </div>
@@ -52,25 +75,25 @@
         <span class="subtitle">Franquias Cacau Show</span>
       </div>
     </div>
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="registro">Novo Registro</button>
-      <button class="tab-btn" data-tab="dashboard">Dashboard de Envelopes</button>
-      <button class="tab-btn" data-tab="historico">Histórico</button>
-      <button class="tab-btn" data-tab="mensal">Dashboard Mensal</button>
-      <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria">Auditoria</button>
+    <nav class="tabs" role="tablist" aria-label="Navegação principal">
+      <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">Novo Registro</button>
+      <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">Dashboard de Envelopes</button>
+      <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">Histórico</button>
+      <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">Dashboard Mensal</button>
+      <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">Auditoria</button>
     </nav>
     <div class="user-box">
-      <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro">🌓</button>
-      <span id="user-badge" class="user-badge"></span>
+      <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
+      <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
       <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
       <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
     </div>
   </header>
 
-  <main>
+  <main id="main-content">
 
     <!-- ===================== TAB: NOVO REGISTRO ===================== -->
-    <section id="tab-registro" class="tab-panel active">
+    <section id="tab-registro" class="tab-panel active" role="tabpanel" aria-labelledby="tablink-registro">
       <form id="form-registro" class="card form-card">
         <h2>Registrar Movimento de Caixa</h2>
 
@@ -104,7 +127,7 @@
         <div class="grid-2">
           <div class="field">
             <label>Tipo de Operação *</label>
-            <div class="segmented" id="tipo-operacao">
+            <div class="segmented" id="tipo-operacao" role="group" aria-label="Tipo de operação">
               <button type="button" class="seg-btn" data-value="Abertura">Abertura</button>
               <button type="button" class="seg-btn" data-value="Fechamento">Fechamento</button>
             </div>
@@ -140,14 +163,14 @@
             <input type="file" id="foto-envelope" accept="image/*" capture="environment">
             <div id="foto-preview-wrap" class="foto-preview-wrap hidden">
               <img id="foto-preview" alt="Prévia do envelope">
-              <button type="button" id="foto-remover" class="btn-mini">Remover</button>
+              <button type="button" id="foto-remover" class="btn-mini" aria-label="Remover foto">Remover</button>
             </div>
           </div>
         </div>
 
         <div class="form-actions">
           <button type="submit" class="btn-primary">Salvar Registro</button>
-          <span id="form-msg" class="form-msg"></span>
+          <span id="form-msg" class="form-msg" role="status"></span>
         </div>
       </form>
 
@@ -165,13 +188,13 @@
     </section>
 
     <!-- ===================== TAB: DASHBOARD ===================== -->
-    <section id="tab-dashboard" class="tab-panel">
+    <section id="tab-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tablink-dashboard">
       <div class="dash-header">
         <h2>Dinheiro do Envelope por Loja</h2>
         <div class="dash-total" id="dash-total-geral">R$ 0,00 em trânsito</div>
       </div>
 
-      <div id="alerta-sem-fechamento" class="card alerta-card hidden">
+      <div id="alerta-sem-fechamento" class="card alerta-card hidden" role="alert">
         <strong>⚠ Lojas sem fechamento registrado hoje:</strong>
         <span id="lojas-sem-fechamento"></span>
       </div>
@@ -180,14 +203,14 @@
 
       <div class="card">
         <h3>Comparativo entre lojas (envelope pendente)</h3>
-        <div id="bar-chart" class="bar-chart"></div>
+        <div id="bar-chart" class="bar-chart" role="img" aria-label="Gráfico de barras comparativo entre lojas"></div>
       </div>
 
       <div class="card">
         <div class="table-header">
           <h3>Envelopes Aguardando Retirada</h3>
           <div class="filters">
-            <select id="filtro-loja-pendentes">
+            <select id="filtro-loja-pendentes" aria-label="Filtrar por loja">
               <option value="">Todas as lojas</option>
               <option>Marambaia</option>
               <option>Icoaraci</option>
@@ -197,7 +220,7 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table id="tabela-pendentes">
+          <table id="tabela-pendentes" aria-label="Envelopes aguardando retirada">
             <thead>
               <tr>
                 <th>Loja</th>
@@ -218,20 +241,20 @@
     </section>
 
     <!-- ===================== TAB: HISTÓRICO ===================== -->
-    <section id="tab-historico" class="tab-panel">
+    <section id="tab-historico" class="tab-panel" role="tabpanel" aria-labelledby="tablink-historico">
       <div class="card">
         <div class="table-header">
           <h2>Histórico Completo</h2>
           <div class="filters">
-            <input type="text" id="busca-hist" placeholder="Buscar loja, consultor...">
-            <select id="filtro-loja-hist">
+            <input type="text" id="busca-hist" placeholder="Buscar loja, consultor..." aria-label="Buscar no histórico">
+            <select id="filtro-loja-hist" aria-label="Filtrar por loja">
               <option value="">Todas as lojas</option>
               <option>Marambaia</option>
               <option>Icoaraci</option>
               <option>Mário Covas</option>
               <option>Venda Direta</option>
             </select>
-            <select id="filtro-status-hist">
+            <select id="filtro-status-hist" aria-label="Filtrar por status">
               <option value="">Todos os status</option>
               <option value="aberto">Aberto</option>
               <option value="aguardando_retirada">Aguardando retirada</option>
@@ -241,7 +264,7 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table id="tabela-historico">
+          <table id="tabela-historico" aria-label="Histórico completo de registros">
             <thead>
               <tr>
                 <th>Data</th>
@@ -265,11 +288,11 @@
     </section>
 
     <!-- ===================== TAB: DASHBOARD MENSAL (só Bruno/Isabella) ===================== -->
-    <section id="tab-mensal" class="tab-panel">
+    <section id="tab-mensal" class="tab-panel" role="tabpanel" aria-labelledby="tablink-mensal">
       <div class="dash-header">
         <h2>Dashboard Mensal por Loja</h2>
         <div class="field mes-picker">
-          <input type="month" id="mensal-mes-filtro">
+          <input type="month" id="mensal-mes-filtro" aria-label="Selecionar mês">
         </div>
       </div>
 
@@ -277,7 +300,7 @@
 
       <div class="card">
         <h3>Comparativo entre lojas (mês selecionado)</h3>
-        <div id="bar-chart-mensal" class="bar-chart"></div>
+        <div id="bar-chart-mensal" class="bar-chart" role="img" aria-label="Gráfico comparativo mensal"></div>
       </div>
 
       <div class="card">
@@ -285,7 +308,7 @@
           <h3>Somatória Mensal por Loja (histórico completo)</h3>
         </div>
         <div class="table-wrap">
-          <table id="tabela-mensal">
+          <table id="tabela-mensal" aria-label="Somatória mensal por loja">
             <thead>
               <tr>
                 <th>Mês</th>
@@ -302,7 +325,7 @@
     </section>
 
     <!-- ===================== TAB: AUDITORIA ===================== -->
-    <section id="tab-auditoria" class="tab-panel hidden">
+    <section id="tab-auditoria" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-auditoria">
       <div class="card">
         <div class="table-header">
           <h2>Auditoria de Ações (Acesso Restrito)</h2>
@@ -311,7 +334,7 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table id="tabela-auditoria">
+          <table id="tabela-auditoria" aria-label="Log de auditoria">
             <thead>
               <tr>
                 <th>Data/Hora</th>
@@ -331,9 +354,9 @@
 </div>
 
 <!-- Modal: marcar retirada -->
-<div id="modal-retirada" class="modal-overlay hidden">
+<div id="modal-retirada" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-retirada-title" aria-modal="true">
   <div class="modal">
-    <h3>Confirmar Retirada de Dinheiro Físico</h3>
+    <h3 id="modal-retirada-title">Confirmar Retirada de Dinheiro Físico</h3>
     <p class="modal-sub" id="modal-sub-info"></p>
     <div class="field">
       <label for="retirada-data">Data e Hora da Retirada *</label>
@@ -356,9 +379,9 @@
 </div>
 
 <!-- Modal: trocar PIN -->
-<div id="modal-trocar-pin" class="modal-overlay hidden">
+<div id="modal-trocar-pin" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-pin-title" aria-modal="true">
   <div class="modal">
-    <h3>Trocar meu PIN</h3>
+    <h3 id="modal-pin-title">Trocar meu PIN</h3>
     <div class="field">
       <label for="pin-atual">PIN atual *</label>
       <input type="password" id="pin-atual" inputmode="numeric" maxlength="4" placeholder="****">
@@ -371,7 +394,7 @@
       <label for="pin-novo-confirma">Confirme o novo PIN *</label>
       <input type="password" id="pin-novo-confirma" inputmode="numeric" maxlength="4" placeholder="****">
     </div>
-    <p id="trocar-pin-msg" class="form-msg-erro hidden"></p>
+    <p id="trocar-pin-msg" class="form-msg-erro hidden" role="alert"></p>
     <div class="modal-actions">
       <button id="trocar-pin-cancelar" class="btn-secondary">Cancelar</button>
       <button id="trocar-pin-salvar" class="btn-primary">Salvar</button>
@@ -380,16 +403,39 @@
 </div>
 
 <!-- Modal: visualizar foto -->
-<div id="modal-foto" class="modal-overlay hidden">
+<div id="modal-foto" class="modal-overlay hidden" role="dialog" aria-label="Visualizar foto do envelope" aria-modal="true">
   <div class="modal modal-foto">
     <img id="modal-foto-img" alt="Foto do envelope">
     <button id="modal-foto-fechar" class="btn-secondary">Fechar</button>
   </div>
 </div>
 
+<!-- Modal: confirmação genérica (substitui alert/confirm nativos) -->
+<div id="modal-confirm" class="modal-overlay hidden" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-body" aria-modal="true">
+  <div class="modal modal-confirm">
+    <div class="confirm-icon" id="confirm-icon">⚠️</div>
+    <h3 id="confirm-title">Confirmação</h3>
+    <p id="confirm-body" class="modal-sub">Tem certeza?</p>
+    <div class="modal-actions modal-actions-center" id="confirm-actions">
+      <button id="confirm-cancel" class="btn-secondary">Cancelar</button>
+      <button id="confirm-ok" class="btn-primary">Confirmar</button>
+    </div>
+  </div>
+</div>
 
+<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-<div id="toast-container"></div>
+<!-- Bottom Navigation (Mobile PWA — #7) -->
+<nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile">
+  <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon">✍️</span>Registro</button>
+  <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon">📊</span>Dashboard</button>
+  <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon">📜</span>Histórico</button>
+  <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon">📅</span>Mensal</button>
+  <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon">🔍</span>Auditoria</button>
+</nav>
+
+<!-- FAB — Floating Action Button (mobile) -->
+<button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro">➕</button>
 
 <script src="app.js"></script>
 </body>

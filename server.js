@@ -6,6 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const BCRYPT_ROUNDS = 10;
 
 function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
   const host = process.env.SMTP_HOST;
@@ -226,8 +228,6 @@ function initDb() {
   });
 }
 
-}
-
 function registrarLog(registroId, acao, descricao, usuario) {
   const data = new Date().toISOString();
   db.run(
@@ -276,27 +276,108 @@ app.post('/api/config', (req, res) => {
   );
 });
 
-// 2. Obter PINs
+// 2. Obter PINs (retorna apenas quais usuários têm PIN — NUNCA retorna os PINs reais)
 app.get('/api/pins', (req, res) => {
-  db.all('SELECT * FROM pins', [], (err, rows) => {
+  db.all('SELECT usuario FROM pins', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const pins = {};
-    rows.forEach(r => pins[r.usuario] = r.pin);
+    (rows || []).forEach(r => pins[r.usuario] = '****');
     res.json(pins);
   });
 });
 
-// Criar/atualizar PIN
-app.post('/api/pins', (req, res) => {
+// Verificar PIN (autenticação segura — compara hash)
+app.post('/api/auth/verify', (req, res) => {
   const { usuario, pin } = req.body;
-  db.run(
-    'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
-    [usuario, pin, pin],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true });
+  if (!usuario || !pin) return res.status(400).json({ valid: false, error: 'Usuário e PIN são obrigatórios.' });
+  
+  db.get('SELECT pin FROM pins WHERE usuario = ?', [usuario], (err, row) => {
+    if (err) return res.status(500).json({ valid: false, error: err.message });
+    if (!row) return res.json({ valid: false, hasPin: false });
+    
+    // Suporte a PINs antigos (texto puro) e novos (hash bcrypt)
+    if (row.pin.startsWith('$2a$') || row.pin.startsWith('$2b$')) {
+      // PIN já é hash bcrypt
+      bcrypt.compare(pin, row.pin, (err2, match) => {
+        if (err2) return res.status(500).json({ valid: false, error: err2.message });
+        res.json({ valid: match, hasPin: true });
+      });
+    } else {
+      // PIN antigo em texto puro — verifica e migra para hash
+      const match = (pin === row.pin);
+      if (match) {
+        bcrypt.hash(pin, BCRYPT_ROUNDS, (hashErr, hash) => {
+          if (!hashErr) {
+            db.run('UPDATE pins SET pin = ? WHERE usuario = ?', [hash, usuario]);
+          }
+        });
+      }
+      res.json({ valid: match, hasPin: true });
     }
-  );
+  });
+});
+
+// Criar/atualizar PIN (salva com hash bcrypt)
+app.post('/api/pins', async (req, res) => {
+  const { usuario, pin } = req.body;
+  try {
+    const hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+    db.run(
+      'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
+      [usuario, hash, hash],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      }
+    );
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Notificação de divergência de fundo de caixa (#8 Reconciliação)
+app.post('/api/divergencia', (req, res) => {
+  const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body;
+  
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) {
+    return res.json({ sent: false, reason: 'SMTP não configurado' });
+  }
+  
+  const transporter = nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user, pass }
+  });
+  
+  // TODO: Usuário informou que vai adicionar o email da Alexandra depois
+  const destinatarios = 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com';
+  
+  transporter.sendMail({
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    to: destinatarios,
+    subject: `⚠️ Divergência de Fundo de Caixa - Loja ${loja}`,
+    html: `<p>Olá,</p>
+<p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${loja}</strong>.</p>
+<h3>Detalhes:</h3>
+<ul>
+  <li><strong>Consultor(a):</strong> ${consultor}</li>
+  <li><strong>Fundo de caixa na abertura:</strong> R$ ${fundoAbertura.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Fundo no último fechamento:</strong> R$ ${fundoUltimoFechamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Diferença:</strong> R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${diferenca > 0 ? 'a mais' : 'a menos'})</li>
+</ul>
+<p>Por favor, investigue a divergência.</p>
+<p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
+  }, (error) => {
+    if (error) {
+      console.error('Erro ao enviar e-mail de divergência:', error);
+      return res.json({ sent: false, reason: error.message });
+    }
+    res.json({ sent: true });
+  });
 });
 
 // 3. Obter todos os registros

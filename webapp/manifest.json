@@ -1,0 +1,24 @@
+{
+  "name": "Controle de Caixa — Cacau Show",
+  "short_name": "Caixa CS",
+  "description": "Sistema de controle de caixa para franquias Cacau Show",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f2",
+  "theme_color": "#5c1a2b",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

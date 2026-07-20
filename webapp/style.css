@@ -1078,3 +1078,518 @@ tr:hover td {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   SKIP LINK (Acessibilidade)
+   ========================================================================== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  background: var(--wine);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 0 0 12px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 10000;
+  transition: top 0.3s ease;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 0;
+  outline: none;
+}
+
+/* ==========================================================================
+   FOCUS RING (Acessibilidade — navegação por teclado)
+   ========================================================================== */
+*:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+.tab-btn:focus-visible,
+.seg-btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-mini-outline:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(189, 149, 75, 0.2);
+}
+
+/* ==========================================================================
+   CUSTOM CONFIRM MODAL
+   ========================================================================== */
+.modal-confirm {
+  text-align: center;
+  max-width: 420px;
+  border-top: 6px solid var(--gold);
+}
+
+.confirm-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  line-height: 1;
+  animation: confirmPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes confirmPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-confirm h3 {
+  margin-bottom: 4px;
+}
+
+.modal-confirm .modal-sub {
+  margin-bottom: 24px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.modal-confirm .btn-primary.btn-danger {
+  background: linear-gradient(135deg, var(--red), #902020);
+  box-shadow: 0 4px 15px rgba(185, 44, 44, 0.25);
+}
+.modal-confirm .btn-primary.btn-danger:hover {
+  box-shadow: 0 6px 20px rgba(185, 44, 44, 0.35);
+}
+
+.modal-confirm .btn-primary.btn-success {
+  background: linear-gradient(135deg, var(--green), #14552b);
+  box-shadow: 0 4px 15px rgba(29, 114, 58, 0.25);
+}
+.modal-confirm .btn-primary.btn-success:hover {
+  box-shadow: 0 6px 20px rgba(29, 114, 58, 0.35);
+}
+
+/* ==========================================================================
+   SESSION LOCK OVERLAY
+   ========================================================================== */
+.session-lock-icon {
+  font-size: 3.5rem;
+  text-align: center;
+  margin-bottom: 12px;
+  animation: lockBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes lockBounce {
+  0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
+  60% { transform: translateY(4px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   SKELETON LOADING PLACEHOLDERS
+   ========================================================================== */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    var(--cream) 40%,
+    var(--cream) 60%,
+    var(--border) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+  min-height: 20px;
+}
+
+.skeleton-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 90%; }
+
+.skeleton-title {
+  height: 24px;
+  width: 50%;
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+.skeleton-value {
+  height: 36px;
+  width: 60%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================================
+   COUNTER ANIMATION (Micro-interações para valores monetários)
+   ========================================================================== */
+.valor-animado {
+  transition: opacity 0.2s ease;
+}
+
+.valor-animado.counting {
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   FORM MSG ERROR STYLE
+   ========================================================================== */
+.form-msg-erro {
+  color: var(--red);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--red-light);
+  border: 1px solid rgba(185, 44, 44, 0.15);
+  animation: shakeIn 0.4s ease;
+}
+
+@keyframes shakeIn {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* ==========================================================================
+   AVISO PILLS (status messages)
+   ========================================================================== */
+.aviso-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.aviso-pill.sim {
+  background: var(--green-light);
+  color: var(--green);
+}
+.aviso-pill.nao {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+/* Retirada bloqueada */
+.retirada-bloqueada {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   SESSION TIMER INDICATOR
+   ========================================================================== */
+.session-timer {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 4px;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+.session-timer.warning {
+  color: var(--amber);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ==========================================================================
+   OBSERVATION TAGS (#14)
+   ========================================================================== */
+.obs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.obs-tag-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.obs-tag-btn:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.obs-tag-btn.active {
+  background: var(--wine);
+  color: white;
+  border-color: var(--wine);
+  box-shadow: 0 2px 8px rgba(74, 18, 26, 0.2);
+}
+
+/* ==========================================================================
+   SYNC BADGE (#16)
+   ========================================================================== */
+.sync-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--amber);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.icon-btn {
+  position: relative;
+}
+
+/* ==========================================================================
+   BOTTOM NAVIGATION (Mobile PWA — #7)
+   ========================================================================== */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--paper);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    z-index: 100;
+    padding: 6px 0;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .bottom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 12px;
+    transition: var(--transition);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    min-width: 56px;
+  }
+
+  .bottom-nav-btn .nav-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  .bottom-nav-btn.active {
+    color: var(--wine);
+    background: rgba(74, 18, 26, 0.06);
+  }
+
+  .bottom-nav-btn.active .nav-icon {
+    transform: scale(1.1);
+  }
+
+  /* Hide header tabs on mobile when bottom nav exists */
+  .tabs {
+    display: none !important;
+  }
+
+  /* FAB — Floating Action Button */
+  .fab {
+    position: fixed;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--wine), var(--wine-dark));
+    color: white;
+    border: none;
+    font-size: 1.6rem;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(74, 18, 26, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 101;
+    transition: var(--transition);
+  }
+
+  .fab:hover, .fab:active {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(74, 18, 26, 0.45);
+  }
+
+  main {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Toast ajustado para não sobrepor bottom nav */
+  #toast-container {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ==========================================================================
+   MODAL CONFIRM: Multiline text support
+   ========================================================================== */
+.modal-confirm .modal-sub {
+  white-space: pre-line;
+  text-align: left;
+}
+
+/* ==========================================================================
+   KPI BAR (#9 — Relatórios visuais)
+   ========================================================================== */
+.kpi-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+.kpi-item {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.kpi-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.kpi-value {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--wine);
+  letter-spacing: -0.02em;
+}
+
+.kpi-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   PAGINATION (#4)
+   ========================================================================== */
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 12px 0;
+}
+
+.btn-pag {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--paper);
+  color: var(--wine);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.btn-pag:hover:not(:disabled) {
+  background: var(--wine);
+  color: white;
+  border-color: var(--wine);
+}
+
+.btn-pag:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pag-info {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .kpi-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .kpi-item {
+    padding: 12px 14px;
+  }
+
+  .kpi-value {
+    font-size: 1.05rem;
+  }
+
+  .paginacao {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-pag {
+    padding: 6px 14px;
+    font-size: 0.78rem;
+  }
+}

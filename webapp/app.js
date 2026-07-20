@@ -52,7 +52,7 @@ const TABS_POR_ROLE = {
 };
 
 // ==========================================================================
-// UI Helpers (Toast & Loading)
+// UI Helpers (Toast, Loading, Modal, Session)
 // ==========================================================================
 function showToast(mensagem, tipo = "info") {
   const container = document.getElementById("toast-container");
@@ -75,6 +75,121 @@ function showToast(mensagem, tipo = "info") {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 400);
   }, 3500);
+}
+
+// --- Modal de confirmação customizado (substitui alert/confirm nativos) ---
+let _confirmResolve = null;
+
+/**
+ * Exibe um modal de alerta estilizado (substitui window.alert).
+ * @param {string} mensagem - Texto a exibir.
+ * @param {object} opts - {icon, title, btnText, btnClass}
+ */
+function showModal(mensagem, opts = {}) {
+  const icon = opts.icon || "ℹ️";
+  const title = opts.title || "Aviso";
+  const btnText = opts.btnText || "OK";
+  const btnClass = opts.btnClass || "";
+
+  const overlay = document.getElementById("modal-confirm");
+  document.getElementById("confirm-icon").textContent = icon;
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = mensagem;
+
+  const okBtn = document.getElementById("confirm-ok");
+  const cancelBtn = document.getElementById("confirm-cancel");
+
+  okBtn.textContent = btnText;
+  okBtn.className = "btn-primary " + btnClass;
+  cancelBtn.classList.add("hidden");
+
+  overlay.classList.remove("hidden");
+  okBtn.focus();
+
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    okBtn.onclick = () => { overlay.classList.add("hidden"); cancelBtn.classList.remove("hidden"); resolve(true); };
+  });
+}
+
+/**
+ * Exibe um modal de confirmação estilizado (substitui window.confirm).
+ * @param {string} mensagem - Texto da pergunta.
+ * @param {object} opts - {icon, title, confirmText, cancelText, confirmClass}
+ * @returns {Promise<boolean>}
+ */
+function showConfirm(mensagem, opts = {}) {
+  const icon = opts.icon || "⚠️";
+  const title = opts.title || "Confirmação";
+  const confirmText = opts.confirmText || "Confirmar";
+  const cancelText = opts.cancelText || "Cancelar";
+  const confirmClass = opts.confirmClass || "";
+
+  const overlay = document.getElementById("modal-confirm");
+  document.getElementById("confirm-icon").textContent = icon;
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = mensagem;
+
+  const okBtn = document.getElementById("confirm-ok");
+  const cancelBtn = document.getElementById("confirm-cancel");
+
+  okBtn.textContent = confirmText;
+  okBtn.className = "btn-primary " + confirmClass;
+  cancelBtn.textContent = cancelText;
+  cancelBtn.classList.remove("hidden");
+
+  overlay.classList.remove("hidden");
+  cancelBtn.focus();
+
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    okBtn.onclick = () => { overlay.classList.add("hidden"); resolve(true); };
+    cancelBtn.onclick = () => { overlay.classList.add("hidden"); resolve(false); };
+  });
+}
+
+// --- Animação de contagem nos valores monetários ---
+function animateValue(element, targetValue, duration = 600) {
+  const start = parseFloat(element.dataset.currentValue || "0");
+  const diff = targetValue - start;
+  if (Math.abs(diff) < 0.01) { element.textContent = formatBRL(targetValue); return; }
+
+  element.classList.add("valor-animado", "counting");
+  const startTime = performance.now();
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // easeOutQuart
+    const eased = 1 - Math.pow(1 - progress, 4);
+    const current = start + diff * eased;
+    element.textContent = formatBRL(current);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      element.textContent = formatBRL(targetValue);
+      element.dataset.currentValue = targetValue;
+      element.classList.remove("counting");
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// --- Skeleton Loading para Dashboard ---
+function renderSkeletonCards(containerId, count = 4) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement("div");
+    card.className = "loja-card skeleton-card";
+    card.innerHTML = `
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-value"></div>
+      <div class="skeleton skeleton-line medium"></div>
+    `;
+    container.appendChild(card);
+  }
 }
 
 function setLoading(btnId, isLoading) {
@@ -169,8 +284,13 @@ async function inicializarDados() {
       const resReg = await fetch(`${API_BASE}/registros`);
       registros = await resReg.json();
 
+      // GET /api/pins agora retorna apenas quais usuários têm PIN (sem os PINs reais)
       const resPins = await fetch(`${API_BASE}/pins`);
-      pins = await resPins.json();
+      const pinsMap = await resPins.json();
+      // Marcar quais usuários têm PIN configurado
+      Object.keys(pinsMap).forEach(u => { pins[u] = pins[u] || '****'; });
+      // Manter pins locais para fallback offline
+      if (Object.keys(pins).length) localStorage.setItem(PIN_KEY, JSON.stringify(pins));
 
       const resConfig = await fetch(`${API_BASE}/config`);
       config = await resConfig.json();
@@ -400,15 +520,41 @@ loginEntrarBtn.addEventListener("click", async () => {
   const pinDigitado = loginPinInput.value.trim();
 
   if (pins[nome]) {
-    if (pinDigitado !== pins[nome]) {
-      mostrarErroLogin("PIN incorreto.");
-      return;
+    // Verificar PIN via API (seguro) ou localmente se offline
+    if (API_ONLINE) {
+      try {
+        const res = await fetch(`${API_BASE}/auth/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario: nome, pin: pinDigitado })
+        });
+        const result = await res.json();
+        if (!result.valid) {
+          mostrarErroLogin("PIN incorreto.");
+          return;
+        }
+      } catch (e) {
+        // Fallback offline: comparar com PIN local (pode ser hash mascarado)
+        if (pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+          mostrarErroLogin("PIN incorreto.");
+          return;
+        }
+      }
+    } else {
+      // Offline: comparar com PIN local
+      if (pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+        mostrarErroLogin("PIN incorreto.");
+        return;
+      }
     }
   } else {
     const confirma = loginPinConfirmInput.value.trim();
     if (!pinValido(pinDigitado)) { mostrarErroLogin("O PIN deve ter exatamente 4 dígitos."); return; }
     if (pinDigitado !== confirma) { mostrarErroLogin("Os PINs não conferem."); return; }
     await salvarPinAPI(nome, pinDigitado);
+    // Salvar localmente para fallback offline
+    pins[nome] = pinDigitado;
+    localStorage.setItem(PIN_KEY, JSON.stringify(pins));
   }
 
   currentUser = user;
@@ -433,6 +579,7 @@ document.getElementById("btn-trocar-usuario").addEventListener("click", () => {
 function entrarNoApp() {
   loginOverlay.classList.add("hidden");
   appEl.classList.remove("hidden");
+  document.getElementById("session-overlay").classList.add("hidden");
 
   document.getElementById("user-badge").textContent = currentUser.nome;
 
@@ -441,6 +588,14 @@ function entrarNoApp() {
     const permitido = tabsPermitidas.includes(btn.dataset.tab);
     btn.classList.toggle("hidden", !permitido);
   });
+  // Sync bottom nav visibility (#7)
+  document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+    const permitido = tabsPermitidas.includes(btn.dataset.tab);
+    btn.classList.toggle("hidden", !permitido);
+  });
+  document.getElementById("bottom-nav").classList.remove("hidden");
+  document.getElementById("fab-novo-registro").classList.remove("hidden");
+
   const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
   if (!tabsPermitidas.includes(ativa)) {
     ativarTab(tabsPermitidas[0]);
@@ -462,6 +617,8 @@ function entrarNoApp() {
 
   renderDashboard();
   renderHistorico();
+  resetSessionTimer();
+  mostrarResumoMatinal();
 }
 
 function renderApp() {
@@ -494,15 +651,27 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 
   await salvarPinAPI(currentUser.nome, novo);
   modalTrocarPin.classList.add("hidden");
-  alert("PIN alterado com sucesso!");
+  showModal("PIN alterado com sucesso!", { icon: "✅", title: "Sucesso", btnText: "Fechar" });
 });
 
 // --- Tabs ---
 function ativarTab(tabName) {
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.remove("active");
+    b.setAttribute("aria-selected", "false");
+    b.setAttribute("tabindex", "-1");
+  });
   document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-  document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add("active");
+  const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  activeBtn.classList.add("active");
+  activeBtn.setAttribute("aria-selected", "true");
+  activeBtn.setAttribute("tabindex", "0");
   document.getElementById("tab-" + tabName).classList.add("active");
+  // Sync bottom nav (#7)
+  document.querySelectorAll(".bottom-nav-btn").forEach(b => b.classList.remove("active"));
+  const activeBottom = document.querySelector(`.bottom-nav-btn[data-tab="${tabName}"]`);
+  if (activeBottom) activeBottom.classList.add("active");
+
   if (tabName === "dashboard") renderDashboard();
   if (tabName === "historico") renderHistorico();
   if (tabName === "mensal") renderMensal();
@@ -511,6 +680,31 @@ function ativarTab(tabName) {
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => ativarTab(btn.dataset.tab));
+});
+
+// Bottom nav click handlers (#7)
+document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => ativarTab(btn.dataset.tab));
+});
+
+// FAB — abre tab de registro (#7)
+document.getElementById("fab-novo-registro").addEventListener("click", () => {
+  ativarTab("registro");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// Navegação por teclado nas tabs (seta esquerda/direita)
+document.querySelector(".tabs").addEventListener("keydown", e => {
+  const visibleTabs = [...document.querySelectorAll(".tab-btn:not(.hidden)")];
+  const currentIndex = visibleTabs.indexOf(document.activeElement);
+  if (currentIndex === -1) return;
+  let newIndex = currentIndex;
+  if (e.key === "ArrowRight") newIndex = (currentIndex + 1) % visibleTabs.length;
+  else if (e.key === "ArrowLeft") newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+  else return;
+  e.preventDefault();
+  visibleTabs[newIndex].focus();
+  ativarTab(visibleTabs[newIndex].dataset.tab);
 });
 
 // --- Form: tipo operação ---
@@ -560,6 +754,41 @@ document.getElementById("loja").addEventListener("change", () => {
     hint.classList.add("hidden");
   }
 });
+
+// --- Tags de Observação (#14) ---
+const OBS_TAGS = [
+  "Sem ocorrências",
+  "Troco faltando",
+  "Cédula rasgada",
+  "Sistema TEF falhou",
+  "Sangria extra",
+  "Diferença no caixa",
+  "Abertura com atraso"
+];
+
+(function initObsTags() {
+  const obsField = document.getElementById("observacoes").closest(".field");
+  const tagsWrap = document.createElement("div");
+  tagsWrap.className = "obs-tags";
+  OBS_TAGS.forEach(tag => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "obs-tag-btn";
+    btn.textContent = tag;
+    btn.addEventListener("click", () => {
+      const obsInput = document.getElementById("observacoes");
+      const current = obsInput.value.trim();
+      btn.classList.toggle("active");
+      if (btn.classList.contains("active")) {
+        obsInput.value = current ? current + ", " + tag : tag;
+      } else {
+        obsInput.value = current.replace(new RegExp(",?\\s*" + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g"), "").replace(/^,\s*/, "").trim();
+      }
+    });
+    tagsWrap.appendChild(btn);
+  });
+  obsField.insertBefore(tagsWrap, document.getElementById("observacoes"));
+})();
 
 // --- Foto ---
 const fotoInput = document.getElementById("foto-envelope");
@@ -690,6 +919,37 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   showToast("Registro salvo com sucesso!", "sucesso");
 
   const foiFechamento = tipoOperacaoSelecionado === "Fechamento";
+
+  // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
+  if (tipoOperacaoSelecionado === "Abertura") {
+    const ultimoFechamento = [...registros]
+      .filter(r => r.loja === loja && r.tipoOperacao === "Fechamento")
+      .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
+
+    if (ultimoFechamento && ultimoFechamento.fundoCaixa !== undefined) {
+      const diff = fundoCaixa - ultimoFechamento.fundoCaixa;
+      if (Math.abs(diff) > 0.01) {
+        showModal(
+          `Divergência detectada! O fundo de caixa desta abertura (${formatBRL(fundoCaixa)}) difere do último fechamento de ${loja} (${formatBRL(ultimoFechamento.fundoCaixa)}). Diferença: ${formatBRL(Math.abs(diff))} (${diff > 0 ? 'a mais' : 'a menos'}).`,
+          { icon: "⚠️", title: "Divergência de Fundo de Caixa", btnText: "Entendido" }
+        );
+        // Notificar via email (silencioso)
+        if (API_ONLINE) {
+          fetch(`${API_BASE}/divergencia`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              loja,
+              consultor,
+              fundoAbertura: fundoCaixa,
+              fundoUltimoFechamento: ultimoFechamento.fundoCaixa,
+              diferenca: diff
+            })
+          }).catch(() => {});
+        }
+      }
+    }
+  }
 
   e.target.reset();
   document.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
@@ -879,7 +1139,7 @@ const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
 function abrirModalRetirada(id) {
   if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
-    alert("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.");
+    showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
   retiradaAlvoId = id;
@@ -905,7 +1165,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
   const data = document.getElementById("retirada-data").value;
   const responsavel = document.getElementById("retirada-responsavel").value.trim();
   if (!data || !responsavel) {
-    alert("Preencha a data e o responsável pela retirada.");
+    showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
     return;
   }
 
@@ -914,7 +1174,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     const pinDigitado = autorizacaoPinInput.value.trim();
     autorizadoPor = AUTORIZADORES.find(nome => pins[nome] && pins[nome] === pinDigitado);
     if (!autorizadoPor) {
-      alert("PIN de autorização inválido. Peça para Bruno ou Isabella autorizar com o PIN deles.");
+      showModal("PIN de autorização inválido. Peça para Bruno ou Isabella autorizar com o PIN deles.", { icon: "🔑", title: "Autorização necessária" });
       return;
     }
   }
@@ -954,7 +1214,10 @@ document.getElementById("modal-foto-fechar").addEventListener("click", () => {
   modalFoto.classList.add("hidden");
 });
 
-// --- Histórico ---
+// --- Histórico com Paginação (#4) ---
+const HIST_PER_PAGE = 20;
+let histPaginaAtual = 1;
+
 function renderHistorico() {
   const filtroLoja = document.getElementById("filtro-loja-hist").value;
   const filtroStatus = document.getElementById("filtro-status-hist").value;
@@ -969,6 +1232,33 @@ function renderHistorico() {
     );
   }
 
+  // KPIs (#9)
+  const totalRegistros = lista.length;
+  const totalEnvelope = lista.filter(r => r.valorEnvelope != null).reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+  const qtdFechamentos = lista.filter(r => r.tipoOperacao === "Fechamento").length;
+  const media = qtdFechamentos > 0 ? totalEnvelope / qtdFechamentos : 0;
+
+  let kpiBar = document.getElementById("hist-kpi-bar");
+  if (!kpiBar) {
+    kpiBar = document.createElement("div");
+    kpiBar.id = "hist-kpi-bar";
+    kpiBar.className = "kpi-bar";
+    const tableHeader = document.querySelector("#tab-historico .table-header");
+    tableHeader.parentElement.insertBefore(kpiBar, tableHeader.nextSibling);
+  }
+  kpiBar.innerHTML = `
+    <div class="kpi-item"><span class="kpi-value">${totalRegistros}</span><span class="kpi-label">Registros</span></div>
+    <div class="kpi-item"><span class="kpi-value">${formatBRL(totalEnvelope)}</span><span class="kpi-label">Total Envelopes</span></div>
+    <div class="kpi-item"><span class="kpi-value">${formatBRL(media)}</span><span class="kpi-label">Média/Fechamento</span></div>
+    <div class="kpi-item"><span class="kpi-value">${qtdFechamentos}</span><span class="kpi-label">Fechamentos</span></div>
+  `;
+
+  // Paginação
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / HIST_PER_PAGE));
+  if (histPaginaAtual > totalPaginas) histPaginaAtual = totalPaginas;
+  const inicio = (histPaginaAtual - 1) * HIST_PER_PAGE;
+  const paginada = lista.slice(inicio, inicio + HIST_PER_PAGE);
+
   const tbody = document.querySelector("#tabela-historico tbody");
   tbody.innerHTML = "";
 
@@ -980,7 +1270,7 @@ function renderHistorico() {
 
   const isBruno = currentUser && currentUser.nome === "Bruno";
 
-  lista.forEach(r => {
+  paginada.forEach(r => {
     const tr = document.createElement("tr");
     let retiradaTexto = "—";
     if (r.dataRetirada) {
@@ -1007,31 +1297,61 @@ function renderHistorico() {
 
   document.getElementById("historico-vazio").classList.toggle("hidden", lista.length > 0);
 
+  // Controles de paginação
+  let paginacao = document.getElementById("hist-paginacao");
+  if (!paginacao) {
+    paginacao = document.createElement("div");
+    paginacao.id = "hist-paginacao";
+    paginacao.className = "paginacao";
+    document.querySelector("#tabela-historico").closest(".table-wrap").appendChild(paginacao);
+  }
+
+  if (totalPaginas > 1) {
+    paginacao.classList.remove("hidden");
+    paginacao.innerHTML = `
+      <button class="btn-pag" id="hist-prev" ${histPaginaAtual <= 1 ? "disabled" : ""}>← Anterior</button>
+      <span class="pag-info">Página ${histPaginaAtual} de ${totalPaginas} (${lista.length} registros)</span>
+      <button class="btn-pag" id="hist-next" ${histPaginaAtual >= totalPaginas ? "disabled" : ""}>Próxima →</button>
+    `;
+    document.getElementById("hist-prev").addEventListener("click", () => {
+      if (histPaginaAtual > 1) { histPaginaAtual--; renderHistorico(); }
+    });
+    document.getElementById("hist-next").addEventListener("click", () => {
+      if (histPaginaAtual < totalPaginas) { histPaginaAtual++; renderHistorico(); }
+    });
+  } else {
+    paginacao.classList.add("hidden");
+  }
+
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
 
   tbody.querySelectorAll(".btn-excluir").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (confirm("Deseja realmente apagar este registro permanentemente?")) {
+      const confirmado = await showConfirm(
+        "Deseja realmente apagar este registro permanentemente? Esta ação não pode ser desfeita.",
+        { icon: "🗑️", title: "Excluir registro", confirmText: "Excluir", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (confirmado) {
         const id = btn.dataset.id;
         const sucesso = await excluirRegistroAPI(id);
         if (sucesso) {
-          alert("Registro apagado com sucesso!");
+          showToast("Registro apagado com sucesso!", "sucesso");
           renderDashboard();
           renderHistorico();
           renderMensal();
         } else {
-          alert("Erro ao apagar registro ou você não possui permissão.");
+          showModal("Erro ao apagar registro ou você não possui permissão.", { icon: "❌", title: "Erro" });
         }
       }
     });
   });
 }
 
-document.getElementById("filtro-loja-hist").addEventListener("change", renderHistorico);
-document.getElementById("filtro-status-hist").addEventListener("change", renderHistorico);
-document.getElementById("busca-hist").addEventListener("input", renderHistorico);
+document.getElementById("filtro-loja-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
+document.getElementById("filtro-status-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
+document.getElementById("busca-hist").addEventListener("input", () => { histPaginaAtual = 1; renderHistorico(); });
 
 // --- Dashboard Mensal ---
 function mesKey(iso) {
@@ -1194,3 +1514,261 @@ const btnAtualizarAuditoria = document.getElementById("btn-atualizar-auditoria")
 if (btnAtualizarAuditoria) {
   btnAtualizarAuditoria.addEventListener("click", carregarAuditoria);
 }
+
+// ==========================================================================
+// SESSÃO: TIMEOUT POR INATIVIDADE (#17)
+// ==========================================================================
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+const SESSION_WARNING_MS = 25 * 60 * 1000; // aviso aos 25 min
+let sessionTimer = null;
+let sessionWarningTimer = null;
+const SESSION_EVENTS = ["mousedown", "mousemove", "keydown", "touchstart", "scroll", "click"];
+
+function resetSessionTimer() {
+  if (!currentUser) return;
+  clearTimeout(sessionTimer);
+  clearTimeout(sessionWarningTimer);
+
+  // Warning timer
+  sessionWarningTimer = setTimeout(() => {
+    showToast("Sua sessão será bloqueada em 5 minutos por inatividade.", "info");
+  }, SESSION_WARNING_MS);
+
+  // Lock timer
+  sessionTimer = setTimeout(() => {
+    lockSession();
+  }, SESSION_TIMEOUT_MS);
+}
+
+function lockSession() {
+  if (!currentUser) return;
+  const overlay = document.getElementById("session-overlay");
+  overlay.classList.remove("hidden");
+  document.getElementById("session-pin").value = "";
+  document.getElementById("session-msg").classList.add("hidden");
+  document.getElementById("session-pin").focus();
+}
+
+// Event listeners para reset do timer
+SESSION_EVENTS.forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (currentUser && document.getElementById("session-overlay").classList.contains("hidden")) {
+      resetSessionTimer();
+    }
+  }, { passive: true });
+});
+
+// Desbloquear sessão (usa API segura quando online)
+document.getElementById("session-unlock").addEventListener("click", async () => {
+  const pinDigitado = document.getElementById("session-pin").value.trim();
+  const msg = document.getElementById("session-msg");
+
+  if (!currentUser) return;
+
+  let pinCorreto = false;
+
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: currentUser.nome, pin: pinDigitado })
+      });
+      const result = await res.json();
+      pinCorreto = result.valid;
+    } catch {
+      // Fallback local
+      pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
+    }
+  } else {
+    pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
+  }
+
+  if (pinCorreto) {
+    document.getElementById("session-overlay").classList.add("hidden");
+    msg.classList.add("hidden");
+    resetSessionTimer();
+    showToast("Sessão desbloqueada!", "sucesso");
+  } else {
+    msg.textContent = "PIN incorreto. Tente novamente.";
+    msg.classList.remove("hidden");
+  }
+});
+
+// Logout da sessão bloqueada
+document.getElementById("session-logout").addEventListener("click", () => {
+  currentUser = null;
+  localStorage.removeItem(USER_KEY);
+  resetLoginForm();
+  document.getElementById("session-overlay").classList.add("hidden");
+  appEl.classList.add("hidden");
+  loginOverlay.classList.remove("hidden");
+});
+
+// Enter no campo de PIN da sessão
+document.getElementById("session-pin").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("session-unlock").click();
+});
+
+// ==========================================================================
+// RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
+// ==========================================================================
+const RESUMO_KEY = "cacaushow_ultimo_resumo";
+const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
+
+function mostrarResumoMatinal() {
+  if (!currentUser || !RESUMO_USUARIOS.includes(currentUser.nome)) return;
+
+  // Mostrar no máximo 1x por dia por usuário
+  const hoje = new Date().toISOString().slice(0, 10);
+  const ultimoResumo = carregarJSON(RESUMO_KEY, {});
+  if (ultimoResumo[currentUser.nome] === hoje) return;
+
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  const hojeISO = new Date().toISOString();
+
+  // Dados para o resumo
+  const pendentes = registros.filter(r => r.status === "aguardando_retirada");
+  const totalPendente = pendentes.reduce((s, r) => s + (r.valorEnvelope || 0), 0);
+  const pendentesMaisAntigos = pendentes.filter(r => diffDias(r.dataOperacao) >= RISCO_DIAS);
+
+  const semFechamentoOntem = LOJAS.filter(loja =>
+    !registros.some(r => r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, ontem.toISOString()))
+  );
+
+  const envelopesPorLoja = {};
+  LOJAS.forEach(loja => {
+    const doLoja = pendentes.filter(r => r.loja === loja);
+    envelopesPorLoja[loja] = {
+      qtd: doLoja.length,
+      total: doLoja.reduce((s, r) => s + (r.valorEnvelope || 0), 0)
+    };
+  });
+
+  // Montar mensagem
+  let msg = `📊 Bom dia, ${currentUser.nome}! Aqui está o resumo operacional:\n\n`;
+  msg += `💰 Total em trânsito: ${formatBRL(totalPendente)}\n`;
+  msg += `📦 Envelopes pendentes: ${pendentes.length}\n`;
+
+  if (pendentesMaisAntigos.length > 0) {
+    msg += `\n🔴 ${pendentesMaisAntigos.length} envelope(s) há ${RISCO_DIAS}+ dias sem retirada!\n`;
+  }
+
+  if (semFechamentoOntem.length > 0 && semFechamentoOntem.length < LOJAS.length) {
+    msg += `\n⚠ Lojas sem fechamento ontem: ${semFechamentoOntem.join(", ")}\n`;
+  }
+
+  msg += `\n📍 Detalhamento por loja:`;
+  LOJAS.forEach(loja => {
+    const info = envelopesPorLoja[loja];
+    if (info.qtd > 0) {
+      msg += `\n  • ${loja}: ${info.qtd} envelope(s) — ${formatBRL(info.total)}`;
+    }
+  });
+
+  if (pendentes.length === 0) {
+    msg += `\n\n✅ Todas as lojas em dia! Nenhum envelope pendente.`;
+  }
+
+  showModal(msg, {
+    icon: "☀️",
+    title: "Resumo Matinal",
+    btnText: "Entendido"
+  });
+
+  // Marcar como exibido hoje
+  ultimoResumo[currentUser.nome] = hoje;
+  localStorage.setItem(RESUMO_KEY, JSON.stringify(ultimoResumo));
+}
+
+// ==========================================================================
+// FILA DE SINCRONIZAÇÃO OFFLINE (#16)
+// ==========================================================================
+const SYNC_QUEUE_KEY = "cacaushow_sync_queue";
+
+function getSyncQueue() {
+  return carregarJSON(SYNC_QUEUE_KEY, []);
+}
+
+function addToSyncQueue(action) {
+  const queue = getSyncQueue();
+  queue.push({ ...action, timestamp: new Date().toISOString() });
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  atualizarBadgeSync();
+}
+
+function atualizarBadgeSync() {
+  const queue = getSyncQueue();
+  const badge = document.getElementById("sync-badge");
+  if (badge) {
+    if (queue.length > 0) {
+      badge.textContent = queue.length;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+}
+
+async function processarFilaSync() {
+  if (!API_ONLINE) return;
+  const queue = getSyncQueue();
+  if (queue.length === 0) return;
+
+  console.log(`Sincronizando ${queue.length} operação(ões) pendentes...`);
+  const failed = [];
+
+  for (const item of queue) {
+    try {
+      let res;
+      if (item.type === "CREATE") {
+        res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "UPDATE") {
+        res = await fetch(`${API_BASE}/registros/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "PIN") {
+        res = await fetch(`${API_BASE}/pins`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      }
+
+      if (!res || !res.ok) {
+        failed.push(item);
+      }
+    } catch {
+      failed.push(item);
+    }
+  }
+
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(failed));
+  atualizarBadgeSync();
+
+  if (failed.length === 0 && queue.length > 0) {
+    showToast(`${queue.length} registro(s) sincronizado(s) com sucesso!`, "sucesso");
+  } else if (failed.length > 0) {
+    showToast(`${queue.length - failed.length} sincronizado(s), ${failed.length} pendente(s).`, "info");
+  }
+}
+
+// Tentar sincronizar quando a API voltar online
+const _originalCheckApi = checkApiConnection;
+checkApiConnection = async function() {
+  const wasOffline = !API_ONLINE;
+  await _originalCheckApi();
+  if (wasOffline && API_ONLINE) {
+    processarFilaSync();
+  }
+};
+
+// Badge de sync pendente
+atualizarBadgeSync();
