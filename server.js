@@ -244,7 +244,7 @@ function initDb() {
 
   promise.then(() => {
     console.log('Banco de dados inicializado com sucesso.');
-    if (process.env.NODE_ENV !== 'production' || require.main === module) {
+    if (require.main === module) {
       app.listen(PORT, () => {
         console.log(`Servidor rodando na porta ${PORT}`);
       });

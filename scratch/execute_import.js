@@ -191,6 +191,7 @@ function runImportSqlite() {
     const db = new sqlite3.Database(dbPath);
 
     db.serialize(() => {
+      db.run('ALTER TABLE registros ADD COLUMN deletadoEm TEXT', [], () => {});
       db.run("DELETE FROM pins WHERE usuario = 'João'");
       db.run("DELETE FROM registros WHERE consultor = 'João'");
 
