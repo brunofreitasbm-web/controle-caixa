@@ -190,6 +190,11 @@ function initDb() {
 
   promise.then(() => {
     console.log('Banco de dados inicializado com sucesso.');
+    if (process.env.NODE_ENV !== 'production' || require.main === module) {
+      app.listen(PORT, () => {
+        console.log(`Servidor rodando na porta ${PORT}`);
+      });
+    }
   }).catch((err) => {
     console.error('Erro na inicialização do banco de dados:', err);
   });
@@ -338,12 +343,6 @@ app.delete('/api/registros/:id', (req, res) => {
     res.json({ success: true });
   });
 });
-
-if (process.env.NODE_ENV !== 'production' || require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-  });
-}
 
 module.exports = app;
 
