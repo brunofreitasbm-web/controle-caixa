@@ -918,6 +918,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   setLoading(btnSubmit, false);
   showToast("Registro salvo com sucesso!", "sucesso");
+  await showModal(`Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi realizado com sucesso!`, { icon: "✅", title: "Registro Salvo" });
 
   // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
   if (tipoOperacaoSelecionado === "Abertura") {
@@ -1291,7 +1292,6 @@ function renderHistorico() {
       <td>${formatDataHora(r.dataOperacao)}</td>
       <td>${r.loja}</td>
       <td>${r.consultor}</td>
-      <td>${r.tipoOperacao}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
