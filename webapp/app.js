@@ -1094,7 +1094,7 @@ function renderDashboard() {
   const podeRetirar = RETIRADA_PERMITIDA.includes(currentUser.nome);
 
   filtrados
-    .sort((a, b) => new Date(a.dataOperacao) - new Date(b.dataOperacao))
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
@@ -1260,26 +1260,11 @@ function renderHistorico() {
     );
   }
 
-  // KPIs (#9)
-  const totalRegistros = lista.length;
-  const totalEnvelope = lista.filter(r => r.valorEnvelope != null).reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
-  const qtdFechamentos = lista.filter(r => r.tipoOperacao === "Fechamento").length;
-  const media = qtdFechamentos > 0 ? totalEnvelope / qtdFechamentos : 0;
-
-  let kpiBar = document.getElementById("hist-kpi-bar");
-  if (!kpiBar) {
-    kpiBar = document.createElement("div");
-    kpiBar.id = "hist-kpi-bar";
-    kpiBar.className = "kpi-bar";
-    const tableHeader = document.querySelector("#tab-historico .table-header");
-    tableHeader.parentElement.insertBefore(kpiBar, tableHeader.nextSibling);
+  // KPIs (#9) (Ocultado a pedido do usuário)
+  const kpiBar = document.getElementById("hist-kpi-bar");
+  if (kpiBar) {
+    kpiBar.remove();
   }
-  kpiBar.innerHTML = `
-    <div class="kpi-item"><span class="kpi-value">${totalRegistros}</span><span class="kpi-label">Registros</span></div>
-    <div class="kpi-item"><span class="kpi-value">${formatBRL(totalEnvelope)}</span><span class="kpi-label">Total Envelopes</span></div>
-    <div class="kpi-item"><span class="kpi-value">${formatBRL(media)}</span><span class="kpi-label">Média/Fechamento</span></div>
-    <div class="kpi-item"><span class="kpi-value">${qtdFechamentos}</span><span class="kpi-label">Fechamentos</span></div>
-  `;
 
   // Paginação
   const totalPaginas = Math.max(1, Math.ceil(lista.length / HIST_PER_PAGE));
