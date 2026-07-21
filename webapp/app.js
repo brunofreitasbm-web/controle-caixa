@@ -47,7 +47,7 @@ const USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro"],
-  consultora_dashboard: ["registro", "dashboard"],
+  consultora_dashboard: ["registro", "dashboard", "auditoria"],
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria"],
 };
 
@@ -1487,7 +1487,8 @@ setInterval(checkApiConnection, 10000);
 // AUDITORIA (Rastreabilidade)
 // ==========================================================================
 async function carregarAuditoria() {
-  if (currentUser?.role !== "owner") return;
+  const userLower = (currentUser?.nome || "").trim().toLowerCase();
+  if (currentUser?.role !== "owner" && userLower !== "alexandra") return;
   const tbody = document.querySelector("#tabela-auditoria tbody");
   const vazioMsg = document.getElementById("auditoria-vazio");
   const btnAtualizar = document.getElementById("btn-atualizar-auditoria");
