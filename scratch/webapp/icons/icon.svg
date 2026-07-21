@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a121a"/>
+      <stop offset="50%" stop-color="#330b10"/>
+      <stop offset="100%" stop-color="#20060a"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dfcba5"/>
+      <stop offset="50%" stop-color="#bd954b"/>
+      <stop offset="100%" stop-color="#8c6a2c"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="7.68" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Fundo com cantos arredondados -->
+  <rect width="512" height="512" rx="112.64" fill="url(#bgGrad)"/>
+  
+  <!-- Borda elegante em degradê dourado -->
+  <rect x="13" y="13" width="486" height="486" rx="107.52" fill="none" stroke="url(#goldGrad)" stroke-width="13"/>
+
+  <!-- Ícone central: Caixa de Registradora / Cofre com Círculo de Segurança -->
+  <g stroke="url(#goldGrad)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Base / Registro -->
+    <rect x="112.64" y="143.36" width="286.72" height="225.28" rx="30.72" stroke-width="17.92" fill="#3d0e15"/>
+    
+    <!-- Tela / Visor Superior -->
+    <path d="M 179.2 143.36 L 204.8 92.16 L 307.2 92.16 L 332.8 143.36 Z" stroke-width="15.36" fill="url(#goldGrad)" opacity="0.9"/>
+    
+    <!-- Gaveta de Dinheiro com slot de cédulas -->
+    <line x1="143.36" y1="286.72" x2="368.64" y2="286.72" stroke-width="15.36"/>
+    <rect x="215.04" y="312.32" width="81.92" height="25.6" rx="7.68" fill="url(#goldGrad)"/>
+
+    <!-- Fechadura / Cifrão $ no Visor -->
+    <circle cx="256" cy="215.04" r="40.96" stroke-width="15.36" fill="#4a121a"/>
+    <text x="256" y="227.84" font-family="Arial, sans-serif" font-size="56.32" font-weight="bold" fill="url(#goldGrad)" text-anchor="middle" stroke="none">$</text>
+  </g>
+
+  <!-- Texto "CONTROLE DE CAIXA" -->
+  <text x="256" y="430.08" font-family="'Outfit', 'Segoe UI', sans-serif" font-size="38.4" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="2.56">CONTROLE DE CAIXA</text>
+</svg>

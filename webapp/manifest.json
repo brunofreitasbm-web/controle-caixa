@@ -1,7 +1,7 @@
 {
-  "name": "Controle de Caixa — Cacau Show",
-  "short_name": "Caixa CS",
-  "description": "Sistema de controle de caixa para franquias Cacau Show",
+  "name": "Controle de Caixa",
+  "short_name": "Controle de Caixa",
+  "description": "Controle de Caixa",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -19,6 +19,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo Registro",
+      "short_name": "Novo Registro",
+      "description": "Registrar nova abertura, fechamento ou sangria",
+      "url": "/#registro",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard Envelopes",
+      "short_name": "Envelopes",
+      "description": "Ver status dos envelopes e retiradas",
+      "url": "/#dashboard",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

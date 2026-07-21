@@ -1,5 +1,5 @@
 // ==========================================================================
-// Controle de Caixa — Cacau Show
+// Controle de Caixa
 // Banco de dados centralizado via API. Fallback para LocalStorage se offline.
 // ==========================================================================
 
@@ -2736,3 +2736,35 @@ function urlBase64ToUint8Array(base64String) {
   }
   return outputArray;
 }
+
+// ==================== PWA INSTALL PROMPT ====================
+let deferredInstallPrompt = null;
+const btnInstalarPwa = document.getElementById("btn-instalar-pwa");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (btnInstalarPwa) {
+    btnInstalarPwa.classList.remove("hidden");
+  }
+});
+
+if (btnInstalarPwa) {
+  btnInstalarPwa.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`Resultado do prompt de instalação: ${outcome}`);
+    deferredInstallPrompt = null;
+    btnInstalarPwa.classList.add("hidden");
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  console.log("Aplicativo Controle de Caixa instalado com sucesso.");
+  if (btnInstalarPwa) {
+    btnInstalarPwa.classList.add("hidden");
+  }
+  showToast("Aplicativo Controle de Caixa instalado com sucesso!", "success");
+});
+

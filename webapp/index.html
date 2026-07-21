@@ -6,8 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#5c1a2b">
-<meta name="description" content="Sistema de controle de caixa para franquias Cacau Show — gestão de envelopes, aberturas e fechamentos.">
-<title>Controle de Caixa — Cacau Show</title>
+<meta name="description" content="Controle de Caixa">
+<title>Controle de Caixa</title>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -106,6 +109,7 @@
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">🧡 FaçaAmigos</button>
     </nav>
     <div class="user-box">
+      <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo">📲 Instalar App</button>
       <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações">🔔<span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
       <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
       <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>

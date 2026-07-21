@@ -5,8 +5,8 @@ self.addEventListener('push', function(event) {
       const title = data.title || 'Controle de Caixa';
       const options = {
         body: data.body || 'Nova notificação.',
-        icon: data.icon || '/images/icons/icon-192x192.png',
-        badge: '/images/icons/icon-72x72.png',
+        icon: data.icon || '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
         data: data.url || '/'
       };
       

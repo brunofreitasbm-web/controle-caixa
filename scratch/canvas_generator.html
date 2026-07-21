@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+  <canvas id="canvas192" width="192" height="192"></canvas>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+  <canvas id="canvas64" width="64" height="64"></canvas>
+
+  <script>
+    function renderIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      const radius = size * 0.22;
+      const strokeWidth = Math.max(2, size * 0.025);
+
+      // Squircle background
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, radius);
+      ctx.clip();
+
+      // Background Gradient (Dark Wine)
+      const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+      bgGrad.addColorStop(0, '#4a121a');
+      bgGrad.addColorStop(0.5, '#330b10');
+      bgGrad.addColorStop(1, '#1f0508');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, size, size);
+
+      // Gold border
+      const goldGrad = ctx.createLinearGradient(0, 0, size, size);
+      goldGrad.addColorStop(0, '#f3e5c8');
+      goldGrad.addColorStop(0.35, '#dfcba5');
+      goldGrad.addColorStop(0.7, '#bd954b');
+      goldGrad.addColorStop(1, '#8c6a2c');
+
+      ctx.strokeStyle = goldGrad;
+      ctx.lineWidth = strokeWidth;
+      ctx.strokeRect(strokeWidth/2, strokeWidth/2, size - strokeWidth, size - strokeWidth);
+
+      // Safe / Box
+      const boxX = size * 0.22;
+      const boxY = size * 0.27;
+      const boxW = size * 0.56;
+      const boxH = size * 0.44;
+
+      ctx.fillStyle = '#370c12';
+      ctx.strokeStyle = goldGrad;
+      ctx.lineWidth = Math.max(1, size * 0.025);
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, size * 0.05);
+      ctx.fill();
+      ctx.stroke();
+
+      // Display Trap
+      ctx.fillStyle = goldGrad;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.36, boxY);
+      ctx.lineTo(size * 0.40, size * 0.17);
+      ctx.lineTo(size * 0.60, size * 0.17);
+      ctx.lineTo(size * 0.64, boxY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Drawer line
+      ctx.beginPath();
+      ctx.moveTo(size * 0.26, size * 0.53);
+      ctx.lineTo(size * 0.74, size * 0.53);
+      ctx.stroke();
+
+      // Handle
+      ctx.beginPath();
+      ctx.roundRect(size * 0.42, size * 0.59, size * 0.16, size * 0.05, size * 0.015);
+      ctx.fill();
+
+      // Dollar sign
+      ctx.fillStyle = goldGrad;
+      ctx.font = `900 ${size * 0.16}px "Trebuchet MS", "Arial Black", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('$', size * 0.5, size * 0.42);
+
+      // Label text
+      ctx.font = `800 ${size * 0.065}px "Trebuchet MS", "Segoe UI", sans-serif`;
+      ctx.fillText('CONTROLE DE CAIXA', size * 0.5, size * 0.83);
+
+      ctx.restore();
+      return canvas.toDataURL('image/png');
+    }
+
+    window.onload = function() {
+      const img192 = renderIcon('canvas192', 192);
+      const img512 = renderIcon('canvas512', 512);
+      const img64 = renderIcon('canvas64', 64);
+
+      window.generatedIcons = {
+        icon192: img192,
+        icon512: img512,
+        icon64: img64
+      };
+    };
+  </script>
+</body>
+</html>

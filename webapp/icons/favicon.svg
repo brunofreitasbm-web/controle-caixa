@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a121a"/>
+      <stop offset="50%" stop-color="#330b10"/>
+      <stop offset="100%" stop-color="#1f0508"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f3e5c8"/>
+      <stop offset="35%" stop-color="#dfcba5"/>
+      <stop offset="70%" stop-color="#bd954b"/>
+      <stop offset="100%" stop-color="#8c6a2c"/>
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5c1a2b"/>
+      <stop offset="100%" stop-color="#330b10"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1.28" stdDeviation="1.28" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Fundo com cantos arredondados (squircle PWA) -->
+  <rect width="64" height="64" rx="14.08" fill="url(#bgGrad)"/>
+  
+  <!-- Moldura Dourada Luxo -->
+  <rect x="3" y="3" width="58" height="58" rx="13.44" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+
+  <!-- Grupo do Ícone da Caixa Registradora / Cofre -->
+  <g filter="url(#shadow)">
+    <!-- Visor Display Topo -->
+    <path d="M 23.04 17.92 L 25.6 10.88 L 38.4 10.88 L 40.96 17.92 Z" fill="url(#goldGrad)"/>
+    
+    <!-- Corpo Principal do Caixa -->
+    <rect x="14.08" y="17.28" width="35.84" height="28.16" rx="3.2" fill="url(#innerGrad)" stroke="url(#goldGrad)" stroke-width="1.6"/>
+
+    <!-- Linha divisória da gaveta -->
+    <line x1="16.64" y1="33.92" x2="47.36" y2="33.92" stroke="url(#goldGrad)" stroke-width="1.6" stroke-linecap="round"/>
+
+    <!-- Puxador da Gaveta -->
+    <rect x="26.88" y="37.76" width="10.24" height="3.2" rx="0.96" fill="url(#goldGrad)"/>
+
+    <!-- Símbolo do Cifrão ($) em Destaque -->
+    <text x="32" y="29.12" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="10.24" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
+  </g>
+
+  <!-- Rótulo "CONTROLE DE CAIXA" -->
+  <text x="32" y="53.76" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="4.352" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="0.256">CONTROLE DE CAIXA</text>
+</svg>

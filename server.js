@@ -60,7 +60,7 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
 }
 
 function enviarNotificacaoPush(title, body) {
-  const payload = JSON.stringify({ title, body, icon: '/images/icons/icon-192x192.png' });
+  const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
   db.all('SELECT * FROM push_subscriptions', [], (err, rows) => {
     if (err) {
       console.error('Erro ao buscar subscriptions:', err.message);
