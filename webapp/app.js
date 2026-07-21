@@ -648,8 +648,8 @@ loginEntrarBtn.addEventListener("click", async () => {
     if (!pinValido(pinDigitado)) { mostrarErroLogin("O PIN deve ter exatamente 4 dígitos."); return; }
     if (pinDigitado !== confirma) { mostrarErroLogin("Os PINs não conferem."); return; }
     await salvarPinAPI(nome, pinDigitado);
-    // Salvar localmente para fallback offline
-    pins[nome] = pinDigitado;
+    // Marcar que o usuário possui PIN criado
+    pins[nome] = '****';
     localStorage.setItem(PIN_KEY, JSON.stringify(pins));
   }
 
