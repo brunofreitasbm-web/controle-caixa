@@ -897,7 +897,33 @@ function ativarTab(tabName) {
   if (tabName === "auditoria") carregarAuditoria();
   if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
   if (tabName === "colaboradores") renderizarColaboradores();
+  // Fecha a sidebar mobile ao selecionar uma aba
+  fecharSidebarMobile();
 }
+
+// --- Controle da Sidebar Mobile ---
+const sidebarEl = document.getElementById("sidebar");
+const sidebarOverlayEl = document.getElementById("sidebar-overlay");
+const btnHamburger = document.getElementById("btn-menu-hamburger");
+const btnCloseSidebar = document.getElementById("btn-close-sidebar");
+
+function abrirSidebarMobile() {
+  if (sidebarEl) sidebarEl.classList.add("open");
+  if (sidebarOverlayEl) sidebarOverlayEl.classList.add("open");
+}
+
+function fecharSidebarMobile() {
+  if (sidebarEl) sidebarEl.classList.remove("open");
+  if (sidebarOverlayEl) sidebarOverlayEl.classList.remove("open");
+}
+
+if (btnHamburger) btnHamburger.addEventListener("click", abrirSidebarMobile);
+if (btnCloseSidebar) btnCloseSidebar.addEventListener("click", fecharSidebarMobile);
+if (sidebarOverlayEl) sidebarOverlayEl.addEventListener("click", fecharSidebarMobile);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") fecharSidebarMobile();
+});
 
 
 // Sub-tab ativa do FaçaAmigos
