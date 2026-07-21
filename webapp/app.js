@@ -57,7 +57,7 @@ const USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro"],
-  consultora_dashboard: ["registro", "dashboard"],
+  consultora_dashboard: ["registro", "dashboard", "historico"],
   consultora_fa: ["faca-amigos"],
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos"],
 };
