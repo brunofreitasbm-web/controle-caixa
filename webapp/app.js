@@ -630,15 +630,15 @@ loginEntrarBtn.addEventListener("click", async () => {
           return;
         }
       } catch (e) {
-        // Fallback offline: comparar com PIN local (pode ser hash mascarado)
-        if (pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+        // Fallback offline: comparar com PIN local (se não for hash mascarado '****')
+        if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
           mostrarErroLogin("PIN incorreto.");
           return;
         }
       }
     } else {
-      // Offline: comparar com PIN local
-      if (pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+      // Offline: comparar com PIN local (se não for hash mascarado '****')
+      if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
         mostrarErroLogin("PIN incorreto.");
         return;
       }
