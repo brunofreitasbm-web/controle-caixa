@@ -615,8 +615,18 @@ loginEntrarBtn.addEventListener("click", async () => {
   const user = USERS.find(u => u.nome === nome);
   const pinDigitado = loginPinInput.value.trim();
 
-  if (pins[nome]) {
-    // Verificar PIN via API (seguro) ou localmente se offline
+  // Se o campo de confirmação NÃO está escondido, o usuário está criando seu PIN
+  const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
+
+  if (ehCriacao) {
+    const confirma = loginPinConfirmInput.value.trim();
+    if (!pinValido(pinDigitado)) { mostrarErroLogin("O PIN deve ter exatamente 4 dígitos."); return; }
+    if (pinDigitado !== confirma) { mostrarErroLogin("Os PINs não conferem."); return; }
+    await salvarPinAPI(nome, pinDigitado);
+    pins[nome] = '****';
+    localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+  } else {
+    // Autenticação com PIN existente
     if (API_ONLINE) {
       try {
         const res = await fetch(`${API_BASE}/auth/verify`, {
@@ -625,14 +635,13 @@ loginEntrarBtn.addEventListener("click", async () => {
           body: JSON.stringify({ usuario: nome, pin: pinDigitado })
         });
         const result = await res.json();
-        // Se a API indicar que o usuário NÃO tem PIN, redirecionar para a criação do PIN
         if (result.hasPin === false) {
           delete pins[nome];
           localStorage.setItem(PIN_KEY, JSON.stringify(pins));
           loginPinLabel.textContent = "Crie seu PIN (4 dígitos)";
           loginPinConfirmWrap.classList.remove("hidden");
           loginEntrarBtn.textContent = "Criar PIN e Entrar";
-          mostrarErroLogin("Este usuário ainda não possui PIN. Por favor, crie seu PIN acima e confirme.");
+          mostrarErroLogin("Usuário não possui PIN. Por favor, crie seu PIN e confirme.");
           return;
         }
         if (!result.valid) {
@@ -640,27 +649,17 @@ loginEntrarBtn.addEventListener("click", async () => {
           return;
         }
       } catch (e) {
-        // Fallback offline: comparar com PIN local (se não for hash mascarado '****')
         if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
           mostrarErroLogin("PIN incorreto.");
           return;
         }
       }
     } else {
-      // Offline: comparar com PIN local (se não for hash mascarado '****')
       if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
         mostrarErroLogin("PIN incorreto.");
         return;
       }
     }
-  } else {
-    const confirma = loginPinConfirmInput.value.trim();
-    if (!pinValido(pinDigitado)) { mostrarErroLogin("O PIN deve ter exatamente 4 dígitos."); return; }
-    if (pinDigitado !== confirma) { mostrarErroLogin("Os PINs não conferem."); return; }
-    await salvarPinAPI(nome, pinDigitado);
-    // Marcar que o usuário possui PIN criado
-    pins[nome] = '****';
-    localStorage.setItem(PIN_KEY, JSON.stringify(pins));
   }
 
   currentUser = user;
