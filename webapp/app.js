@@ -625,6 +625,16 @@ loginEntrarBtn.addEventListener("click", async () => {
           body: JSON.stringify({ usuario: nome, pin: pinDigitado })
         });
         const result = await res.json();
+        // Se a API indicar que o usuário NÃO tem PIN, redirecionar para a criação do PIN
+        if (result.hasPin === false) {
+          delete pins[nome];
+          localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+          loginPinLabel.textContent = "Crie seu PIN (4 dígitos)";
+          loginPinConfirmWrap.classList.remove("hidden");
+          loginEntrarBtn.textContent = "Criar PIN e Entrar";
+          mostrarErroLogin("Este usuário ainda não possui PIN. Por favor, crie seu PIN acima e confirme.");
+          return;
+        }
         if (!result.valid) {
           mostrarErroLogin("PIN incorreto.");
           return;
