@@ -106,6 +106,7 @@
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">🧡 FaçaAmigos</button>
     </nav>
     <div class="user-box">
+      <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações">🔔<span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
       <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
       <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
       <button id="btn-trocar-modulo" class="btn-mini-outline hidden">Módulos</button>
@@ -168,11 +169,13 @@
             <label for="fundo-caixa">Fundo de Caixa (R$) *</label>
             <input type="text" id="fundo-caixa" inputmode="numeric" placeholder="0,00" required>
             <span id="fundo-caixa-hint" class="hint hidden"></span>
+            <div id="fundo-caixa-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
           </div>
 
           <div class="field" id="field-valor-envelope">
             <label for="valor-envelope">Valor do Envelope (R$) *</label>
             <input type="text" id="valor-envelope" inputmode="numeric" placeholder="0,00" required>
+            <div id="valor-envelope-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
           </div>
         </div>
 
@@ -360,20 +363,10 @@
             <button id="btn-atualizar-auditoria" class="btn-secondary">Atualizar</button>
           </div>
         </div>
-        <div class="table-wrap">
-          <table id="tabela-auditoria" aria-label="Log de auditoria">
-            <thead>
-              <tr>
-                <th>Data/Hora</th>
-                <th>Usuário</th>
-                <th>Ação</th>
-                <th>Descrição / Detalhes</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-          <div id="auditoria-vazio" class="empty-state hidden">Nenhum log registrado.</div>
+        <div class="timeline-wrap" id="auditoria-timeline">
+          <!-- Timeline items rendered via JS -->
         </div>
+        <div id="auditoria-vazio" class="empty-state hidden">Nenhum log registrado.</div>
       </div>
     </section>
 

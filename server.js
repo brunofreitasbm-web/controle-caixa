@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const webPush = require('web-push');
 const BCRYPT_ROUNDS = 10;
 
 function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
@@ -55,6 +56,37 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
     } else {
       console.log('E-mail de notificação enviado com sucesso:', info.response);
     }
+  });
+}
+
+function enviarNotificacaoPush(title, body) {
+  const payload = JSON.stringify({ title, body, icon: '/images/icons/icon-192x192.png' });
+  db.all('SELECT * FROM push_subscriptions', [], (err, rows) => {
+    if (err) {
+      console.error('Erro ao buscar subscriptions:', err.message);
+      return;
+    }
+    
+    const promises = (rows || []).map(row => {
+      const sub = {
+        endpoint: row.endpoint,
+        keys: {
+          p256dh: row.keys_p256dh,
+          auth: row.keys_auth
+        }
+      };
+      return webPush.sendNotification(sub, payload).catch(error => {
+        console.error('Erro ao enviar push para endpoint:', row.endpoint, error);
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          console.log('Subscription expirada. Removendo do banco.');
+          db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [row.endpoint]);
+        }
+      });
+    });
+    
+    Promise.all(promises).then(() => {
+      console.log(`Push notifications (${title}) enviadas para ${rows.length} dispositivos.`);
+    });
   });
 }
 
@@ -234,6 +266,14 @@ function initDb() {
       descricao TEXT,
       usuario TEXT,
       data TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      endpoint TEXT NOT NULL,
+      keys_p256dh TEXT NOT NULL,
+      keys_auth TEXT NOT NULL,
+      usuario TEXT,
+      criadoEm TEXT
     )`
   ];
 
@@ -276,6 +316,21 @@ function initDb() {
 
   promise.then(() => {
     console.log('Banco de dados inicializado com sucesso.');
+    
+    // Inicializar VAPID keys para Web Push
+    db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err, row) => {
+      let vapidKeys;
+      if (!err && row && row.valor) {
+        vapidKeys = JSON.parse(row.valor);
+      } else {
+        vapidKeys = webPush.generateVAPIDKeys();
+        db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
+      }
+      webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
+      global.vapidPublicKey = vapidKeys.publicKey;
+      console.log('Web Push VAPID keys configuradas.');
+    });
+
     if (require.main === module) {
       app.listen(PORT, () => {
         console.log(`Servidor rodando na porta ${PORT}`);
@@ -332,6 +387,29 @@ app.post('/api/config', (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true });
+    }
+  );
+});
+
+// --- Push Notifications ---
+app.get('/api/vapidPublicKey', (req, res) => {
+  res.send(global.vapidPublicKey);
+});
+
+app.post('/api/subscribe', (req, res) => {
+  const { subscription, usuario } = req.body;
+  const criadoEm = new Date().toISOString();
+  
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: 'Inscrição inválida' });
+  }
+
+  db.run(
+    'INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)',
+    [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuario, criadoEm],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ success: true });
     }
   );
 });
@@ -486,6 +564,23 @@ app.post('/api/registros-fa', (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
+      // Envio de e-mail silencioso se for Fechamento e o acumulado for >= 1000
+      if (r.tipoOperacao === 'Fechamento' && r.valorEnvelope) {
+        db.get(
+          `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada'`,
+          [r.loja],
+          (sumErr, row) => {
+            if (!sumErr && row && row.total >= 1000) {
+              enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+              enviarNotificacaoPush(
+                `🚨 ${r.loja}-FaçaAmigos`,
+                `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+              );
+            }
+          }
+        );
+      }
+
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
 
@@ -574,6 +669,10 @@ app.post('/api/registros', (req, res) => {
           (sumErr, row) => {
             if (!sumErr && row && row.total >= 1000) {
               enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+              enviarNotificacaoPush(
+                `🚨 ${r.loja}-Cacau Show`,
+                `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+              );
             }
           }
         );

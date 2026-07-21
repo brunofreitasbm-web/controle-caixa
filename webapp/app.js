@@ -57,7 +57,7 @@ const USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro"],
-  consultora_dashboard: ["registro", "dashboard", "auditoria"],
+  consultora_dashboard: ["registro", "dashboard"],
   consultora_fa: ["faca-amigos"],
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos"],
 };
@@ -676,6 +676,8 @@ function entrarNoApp() {
   loginOverlay.classList.add("hidden");
   document.getElementById("session-overlay").classList.add("hidden");
 
+  inscreverPushNotificacoes();
+
   // Interceptar login de owner para mostrar a seleção de módulos
   if (currentUser.role === "owner") {
     document.getElementById("module-selection-overlay").classList.remove("hidden");
@@ -1154,6 +1156,52 @@ function setAgora(inputEl) {
 }
 setAgora(document.getElementById("data-operacao"));
 setAgora(document.getElementById("fa-data-operacao"));
+
+// --- Validação Visual em Tempo Real ---
+function validarValoresTempoReal(fundoId, envelopeId, errorFundoId, errorEnvelopeId) {
+  const fundoInput = document.getElementById(fundoId);
+  const envelopeInput = document.getElementById(envelopeId);
+  const errFundo = document.getElementById(errorFundoId);
+  const errEnvelope = document.getElementById(errorEnvelopeId);
+
+  if (!fundoInput || !envelopeInput) return;
+
+  function check() {
+    const isCacauShow = document.querySelector(`#tipo-operacao .seg-btn.active`) !== null;
+    const isFa = document.querySelector(`#fa-tipo-operacao .seg-btn.active`) !== null;
+    let tipo = "";
+    if (isCacauShow) tipo = document.querySelector(`#tipo-operacao .seg-btn.active`)?.dataset.value;
+    else if (isFa) tipo = document.querySelector(`#fa-tipo-operacao .seg-btn.active`)?.dataset.value;
+                 
+    if (tipo !== "Fechamento") {
+      envelopeInput.classList.remove("input-error");
+      if (errEnvelope) errEnvelope.classList.add("hidden");
+      return;
+    }
+
+    const fundo = parseMoeda(fundoInput.value);
+    const env = parseMoeda(envelopeInput.value);
+    
+    if (fundoInput.value && envelopeInput.value) {
+      // Alerta se envelope for < 30% do fundo (quebra muito alta ou esquecimento de venda)
+      if (env < (fundo * 0.3) && env !== 0) {
+        envelopeInput.classList.add("input-error");
+        if (errEnvelope) {
+          errEnvelope.textContent = "Alerta: Valor do envelope anormalmente baixo comparado ao fundo.";
+          errEnvelope.classList.remove("hidden");
+        }
+      } else {
+        envelopeInput.classList.remove("input-error");
+        if (errEnvelope) errEnvelope.classList.add("hidden");
+      }
+    }
+  }
+
+  fundoInput.addEventListener("input", check);
+  envelopeInput.addEventListener("input", check);
+}
+
+validarValoresTempoReal("fundo-caixa", "valor-envelope", "fundo-caixa-error", "valor-envelope-error");
 
 // --- Submit ---
 document.getElementById("form-registro").addEventListener("submit", async e => {
@@ -1852,6 +1900,24 @@ function renderDashboard() {
   const filtroLoja = document.getElementById("filtro-loja-pendentes").value;
   const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
 
+  // --- Atualizar Badge de Notificação (Pendências) ---
+  const btnNotif = document.getElementById("btn-notificacoes");
+  const badgeNotif = document.getElementById("notificacao-badge");
+  if (btnNotif && badgeNotif) {
+    if (currentUser && currentUser.role === "owner") {
+      btnNotif.classList.remove("hidden");
+      if (pendentes.length > 0) {
+        badgeNotif.textContent = pendentes.length;
+        badgeNotif.classList.remove("hidden");
+      } else {
+        badgeNotif.classList.add("hidden");
+      }
+    } else {
+      btnNotif.classList.add("hidden");
+    }
+  }
+
+
   const hoje = new Date().toISOString();
   const semFechamento = LOJAS.filter(loja => {
     return !registros.some(r => r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, hoje));
@@ -2313,9 +2379,8 @@ setInterval(checkApiConnection, 10000);
 // AUDITORIA (Rastreabilidade)
 // ==========================================================================
 async function carregarAuditoria() {
-  const userLower = (currentUser?.nome || "").trim().toLowerCase();
-  if (currentUser?.role !== "owner" && userLower !== "alexandra") return;
-  const tbody = document.querySelector("#tabela-auditoria tbody");
+  if (currentUser?.role !== "owner") return;
+  const timelineWrap = document.getElementById("auditoria-timeline");
   const vazioMsg = document.getElementById("auditoria-vazio");
   const btnAtualizar = document.getElementById("btn-atualizar-auditoria");
 
@@ -2326,20 +2391,28 @@ async function carregarAuditoria() {
     if (!res.ok) throw new Error("Sem permissão ou falha na API");
     const logs = await res.json();
 
-    tbody.innerHTML = "";
+    timelineWrap.innerHTML = "";
     if (logs.length === 0) {
       vazioMsg.classList.remove("hidden");
     } else {
       vazioMsg.classList.add("hidden");
       logs.forEach(log => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${new Date(log.data).toLocaleString("pt-BR")}</td>
-          <td><b>${log.usuario}</b></td>
-          <td><span class="status-pill ${log.acao === 'DELETE' ? 'status-aguardando_retirada' : 'status-retirado'}">${log.acao}</span></td>
-          <td>${log.descricao}</td>
+        const item = document.createElement("div");
+        item.className = "timeline-item";
+        item.innerHTML = `
+          <div class="timeline-icon">${log.acao === 'DELETE' ? '🗑️' : '📝'}</div>
+          <div class="timeline-content">
+            <div class="timeline-header">
+              <span>${new Date(log.data).toLocaleString("pt-BR")}</span>
+              <strong>${log.usuario}</strong>
+            </div>
+            <div class="timeline-body">
+              <span class="status-pill ${log.acao === 'DELETE' ? 'status-aguardando_retirada' : 'status-retirado'}">${log.acao}</span>
+              <p style="margin-top: 8px;">${log.descricao}</p>
+            </div>
+          </div>
         `;
-        tbody.appendChild(tr);
+        timelineWrap.appendChild(item);
       });
     }
   } catch (err) {
@@ -2611,3 +2684,46 @@ checkApiConnection = async function () {
 
 // Badge de sync pendente
 atualizarBadgeSync();
+
+// ==================== PUSH NOTIFICATIONS ====================
+async function inscreverPushNotificacoes() {
+  if (currentUser.role !== 'owner') return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  
+  try {
+    const swReg = await navigator.serviceWorker.register('/sw.js');
+    console.log('Service Worker registrado', swReg);
+    
+    let subscription = await swReg.pushManager.getSubscription();
+    if (!subscription) {
+      const resVapid = await fetch('/api/vapidPublicKey');
+      const vapidPublicKey = await resVapid.text();
+      
+      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      subscription = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+    
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ subscription, usuario: currentUser.nome }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    console.log('Inscrição push enviada para o servidor.');
+  } catch (error) {
+    console.error('Erro ao inscrever push notification', error);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
