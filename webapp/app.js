@@ -720,9 +720,19 @@ function iniciarModuloBase(moduloOpcional) {
   document.getElementById("bottom-nav").classList.remove("hidden");
   document.getElementById("fab-novo-registro").classList.remove("hidden");
 
-  const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
-  if (!tabsPermitidas.includes(ativa)) {
-    ativarTab(tabsPermitidas[0]);
+  // Configura a aba padrão após selecionar módulo (Owners)
+  if (currentUser.role === "owner" && moduloOpcional) {
+    if (moduloOpcional === "cacau-show") {
+      ativarTab("dashboard");
+    } else if (moduloOpcional === "faca-amigos") {
+      faSubTabAtiva = "fa-dashboard";
+      ativarTab("faca-amigos");
+    }
+  } else {
+    const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
+    if (!tabsPermitidas.includes(ativa)) {
+      ativarTab(tabsPermitidas[0]);
+    }
   }
 
   // Configurações específicas por role
