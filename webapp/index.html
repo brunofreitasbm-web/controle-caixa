@@ -107,6 +107,7 @@
       <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">Dashboard Mensal</button>
       <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">Auditoria</button>
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">🧡 FaçaAmigos</button>
+      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">👥 Colaboradores</button>
     </nav>
     <div class="user-box">
       <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo">📲 Instalar App</button>
@@ -390,6 +391,7 @@
           <span>Grão Pará</span>
           <span>ParqueShopping</span>
           <span>Parque Circuito</span>
+          <button id="btn-alternar-cacau" class="btn-modulo-switch hidden" title="Mudar para módulo Cacau Show">🍫 Cacau Show</button>
         </div>
       </div>
 
@@ -612,6 +614,63 @@
 
     </section>
 
+    <!-- ===================== TAB: COLABORADORES (só Bruno/Isabella) ===================== -->
+    <section id="tab-colaboradores" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-colaboradores">
+      <div class="card">
+        <div class="table-header">
+          <div>
+            <h2>👥 Gerenciamento de Colaboradores</h2>
+            <p class="section-desc" style="margin-top: 4px; opacity: 0.85; font-size: 0.9rem;">Cadastre novos colaboradores, altere PINs ou remova acessos. (Acesso exclusivo para Bruno e Isabella)</p>
+          </div>
+          <button id="btn-atualizar-colaboradores" class="btn-secondary">🔄 Atualizar Lista</button>
+        </div>
+
+        <!-- Form Cadastro de Colaborador -->
+        <form id="form-cadastrar-colaborador" class="form-card-inner" style="margin-top: 16px; margin-bottom: 24px; padding: 18px; background: var(--bg-card-alt, rgba(0,0,0,0.03)); border-radius: 12px; border: 1px solid var(--border-color, rgba(0,0,0,0.1));">
+          <h3 style="margin-top:0; margin-bottom: 14px; font-size: 1.1rem;">➕ Cadastrar / Atualizar Colaborador</h3>
+          <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
+            <div class="field">
+              <label for="colab-nome">Nome do Colaborador *</label>
+              <input type="text" id="colab-nome" placeholder="Ex: Maria" required>
+            </div>
+            <div class="field">
+              <label for="colab-role">Perfil / Função *</label>
+              <select id="colab-role" required>
+                <option value="consultora">Consultora (Apenas Registro)</option>
+                <option value="consultora_dashboard">Consultora + Dashboard (Alexandra)</option>
+                <option value="consultora_fa">Consultora FaçaAmigos (FA)</option>
+                <option value="owner">Administrador / Owner (Bruno e Isabella)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="colab-pin">PIN Inicial (4 dígitos - Opcional)</label>
+              <input type="password" id="colab-pin" inputmode="numeric" maxlength="4" placeholder="Deixe em branco para criar no login">
+            </div>
+          </div>
+          <div style="margin-top: 16px; text-align: right;">
+            <button type="submit" class="btn-primary">Salvar Colaborador</button>
+          </div>
+        </form>
+
+        <!-- Tabela de Colaboradores -->
+        <div class="table-wrap">
+          <table id="tabela-colaboradores" aria-label="Lista de colaboradores">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Perfil / Função</th>
+                <th>Status do PIN</th>
+                <th style="text-align: right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="colaboradores-tbody">
+              <!-- Renderizado via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -685,6 +744,25 @@
   </div>
 </div>
 
+<!-- Modal: Alterar PIN de Colaborador (Admin) -->
+<div id="modal-admin-pin" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-admin-pin-title" aria-modal="true">
+  <div class="modal">
+    <h3 id="modal-admin-pin-title">Alterar PIN do Colaborador</h3>
+    <p class="modal-sub">Defina o novo PIN para <strong id="admin-pin-user-name"></strong>.</p>
+    <div class="field">
+      <label for="admin-pin-input">Novo PIN (4 dígitos) *</label>
+      <input type="password" id="admin-pin-input" inputmode="numeric" maxlength="4" placeholder="****">
+    </div>
+    <div class="modal-actions" style="justify-content: space-between;">
+      <button id="admin-pin-resetar" class="btn-secondary" style="color: var(--danger-color, #d9534f);" title="Remove o PIN para forçar a criação no próximo login">Resetar PIN</button>
+      <div style="display: flex; gap: 8px;">
+        <button id="admin-pin-cancelar" class="btn-secondary">Cancelar</button>
+        <button id="admin-pin-salvar" class="btn-primary">Salvar PIN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Bottom Navigation (Mobile PWA — #7) -->
@@ -695,6 +773,7 @@
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon">📅</span>Mensal</button>
   <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon">🔍</span>Auditoria</button>
   <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon">🧡</span>FA</button>
+  <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon">👥</span>Colab</button>
 </nav>
 
 <!-- FAB — Floating Action Button (mobile) -->

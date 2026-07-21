@@ -274,6 +274,12 @@ function initDb() {
       keys_auth TEXT NOT NULL,
       usuario TEXT,
       criadoEm TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS colaboradores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT UNIQUE NOT NULL,
+      role TEXT NOT NULL,
+      criadoEm TEXT
     )`
   ];
 
@@ -311,6 +317,41 @@ function initDb() {
   promise = promise.then(() => {
     return new Promise(resolve => {
       db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
+    });
+  });
+
+  promise = promise.then(() => {
+    return new Promise(resolve => {
+      db.get('SELECT COUNT(*) as count FROM colaboradores', [], (err, row) => {
+        if (!err && row && (parseInt(row.count) === 0 || parseInt(row.count) === undefined || row.count === '0')) {
+          const defaultUsers = [
+            { nome: "Ana Júlia", role: "consultora" },
+            { nome: "Vitória", role: "consultora" },
+            { nome: "Débora", role: "consultora" },
+            { nome: "Alexandra", role: "consultora_dashboard" },
+            { nome: "Janine", role: "consultora" },
+            { nome: "Estheffany", role: "consultora" },
+            { nome: "Sabrina", role: "consultora" },
+            { nome: "Alice", role: "consultora_fa" },
+            { nome: "Alessandra", role: "consultora_fa" },
+            { nome: "Isabella", role: "owner" },
+            { nome: "Bruno", role: "owner" }
+          ];
+          const agora = new Date().toISOString();
+          let inserts = defaultUsers.map(u => {
+            return new Promise(res => {
+              db.run(
+                'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO NOTHING',
+                [u.nome, u.role, agora],
+                () => res()
+              );
+            });
+          });
+          Promise.all(inserts).then(() => resolve());
+        } else {
+          resolve();
+        }
+      });
     });
   });
 
@@ -472,6 +513,56 @@ app.post('/api/pins', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Deletar / Resetar PIN de usuário
+app.delete('/api/pins/:usuario', (req, res) => {
+  const { usuario } = req.params;
+  db.run('DELETE FROM pins WHERE usuario = ?', [usuario], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// --- Endpoints de Colaboradores ---
+app.get('/api/colaboradores', (req, res) => {
+  db.all('SELECT * FROM colaboradores ORDER BY nome ASC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/colaboradores', (req, res) => {
+  const { nome, role } = req.body;
+  if (!nome || !role) {
+    return res.status(400).json({ error: 'Nome e Perfil (role) são obrigatórios.' });
+  }
+  const nomeTrim = nome.trim();
+  const criadoEm = new Date().toISOString();
+
+  db.run(
+    'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO UPDATE SET role = ?',
+    [nomeTrim, role, criadoEm, role],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, nome: nomeTrim, role });
+    }
+  );
+});
+
+app.delete('/api/colaboradores/:nome', (req, res) => {
+  const { nome } = req.params;
+  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
+
+  db.run('DELETE FROM colaboradores WHERE nome = ?', [nome], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    // Deleta também o PIN do colaborador
+    db.run('DELETE FROM pins WHERE usuario = ?', [nome], (errPin) => {
+      if (errPin) console.error('Erro ao deletar PIN do colaborador:', errPin.message);
+      res.json({ success: true });
+    });
+  });
+});
+
 
 // Notificação de divergência de fundo de caixa (#8 Reconciliação)
 app.post('/api/divergencia', (req, res) => {

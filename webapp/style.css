@@ -1770,6 +1770,29 @@ button:focus-visible,
   backdrop-filter: blur(4px);
 }
 
+.btn-modulo-switch {
+  background: linear-gradient(135deg, #4a1d0d 0%, #2b1107 100%);
+  color: #f7d5a5;
+  border: 1.5px solid rgba(247, 213, 165, 0.4);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  transition: all 0.2s ease;
+}
+.btn-modulo-switch:hover {
+  background: linear-gradient(135deg, #5c2410 0%, #3a1709 100%);
+  color: #fff;
+  border-color: rgba(247, 213, 165, 0.8);
+  transform: translateY(-1.5px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.35);
+}
+
 /* Sub-navegação FA */
 .fa-subnav {
   display: flex;
