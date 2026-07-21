@@ -277,9 +277,18 @@ async function checkApiConnection() {
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s para Render
 
   try {
-    const res = await fetch(`${API_BASE}/config`, { method: "GET", signal: controller.signal });
+    let res = await fetch(`${API_BASE}/config`, { method: "GET", signal: controller.signal });
+    if (!res.ok && API_BASE === "/api" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      try {
+        const resFallback = await fetch("http://localhost:5000/api/config", { method: "GET", signal: controller.signal });
+        if (resFallback.ok) {
+          API_BASE = "http://localhost:5000/api";
+          res = resFallback;
+        }
+      } catch(e) {}
+    }
     clearTimeout(timeoutId);
-    if (res.ok) {
+    if (res && res.ok) {
       if (!API_ONLINE) console.log("API Backend conectada!");
       API_ONLINE = true;
       offlineBanner.style.display = "none";
@@ -287,6 +296,17 @@ async function checkApiConnection() {
       throw new Error();
     }
   } catch (err) {
+    if (API_BASE === "/api" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      try {
+        const resFallback = await fetch("http://localhost:5000/api/config", { method: "GET" });
+        if (resFallback.ok) {
+          API_BASE = "http://localhost:5000/api";
+          API_ONLINE = true;
+          offlineBanner.style.display = "none";
+          return;
+        }
+      } catch(e) {}
+    }
     if (API_ONLINE || offlineBanner.style.display !== "block") {
       console.warn("API Backend offline. Usando localStorage.");
     }
