@@ -1609,6 +1609,30 @@ function renderFaDashboard() {
     barChart.appendChild(row);
   });
 
+  let selecionadosFAPendentes = new Set();
+
+  function atualizarBatchBarFAPendentes(filtrados) {
+    const bar = document.getElementById("fa-batch-actions-pendentes");
+    const countInfo = document.getElementById("fa-batch-count-info");
+    const selectAllCheckbox = document.getElementById("fa-select-all-pendentes");
+
+    if (!bar) return;
+
+    if (selecionadosFAPendentes.size > 0) {
+      bar.classList.remove("hidden");
+      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(r.id));
+      const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+      countInfo.textContent = `${selecionadosFAPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
+    } else {
+      bar.classList.add("hidden");
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(r.id));
+      selectAllCheckbox.indeterminate = selecionadosFAPendentes.size > 0 && !selectAllCheckbox.checked;
+    }
+  }
+
   const filtrados = filtroLoja ? pendentes.filter(r => r.loja === filtroLoja) : pendentes;
   const tbody = document.querySelector("#fa-tabela-pendentes tbody");
   tbody.innerHTML = "";
@@ -1616,13 +1640,23 @@ function renderFaDashboard() {
   // Apenas Bruno e Isabella podem retirar no FA
   const podeRetirar = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
 
+  // Limpar IDs selecionados que não estão mais na lista de filtrados
+  const idsFiltrados = new Set(filtrados.map(r => r.id));
+  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].filter(id => idsFiltrados.has(id)));
+
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosFAPendentes.has(r.id);
       const tr = document.createElement("tr");
+      if (isSelected) tr.classList.add("selected-row");
+
       tr.innerHTML = `
+        <td style="text-align: center;">
+          ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+        </td>
         <td>${r.loja}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
@@ -1637,7 +1671,45 @@ function renderFaDashboard() {
       tbody.appendChild(tr);
     });
 
+  atualizarBatchBarFAPendentes(filtrados);
+
   document.getElementById("fa-pendentes-vazio").classList.toggle("hidden", filtrados.length > 0);
+
+  // Checkbox Select All Listener
+  const selectAll = document.getElementById("fa-select-all-pendentes");
+  if (selectAll) {
+    selectAll.onclick = () => {
+      if (selectAll.checked) {
+        filtrados.forEach(r => selecionadosFAPendentes.add(r.id));
+      } else {
+        selecionadosFAPendentes.clear();
+      }
+      renderFaDashboard();
+    };
+  }
+
+  // Individual Checkbox Listeners
+  tbody.querySelectorAll(".chk-fa-pendente").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = chk.dataset.id;
+      if (chk.checked) {
+        selecionadosFAPendentes.add(id);
+      } else {
+        selecionadosFAPendentes.delete(id);
+      }
+      renderFaDashboard();
+    });
+  });
+
+  const btnBatch = document.getElementById("fa-btn-batch-retirar");
+  if (btnBatch) {
+    btnBatch.onclick = () => {
+      if (selecionadosFAPendentes.size > 0) {
+        abrirModalRetiradaFA(Array.from(selecionadosFAPendentes));
+      }
+    };
+  }
 
   tbody.querySelectorAll(".fa-btn-retirar").forEach(btn => {
     btn.addEventListener("click", () => abrirModalRetiradaFA(btn.dataset.id));
@@ -1648,15 +1720,25 @@ function renderFaDashboard() {
 }
 
 // Modal retirada FA (apenas Bruno/Isabella, sem necessidade de autorização adicional)
-function abrirModalRetiradaFA(id) {
+function abrirModalRetiradaFA(target) {
   if (!currentUser || (currentUser.nome !== "Bruno" && currentUser.nome !== "Isabella")) {
     showModal("Apenas Bruno ou Isabella podem confirmar retiradas no FaçaAmigos.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
-  faRetiradaAlvoId = id;
-  const r = registrosFA.find(x => x.id === id);
-  document.getElementById("modal-sub-info").textContent =
-    `[FaçaAmigos] ${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+  retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
+  const isBatch = Array.isArray(target);
+
+  if (isBatch) {
+    const selecionadosList = registrosFA.filter(x => target.includes(x.id));
+    const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    document.getElementById("modal-sub-info").textContent =
+      `[FaçaAmigos - Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
+  } else {
+    const r = registrosFA.find(x => x.id === target);
+    document.getElementById("modal-sub-info").textContent =
+      `[FaçaAmigos] ${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+  }
+
   setAgora(document.getElementById("retirada-data"));
   document.getElementById("retirada-responsavel").value = "";
   // Ocultar campo de autorização de PIN (não é necessário para owners no FA)
@@ -1987,19 +2069,53 @@ function renderDashboard() {
     barChart.appendChild(row);
   });
 
+  let selecionadosPendentes = new Set();
+
+  function atualizarBatchBarPendentes(filtrados) {
+    const bar = document.getElementById("batch-actions-pendentes");
+    const countInfo = document.getElementById("batch-count-info");
+    const selectAllCheckbox = document.getElementById("select-all-pendentes");
+
+    if (!bar) return;
+
+    if (selecionadosPendentes.size > 0) {
+      bar.classList.remove("hidden");
+      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(r.id));
+      const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+      countInfo.textContent = `${selecionadosPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
+    } else {
+      bar.classList.add("hidden");
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(r.id));
+      selectAllCheckbox.indeterminate = selecionadosPendentes.size > 0 && !selectAllCheckbox.checked;
+    }
+  }
+
   const filtrados = filtroLoja ? pendentes.filter(r => r.loja === filtroLoja) : pendentes;
   const tbody = document.querySelector("#tabela-pendentes tbody");
   tbody.innerHTML = "";
 
   const podeRetirar = RETIRADA_PERMITIDA.includes(currentUser.nome);
 
+  // Limpar IDs selecionados que não estão mais na lista de filtrados
+  const idsFiltrados = new Set(filtrados.map(r => r.id));
+  selecionadosPendentes = new Set([...selecionadosPendentes].filter(id => idsFiltrados.has(id)));
+
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosPendentes.has(r.id);
       const tr = document.createElement("tr");
+      if (isSelected) tr.classList.add("selected-row");
+
       tr.innerHTML = `
+        <td style="text-align: center;">
+          ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+        </td>
         <td>${r.loja}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
@@ -2014,7 +2130,45 @@ function renderDashboard() {
       tbody.appendChild(tr);
     });
 
+  atualizarBatchBarPendentes(filtrados);
+
   document.getElementById("pendentes-vazio").classList.toggle("hidden", filtrados.length > 0);
+
+  // Checkbox Select All Listener
+  const selectAll = document.getElementById("select-all-pendentes");
+  if (selectAll) {
+    selectAll.onclick = () => {
+      if (selectAll.checked) {
+        filtrados.forEach(r => selecionadosPendentes.add(r.id));
+      } else {
+        selecionadosPendentes.clear();
+      }
+      renderDashboard();
+    };
+  }
+
+  // Individual Checkbox Listeners
+  tbody.querySelectorAll(".chk-pendente").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = chk.dataset.id;
+      if (chk.checked) {
+        selecionadosPendentes.add(id);
+      } else {
+        selecionadosPendentes.delete(id);
+      }
+      renderDashboard();
+    });
+  });
+
+  const btnBatch = document.getElementById("btn-batch-retirar");
+  if (btnBatch) {
+    btnBatch.onclick = () => {
+      if (selecionadosPendentes.size > 0) {
+        abrirModalRetirada(Array.from(selecionadosPendentes));
+      }
+    };
+  }
 
   tbody.querySelectorAll(".btn-retirar").forEach(btn => {
     btn.addEventListener("click", () => abrirModalRetirada(btn.dataset.id));
@@ -2045,15 +2199,25 @@ const modalRetirada = document.getElementById("modal-retirada");
 const autorizacaoWrap = document.getElementById("autorizacao-wrap");
 const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
-function abrirModalRetirada(id) {
+function abrirModalRetirada(target) {
   if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
     showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
-  retiradaAlvoId = id;
-  const r = registros.find(x => x.id === id);
-  document.getElementById("modal-sub-info").textContent =
-    `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+  retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
+  const isBatch = Array.isArray(target);
+
+  if (isBatch) {
+    const selecionadosList = registros.filter(x => target.includes(x.id));
+    const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    document.getElementById("modal-sub-info").textContent =
+      `[Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
+  } else {
+    const r = registros.find(x => x.id === target);
+    document.getElementById("modal-sub-info").textContent =
+      `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+  }
+
   setAgora(document.getElementById("retirada-data"));
   document.getElementById("retirada-responsavel").value = "";
   autorizacaoPinInput.value = "";
@@ -2087,7 +2251,8 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     }
   }
 
-  const r = registros.find(x => x.id === retiradaAlvoId);
+  const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
+  const targets = Array.isArray(retiradaAlvoId) ? retiradaAlvoId : [retiradaAlvoId];
   const dataRetirada = new Date(data).toISOString();
 
   const updates = {
@@ -2098,18 +2263,40 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     autorizadoPor: autorizadoPor
   };
 
-  await atualizarRegistroAPI(retiradaAlvoId, updates);
+  for (const id of targets) {
+    if (isFA) {
+      await atualizarRegistroFAAPI(id, updates);
+      const r = registrosFA.find(x => x.id === id);
+      if (r) {
+        r.status = "retirado";
+        r.dataRetirada = dataRetirada;
+        r.retiradoPor = responsavel;
+        r.confirmadoPorApp = currentUser.nome;
+      }
+    } else {
+      await atualizarRegistroAPI(id, updates);
+      const r = registros.find(x => x.id === id);
+      if (r) {
+        r.status = "retirado";
+        r.dataRetirada = dataRetirada;
+        r.retiradoPor = responsavel;
+        r.confirmadoPorApp = currentUser.nome;
+        r.autorizadoPor = autorizadoPor;
+      }
+    }
+  }
 
-  // Atualizar lista local caso estejamos offline
-  r.status = "retirado";
-  r.dataRetirada = dataRetirada;
-  r.retiradoPor = responsavel;
-  r.confirmadoPorApp = currentUser.nome;
-  r.autorizadoPor = autorizadoPor;
-
+  delete document.getElementById("modal-confirmar").dataset.faMode;
   modalRetirada.classList.add("hidden");
   retiradaAlvoId = null;
-  renderDashboard();
+
+  if (isFA) {
+    renderFaDashboard();
+    showToast(`${targets.length} retirada(s) FA confirmada(s) com sucesso!`, "sucesso");
+  } else {
+    renderDashboard();
+    showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
+  }
 });
 
 // --- Modal foto ---

@@ -521,10 +521,15 @@
               </select>
             </div>
           </div>
+          <div id="fa-batch-actions-pendentes" class="batch-actions-bar hidden">
+            <span id="fa-batch-count-info">0 envelopes selecionados (R$ 0,00)</span>
+            <button id="fa-btn-batch-retirar" class="btn-primary fa-btn-primary btn-batch">Marcar selecionados como retirados</button>
+          </div>
           <div class="table-wrap">
             <table id="fa-tabela-pendentes" aria-label="Envelopes FA aguardando retirada">
               <thead>
                 <tr>
+                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="fa-select-all-pendentes" title="Selecionar todos"></th>
                   <th>Loja</th>
                   <th>Consultora</th>
                   <th>Data Fechamento</th>
