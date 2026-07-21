@@ -65,6 +65,28 @@
   </div>
 </div>
 
+<!-- ===================== OVERLAY: SELEÇÃO DE MÓDULOS (OWNERS) ===================== -->
+<div id="module-selection-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="module-title" aria-modal="true">
+  <div class="modal module-modal">
+    <h2 id="module-title">Escolha o Sistema</h2>
+    <p class="modal-sub">Qual operação você deseja acessar agora?</p>
+    
+    <div class="module-cards">
+      <button id="btn-mod-cacau" class="module-card card-cacau">
+        <span class="mod-icon">🍫</span>
+        <h3>Cacau Show</h3>
+        <p>Gestão de caixa e envelopes</p>
+      </button>
+      
+      <button id="btn-mod-faca" class="module-card card-faca">
+        <span class="mod-icon">🧡</span>
+        <h3>FaçaAmigos</h3>
+        <p>Controle de caixa FaçaAmigos</p>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="app" class="hidden">
 
   <header class="topbar">
@@ -72,7 +94,7 @@
       <div class="logo-dot"></div>
       <div>
         <h1>Controle de Caixa</h1>
-        <span class="subtitle">Franquias Cacau Show</span>
+        <span class="subtitle">Grupo Isabella e Bruno</span>
       </div>
     </div>
     <nav class="tabs" role="tablist" aria-label="Navegação principal">
@@ -81,10 +103,12 @@
       <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">Histórico</button>
       <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">Dashboard Mensal</button>
       <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">Auditoria</button>
+      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">🧡 FaçaAmigos</button>
     </nav>
     <div class="user-box">
       <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
       <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
+      <button id="btn-trocar-modulo" class="btn-mini-outline hidden">Módulos</button>
       <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
       <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
     </div>
@@ -353,6 +377,239 @@
       </div>
     </section>
 
+    <!-- ===================== TAB: FAÇAAMIGOS ===================== -->
+    <section id="tab-faca-amigos" class="tab-panel hidden fa-section" role="tabpanel" aria-labelledby="tab-btn-faca-amigos">
+
+      <!-- Header da marca FAçaAmigos -->
+      <div class="fa-header-banner">
+        <div class="fa-brand">
+          <span class="fa-logo-icon">🧡</span>
+          <div>
+            <h2 class="fa-title">Faça<span class="fa-title-accent">Amigos</span></h2>
+            <p class="fa-subtitle">Controle de Caixa &mdash; Parque Shopping</p>
+          </div>
+        </div>
+        <div class="fa-lojas-badge">
+          <span>Grão Pará</span>
+          <span>ParqueShopping</span>
+          <span>Parque Circuito</span>
+        </div>
+      </div>
+
+      <!-- Sub-navegação interna do FA (owners vêem tudo, consultoras_fa vêem só registro) -->
+      <nav class="fa-subnav" id="fa-subnav" role="tablist" aria-label="Navegação FaçaAmigos">
+        <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro">Novo Registro</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-dashboard" id="fa-tablink-dashboard">Dashboard</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-historico" id="fa-tablink-historico">Histórico</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-mensal" id="fa-tablink-mensal">Mensal</button>
+      </nav>
+
+      <!-- SUB-TAB: REGISTRO FA -->
+      <div id="fa-tab-fa-registro" class="fa-tab-panel active">
+        <form id="form-registro-fa" class="card form-card fa-form-card">
+          <h2 class="fa-form-title">Registrar Movimento <span class="fa-title-accent">FaçaAmigos</span></h2>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="fa-consultor">Consultora *</label>
+              <select id="fa-consultor" required>
+                <option value="" disabled selected>Selecione</option>
+                <option>Alice</option>
+                <option>Alessandra</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="fa-loja">Loja *</label>
+              <select id="fa-loja" required>
+                <option value="" disabled selected>Selecione</option>
+                <option>Grão Pará</option>
+                <option>ParqueShopping</option>
+                <option>Parque Circuito</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Tipo de Operação *</label>
+              <div class="segmented fa-segmented" id="fa-tipo-operacao" role="group" aria-label="Tipo de operação FA">
+                <button type="button" class="seg-btn" data-value="Abertura">Abertura</button>
+                <button type="button" class="seg-btn" data-value="Fechamento">Fechamento</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="fa-data-operacao">Data e Hora *</label>
+              <input type="datetime-local" id="fa-data-operacao" required>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="fa-fundo-caixa">Fundo de Caixa (R$) *</label>
+              <input type="text" id="fa-fundo-caixa" inputmode="numeric" placeholder="0,00" required>
+              <span id="fa-fundo-caixa-hint" class="hint hidden"></span>
+            </div>
+
+            <div class="field" id="fa-field-valor-envelope">
+              <label for="fa-valor-envelope">Valor do Envelope (R$) *</label>
+              <input type="text" id="fa-valor-envelope" inputmode="numeric" placeholder="0,00" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="fa-observacoes">Observações</label>
+            <input type="text" id="fa-observacoes" placeholder="Alguma divergência ou observação?">
+          </div>
+
+          <div class="field" id="fa-field-foto">
+            <label>Foto do Envelope <span id="fa-foto-hint" class="hint">(recomendado no fechamento)</span></label>
+            <div class="photo-upload">
+              <input type="file" id="fa-foto-envelope" accept="image/*" capture="environment">
+              <div id="fa-foto-preview-wrap" class="foto-preview-wrap hidden">
+                <img id="fa-foto-preview" alt="Prévia do envelope">
+                <button type="button" id="fa-foto-remover" class="btn-mini" aria-label="Remover foto">Remover</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="fa-submit-btn" class="btn-primary fa-btn-primary">Salvar Registro</button>
+            <span id="fa-form-msg" class="form-msg" role="status"></span>
+          </div>
+        </form>
+
+        <!-- Gerador de mensagem WhatsApp FaçaAmigos -->
+        <div id="fa-aviso-banner" class="card aviso-banner hidden fa-aviso">
+          <h3>📋 Gerador de Mensagem WhatsApp — FaçaAmigos</h3>
+          <p class="aviso-instrucao">1. Copie a mensagem abaixo. 2. Abra o grupo do WhatsApp da loja. 3. Cole e envie.</p>
+          <textarea id="fa-aviso-texto" class="aviso-textarea" readonly rows="6"></textarea>
+          <div id="fa-aviso-botoes" class="aviso-botoes">
+            <button type="button" id="fa-btn-copiar-mensagem" class="btn-secondary">📋 Copiar mensagem</button>
+            <a id="fa-btn-abrir-whatsapp" class="btn-whatsapp fa-btn-whatsapp" target="_blank" rel="noopener noreferrer">📲 Abrir WhatsApp</a>
+          </div>
+          <p id="fa-aviso-status" class="aviso-status hidden">✅ Mensagem gerada — não esqueça de enviar ao grupo!</p>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: DASHBOARD FA -->
+      <div id="fa-tab-fa-dashboard" class="fa-tab-panel hidden">
+        <div class="dash-header">
+          <h2>Dinheiro do Envelope <span class="fa-title-accent">FaçaAmigos</span></h2>
+          <div class="dash-total" id="fa-dash-total-geral">R$ 0,00 em trânsito</div>
+        </div>
+
+        <div id="fa-alerta-sem-fechamento" class="card alerta-card hidden" role="alert">
+          <strong>⚠ Lojas FA sem fechamento registrado hoje:</strong>
+          <span id="fa-lojas-sem-fechamento"></span>
+        </div>
+
+        <div id="fa-cards-lojas" class="cards-lojas"></div>
+
+        <div class="card">
+          <h3>Comparativo entre lojas (envelope pendente)</h3>
+          <div id="fa-bar-chart" class="bar-chart" role="img" aria-label="Gráfico de barras FA"></div>
+        </div>
+
+        <div class="card">
+          <div class="table-header">
+            <h3>Envelopes Aguardando Retirada</h3>
+            <div class="filters">
+              <select id="fa-filtro-loja-pendentes" aria-label="Filtrar por loja FA">
+                <option value="">Todas as lojas</option>
+                <option>Grão Pará</option>
+                <option>ParqueShopping</option>
+                <option>Parque Circuito</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="fa-tabela-pendentes" aria-label="Envelopes FA aguardando retirada">
+              <thead>
+                <tr>
+                  <th>Loja</th>
+                  <th>Consultora</th>
+                  <th>Data Fechamento</th>
+                  <th>Valor Envelope</th>
+                  <th>Dias Aguardando</th>
+                  <th>Foto</th>
+                  <th>Aviso</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="fa-pendentes-vazio" class="empty-state hidden">Nenhum envelope pendente de retirada 🎉</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: HISTÓRICO FA -->
+      <div id="fa-tab-fa-historico" class="fa-tab-panel hidden">
+        <div class="card">
+          <div class="table-header">
+            <h2>Histórico <span class="fa-title-accent">FaçaAmigos</span></h2>
+            <div class="filters">
+              <input type="text" id="fa-busca-hist" placeholder="Buscar loja, consultora..." aria-label="Buscar no histórico FA">
+              <select id="fa-filtro-loja-hist" aria-label="Filtrar por loja FA">
+                <option value="">Todas as lojas</option>
+                <option>Grão Pará</option>
+                <option>ParqueShopping</option>
+                <option>Parque Circuito</option>
+              </select>
+              <select id="fa-filtro-status-hist" aria-label="Filtrar por status FA">
+                <option value="ativas" selected>Operações Ativas</option>
+                <option value="">Todos os registros</option>
+                <option value="aberto">Aberto</option>
+                <option value="aguardando_retirada">Aguardando retirada</option>
+                <option value="retirado">Retirado</option>
+              </select>
+              <button id="fa-btn-exportar" class="btn-secondary">Exportar CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="fa-tabela-historico" aria-label="Histórico completo FA">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Loja</th>
+                  <th>Consultora</th>
+                  <th>Fundo Caixa</th>
+                  <th>Valor Envelope</th>
+                  <th>Status</th>
+                  <th>Retirada</th>
+                  <th>Aviso</th>
+                  <th>Foto</th>
+                  <th class="col-bruno hidden">Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="fa-historico-vazio" class="empty-state hidden">Nenhum registro encontrado.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: MENSAL FA -->
+      <div id="fa-tab-fa-mensal" class="fa-tab-panel hidden">
+        <div class="dash-header">
+          <h2>Dashboard Mensal <span class="fa-title-accent">FaçaAmigos</span></h2>
+          <div class="field mes-picker">
+            <input type="month" id="fa-mensal-mes-filtro" aria-label="Selecionar mês FA">
+          </div>
+        </div>
+
+        <div id="fa-cards-lojas-mensal" class="cards-lojas"></div>
+
+        <div class="card">
+          <h3>Comparativo entre lojas (mês selecionado)</h3>
+          <div id="fa-bar-chart-mensal" class="bar-chart" role="img" aria-label="Gráfico comparativo mensal FA"></div>
+        </div>
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -435,6 +692,7 @@
   <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon">📜</span>Histórico</button>
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon">📅</span>Mensal</button>
   <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon">🔍</span>Auditoria</button>
+  <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon">🧡</span>FA</button>
 </nav>
 
 <!-- FAB — Floating Action Button (mobile) -->

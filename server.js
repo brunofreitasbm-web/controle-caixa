@@ -208,6 +208,25 @@ function initDb() {
       criadoEm TEXT,
       deletadoEm TEXT
     )`,
+    `CREATE TABLE IF NOT EXISTS registros_fa (
+      id TEXT PRIMARY KEY,
+      consultor TEXT,
+      loja TEXT,
+      tipoOperacao TEXT,
+      dataOperacao TEXT,
+      fundoCaixa REAL,
+      valorEnvelope REAL,
+      observacoes TEXT,
+      fotoEnvelope TEXT,
+      status TEXT,
+      dataRetirada TEXT,
+      retiradoPor TEXT,
+      confirmadoPorApp TEXT,
+      autorizadoPor TEXT,
+      mensagemGerada INTEGER DEFAULT 0,
+      criadoEm TEXT,
+      deletadoEm TEXT
+    )`,
     `CREATE TABLE IF NOT EXISTS logs_auditoria (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       registroId TEXT,
@@ -241,10 +260,17 @@ function initDb() {
     });
   });
 
-  // Tenta adicionar a coluna deletadoEm se ela não existir
+  // Tenta adicionar a coluna deletadoEm se ela não existir (tabela principal)
   promise = promise.then(() => {
     return new Promise(resolve => {
       db.run('ALTER TABLE registros ADD COLUMN deletadoEm TEXT', [], () => resolve());
+    });
+  });
+
+  // Tenta adicionar a coluna deletadoEm na tabela FA se ela não existir
+  promise = promise.then(() => {
+    return new Promise(resolve => {
+      db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
     });
   });
 
@@ -425,6 +451,101 @@ app.get('/api/registros', (req, res) => {
       mensagemGerada: !!r.mensagemGerada
     }));
     res.json(result);
+  });
+});
+
+// ==================== FACA AMIGOS ENDPOINTS ====================
+
+// FA-1. Obter todos os registros FaçaAmigos
+app.get('/api/registros-fa', (req, res) => {
+  db.all('SELECT * FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const normalized = (rows || []).map(normalizeRow);
+    const result = normalized.map(r => ({
+      ...r,
+      mensagemGerada: !!r.mensagemGerada
+    }));
+    res.json(result);
+  });
+});
+
+// FA-2. Inserir registro FaçaAmigos
+app.post('/api/registros-fa', (req, res) => {
+  const r = req.body;
+  db.run(
+    `INSERT INTO registros_fa (
+      id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
+      observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
+      autorizadoPor, mensagemGerada, criadoEm
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
+      r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
+      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
+      registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
+
+      res.json({ success: true, id: r.id });
+    }
+  );
+});
+
+// FA-3. Atualizar registro FaçaAmigos
+app.put('/api/registros-fa/:id', (req, res) => {
+  const { id } = req.params;
+  const r = req.body;
+
+  const fields = [];
+  const values = [];
+
+  Object.keys(r).forEach(key => {
+    if (key === 'id') return;
+    fields.push(`${key} = ?`);
+    if (key === 'mensagemGerada') {
+      values.push(r[key] ? 1 : 0);
+    } else {
+      values.push(r[key]);
+    }
+  });
+
+  if (fields.length === 0) {
+    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  }
+
+  values.push(id);
+
+  const sql = `UPDATE registros_fa SET ${fields.join(', ')} WHERE id = ?`;
+
+  db.run(sql, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const usuarioLog = req.query.usuario || 'Desconhecido';
+    registrarLog(id, 'UPDATE_FA', `[FaçaAmigos] Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
+
+    res.json({ success: true });
+  });
+});
+
+// FA-4. Excluir registro FaçaAmigos (Soft delete — somente Bruno)
+app.delete('/api/registros-fa/:id', (req, res) => {
+  const { id } = req.params;
+  const { usuario } = req.query;
+
+  if (usuario !== 'Bruno') {
+    return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros do FaçaAmigos.' });
+  }
+
+  const agora = new Date().toISOString();
+  db.run('UPDATE registros_fa SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+
+    registrarLog(id, 'DELETE_FA', `[FaçaAmigos] Registro removido logicamente.`, usuario);
+
+    res.json({ success: true });
   });
 });
 

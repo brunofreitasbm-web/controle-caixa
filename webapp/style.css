@@ -1593,3 +1593,338 @@ button:focus-visible,
     font-size: 0.78rem;
   }
 }
+
+/* ============================================================
+   FAÇAAMIGOS — TEMA VISUAL PRÓPRIO
+   ============================================================ */
+
+/* Variáveis FA */
+:root {
+  --fa-verde-escuro: #0d2e2e;
+  --fa-verde-medio: #1a4a4a;
+  --fa-rosa: #e8186d;
+  --fa-rosa-claro: #ff4d94;
+  --fa-amarelo: #b5a020;
+  --fa-amarelo-claro: #d4c03a;
+  --fa-branco: #f0faf9;
+  --fa-texto: #0a2020;
+}
+
+/* Tab button FA — cor de destaque */
+.fa-tab-btn.active,
+.tab-btn.fa-tab-btn.active {
+  background: var(--fa-rosa);
+  color: #fff;
+  border-color: var(--fa-rosa);
+  box-shadow: 0 0 0 3px rgba(232,24,109,0.2);
+}
+
+.tab-btn.fa-tab-btn:not(.hidden):not(.active):hover {
+  border-color: var(--fa-rosa);
+  color: var(--fa-rosa);
+}
+
+/* Seção principal FA */
+.fa-section {
+  animation: fadeInUp 0.35s ease;
+}
+
+/* Header banner FaçaAmigos */
+.fa-header-banner {
+  background: linear-gradient(135deg, var(--fa-verde-escuro) 0%, var(--fa-verde-medio) 60%, #1a3320 100%);
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 8px 32px rgba(13,46,46,0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.fa-header-banner::before {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 160px;
+  height: 160px;
+  background: var(--fa-rosa);
+  border-radius: 50%;
+  opacity: 0.15;
+}
+
+.fa-header-banner::after {
+  content: '';
+  position: absolute;
+  right: 40px;
+  bottom: -30px;
+  width: 100px;
+  height: 100px;
+  background: var(--fa-amarelo);
+  border-radius: 50%;
+  opacity: 0.12;
+}
+
+.fa-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 1;
+}
+
+.fa-logo-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.fa-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.fa-title-accent {
+  color: var(--fa-rosa);
+}
+
+.fa-subtitle {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.85rem;
+  margin: 2px 0 0;
+}
+
+.fa-lojas-badge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 1;
+}
+
+.fa-lojas-badge span {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+/* Sub-navegação FA */
+.fa-subnav {
+  display: flex;
+  gap: 4px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.fa-sub-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.fa-sub-btn:hover {
+  background: rgba(232,24,109,0.08);
+  color: var(--fa-rosa);
+}
+
+.fa-sub-btn.active {
+  background: var(--fa-rosa);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(232,24,109,0.3);
+}
+
+.fa-subnav-single {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Painel FA */
+.fa-tab-panel {
+  animation: fadeInUp 0.25s ease;
+}
+
+/* Form FA — card com borda rosa sutil */
+.fa-form-card {
+  border-top: 4px solid var(--fa-rosa);
+}
+
+.fa-form-title {
+  margin-bottom: 20px;
+}
+
+/* Segmented FA */
+.fa-segmented .seg-btn.active {
+  background: var(--fa-rosa);
+  color: #fff;
+  border-color: var(--fa-rosa);
+}
+
+/* Botão submit FA */
+.fa-btn-primary {
+  background: linear-gradient(135deg, var(--fa-rosa) 0%, var(--fa-rosa-claro) 100%);
+  border-color: transparent;
+}
+
+.fa-btn-primary:hover {
+  background: linear-gradient(135deg, #c8105a 0%, var(--fa-rosa) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(232,24,109,0.35);
+}
+
+/* Loja cards FA — accent rosa */
+.fa-loja-card {
+  border-left: 4px solid var(--fa-rosa);
+}
+
+.fa-loja-card .valor {
+  color: var(--fa-rosa);
+}
+
+/* Barra FA */
+.fa-bar-fill {
+  background: linear-gradient(90deg, var(--fa-rosa) 0%, var(--fa-rosa-claro) 100%);
+}
+
+/* Banner aviso FA */
+.fa-aviso {
+  border-left: 4px solid var(--fa-rosa);
+}
+
+/* WhatsApp FA */
+.fa-btn-whatsapp {
+  background: linear-gradient(135deg, var(--fa-rosa) 0%, #c8105a 100%);
+}
+
+.fa-btn-whatsapp:hover {
+  background: linear-gradient(135deg, #c8105a 0%, #a00040 100%);
+  transform: translateY(-1px);
+}
+
+/* Tema escuro — quando body.tema-fa */
+body.tema-fa .topbar {
+  border-bottom-color: var(--fa-rosa);
+  box-shadow: 0 2px 12px rgba(232,24,109,0.12);
+}
+
+/* Responsivo FA */
+@media (max-width: 640px) {
+  .fa-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 16px;
+  }
+
+  .fa-title {
+    font-size: 1.45rem;
+  }
+
+  .fa-sub-btn {
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+
+  .fa-lojas-badge {
+    gap: 5px;
+  }
+
+  .fa-lojas-badge span {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+  }
+}
+
+/* ============================================================
+   SELEÇÃO DE MÓDULOS (OWNERS)
+   ============================================================ */
+
+.module-modal {
+  max-width: 600px;
+  padding: 32px;
+}
+
+.module-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.module-card {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.module-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+.module-card h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.module-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.mod-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+}
+
+.card-cacau:hover {
+  border-color: var(--primary);
+}
+.card-cacau h3 {
+  color: var(--primary);
+}
+
+.card-faca:hover {
+  border-color: var(--fa-rosa);
+}
+.card-faca h3 {
+  color: var(--fa-rosa);
+}
+
+@media (max-width: 600px) {
+  .module-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
