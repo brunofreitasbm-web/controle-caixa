@@ -784,6 +784,8 @@ function iniciarModuloBase(moduloOpcional) {
     });
     document.getElementById("fa-tablink-registro").classList.remove("hidden");
     document.getElementById("fa-subnav").classList.add("fa-subnav-single");
+    faSubTabAtiva = "fa-registro";
+    ativarFaSubTab("fa-registro");
   } else if (isOwner) {
     faConsultorSelect.disabled = false;
     // Owners vêem todas as sub-abas FA
@@ -902,6 +904,9 @@ function ativarTab(tabName) {
 let faSubTabAtiva = "fa-registro";
 
 function ativarFaSubTab(subTabName) {
+  if (currentUser && currentUser.role === "consultora_fa") {
+    subTabName = "fa-registro";
+  }
   faSubTabAtiva = subTabName;
   document.querySelectorAll(".fa-sub-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".fa-tab-panel").forEach(p => p.classList.add("hidden"));
