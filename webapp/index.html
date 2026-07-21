@@ -90,35 +90,87 @@
   </div>
 </div>
 
-<div id="app" class="hidden">
+<div id="app" class="app-layout hidden">
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo-dot"></div>
-      <div>
-        <h1>Controle de Caixa</h1>
-        <span class="subtitle">Grupo Isabella e Bruno</span>
+  <!-- Backdrop overlay for mobile drawer -->
+  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- Left Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="logo-dot"></div>
+        <div>
+          <h1>Controle de Caixa</h1>
+          <span class="subtitle">Grupo Isabella e Bruno</span>
+        </div>
+      </div>
+      <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
+    </div>
+
+    <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
+      <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
+        <span class="tab-icon">✍️</span>
+        <span class="tab-text">Novo Registro</span>
+      </button>
+      <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
+        <span class="tab-icon">📊</span>
+        <span class="tab-text">Dashboard de Envelopes</span>
+      </button>
+      <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">
+        <span class="tab-icon">📜</span>
+        <span class="tab-text">Histórico</span>
+      </button>
+      <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
+        <span class="tab-icon">📅</span>
+        <span class="tab-text">Dashboard Mensal</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">
+        <span class="tab-icon">🔍</span>
+        <span class="tab-text">Auditoria</span>
+      </button>
+      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+        <span class="tab-icon">🧡</span>
+        <span class="tab-text">FaçaAmigos</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
+        <span class="tab-icon">👥</span>
+        <span class="tab-text">Colaboradores</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
+      </div>
+      <div class="sidebar-actions">
+        <button id="btn-trocar-modulo" class="btn-mini-outline hidden">Módulos</button>
+        <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
+        <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
       </div>
     </div>
-    <nav class="tabs" role="tablist" aria-label="Navegação principal">
-      <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">Novo Registro</button>
-      <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">Dashboard de Envelopes</button>
-      <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">Histórico</button>
-      <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">Dashboard Mensal</button>
-      <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">Auditoria</button>
-      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">🧡 FaçaAmigos</button>
-      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">👥 Colaboradores</button>
-    </nav>
-    <div class="user-box">
-      <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo">📲 Instalar App</button>
-      <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações">🔔<span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
-      <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
-      <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
-      <button id="btn-trocar-modulo" class="btn-mini-outline hidden">Módulos</button>
-      <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
-      <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
-    </div>
-  </header>
+  </aside>
+
+  <!-- Main App Container -->
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="btn-menu-hamburger" class="hamburger-btn" aria-label="Abrir menu lateral">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+        <div class="topbar-brand-mobile">
+          <div class="logo-dot logo-dot-sm"></div>
+          <span class="topbar-title">Controle de Caixa</span>
+        </div>
+      </div>
+      <div class="user-box">
+        <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo">📲 Instalar App</button>
+        <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações">🔔<span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
+        <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
+      </div>
+    </header>
 
   <main id="main-content">
 
@@ -672,7 +724,8 @@
     </section>
 
   </main>
-</div>
+  </div> <!-- /.app-main -->
+</div> <!-- /#app -->
 
 <!-- Modal: marcar retirada -->
 <div id="modal-retirada" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-retirada-title" aria-modal="true">
