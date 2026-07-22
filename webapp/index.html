@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#3d1a11">
+<meta name="theme-color" content="#5c3a21">
 <meta name="description" content="HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
 <title>HUB de Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
@@ -28,8 +28,8 @@
       extend: {
         colors: {
           brand: {
-            50: '#fdfaf2', 100: '#f8efe0', 200: '#ebdbbe', 300: '#deb88e', 400: '#d09660',
-            500: '#bd783d', 600: '#a35c2f', 700: '#854624', 800: '#64321b', 900: '#3d1a11', 950: '#25100a'
+            50: '#faf8f6', 100: '#f3ebe5', 200: '#e4d4cb', 300: '#cbb3a5', 400: '#b39380',
+            500: '#98735f', 600: '#7e5845', 700: '#6b4633', 800: '#583524', 900: '#452516', 950: '#2b140a'
           }
         }
       }
@@ -158,7 +158,7 @@
         <div class="sidebar-group-content">
           <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
             <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
-            <span class="tab-text">Novo Registro</span>
+            <span class="tab-text">Registrar Envelope</span>
           </button>
           <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
             <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
@@ -259,6 +259,7 @@
         </div>
       </div>
       <div class="user-box">
+        <button id="btn-topbar-trocar-modulo" class="btn-mini-outline hidden" title="Alternar entre Cacau Show e Faça Amigos"><i class="fa-solid fa-right-left"></i> Trocar Módulo</button>
         <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo"><i class="fa-solid fa-mobile-screen-button"></i> Instalar App</button>
         <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações"><i class="fa-solid fa-bell"></i><span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
         <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro"><i class="fa-solid fa-circle-half-stroke"></i><span id="sync-badge" class="sync-badge hidden"></span></button>
@@ -269,8 +270,19 @@
 
     <!-- ===================== TAB: NOVO REGISTRO ===================== -->
     <section id="tab-registro" class="tab-panel active" role="tabpanel" aria-labelledby="tablink-registro">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-envelope-open-text text-amber-400"></i> Registrar Movimento (Envelope)
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Insira os dados do movimento de caixa diário e envie as informações de fechamento por envelope.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Caixa Geral</span>
+        </div>
+      </div>
+
       <form id="form-registro" class="card form-card">
-        <h2>Registrar Movimento de Caixa</h2>
 
         <div class="grid-2">
           <div class="field">
@@ -285,6 +297,7 @@
               <option>Estheffany</option>
               <option>Sabrina</option>
             </select>
+            <div id="consultor-error" class="input-error-msg hidden">Selecione o consultor</div>
           </div>
 
           <div class="field">
@@ -296,6 +309,7 @@
               <option>Mário Covas</option>
               <option>Venda Direta</option>
             </select>
+            <div id="loja-error" class="input-error-msg hidden">Selecione a loja</div>
           </div>
         </div>
 
@@ -306,25 +320,27 @@
               <button type="button" class="seg-btn" data-value="Abertura">Abertura</button>
               <button type="button" class="seg-btn" data-value="Fechamento">Fechamento</button>
             </div>
+            <div id="tipo-operacao-error" class="input-error-msg hidden">Selecione o tipo de operação</div>
           </div>
 
           <div class="field">
             <label for="data-operacao">Data e Hora *</label>
             <input type="datetime-local" id="data-operacao" required>
+            <div id="data-operacao-error" class="input-error-msg hidden">Selecione a data e hora</div>
           </div>
         </div>
 
         <div class="grid-2">
           <div class="field">
             <label for="fundo-caixa">Fundo de Caixa (R$) *</label>
-            <input type="text" id="fundo-caixa" inputmode="numeric" placeholder="0,00" required>
+            <input type="text" id="fundo-caixa" inputmode="numeric" placeholder="R$ 0,00" required>
             <span id="fundo-caixa-hint" class="hint hidden"></span>
             <div id="fundo-caixa-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
           </div>
 
           <div class="field" id="field-valor-envelope">
             <label for="valor-envelope">Valor do Envelope (R$) *</label>
-            <input type="text" id="valor-envelope" inputmode="numeric" placeholder="0,00" required>
+            <input type="text" id="valor-envelope" inputmode="numeric" placeholder="R$ 0,00" required>
             <div id="valor-envelope-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
           </div>
         </div>
@@ -335,7 +351,7 @@
         </div>
 
         <div class="field" id="field-foto">
-          <label>Foto do Envelope <span id="foto-hint" class="hint">(recomendado no fechamento)</span></label>
+          <label>Foto do Envelope <span id="foto-hint" class="hint">(Obrigatório no fechamento) *</span></label>
           <div class="photo-upload">
             <input type="file" id="foto-envelope" accept="image/*" capture="environment">
             <div id="foto-preview-wrap" class="foto-preview-wrap hidden">
@@ -343,6 +359,7 @@
               <button type="button" id="foto-remover" class="btn-mini" aria-label="Remover foto">Remover</button>
             </div>
           </div>
+          <div id="foto-envelope-error" class="input-error-msg hidden">A foto do envelope é obrigatória no fechamento</div>
         </div>
 
         <div class="form-actions">
@@ -366,9 +383,16 @@
 
     <!-- ===================== TAB: DASHBOARD ===================== -->
     <section id="tab-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tablink-dashboard">
-      <div class="dash-header">
-        <h2>Dinheiro do Envelope por Loja</h2>
-        <div class="dash-total" id="dash-total-geral">R$ 0,00 em trânsito</div>
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-amber-400"></i> Envelopes por Loja
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Acompanhamento geral de envelopes em trânsito e fechamentos do dia.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="dash-total text-xs font-bold bg-brand-950 border border-brand-800 px-3 py-1.5 rounded-xl text-amber-300" id="dash-total-geral">R$ 0,00 em trânsito</div>
+        </div>
       </div>
 
       <div id="alerta-sem-fechamento" class="card alerta-card hidden" role="alert">
@@ -421,9 +445,20 @@
 
     <!-- ===================== TAB: HISTÓRICO ===================== -->
     <section id="tab-historico" class="tab-panel" role="tabpanel" aria-labelledby="tablink-historico">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Histórico Completo
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Histórico completo e detalhado de todos os envelopes e movimentações enviadas.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Registros</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="table-header">
-          <h2>Histórico Completo</h2>
           <div class="filters">
             <input type="text" id="busca-hist" placeholder="Buscar loja, consultor..." aria-label="Buscar no histórico">
             <select id="filtro-loja-hist" aria-label="Filtrar por loja">
@@ -470,10 +505,17 @@
 
     <!-- ===================== TAB: DASHBOARD MENSAL (só Bruno/Isabella) ===================== -->
     <section id="tab-mensal" class="tab-panel" role="tabpanel" aria-labelledby="tablink-mensal">
-      <div class="dash-header">
-        <h2>Dashboard Mensal por Loja</h2>
-        <div class="field mes-picker">
-          <input type="month" id="mensal-mes-filtro" aria-label="Selecionar mês">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-amber-400"></i> Dashboard Mensal por Loja
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Análise consolidada do faturamento e somatória mensal por unidade ativa.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="field mes-picker bg-brand-950 rounded-xl px-2 py-1 border border-brand-800">
+            <input type="month" id="mensal-mes-filtro" aria-label="Selecionar mês" style="background: transparent; border: none; color: white; min-height: auto; padding: 4px;">
+          </div>
         </div>
       </div>
 
@@ -507,9 +549,20 @@
 
     <!-- ===================== TAB: AUDITORIA ===================== -->
     <section id="tab-auditoria" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-auditoria">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-amber-400"></i> Auditoria de Ações
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Log completo de modificações de PIN, status e fechamentos do sistema.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest">Acesso Restrito</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="table-header">
-          <h2>Auditoria de Ações (Acesso Restrito)</h2>
           <div class="filters">
             <button id="btn-atualizar-auditoria" class="btn-secondary">Atualizar</button>
           </div>
@@ -542,7 +595,7 @@
 
       <!-- Sub-navegação interna do FA (owners vêem tudo, consultoras_fa vêem só registro) -->
       <nav class="fa-subnav" id="fa-subnav" role="tablist" aria-label="Navegação FaçaAmigos">
-        <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro">Novo Registro</button>
+        <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro">Registrar Envelope</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-dashboard" id="fa-tablink-dashboard">Dashboard</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-historico" id="fa-tablink-historico">Histórico</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-mensal" id="fa-tablink-mensal">Mensal</button>
@@ -561,6 +614,7 @@
                 <option>Alice</option>
                 <option>Alessandra</option>
               </select>
+              <div id="fa-consultor-error" class="input-error-msg hidden">Selecione o consultor</div>
             </div>
 
             <div class="field">
@@ -571,6 +625,7 @@
                 <option>ParqueShopping</option>
                 <option>Parque Circuito</option>
               </select>
+              <div id="fa-loja-error" class="input-error-msg hidden">Selecione a loja</div>
             </div>
           </div>
 
@@ -581,24 +636,28 @@
                 <button type="button" class="seg-btn" data-value="Abertura">Abertura</button>
                 <button type="button" class="seg-btn" data-value="Fechamento">Fechamento</button>
               </div>
+              <div id="fa-tipo-operacao-error" class="input-error-msg hidden">Selecione o tipo de operação</div>
             </div>
 
             <div class="field">
               <label for="fa-data-operacao">Data e Hora *</label>
               <input type="datetime-local" id="fa-data-operacao" required>
+              <div id="fa-data-operacao-error" class="input-error-msg hidden">Selecione a data e hora</div>
             </div>
           </div>
 
           <div class="grid-2">
             <div class="field">
               <label for="fa-fundo-caixa">Fundo de Caixa (R$) *</label>
-              <input type="text" id="fa-fundo-caixa" inputmode="numeric" placeholder="0,00" required>
+              <input type="text" id="fa-fundo-caixa" inputmode="numeric" placeholder="R$ 0,00" required>
               <span id="fa-fundo-caixa-hint" class="hint hidden"></span>
+              <div id="fa-fundo-caixa-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
             </div>
 
             <div class="field" id="fa-field-valor-envelope">
               <label for="fa-valor-envelope">Valor do Envelope (R$) *</label>
-              <input type="text" id="fa-valor-envelope" inputmode="numeric" placeholder="0,00" required>
+              <input type="text" id="fa-valor-envelope" inputmode="numeric" placeholder="R$ 0,00" required>
+              <div id="fa-valor-envelope-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
             </div>
           </div>
 
@@ -608,7 +667,7 @@
           </div>
 
           <div class="field" id="fa-field-foto">
-            <label>Foto do Envelope <span id="fa-foto-hint" class="hint">(recomendado no fechamento)</span></label>
+            <label>Foto do Envelope <span id="fa-foto-hint" class="hint">(Obrigatório no fechamento) *</span></label>
             <div class="photo-upload">
               <input type="file" id="fa-foto-envelope" accept="image/*" capture="environment">
               <div id="fa-foto-preview-wrap" class="foto-preview-wrap hidden">
@@ -616,6 +675,7 @@
                 <button type="button" id="fa-foto-remover" class="btn-mini" aria-label="Remover foto">Remover</button>
               </div>
             </div>
+            <div id="fa-foto-envelope-error" class="input-error-msg hidden">A foto do envelope é obrigatória no fechamento</div>
           </div>
 
           <div class="form-actions">
@@ -640,7 +700,7 @@
       <!-- SUB-TAB: DASHBOARD FA -->
       <div id="fa-tab-fa-dashboard" class="fa-tab-panel hidden">
         <div class="dash-header">
-          <h2>Dinheiro do Envelope <span class="fa-title-accent">FaçaAmigos</span></h2>
+          <h2>Envelopes por Loja <span class="fa-title-accent">FaçaAmigos</span></h2>
           <div class="dash-total" id="fa-dash-total-geral">R$ 0,00 em trânsito</div>
         </div>
 
@@ -761,12 +821,22 @@
 
     <!-- ===================== TAB: COLABORADORES (só Bruno/Isabella) ===================== -->
     <section id="tab-colaboradores" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-colaboradores">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-users-gear text-amber-400"></i> Gerenciamento de Colaboradores
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Gerenciamento de acessos, criação de novos usuários e alteração de PINs.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest">Acesso Restrito</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="table-header">
           <div>
-            <h2><i class="fa-solid fa-users-gear"></i> Gerenciamento de Colaboradores</h2>
-            <p class="section-desc" style="margin-top: 4px; opacity: 0.85; font-size: 0.9rem;">Cadastre novos colaboradores, altere PINs ou remova acessos. (Acesso exclusivo para Bruno e Isabella)</p>
-          </div>
+            <h2><i class="fa-solid fa-users-gear"></i> Colaboradores Cadastrados</h2>
           <button id="btn-atualizar-colaboradores" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Atualizar Lista</button>
         </div>
 
@@ -782,7 +852,7 @@
               <label for="colab-role">Perfil / Função *</label>
               <select id="colab-role" required>
                 <option value="consultora">Consultora (Apenas Registro)</option>
-                <option value="consultora_dashboard">Consultora + Dashboard (Alexandra)</option>
+                <option value="consultora_dashboard">Líder de Operações Cacau Show</option>
                 <option value="consultora_fa">Consultora FaçaAmigos (FA)</option>
                 <option value="owner">Administrador / Owner (Bruno e Isabella)</option>
               </select>
@@ -818,10 +888,22 @@
 
     <!-- ===================== ABA: CONFERÊNCIA DE NF-E (LOGÍSTICA) ===================== -->
     <section id="tab-conferencia-nfe" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-receipt text-amber-400"></i> Recepção & Conferência de NF-e
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Importe arquivos XML das Notas Fiscais e faça a validação física utilizando a câmera do dispositivo.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Logística</span>
+        </div>
+      </div>
+
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         <!-- Galeria de Cards NF-e Importadas -->
         <div id="nf-cards-gallery-section" class="space-y-6">
-          <div class="glass-card p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 text-center shadow-xl">
+          <div class="glass-card p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 text-center shadow-xl hidden">
             <h2 class="font-display text-xl font-bold text-brand-200">Painel de Recepção & Conferência de NF-e</h2>
             <p class="text-xs text-brand-400 mt-1 max-w-lg mx-auto">Importe os arquivos XML das notas fiscais extraídos do portal Cacau Digital para iniciar a conferência física com leitor de câmera direct.</p>
             
@@ -943,6 +1025,11 @@
                 <i class="fa-solid fa-video"></i> <span id="nf-scanner-btn-text">Ativar Câmera NF</span>
               </button>
             </div>
+            <div id="nf-camera-select-container" class="hidden mb-3 text-left">
+              <label for="nf-camera-select" class="text-[10px] text-brand-400 font-bold uppercase tracking-wider block mb-1">Selecionar Câmera:</label>
+              <select id="nf-camera-select" class="w-full bg-brand-900 text-brand-100 border border-brand-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand-500 cursor-pointer">
+              </select>
+            </div>
             <div id="nf-scanner-container" class="hidden w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden border border-brand-800 relative">
               <div id="nf-reader" class="w-full"></div>
             </div>
@@ -979,6 +1066,18 @@
 
     <!-- ===================== ABA: INVENTÁRIO DE ESTOQUE (LOGÍSTICA) ===================== -->
     <section id="tab-inventario-estoque" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-list text-amber-400"></i> Inventário de Estoque
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Realize a conferência e o inventário cego de validades por loja.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Controle de Validades</span>
+        </div>
+      </div>
+
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner de Alerta Mensal -->
@@ -1397,7 +1496,7 @@
                 <div class="field">
                   <label class="block text-xs font-bold uppercase mb-2">Cor de Destaque (Accent)</label>
                   <div class="flex items-center gap-3">
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3d1a11" style="background-color: #3d1a11;" title="Cacau Show (Padrão)"></button>
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#5c3a21" style="background-color: #5c3a21;" title="Cacau Show (Padrão)"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#ff7a00" style="background-color: #ff7a00;" title="Faça Amigos"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#10b981" style="background-color: #10b981;" title="Esmeralda"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3b82f6" style="background-color: #3b82f6;" title="Azul Moderno"></button>

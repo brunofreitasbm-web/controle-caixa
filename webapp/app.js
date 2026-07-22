@@ -228,13 +228,17 @@ function formatarMoedaInput(e) {
   value = (parseInt(value, 10) / 100).toFixed(2);
   value = value.replace(".", ",");
   value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
-  e.target.value = value;
+  e.target.value = "R$ " + value;
+  // Dispara evento de change para que a validação/autosave em tempo real rode
+  e.target.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function parseMoeda(str) {
   if (!str) return 0;
   if (typeof str === "number") return str;
-  return parseFloat(str.replace(/\./g, "").replace(",", "."));
+  const clean = str.replace(/[^0-9,-]/g, "");
+  if (!clean) return 0;
+  return parseFloat(clean.replace(/\./g, "").replace(",", "."));
 }
 
 document.getElementById("fundo-caixa").addEventListener("input", formatarMoedaInput);
@@ -242,6 +246,178 @@ document.getElementById("valor-envelope").addEventListener("input", formatarMoed
 // Campos FA
 document.getElementById("fa-fundo-caixa").addEventListener("input", formatarMoedaInput);
 document.getElementById("fa-valor-envelope").addEventListener("input", formatarMoedaInput);
+
+// --- Rascunho / Autosave dos formulários no localStorage ---
+function salvarRascunhosForm() {
+  const rascunhoCaixa = {
+    consultor: document.getElementById("consultor").value,
+    loja: document.getElementById("loja").value,
+    dataOperacao: document.getElementById("data-operacao").value,
+    tipoOperacao: tipoOperacaoSelecionado,
+    fundoCaixa: document.getElementById("fundo-caixa").value,
+    valorEnvelope: document.getElementById("valor-envelope").value,
+    observacoes: document.getElementById("observacoes").value
+  };
+  localStorage.setItem("rascunho_registro_caixa", JSON.stringify(rascunhoCaixa));
+}
+
+function salvarRascunhosFormFA() {
+  const rascunhoFa = {
+    consultor: document.getElementById("fa-consultor").value,
+    loja: document.getElementById("fa-loja").value,
+    dataOperacao: document.getElementById("fa-data-operacao").value,
+    tipoOperacao: faTipoOperacaoSelecionado,
+    fundoCaixa: document.getElementById("fa-fundo-caixa").value,
+    valorEnvelope: document.getElementById("fa-valor-envelope").value,
+    observacoes: document.getElementById("fa-observacoes").value
+  };
+  localStorage.setItem("rascunho_registro_fa", JSON.stringify(rascunhoFa));
+}
+
+function restaurarRascunhosForm() {
+  try {
+    const rawCaixa = localStorage.getItem("rascunho_registro_caixa");
+    if (rawCaixa) {
+      const data = JSON.parse(rawCaixa);
+      if (data.consultor) document.getElementById("consultor").value = data.consultor;
+      if (data.loja) document.getElementById("loja").value = data.loja;
+      if (data.dataOperacao) document.getElementById("data-operacao").value = data.dataOperacao;
+      if (data.tipoOperacao) {
+        tipoOperacaoSelecionado = data.tipoOperacao;
+        document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.value === tipoOperacaoSelecionado);
+        });
+        atualizarCamposPorOperacao();
+      }
+      if (data.fundoCaixa) document.getElementById("fundo-caixa").value = data.fundoCaixa;
+      if (data.valorEnvelope) document.getElementById("valor-envelope").value = data.valorEnvelope;
+      if (data.observacoes) document.getElementById("observacoes").value = data.observacoes;
+    }
+  } catch (e) {
+    console.error("Erro ao restaurar rascunho Caixa:", e);
+  }
+
+  try {
+    const rawFa = localStorage.getItem("rascunho_registro_fa");
+    if (rawFa) {
+      const data = JSON.parse(rawFa);
+      if (data.consultor) document.getElementById("fa-consultor").value = data.consultor;
+      if (data.loja) document.getElementById("fa-loja").value = data.loja;
+      if (data.dataOperacao) document.getElementById("fa-data-operacao").value = data.dataOperacao;
+      if (data.tipoOperacao) {
+        faTipoOperacaoSelecionado = data.tipoOperacao;
+        document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.value === faTipoOperacaoSelecionado);
+        });
+        atualizarFaCamposPorOperacao();
+      }
+      if (data.fundoCaixa) document.getElementById("fa-fundo-caixa").value = data.fundoCaixa;
+      if (data.valorEnvelope) document.getElementById("fa-valor-envelope").value = data.valorEnvelope;
+      if (data.observacoes) document.getElementById("fa-observacoes").value = data.observacoes;
+    }
+  } catch (e) {
+    console.error("Erro ao restaurar rascunho FA:", e);
+  }
+}
+
+function inicializarAutosaveForm() {
+  const fieldsCaixa = ["consultor", "loja", "data-operacao", "fundo-caixa", "valor-envelope", "observacoes"];
+  fieldsCaixa.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", salvarRascunhosForm);
+      el.addEventListener("change", salvarRascunhosForm);
+    }
+  });
+
+  const fieldsFa = ["fa-consultor", "fa-loja", "fa-data-operacao", "fa-fundo-caixa", "fa-valor-envelope", "fa-observacoes"];
+  fieldsFa.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", salvarRascunhosFormFA);
+      el.addEventListener("change", salvarRascunhosFormFA);
+    }
+  });
+
+  // Salvar rascunho ao selecionar operação
+  document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", salvarRascunhosForm);
+  });
+  document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", salvarRascunhosFormFA);
+  });
+}
+
+// --- Pré-seleção Baseada em Horário para Abertura/Fechamento ---
+function preselecionarOperacaoPorHorario() {
+  const hour = new Date().getHours();
+  const operacaoSugerida = hour < 13 ? "Abertura" : "Fechamento";
+
+  const rascunhoCaixa = localStorage.getItem("rascunho_registro_caixa");
+  if (!rascunhoCaixa) {
+    const btnCacau = document.querySelector(`#tipo-operacao .seg-btn[data-value="${operacaoSugerida}"]`);
+    if (btnCacau) {
+      document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+      btnCacau.classList.add("active");
+      tipoOperacaoSelecionado = operacaoSugerida;
+      atualizarCamposPorOperacao();
+    }
+  }
+
+  const rascunhoFa = localStorage.getItem("rascunho_registro_fa");
+  if (!rascunhoFa) {
+    const btnFa = document.querySelector(`#fa-tipo-operacao .seg-btn[data-value="${operacaoSugerida}"]`);
+    if (btnFa) {
+      document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+      btnFa.classList.add("active");
+      faTipoOperacaoSelecionado = operacaoSugerida;
+      atualizarFaCamposPorOperacao();
+    }
+  }
+}
+
+// --- Limpeza Visual e Comportamento dos Erros Inline ---
+function limparErrosInline(prefix = "") {
+  const ids = ["consultor", "loja", "tipo-operacao", "data-operacao", "fundo-caixa", "valor-envelope", "foto-envelope"];
+  ids.forEach(id => {
+    const fullId = prefix ? `${prefix}-${id}` : id;
+    const el = document.getElementById(fullId);
+    if (el) el.classList.remove("input-error");
+    const errEl = document.getElementById(`${fullId}-error`);
+    if (errEl) errEl.classList.add("hidden");
+  });
+}
+
+function registrarLimparErroAoDigitar() {
+  const ids = ["consultor", "loja", "tipo-operacao", "data-operacao", "fundo-caixa", "valor-envelope", "foto-envelope",
+               "fa-consultor", "fa-loja", "fa-tipo-operacao", "fa-data-operacao", "fa-fundo-caixa", "fa-valor-envelope", "fa-foto-envelope"];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const handler = () => {
+        el.classList.remove("input-error");
+        const errEl = document.getElementById(`${id}-error`);
+        if (errEl) errEl.classList.add("hidden");
+      };
+      el.addEventListener("input", handler);
+      el.addEventListener("change", handler);
+    }
+  });
+  document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("tipo-operacao").classList.remove("input-error");
+      const err = document.getElementById("tipo-operacao-error");
+      if (err) err.classList.add("hidden");
+    });
+  });
+  document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("fa-tipo-operacao").classList.remove("input-error");
+      const err = document.getElementById("fa-tipo-operacao-error");
+      if (err) err.classList.add("hidden");
+    });
+  });
+}
 
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
@@ -295,6 +471,7 @@ async function checkApiConnection() {
         API_BASE = ep;
         API_ONLINE = true;
         offlineBanner.style.display = "none";
+        offlineBanner.classList.remove("server-down");
         return true;
       }
     } catch (e) {
@@ -306,6 +483,15 @@ async function checkApiConnection() {
     console.warn("API Backend offline. Executando modo offline com armazenamento local.");
   }
   API_ONLINE = false;
+  
+  if (!navigator.onLine) {
+    offlineBanner.classList.remove("server-down");
+    offlineBanner.innerHTML = '<i class="fa-solid fa-wifi-slash"></i> Sem conexão com a internet. O app está rodando offline e sincronizará quando a rede voltar.';
+  } else {
+    offlineBanner.classList.add("server-down");
+    offlineBanner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Alerta: Servidor indisponível. Algumas funções podem falhar. Entre em contato com o suporte.';
+  }
+  
   offlineBanner.style.display = "block";
   return false;
 }
@@ -340,6 +526,30 @@ async function inicializarDados() {
 
       // Carregar lista de colaboradores cadastrados
       await carregarColaboradores();
+
+      // Carregar NF-es do servidor
+      try {
+        const resNfs = await fetch(`${API_BASE}/nfs`);
+        if (resNfs.ok) {
+          const dataNfs = await resNfs.json();
+          const serverNfs = {};
+          dataNfs.forEach(nf => {
+            if (nf.info && nf.info.rawEmissaoDate) {
+              nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+            }
+            if (nf.products) {
+              nf.products.forEach(p => {
+                if (p.validade) p.validade = new Date(p.validade);
+              });
+            }
+            serverNfs[nf.numero] = { info: nf.info, products: nf.products };
+          });
+          importedNfs = serverNfs;
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+        }
+      } catch (nfErr) {
+        console.error("Erro ao sincronizar NF-es do servidor:", nfErr);
+      }
     } catch (e) {
       console.error("Erro ao puxar dados da API:", e);
       carregarDadosLocais();
@@ -606,7 +816,7 @@ function carregarConfiguracoes() {
   config = carregarJSON(CONFIG_KEY, {
     linkGrupo: "",
     theme: "auto",
-    accentColor: "#3d1a11",
+    accentColor: "#5c3a21",
     sessionTimeout: 1800,
     whatsappGrupos: {},
     whatsappGruposFa: {}
@@ -616,7 +826,7 @@ function carregarConfiguracoes() {
   aplicarTema(config.theme || "auto");
 
   // Aplicar Cor
-  aplicarCorDestaque(config.accentColor || "#3d1a11");
+  aplicarCorDestaque(config.accentColor || "#5c3a21");
 
   // Configurar timeout da sessão
   const timeoutVal = parseInt(config.sessionTimeout !== undefined ? config.sessionTimeout : 1800);
@@ -784,9 +994,21 @@ function entrarNoApp() {
 
   // Interceptar login de owner para mostrar a seleção de módulos
   if (currentUser.role === "owner") {
-    document.getElementById("module-selection-overlay").classList.remove("hidden");
-    appEl.classList.add("hidden");
+    // Configurar o botão da topbar
+    const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
+    if (btnTopbar) btnTopbar.classList.remove("hidden");
+
+    const ultimoModulo = localStorage.getItem("ultimoModuloOwner");
+    if (ultimoModulo) {
+      iniciarModuloBase(ultimoModulo);
+    } else {
+      document.getElementById("module-selection-overlay").classList.remove("hidden");
+      appEl.classList.add("hidden");
+    }
     return;
+  } else {
+    const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
+    if (btnTopbar) btnTopbar.classList.add("hidden");
   }
 
   // Para outros perfis, prossegue normalmente
@@ -803,6 +1025,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Se for owner, sobrescrever as abas permitidas de acordo com o módulo escolhido
   if (currentUser.role === "owner" && moduloOpcional) {
+    localStorage.setItem("ultimoModuloOwner", moduloOpcional);
     if (moduloOpcional === "cacau-show") {
       tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria", "colaboradores", "auditoria-boletos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
@@ -868,6 +1091,10 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab(tabsPermitidas[0]);
     }
   }
+
+  // Sugerir Abertura/Fechamento por hora e restaurar rascunhos salvos
+  preselecionarOperacaoPorHorario();
+  restaurarRascunhosForm();
 
   // Verificar aviso de Inventário Mensal Obrigatório para colaboradoras Cacau Show
   verificarInventarioMensalNotificacao();
@@ -1017,11 +1244,14 @@ document.getElementById("btn-mod-faca").addEventListener("click", () => {
   iniciarModuloBase("faca-amigos");
 });
 
-// Botão Trocar Módulo na Topbar
-document.getElementById("btn-trocar-modulo").addEventListener("click", () => {
+// Botão Trocar Módulo na Topbar / Sidebar
+const trocarModuloHandler = () => {
   appEl.classList.add("hidden");
   document.getElementById("module-selection-overlay").classList.remove("hidden");
-});
+};
+document.getElementById("btn-trocar-modulo").addEventListener("click", trocarModuloHandler);
+const btnTopbarTrocar = document.getElementById("btn-topbar-trocar-modulo");
+if (btnTopbarTrocar) btnTopbarTrocar.addEventListener("click", trocarModuloHandler);
 
 function renderApp() {
   if (currentUser) {
@@ -1103,7 +1333,8 @@ function ativarTab(tabName) {
   if (tabName === "auditoria") carregarAuditoria();
   if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
   if (tabName === "colaboradores") renderizarColaboradores();
-  if (tabName === "auditoria-boletos") carregarAuditoriaBoletos();
+  if (tabName === "boletos") carregarBoletosServidor();
+  if (tabName === "auditoria-boletos") carregarBoletosServidor();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -1241,7 +1472,7 @@ function atualizarCamposPorOperacao() {
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
-    fotoHint.textContent = "(recomendado no fechamento)";
+    fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
 
@@ -1257,7 +1488,7 @@ function atualizarFaCamposPorOperacao() {
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
-    fotoHint.textContent = "(recomendado no fechamento)";
+    fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
 
@@ -1500,16 +1731,47 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
   const observacoes = document.getElementById("observacoes").value;
 
+  limparErrosInline("");
+
+  let temErro = false;
+  let primeiroInvalido = null;
+
+  function marcarErro(inputEl, errorEl) {
+    if (inputEl) {
+      inputEl.classList.add("input-error");
+      if (!primeiroInvalido) primeiroInvalido = inputEl;
+    }
+    if (errorEl) errorEl.classList.remove("hidden");
+    temErro = true;
+  }
+
+  if (!consultor) {
+    marcarErro(document.getElementById("consultor"), document.getElementById("consultor-error"));
+  }
+  if (!loja) {
+    marcarErro(document.getElementById("loja"), document.getElementById("loja-error"));
+  }
   if (!tipoOperacaoSelecionado) {
-    showToast("Selecione o tipo de operação (Abertura ou Fechamento).", "erro");
-    return;
+    marcarErro(document.getElementById("tipo-operacao"), document.getElementById("tipo-operacao-error"));
   }
-  if (!consultor || !loja || !dataOperacao || fundoCaixaRaw === "") {
-    showToast("Preencha todos os campos obrigatórios.", "erro");
-    return;
+  if (!dataOperacao) {
+    marcarErro(document.getElementById("data-operacao"), document.getElementById("data-operacao-error"));
   }
-  if (tipoOperacaoSelecionado === "Fechamento" && valorEnvelopeRaw === "") {
-    showToast("Informe o valor do envelope no fechamento.", "erro");
+  if (fundoCaixaRaw === "" || isNaN(parseMoeda(fundoCaixaRaw))) {
+    marcarErro(document.getElementById("fundo-caixa"), document.getElementById("fundo-caixa-error"));
+  }
+  if (tipoOperacaoSelecionado === "Fechamento") {
+    if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
+      marcarErro(document.getElementById("valor-envelope"), document.getElementById("valor-envelope-error"));
+    }
+    if (!fotoDataUrl) {
+      marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
+    }
+  }
+
+  if (temErro) {
+    if (primeiroInvalido) primeiroInvalido.focus();
+    showToast("Por favor, preencha todos os campos obrigatórios corretamente.", "erro");
     return;
   }
 
@@ -1555,6 +1817,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   setLoading(btnSubmit, false);
   showToast("Registro salvo com sucesso!", "sucesso");
+  localStorage.removeItem("rascunho_registro_caixa");
   await showModal(`Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi realizado com sucesso!`, { icon: "✅", title: "Registro Salvo" });
 
   // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
@@ -1616,16 +1879,47 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
   const observacoes = document.getElementById("fa-observacoes").value;
 
+  limparErrosInline("fa");
+
+  let temErro = false;
+  let primeiroInvalido = null;
+
+  function marcarErro(inputEl, errorEl) {
+    if (inputEl) {
+      inputEl.classList.add("input-error");
+      if (!primeiroInvalido) primeiroInvalido = inputEl;
+    }
+    if (errorEl) errorEl.classList.remove("hidden");
+    temErro = true;
+  }
+
+  if (!consultor) {
+    marcarErro(document.getElementById("fa-consultor"), document.getElementById("fa-consultor-error"));
+  }
+  if (!loja) {
+    marcarErro(document.getElementById("fa-loja"), document.getElementById("fa-loja-error"));
+  }
   if (!faTipoOperacaoSelecionado) {
-    showToast("Selecione o tipo de operação (Abertura ou Fechamento).", "erro");
-    return;
+    marcarErro(document.getElementById("fa-tipo-operacao"), document.getElementById("fa-tipo-operacao-error"));
   }
-  if (!consultor || !loja || !dataOperacao || fundoCaixaRaw === "") {
-    showToast("Preencha todos os campos obrigatórios.", "erro");
-    return;
+  if (!dataOperacao) {
+    marcarErro(document.getElementById("fa-data-operacao"), document.getElementById("fa-data-operacao-error"));
   }
-  if (faTipoOperacaoSelecionado === "Fechamento" && valorEnvelopeRaw === "") {
-    showToast("Informe o valor do envelope no fechamento.", "erro");
+  if (fundoCaixaRaw === "" || isNaN(parseMoeda(fundoCaixaRaw))) {
+    marcarErro(document.getElementById("fa-fundo-caixa"), document.getElementById("fa-fundo-caixa-error"));
+  }
+  if (faTipoOperacaoSelecionado === "Fechamento") {
+    if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
+      marcarErro(document.getElementById("fa-valor-envelope"), document.getElementById("fa-valor-envelope-error"));
+    }
+    if (!faFotoDataUrl) {
+      marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
+    }
+  }
+
+  if (temErro) {
+    if (primeiroInvalido) primeiroInvalido.focus();
+    showToast("Por favor, preencha todos os campos obrigatórios corretamente.", "erro");
     return;
   }
 
@@ -1670,6 +1964,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
 
   setLoading(btnSubmit, false);
   showToast("Registro FaçaAmigos salvo com sucesso!", "sucesso");
+  localStorage.removeItem("rascunho_registro_fa");
   await showModal(`Registro de ${faTipoOperacaoSelecionado} para ${loja} (FaçaAmigos) foi salvo com sucesso!`, { icon: "✅", title: "Registro Salvo" });
 
   // Reconciliação FA: Abertura vs Fechamento anterior
@@ -2117,12 +2412,14 @@ function renderFaHistorico() {
 
   tbody.querySelectorAll(".fa-btn-excluir").forEach(btn => {
     btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const reg = registrosFA.find(r => r.id === id);
+      const info = reg ? `do colaborador "${reg.consultor}" no valor de R$ ${reg.valorEnvelope || reg.fundoCaixa || 0} da loja "${reg.loja}"` : "este registro";
       const confirmado = await showConfirm(
-        "[FaçaAmigos] Deseja realmente apagar este registro? Esta ação não pode ser desfeita.",
+        `[FaçaAmigos] Deseja realmente apagar o registro ${info}? Esta ação não pode ser desfeita.`,
         { icon: "🗑️", title: "Excluir registro FA", confirmText: "Excluir", cancelText: "Cancelar", confirmClass: "btn-danger" }
       );
       if (confirmado) {
-        const id = btn.dataset.id;
         const sucesso = await excluirRegistroFAAPI(id);
         if (sucesso) {
           showToast("Registro FA apagado com sucesso!", "sucesso");
@@ -2704,12 +3001,14 @@ function renderHistorico() {
 
   tbody.querySelectorAll(".btn-excluir").forEach(btn => {
     btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const reg = registros.find(r => r.id === id);
+      const info = reg ? `do colaborador "${reg.consultor}" no valor de R$ ${reg.valorEnvelope || reg.fundoCaixa || 0} da loja "${reg.loja}"` : "este registro";
       const confirmado = await showConfirm(
-        "Deseja realmente apagar este registro permanentemente? Esta ação não pode ser desfeita.",
+        `Deseja realmente apagar permanentemente o registro ${info}? Esta ação não pode ser desfeita.`,
         { icon: "🗑️", title: "Excluir registro", confirmText: "Excluir", cancelText: "Cancelar", confirmClass: "btn-danger" }
       );
       if (confirmado) {
-        const id = btn.dataset.id;
         const sucesso = await excluirRegistroAPI(id);
         if (sucesso) {
           showToast("Registro apagado com sucesso!", "sucesso");
@@ -3311,7 +3610,7 @@ async function renderizarColaboradores() {
 
   const roleLabels = {
     consultora: "Consultora (Apenas Registro)",
-    consultora_dashboard: "Consultora + Dashboard (Alexandra)",
+    consultora_dashboard: "Líder de Operações Cacau Show",
     consultora_fa: "Consultora FaçaAmigos (FA)",
     owner: "Administrador / Owner (Bruno e Isabella)"
   };
@@ -3651,25 +3950,42 @@ function inicializarImportedNfs() {
   }
 }
 
-function inicializarBoletos() {
-  const todos = carregarJSON("cacaushow_boletos_v1", []);
-  const agora = new Date().getTime();
-  
-  boletos = todos.filter(b => {
-    if (b.status === "Pago" && b.pagoEm) {
-      const tempoPagamento = new Date(b.pagoEm).getTime();
-      if (agora - tempoPagamento > 24 * 60 * 60 * 1000) {
-        return false;
+async function carregarBoletosServidor() {
+  try {
+    const res = await fetch("/api/boletos");
+    if (res.ok) {
+      const todos = await res.json();
+      const agora = new Date().getTime();
+      
+      // Filtrar boletos pagos há mais de 24 horas no frontend
+      boletos = todos.filter(b => {
+        if (b.status === "Pago" && b.pagoEm) {
+          const tempoPagamento = new Date(b.pagoEm).getTime();
+          if (agora - tempoPagamento > 24 * 60 * 60 * 1000) {
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      renderBoletos();
+      if (window.carregarAuditoriaBoletos) {
+        window.carregarAuditoriaBoletos();
       }
     }
-    return true;
-  });
-  
-  localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+  } catch (err) {
+    console.error("Erro ao carregar boletos do servidor:", err);
+  }
+}
+
+async function inicializarBoletos() {
+  await carregarBoletosServidor();
 }
 
 // Init Event Listeners para a Logística
 document.addEventListener('DOMContentLoaded', () => {
+  inicializarAutosaveForm();
+  registrarLimparErroAoDigitar();
   inicializarImportedNfs();
   inicializarBoletos();
   const nfFileEl = document.getElementById('nf-file');
@@ -3958,17 +4274,52 @@ function parseXmlNfe(file, callback) {
       });
     });
 
-    importedNfs[nNF] = { info, products: productsList };
-    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-    activeNfNumber = nNF;
-
-    setTimeout(() => {
-      if (window.carregarAuditoriaBoletos) {
-        window.carregarAuditoriaBoletos();
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: nNF, info, products: productsList })
+      })
+      .then(res => {
+        if (res.status === 409) {
+          showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
+          if (callback) callback();
+          return null;
+        }
+        if (!res.ok) throw new Error('Erro ao salvar no servidor');
+        return res.json();
+      })
+      .then(data => {
+        if (data) {
+          importedNfs[nNF] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = nNF;
+          showToast(`NF-e Nº ${nNF} importada com sucesso!`, 'sucesso');
+          setTimeout(() => {
+            if (window.carregarAuditoriaBoletos) {
+              window.carregarAuditoriaBoletos();
+            }
+          }, 800);
+          if (callback) callback();
+        }
+      })
+      .catch(err => {
+        showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
+        console.error(err);
+        if (callback) callback();
+      });
+    } else {
+      if (importedNfs[nNF]) {
+        showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
+        if (callback) callback();
+        return;
       }
-    }, 800);
-
-    if (callback) callback();
+      importedNfs[nNF] = { info, products: productsList };
+      localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+      activeNfNumber = nNF;
+      showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
+      if (callback) callback();
+    }
   };
   reader.readAsText(file);
 }
@@ -4041,10 +4392,47 @@ function parseExcelNfe(file, callback) {
       });
     }
 
-    importedNfs[numNfStr] = { info, products: productsList };
-    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-    activeNfNumber = numNfStr;
-    if (callback) callback();
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: numNfStr, info, products: productsList })
+      })
+      .then(res => {
+        if (res.status === 409) {
+          showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
+          if (callback) callback();
+          return null;
+        }
+        if (!res.ok) throw new Error('Erro ao salvar no servidor');
+        return res.json();
+      })
+      .then(data => {
+        if (data) {
+          importedNfs[numNfStr] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = numNfStr;
+          showToast(`NF-e Nº ${numNfStr} importada com sucesso!`, 'sucesso');
+          if (callback) callback();
+        }
+      })
+      .catch(err => {
+        showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
+        console.error(err);
+        if (callback) callback();
+      });
+    } else {
+      if (importedNfs[numNfStr]) {
+        showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
+        if (callback) callback();
+        return;
+      }
+      importedNfs[numNfStr] = { info, products: productsList };
+      localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+      activeNfNumber = numNfStr;
+      showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
+      if (callback) callback();
+    }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -4235,15 +4623,163 @@ function toggleNfScanner() {
   }
 }
 
-function startNfScanner() {
-  if (typeof Html5QrCode === 'undefined') return;
-  if (html5QrCodeNf === null) html5QrCodeNf = new Html5QrCode("nf-reader");
+function startNfScanner(selectedCameraId = null) {
+  if (typeof Html5QrCode === 'undefined') {
+    showToast("Biblioteca de QR Code não carregada.", "erro");
+    resetNfScannerUI();
+    return;
+  }
+
+  // 1. Check secure context
+  if (!window.isSecureContext) {
+    showToast("Erro: Acesso à câmera requer conexão segura (HTTPS).", "erro");
+    showModal("O acesso à câmera é bloqueado pelo navegador em conexões não seguras (HTTP). Por favor, acesse o sistema usando HTTPS ou pelo localhost.", {
+      icon: "⚠️",
+      title: "Conexão Não Segura",
+      btnText: "Entendi"
+    });
+    resetNfScannerUI();
+    return;
+  }
+
+  if (html5QrCodeNf === null) {
+    html5QrCodeNf = new Html5QrCode("nf-reader");
+  }
+
   const config = { fps: 15, qrbox: { width: 300, height: 180 } };
-  html5QrCodeNf.start({ facingMode: "environment" }, config, onNfScanSuccess, () => { }).catch(err => console.error(err));
+
+  // If a specific camera ID was selected or passed, use it directly
+  if (selectedCameraId) {
+    html5QrCodeNf.start({ deviceId: { exact: selectedCameraId } }, config, onNfScanSuccess, () => { })
+      .then(() => {
+        // Scanner started successfully
+      })
+      .catch(err => {
+        console.error("Erro ao iniciar com camera ID:", err);
+        showToast("Erro ao abrir a câmera selecionada. Tentando outra...", "erro");
+        fallbackToCameraList();
+      });
+    return;
+  }
+
+  // Otherwise, start with environment camera (rear camera)
+  html5QrCodeNf.start({ facingMode: "environment" }, config, onNfScanSuccess, () => { })
+    .then(() => {
+      setupCameraDropdown();
+    })
+    .catch(err => {
+      console.warn("Erro ao iniciar facingMode environment. Tentando listar câmeras...", err);
+      fallbackToCameraList();
+    });
+
+  function fallbackToCameraList() {
+    Html5QrCode.getCameras()
+      .then(cameras => {
+        if (!cameras || cameras.length === 0) {
+          showToast("Nenhuma câmera encontrada no aparelho.", "erro");
+          resetNfScannerUI();
+          return;
+        }
+
+        // Try to find a back camera
+        let backCamera = cameras.find(c => {
+          const lbl = c.label.toLowerCase();
+          return lbl.includes("back") || lbl.includes("traseira") || lbl.includes("rear") || lbl.includes("ambiente") || lbl.includes("environment");
+        });
+
+        // Use back camera if found, otherwise use first camera
+        const targetCam = backCamera || cameras[cameras.length - 1] || cameras[0];
+        
+        html5QrCodeNf.start({ deviceId: { exact: targetCam.id } }, config, onNfScanSuccess, () => { })
+          .then(() => {
+            setupCameraDropdown(cameras, targetCam.id);
+          })
+          .catch(e => {
+            console.error("Falha total ao iniciar câmera:", e);
+            showToast("Não foi possível acessar a câmera. Verifique as permissões.", "erro");
+            resetNfScannerUI();
+          });
+      })
+      .catch(e => {
+        console.error("Erro ao listar câmeras:", e);
+        showToast("Permissão negada ou erro ao acessar câmera.", "erro");
+        resetNfScannerUI();
+      });
+  }
+
+  function setupCameraDropdown(providedCameras = null, activeId = null) {
+    const selectContainer = document.getElementById('nf-camera-select-container');
+    const selectEl = document.getElementById('nf-camera-select');
+    if (!selectContainer || !selectEl) return;
+
+    const populate = (cameras) => {
+      if (cameras.length <= 1) {
+        selectContainer.classList.add('hidden');
+        return;
+      }
+
+      selectEl.innerHTML = '';
+      cameras.forEach(cam => {
+        const opt = document.createElement('option');
+        opt.value = cam.id;
+        opt.textContent = cam.label || `Câmera ${cam.id.substring(0, 8)}`;
+        if (activeId && cam.id === activeId) {
+          opt.selected = true;
+        }
+        selectEl.appendChild(opt);
+      });
+
+      selectContainer.classList.remove('hidden');
+
+      // Add change event listener if not already added
+      if (!selectEl.dataset.listenerAdded) {
+        selectEl.addEventListener('change', (e) => {
+          const newCamId = e.target.value;
+          if (html5QrCodeNf && html5QrCodeNf.isScanning) {
+            html5QrCodeNf.stop()
+              .then(() => {
+                startNfScanner(newCamId);
+              })
+              .catch(err => {
+                console.error("Erro ao parar para trocar câmera:", err);
+                startNfScanner(newCamId);
+              });
+          } else {
+            startNfScanner(newCamId);
+          }
+        });
+        selectEl.dataset.listenerAdded = "true";
+      }
+    };
+
+    if (providedCameras) {
+      populate(providedCameras);
+    } else {
+      Html5QrCode.getCameras()
+        .then(cameras => {
+          populate(cameras);
+        })
+        .catch(err => console.warn("Erro ao carregar câmeras para dropdown:", err));
+    }
+  }
+}
+
+function resetNfScannerUI() {
+  const container = document.getElementById('nf-scanner-container');
+  const selectContainer = document.getElementById('nf-camera-select-container');
+  const btnText = document.getElementById('nf-scanner-btn-text');
+  
+  if (container) container.classList.add('hidden');
+  if (selectContainer) selectContainer.classList.add('hidden');
+  if (btnText) btnText.textContent = "Ativar Câmera NF";
 }
 
 function stopNfScanner() {
-  if (html5QrCodeNf && html5QrCodeNf.isScanning) html5QrCodeNf.stop().catch(err => console.error(err));
+  const selectContainer = document.getElementById('nf-camera-select-container');
+  if (selectContainer) selectContainer.classList.add('hidden');
+  if (html5QrCodeNf && html5QrCodeNf.isScanning) {
+    html5QrCodeNf.stop().catch(err => console.error(err));
+  }
 }
 
 function onNfScanSuccess(decodedText) {
@@ -4318,6 +4854,19 @@ function saveNfQuantity(code, value) {
       currentNf._notificadoConclusao = false;
     }
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+    // Sincronizar quantidade com o servidor central
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs/${activeNfNumber}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          info: currentNf.info,
+          products: currentNf.products
+        })
+      })
+      .catch(err => console.error('Erro ao sincronizar quantidade da NF-e no servidor:', err));
+    }
   }
 }
 
@@ -4560,6 +5109,29 @@ function exportExcel() {
 
 let boletos = carregarJSON("cacaushow_boletos_v1", []);
 
+// Remover duplicados existentes nos registros locais
+(function removerDuplicadosIniciais() {
+  const antes = boletos.length;
+  const cleanBoletos = [];
+  boletos.forEach(b => {
+    const isDuplicate = cleanBoletos.some(cb =>
+      cb.loja === b.loja &&
+      cb.descricao === b.descricao &&
+      cb.vencimento === b.vencimento &&
+      cb.valor === b.valor
+    );
+    if (!isDuplicate) {
+      cleanBoletos.push(b);
+    }
+  });
+  if (cleanBoletos.length < antes) {
+    const removidos = antes - cleanBoletos.length;
+    boletos = cleanBoletos;
+    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+    console.log(`[Boleto Cleanup] Removidos ${removidos} registros duplicados de boletos.`);
+  }
+})();
+
 function inicializarBoletosTab() {
   const fileInput = document.getElementById("boleto-pdf-file");
   if (fileInput) {
@@ -4670,17 +5242,17 @@ async function parseBoletoPdf(file) {
       const boletosExtraidos = extrairBoletosDoTexto(textContent);
       if (boletosExtraidos.length > 0) {
         const boletosInseridosNesteLote = [];
+        let duplicadosCount = 0;
+        let novosCount = 0;
         boletosExtraidos.forEach(novoB => {
           const existeNoBanco = boletos.some(b =>
             b.loja === novoB.loja &&
-            b.documento === novoB.documento &&
             b.descricao === novoB.descricao &&
             b.vencimento === novoB.vencimento &&
             b.valor === novoB.valor
           );
           const existeNoLote = boletosInseridosNesteLote.some(b =>
             b.loja === novoB.loja &&
-            b.documento === novoB.documento &&
             b.descricao === novoB.descricao &&
             b.vencimento === novoB.vencimento &&
             b.valor === novoB.valor
@@ -4688,6 +5260,9 @@ async function parseBoletoPdf(file) {
           if (!existeNoBanco && !existeNoLote) {
             boletos.push(novoB);
             boletosInseridosNesteLote.push(novoB);
+            novosCount++;
+          } else {
+            duplicadosCount++;
           }
         });
 
@@ -4698,9 +5273,22 @@ async function parseBoletoPdf(file) {
             window.carregarAuditoriaBoletos();
           }
         }, 800);
-        showToast(`${boletosExtraidos.length} boletos carregados!`, "sucesso");
-        if (fileInfo) {
-          fileInfo.textContent = `Sucesso: ${boletosExtraidos.length} boletos carregados.`;
+
+        if (novosCount > 0 && duplicadosCount > 0) {
+          showToast(`${novosCount} boletos importados. ${duplicadosCount} duplicado(s) ignorado(s).`, "info");
+          if (fileInfo) {
+            fileInfo.textContent = `Importados: ${novosCount}. Duplicados ignorados: ${duplicadosCount}.`;
+          }
+        } else if (novosCount === 0 && duplicadosCount > 0) {
+          showToast(`Nenhum boleto importado. Todos os ${duplicadosCount} boletos já foram importados anteriormente.`, "erro");
+          if (fileInfo) {
+            fileInfo.textContent = `Aviso: Todos os ${duplicadosCount} boletos já constavam no sistema.`;
+          }
+        } else {
+          showToast(`${novosCount} boletos carregados!`, "sucesso");
+          if (fileInfo) {
+            fileInfo.textContent = `Sucesso: ${novosCount} boletos carregados.`;
+          }
         }
       } else {
         showToast("Não foi possível identificar boletos no formato do arquivo.", "erro");
@@ -4812,6 +5400,19 @@ function renderBoletos(statusFilter = "all") {
     return matchStore && matchStatus;
   });
 
+  // Ordenar por data de vencimento (do mais antigo para o mais novo)
+  filtered.sort((a, b) => {
+    const parseData = (dateStr) => {
+      if (!dateStr) return new Date(0);
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+      }
+      return new Date(dateStr);
+    };
+    return parseData(a.vencimento) - parseData(b.vencimento);
+  });
+
   let totalAberto = 0;
   let totalPago = 0;
   let vencendoHoje = 0;
@@ -4893,7 +5494,9 @@ window.marcarBoletoComoPago = function(id) {
 };
 
 window.excluirBoleto = async function(id) {
-  const confirm = await showConfirm("Deseja realmente excluir este boleto?");
+  const boleto = boletos.find(b => b.id === id);
+  const info = boleto ? `do fornecedor "${boleto.fornecedor}" no valor de R$ ${boleto.valor.toFixed(2).replace('.', ',')} (Doc: ${boleto.documento})` : "este boleto";
+  const confirm = await showConfirm(`Deseja realmente excluir o boleto ${info}? Esta ação não pode ser desfeita.`);
   if (confirm) {
     boletos = boletos.filter(b => b.id !== id);
     localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
@@ -5209,7 +5812,7 @@ function inicializarPainelConfiguracoes() {
   }
 
   // Cor de destaque ativa
-  aplicarCorDestaque(config.accentColor || "#3d1a11");
+  aplicarCorDestaque(config.accentColor || "#5c3a21");
 }
 
 // Configurações: Ouvir eventos após o carregamento da página

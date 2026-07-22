@@ -280,6 +280,23 @@ function initDb() {
       nome TEXT UNIQUE NOT NULL,
       role TEXT NOT NULL,
       criadoEm TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS nfs (
+      numero TEXT PRIMARY KEY,
+      info TEXT,
+      products TEXT,
+      criadoEm TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS boletos (
+      id TEXT PRIMARY KEY,
+      documento TEXT,
+      loja TEXT,
+      descricao TEXT,
+      vencimento TEXT,
+      valor REAL,
+      status TEXT,
+      pagoEm TEXT,
+      criadoEm TEXT
     )`
   ];
 
@@ -829,6 +846,147 @@ app.delete('/api/registros/:id', (req, res) => {
     
     registrarLog(id, 'DELETE', `Registro removido logicamente.`, usuario);
     
+    res.json({ success: true });
+  });
+});
+
+// --- NF-e Endpoints ---
+app.get('/api/nfs', (req, res) => {
+  db.all('SELECT * FROM nfs ORDER BY criadoEm DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    try {
+      const result = (rows || []).map(r => ({
+        numero: r.numero,
+        info: JSON.parse(r.info || '{}'),
+        products: JSON.parse(r.products || '[]'),
+        criadoEm: r.criadoEm
+      }));
+      res.json(result);
+    } catch (parseErr) {
+      res.status(500).json({ error: 'Erro ao processar dados de Notas Fiscais.' });
+    }
+  });
+});
+
+app.post('/api/nfs', (req, res) => {
+  const { numero, info, products } = req.body;
+  if (!numero) return res.status(400).json({ error: 'Número da NF-e é obrigatório.' });
+
+  db.get('SELECT numero FROM nfs WHERE numero = ?', [numero], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (row) {
+      return res.status(409).json({ success: false, error: 'duplicated', message: 'Esta NF-e já foi importada anteriormente.' });
+    }
+
+    const criadoEm = new Date().toISOString();
+    db.run(
+      'INSERT INTO nfs (numero, info, products, criadoEm) VALUES (?, ?, ?, ?)',
+      [numero, JSON.stringify(info || {}), JSON.stringify(products || []), criadoEm],
+      function(err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.status(201).json({ success: true, numero });
+      }
+    );
+  });
+});
+
+app.put('/api/nfs/:numero', (req, res) => {
+  const { numero } = req.params;
+  const { info, products } = req.body;
+
+  const fields = [];
+  const values = [];
+
+  if (info) {
+    fields.push('info = ?');
+    values.push(JSON.stringify(info));
+  }
+  if (products) {
+    fields.push('products = ?');
+    values.push(JSON.stringify(products));
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  }
+
+  values.push(numero);
+  const sql = `UPDATE nfs SET ${fields.join(', ')} WHERE numero = ?`;
+
+  db.run(sql, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// --- Endpoints de Boletos ---
+app.get('/api/boletos', (req, res) => {
+  db.all('SELECT * FROM boletos ORDER BY criadoEm DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/boletos/import', (req, res) => {
+  const { boletos } = req.body;
+  if (!Array.isArray(boletos)) {
+    return res.status(400).json({ error: 'Lista de boletos inválida.' });
+  }
+  const agora = new Date().toISOString();
+
+  let promises = boletos.map(b => {
+    return new Promise((resolve) => {
+      // Verificar duplicados combinando loja, descricao, vencimento e valor
+      db.get(
+        'SELECT id FROM boletos WHERE loja = ? AND descricao = ? AND vencimento = ? AND valor = ?',
+        [b.loja, b.descricao, b.vencimento, b.valor],
+        (err, row) => {
+          if (err || row) {
+            resolve({ status: 'ignored', boleto: b });
+          } else {
+            db.run(
+              'INSERT INTO boletos (id, documento, loja, descricao, vencimento, valor, status, criadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+              [b.id, b.documento, b.loja, b.descricao, b.vencimento, b.valor, b.status || 'Aberto', agora],
+              (err2) => {
+                if (err2) {
+                  resolve({ status: 'error', error: err2.message, boleto: b });
+                } else {
+                  resolve({ status: 'inserted', boleto: b });
+                }
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+
+  Promise.all(promises).then(results => {
+    const inserted = results.filter(r => r.status === 'inserted').map(r => r.boleto);
+    const ignored = results.filter(r => r.status === 'ignored').map(r => r.boleto);
+    res.json({
+      success: true,
+      insertedCount: inserted.length,
+      ignoredCount: ignored.length
+    });
+  }).catch(err => {
+    res.status(500).json({ error: err.message });
+  });
+});
+
+app.post('/api/boletos/pago', (req, res) => {
+  const { id } = req.body;
+  const pagoEm = new Date().toISOString();
+  db.run('UPDATE boletos SET status = ?, pagoEm = ? WHERE id = ?', ['Pago', pagoEm, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.delete('/api/boletos/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM boletos WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
