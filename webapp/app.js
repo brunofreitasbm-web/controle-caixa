@@ -6319,7 +6319,7 @@ function parseMoedaPdf(str) {
 // código da loja encontrado ou null se não houver nenhuma referência.
 function detectStoreFromBoletoLine(texto) {
   const upper = texto.toUpperCase();
-  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688')) return '9201';
+  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688') || upper.includes('PA ANANIDEUA SUPER MIX MATEUS COQ')) return '9201';
   if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056') || upper.includes('PA BELEM CRUZEIRO') || upper.includes('PA BELÉM CRUZEIRO')) return '4304';
   if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495')) return '9175';
   return null;
