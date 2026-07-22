@@ -917,21 +917,23 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         <!-- Galeria de Cards NF-e Importadas -->
         <div id="nf-cards-gallery-section" class="space-y-6">
-          <div class="glass-card p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 text-center shadow-xl">
-            <h2 class="font-display text-xl font-bold text-brand-200 mb-2">Painel de Recepção & Conferência de NF-e</h2>
-            <p class="text-xs text-brand-400 mb-4 max-w-lg mx-auto">Importe múltiplos arquivos XML de notas fiscais extraídos do portal Cacau Digital para iniciar a conferência física por câmera.</p>
-            
-            <!-- Drag and Drop Zone -->
-            <div id="nf-drop-zone" class="border-2 border-dashed border-brand-700/80 hover:border-amber-500 hover:bg-brand-900/20 rounded-2xl p-8 mb-4 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center group relative">
-              <input type="file" id="nf-file" accept=".xml" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-              <div class="text-center pointer-events-none">
-                <i class="fa-solid fa-cloud-arrow-up text-4xl text-amber-500 mb-3 group-hover:scale-110 transition duration-300 animate-pulse"></i>
-                <p class="text-sm font-bold text-brand-100">Arraste seus XMLs aqui ou clique para selecionar</p>
-                <p class="text-[11px] text-brand-400 mt-1">Suporta importação em massa (de 1 a múltiplos arquivos XML)</p>
+          <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-amber-500 transition-all duration-300">
+            <div class="max-w-md mx-auto space-y-4">
+              <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+                <i class="fa-solid fa-file-code text-amber-500"></i>
               </div>
+              <div>
+                <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Notas Fiscais XML</h3>
+                <p class="text-xs text-brand-400 mt-1">Selecione ou arraste os arquivos XML das Notas Fiscais extraídos do Cacau Digital (de 1 a múltiplos arquivos)</p>
+              </div>
+              <label class="cursor-pointer inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition shadow-md mx-auto">
+                <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
+                <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
+              </label>
+              <div id="nf-file-info" class="text-xs text-amber-400 font-mono hidden"></div>
             </div>
 
-            <div class="flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
+            <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
               <div class="inline-flex items-center gap-2">
                 <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-store"></i> Loja Ativa:
@@ -946,7 +948,6 @@
                 <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
               </button>
             </div>
-            <div id="nf-file-info" class="mt-3 text-xs text-amber-400 font-mono hidden"></div>
           </div>
 
           <!-- FLUXO VISUAL PARA ALEXANDRA (DOWNLOAD E IMPORTAÇÃO DE XMLs) -->
@@ -1149,25 +1150,25 @@
               <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Produtos</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-red-500 border border-brand-900">
-            <div class="p-3 bg-red-950/40 rounded-xl text-red-400 text-xl"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-red-950/20 border-l-4 border-l-red-500 border border-red-500/20 shadow-md">
+            <div class="p-3 bg-red-500/20 rounded-xl text-red-400 text-xl"><i class="fa-solid fa-circle-exclamation"></i></div>
             <div>
-              <div class="text-2xl font-bold text-red-400" id="stat-red">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Crítico (≤ 20 dias)</div>
+              <div class="text-2xl font-black text-red-500" id="stat-red">0</div>
+              <div class="text-xs text-red-400 uppercase tracking-wider font-bold">Crítico (≤ 20 dias)</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-yellow-500 border border-brand-900">
-            <div class="p-3 bg-yellow-950/40 rounded-xl text-yellow-400 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-orange-950/20 border-l-4 border-l-orange-500 border border-orange-500/20 shadow-md">
+            <div class="p-3 bg-orange-500/20 rounded-xl text-orange-400 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
             <div>
-              <div class="text-2xl font-bold text-yellow-400" id="stat-yellow">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Alerta (21-40 dias)</div>
+              <div class="text-2xl font-black text-orange-500" id="stat-orange">0</div>
+              <div class="text-xs text-orange-400 uppercase tracking-wider font-bold">Alerta (21-40 dias)</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-emerald-500 border border-brand-900">
-            <div class="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 text-xl"><i class="fa-solid fa-check-circle"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-green-950/20 border-l-4 border-l-green-500 border border-green-500/20 shadow-md">
+            <div class="p-3 bg-green-500/20 rounded-xl text-green-400 text-xl"><i class="fa-solid fa-check-circle"></i></div>
             <div>
-              <div class="text-2xl font-bold text-emerald-400" id="stat-green">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">No Prazo (> 40 dias)</div>
+              <div class="text-2xl font-black text-green-500" id="stat-green">0</div>
+              <div class="text-xs text-green-400 uppercase tracking-wider font-bold">No Prazo (> 40 dias)</div>
             </div>
           </div>
         </div>
@@ -1185,9 +1186,9 @@
           
           <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
             <button id="filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md">Todos</button>
-            <button id="filter-red" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40">Crítico</button>
-            <button id="filter-yellow" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-yellow-400 border border-yellow-900/40">Alerta</button>
-            <button id="filter-green" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40">No Prazo</button>
+            <button id="filter-red" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-red-950/40 text-red-400 border border-red-500/40 hover:bg-red-500 hover:text-white">Crítico</button>
+            <button id="filter-orange" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-950/40 text-orange-400 border border-orange-500/40 hover:bg-orange-500 hover:text-white">Alerta</button>
+            <button id="filter-green" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-green-950/40 text-green-400 border border-green-500/40 hover:bg-green-500 hover:text-white">No Prazo</button>
             <button id="btn-export" class="ml-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
               <i class="fa-solid fa-file-export"></i> Concluir e Exportar
             </button>

@@ -4250,8 +4250,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (filterAll) filterAll.addEventListener('click', () => setFilter('all'));
   const filterRed = document.getElementById('filter-red');
   if (filterRed) filterRed.addEventListener('click', () => setFilter('red'));
-  const filterYellow = document.getElementById('filter-yellow');
-  if (filterYellow) filterYellow.addEventListener('click', () => setFilter('yellow'));
+  const filterOrange = document.getElementById('filter-orange');
+  if (filterOrange) filterOrange.addEventListener('click', () => setFilter('orange'));
   const filterGreen = document.getElementById('filter-green');
   if (filterGreen) filterGreen.addEventListener('click', () => setFilter('green'));
 
@@ -4292,16 +4292,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function loadInventoryForCurrentStore() {
   const savedItems = dbBridge.getInventarioLoja(currentStore);
-  products = savedItems.map(item => ({
-    code: item.code,
-    barras: item.barras || '',
-    description: item.description || 'Produto',
-    validade: item.validade ? new Date(item.validade) : null,
-    daysRemaining: item.daysRemaining !== undefined ? item.daysRemaining : null,
-    countedQty: item.countedQty !== undefined ? item.countedQty : '',
-    dataEntrada: item.dataEntrada || '',
-    qtdEntradaUnidades: item.qtdEntradaUnidades || 0
-  }));
+  const now = new Date();
+  const dToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  products = savedItems.map(item => {
+    let daysRemaining = null;
+    let validadeDate = item.validade ? new Date(item.validade) : null;
+    if (validadeDate && !isNaN(validadeDate.getTime())) {
+      const dVal = new Date(validadeDate.getFullYear(), validadeDate.getMonth(), validadeDate.getDate());
+      const diffTime = dVal.getTime() - dToday.getTime();
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    return {
+      code: item.code,
+      barras: item.barras || '',
+      description: item.description || 'Produto',
+      validade: validadeDate,
+      daysRemaining: daysRemaining,
+      countedQty: item.countedQty !== undefined ? item.countedQty : '',
+      dataEntrada: item.dataEntrada || '',
+      qtdEntradaUnidades: item.qtdEntradaUnidades || 0
+    };
+  });
 }
 
 function formatDate(dateObj) {
@@ -4863,12 +4874,52 @@ function notificarWhatsappGestao() {
   let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
   if (activeNfNumber && importedNfs[activeNfNumber]) {
     const nfData = importedNfs[activeNfNumber];
-    textoMsg += `NF Nº: ${activeNfNumber}\nFornecedor: ${nfData.info.fornecedor}\nOperador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n`;
+    textoMsg += `NF Nº: ${activeNfNumber}\n`;
+    textoMsg += `Fornecedor: ${nfData.info.fornecedor}\n`;
+    textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n\n`;
+    
+    // Analisar pendências e divergências
+    let pendentes = [];
+    let divergencias = [];
+    
+    nfData.products.forEach(p => {
+      if (p.countedQty === '') {
+        pendentes.push(p);
+      } else {
+        const counted = Number(p.countedQty);
+        if (counted !== p.nfQty) {
+          divergencias.push({
+            p: p,
+            diferenca: counted - p.nfQty
+          });
+        }
+      }
+    });
+
+    if (pendentes.length === 0 && divergencias.length === 0) {
+      textoMsg += `*Status:* Conferência concluída 100% CONFORME (sem divergências ou pendências).\n`;
+    } else {
+      textoMsg += `*Status:* Conferência finalizada com pendências/divergências:\n`;
+      if (pendentes.length > 0) {
+        textoMsg += `\n*Itens não conferidos (Pendentes) (${pendentes.length}):*\n`;
+        pendentes.forEach(item => {
+          textoMsg += `- Cód ${item.code}: ${item.description} (Qtd Esperada: ${item.nfQty})\n`;
+        });
+      }
+      if (divergencias.length > 0) {
+        textoMsg += `\n*Divergências encontradas (${divergencias.length}):*\n`;
+        divergencias.forEach(div => {
+          const sinal = div.diferenca > 0 ? '+' : '';
+          const tipo = div.diferenca > 0 ? 'Sobra' : 'Falta';
+          textoMsg += `- Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} unidades | Esperado: ${div.p.nfQty}, Contado: ${div.p.countedQty})\n`;
+        });
+      }
+    }
   } else {
     textoMsg += `Conferências em andamento na loja.\n`;
   }
 
-  const urlWhatsapp = linkGrupo;
+  const urlWhatsapp = `${linkGrupo}?text=${encodeURIComponent(textoMsg)}`;
   window.open(urlWhatsapp, '_blank');
 }
 
@@ -5189,8 +5240,26 @@ function renderNfTable() {
   const currentNf = importedNfs[activeNfNumber];
   currentNf.products.forEach(p => {
     const counted = p.countedQty === '' ? null : Number(p.countedQty);
+    
+    // Determinar status e estilo
+    let statusText = 'Pendente';
+    let statusColorClass = 'text-orange-500 font-extrabold bg-orange-950/40 px-2 py-1 rounded border border-orange-800'; // Laranja para Pendente (não conferido)
+    let rowBgClass = 'bg-orange-950/10 border-orange-900/20';
+
+    if (counted !== null) {
+      if (counted === p.nfQty) {
+        statusText = 'Conforme';
+        statusColorClass = 'text-emerald-400 font-extrabold bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800'; // Verde para Conforme
+        rowBgClass = 'bg-emerald-950/5 border-emerald-900/20';
+      } else {
+        statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
+        statusColorClass = 'text-rose-400 font-extrabold bg-rose-950/40 px-2 py-1 rounded border border-rose-800'; // Vermelho para Falta/Sobra (Divergente)
+        rowBgClass = 'bg-rose-950/10 border-rose-900/20';
+      }
+    }
+
     const tr = document.createElement('tr');
-    tr.className = 'hover:bg-brand-900/30 transition-all border-b border-brand-900/20';
+    tr.className = `hover:bg-brand-900/30 transition-all border-b ${rowBgClass}`;
     tr.innerHTML = `
       <td class="py-3 px-4">
         <div class="font-semibold text-brand-100 text-xs">${p.description}</div>
@@ -5198,12 +5267,12 @@ function renderNfTable() {
       </td>
       <td class="py-3 px-4 text-center text-xs text-brand-200">${p.validade ? formatDate(p.validade) : '-'}</td>
       <td class="py-3 px-4 text-center text-xs text-brand-300">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs">${p.nfQty}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-brand-100">${p.nfQty}</td>
       <td class="py-3 px-4 text-center">
         <input type="number" value="${p.countedQty}" placeholder="0" class="nf-qty-input w-16 text-center bg-brand-950 border border-brand-800 text-white rounded py-1 font-bold text-xs" />
       </td>
       <td class="py-3 px-4 text-center text-xs">
-        ${counted === p.nfQty ? 'Conforme' : counted < p.nfQty ? 'Falta' : 'Pendente'}
+        <span class="${statusColorClass}">${statusText}</span>
       </td>
     `;
     const qtyInput = tr.querySelector('.nf-qty-input');
@@ -5236,6 +5305,84 @@ function renderTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  // Update top stats dynamically
+  let totalCount = 0;
+  let redCount = 0;
+  let orangeCount = 0;
+  let greenCount = 0;
+
+  const now = new Date();
+  const dToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  products.forEach(p => {
+    if (p.validade && !isNaN(new Date(p.validade).getTime())) {
+      const valDate = new Date(p.validade);
+      const dVal = new Date(valDate.getFullYear(), valDate.getMonth(), valDate.getDate());
+      const diffTime = dVal.getTime() - dToday.getTime();
+      p.daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } else {
+      p.daysRemaining = null;
+    }
+
+    totalCount++;
+    if (p.daysRemaining !== null) {
+      if (p.daysRemaining <= 20) {
+        redCount++;
+      } else if (p.daysRemaining <= 40) {
+        orangeCount++;
+      } else {
+        greenCount++;
+      }
+    } else {
+      greenCount++;
+    }
+  });
+
+  const statTotal = document.getElementById('stat-total-products');
+  const statRed = document.getElementById('stat-red');
+  const statOrange = document.getElementById('stat-orange');
+  const statGreen = document.getElementById('stat-green');
+
+  if (statTotal) statTotal.textContent = totalCount;
+  if (statRed) statRed.textContent = redCount;
+  if (statOrange) statOrange.textContent = orangeCount;
+  if (statGreen) statGreen.textContent = greenCount;
+
+  // Style active/inactive filter buttons
+  const btnAll = document.getElementById('filter-all');
+  const btnRed = document.getElementById('filter-red');
+  const btnOrange = document.getElementById('filter-orange');
+  const btnGreen = document.getElementById('filter-green');
+
+  if (btnAll) {
+    if (currentFilter === 'all') {
+      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
+    } else {
+      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-brand-300 border border-brand-800/40 hover:bg-brand-800 hover:text-white";
+    }
+  }
+  if (btnRed) {
+    if (currentFilter === 'red') {
+      btnRed.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-red-600 text-white border border-red-600 shadow-md shadow-red-600/30";
+    } else {
+      btnRed.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-red-950/40 text-red-400 border border-red-500/40 hover:bg-red-600 hover:text-white";
+    }
+  }
+  if (btnOrange) {
+    if (currentFilter === 'orange') {
+      btnOrange.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-500 text-white border border-orange-500 shadow-md shadow-orange-500/30";
+    } else {
+      btnOrange.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-950/40 text-orange-400 border border-orange-500/40 hover:bg-orange-500 hover:text-white";
+    }
+  }
+  if (btnGreen) {
+    if (currentFilter === 'green') {
+      btnGreen.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-green-600 text-white border border-green-600 shadow-md shadow-green-600/30";
+    } else {
+      btnGreen.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-green-950/40 text-green-400 border border-green-500/40 hover:bg-green-600 hover:text-white";
+    }
+  }
+
   products.sort((a, b) => {
     if (a.daysRemaining === null && b.daysRemaining === null) return 0;
     if (a.daysRemaining === null) return 1;
@@ -5243,17 +5390,42 @@ function renderTable() {
     return a.daysRemaining - b.daysRemaining;
   });
 
-  products.forEach(p => {
-    let rowBorder = 'border-l-4 border-l-emerald-500';
+  // Filter products based on search query and current filter
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = !searchQuery || 
+      (p.description && p.description.toLowerCase().includes(searchQuery)) ||
+      (p.code && p.code.toLowerCase().includes(searchQuery)) ||
+      (p.barras && p.barras.toLowerCase().includes(searchQuery));
+      
+    if (!matchesSearch) return false;
+
+    if (currentFilter === 'all') return true;
+    if (currentFilter === 'red') {
+      return p.daysRemaining !== null && p.daysRemaining <= 20;
+    } else if (currentFilter === 'orange' || currentFilter === 'yellow') {
+      return p.daysRemaining !== null && p.daysRemaining > 20 && p.daysRemaining <= 40;
+    } else if (currentFilter === 'green') {
+      return p.daysRemaining === null || p.daysRemaining > 40;
+    }
+    return true;
+  });
+
+  filteredProducts.forEach(p => {
+    let rowBorder = 'border-l-4 border-l-green-500 bg-green-950/5';
     let urgentSignal = '';
 
     if (p.daysRemaining !== null) {
       if (p.daysRemaining <= 20) {
-        rowBorder = 'border-l-4 border-l-red-600 bg-red-950/30';
-        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">Vender Urgente</span>`;
+        rowBorder = 'border-l-4 border-l-red-500 bg-red-950/30';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">Crítico</span>`;
       } else if (p.daysRemaining <= 40) {
-        rowBorder = 'border-l-4 border-l-yellow-500';
+        rowBorder = 'border-l-4 border-l-orange-500 bg-orange-950/20';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-orange-500 text-white">Alerta</span>`;
+      } else {
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-green-600 text-white">No Prazo</span>`;
       }
+    } else {
+      urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-green-600/40 text-white/80">Sem Validade</span>`;
     }
 
     // Buscar o COD_PROD de 7 dígitos vindo dos XMLs das NF-e
@@ -5303,7 +5475,7 @@ function renderTable() {
       const d = e.target.value ? new Date(e.target.value + 'T12:00:00') : null;
       p.validade = d;
       if (d) {
-        const diffTime = d.getTime() - today.getTime();
+        const diffTime = d.getTime() - dToday.getTime();
         p.daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       } else {
         p.daysRemaining = null;
