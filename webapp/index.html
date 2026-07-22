@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#5c3a21">
+<meta name="theme-color" content="#3d4a54">
 <meta name="description" content="HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
 <title>HUB de Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
@@ -26,10 +26,14 @@
   tailwind.config = {
     theme: {
       extend: {
+        fontFamily: {
+          display: ['Outfit', 'sans-serif']
+        },
         colors: {
+          /* Paleta neutra "slate/sage" do módulo Cacau Show — leitura suave, sem o marrom/dourado da marca */
           brand: {
-            50: '#faf8f6', 100: '#f3ebe5', 200: '#e4d4cb', 300: '#cbb3a5', 400: '#b39380',
-            500: '#98735f', 600: '#7e5845', 700: '#6b4633', 800: '#583524', 900: '#452516', 950: '#2b140a'
+            50: '#f5f7f8', 100: '#e8edf0', 200: '#cdd8de', 300: '#a7bac3', 400: '#7c94a1',
+            500: '#5e7583', 600: '#4a5f6c', 700: '#3c4d58', 800: '#2e3b44', 900: '#212a31', 950: '#161c21'
           }
         }
       }
@@ -207,7 +211,7 @@
             <span class="tab-text">Boletos</span>
           </button>
           <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos">
-            <span class="tab-icon"><i class="fa-solid fa-calculator text-amber-500"></i></span>
+            <span class="tab-icon"><i class="fa-solid fa-calculator text-brand-500"></i></span>
             <span class="tab-text">Auditoria Boletos</span>
           </button>
         </div>
@@ -287,7 +291,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-envelope-open-text text-amber-400"></i> Registrar Movimento (Envelope)
+            <i class="fa-solid fa-envelope-open-text text-brand-300"></i> Registrar Movimento (Envelope)
           </h2>
           <p class="text-xs text-brand-100 mt-1">Insira os dados do movimento de caixa diário e envie as informações de fechamento por envelope.</p>
         </div>
@@ -401,12 +405,12 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-amber-400"></i> Envelopes por Loja
+            <i class="fa-solid fa-chart-line text-brand-300"></i> Envelopes por Loja
           </h2>
           <p class="text-xs text-brand-100 mt-1">Acompanhamento geral de envelopes em trânsito e fechamentos do dia.</p>
         </div>
         <div class="flex items-center gap-3">
-          <div class="dash-total text-xs font-bold bg-brand-950 border border-brand-800 px-3 py-1.5 rounded-xl text-amber-300" id="dash-total-geral">R$ 0,00 em trânsito</div>
+          <div class="dash-total text-xs font-bold bg-brand-950 border border-brand-800 px-3 py-1.5 rounded-xl text-brand-200" id="dash-total-geral">R$ 0,00 em trânsito</div>
         </div>
       </div>
 
@@ -463,7 +467,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Histórico Completo
+            <i class="fa-solid fa-clock-rotate-left text-brand-300"></i> Histórico Completo
           </h2>
           <p class="text-xs text-brand-100 mt-1">Histórico completo e detalhado de todos os envelopes e movimentações enviadas.</p>
         </div>
@@ -523,7 +527,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-calendar-days text-amber-400"></i> Dashboard Mensal por Loja
+            <i class="fa-solid fa-calendar-days text-brand-300"></i> Dashboard Mensal por Loja
           </h2>
           <p class="text-xs text-brand-100 mt-1">Análise consolidada do faturamento e somatória mensal por unidade ativa.</p>
         </div>
@@ -567,7 +571,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-user-shield text-amber-400"></i> Auditoria de Ações
+            <i class="fa-solid fa-user-shield text-brand-300"></i> Auditoria de Ações
           </h2>
           <p class="text-xs text-brand-100 mt-1">Log completo de modificações de PIN, status e fechamentos do sistema.</p>
         </div>
@@ -839,7 +843,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-users-gear text-amber-400"></i> Gerenciamento de Colaboradores
+            <i class="fa-solid fa-users-gear text-brand-300"></i> Gerenciamento de Colaboradores
           </h2>
           <p class="text-xs text-brand-100 mt-1">Gerenciamento de acessos, criação de novos usuários e alteração de PINs.</p>
         </div>
@@ -906,7 +910,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-receipt text-amber-400"></i> Recepção & Conferência de NF-e
+            <i class="fa-solid fa-receipt text-brand-300"></i> Recepção & Conferência de NF-e
           </h2>
           <p class="text-xs text-brand-100 mt-1">Importe arquivos XML das Notas Fiscais e faça a validação física utilizando a câmera do dispositivo.</p>
         </div>
@@ -918,10 +922,10 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         <!-- Galeria de Cards NF-e Importadas -->
         <div id="nf-cards-gallery-section" class="space-y-6">
-          <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-amber-500 transition-all duration-300">
+          <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-brand-500 transition-all duration-300">
             <div class="max-w-md mx-auto space-y-4">
               <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
-                <i class="fa-solid fa-file-code text-amber-500"></i>
+                <i class="fa-solid fa-file-code text-brand-500"></i>
               </div>
               <div>
                 <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Notas Fiscais XML</h3>
@@ -931,12 +935,12 @@
                 <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
                 <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
               </label>
-              <div id="nf-file-info" class="text-xs text-amber-400 font-mono hidden"></div>
+              <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden"></div>
             </div>
 
             <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
               <div class="inline-flex items-center gap-2">
-                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-store"></i> Loja Ativa:
                 </span>
                 <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
@@ -953,8 +957,8 @@
 
           <!-- FLUXO VISUAL PARA ALEXANDRA (DOWNLOAD E IMPORTAÇÃO DE XMLs) -->
           <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg">
-            <h3 class="text-xs font-extrabold uppercase text-amber-400 tracking-wider mb-4 flex items-center gap-1.5 justify-center md:justify-start">
-              <i class="fa-solid fa-route text-amber-500"></i> Passo a Passo para Alexandra (Extração & Importação de XMLs)
+            <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-4 flex items-center gap-1.5 justify-center md:justify-start">
+              <i class="fa-solid fa-route text-brand-500"></i> Passo a Passo para Alexandra (Extração & Importação de XMLs)
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center text-xs font-medium">
               <!-- Passo 1 -->
@@ -998,13 +1002,13 @@
               </div>
 
               <!-- Passo 5 -->
-              <div class="p-3 bg-amber-950/40 border border-amber-800/55 hover:border-amber-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="p-3 bg-brand-800/40 border border-brand-700/50 hover:border-brand-600/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
                 <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-amber-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
-                  <strong class="text-amber-400 text-sm">Extrair & Importar</strong>
-                  <p class="text-[11px] text-amber-300/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
+                  <span class="w-7 h-7 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
+                  <strong class="text-brand-300 text-sm">Extrair & Importar</strong>
+                  <p class="text-[11px] text-brand-200/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
                 </div>
-                <div class="mt-2 text-amber-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
+                <div class="mt-2 text-brand-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
               </div>
             </div>
           </div>
@@ -1026,7 +1030,7 @@
             </button>
             <div class="flex items-center gap-3">
               <div class="inline-flex items-center gap-2 bg-brand-900/80 px-3 py-1 rounded-xl border border-brand-800">
-                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-store"></i> Loja:
                 </span>
                 <select class="store-selector bg-brand-950 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
@@ -1091,7 +1095,7 @@
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clipboard-list text-amber-400"></i> Inventário de Estoque
+            <i class="fa-solid fa-clipboard-list text-brand-300"></i> Inventário de Estoque
           </h2>
           <p class="text-xs text-brand-100 mt-1">Realize a conferência e o inventário cego de validades por loja.</p>
         </div>
@@ -1118,7 +1122,7 @@
           </div>
           <div class="flex items-center gap-3 shrink-0">
             <div class="inline-flex items-center gap-2 bg-brand-950/90 px-3 py-1.5 rounded-xl border border-brand-700/60 shadow-md">
-              <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-store"></i> Loja Ativa:
               </span>
               <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
@@ -1201,7 +1205,7 @@
             <table class="w-full text-left border-collapse text-xs">
               <thead>
                 <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
-                  <th class="py-3 px-4 font-mono text-amber-400 font-extrabold">COD_PROD</th>
+                  <th class="py-3 px-4 font-mono text-brand-300 font-extrabold">COD_PROD</th>
                   <th class="py-3 px-4">Produto</th>
                   <th class="py-3 px-4 text-center">Data Entrada NF</th>
                   <th class="py-3 px-4 text-center">Entrada (UN)</th>
@@ -1228,7 +1232,7 @@
         <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 class="font-display text-xl font-bold text-brand-200 flex items-center gap-2">
-              <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> Gestão de Boletos e Títulos
+              <i class="fa-solid fa-file-invoice-dollar text-brand-500"></i> Gestão de Boletos e Títulos
             </h2>
             <p class="text-xs text-brand-400 mt-1">Módulo financeiro exclusivo para controle, importação e notificação de vencimentos de boletos.</p>
           </div>
@@ -1239,7 +1243,7 @@
 
         <!-- FLUXO VISUAL PARA ALEXANDRA -->
         <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60">
-          <h3 class="text-xs font-extrabold uppercase text-amber-400 tracking-wider mb-3 flex items-center gap-1.5">
+          <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3 flex items-center gap-1.5">
             <i class="fa-solid fa-circle-info"></i> Passo a Passo para Alexandra (Importação de Títulos)
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center text-xs font-medium">
@@ -1263,10 +1267,10 @@
               <strong class="text-brand-200">Imprimir em PDF</strong>
               <span class="text-[10px] text-brand-400 mt-1">Gere o arquivo PDF do relatório</span>
             </div>
-            <div class="p-3 bg-amber-950/40 border border-amber-800/55 rounded-xl flex flex-col items-center animate-pulse">
-              <span class="w-6 h-6 rounded-full bg-amber-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
-              <strong class="text-amber-400">Importar no Sistema</strong>
-              <span class="text-[10px] text-amber-300/80 mt-1">Arraste ou selecione o PDF abaixo</span>
+            <div class="p-3 bg-brand-800/40 border border-brand-700/50 rounded-xl flex flex-col items-center animate-pulse">
+              <span class="w-6 h-6 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
+              <strong class="text-brand-300">Importar no Sistema</strong>
+              <span class="text-[10px] text-brand-200/80 mt-1">Arraste ou selecione o PDF abaixo</span>
             </div>
           </div>
         </div>
@@ -1322,7 +1326,7 @@
               <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
               <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
             </label>
-            <div id="boleto-file-info" class="text-xs text-amber-400 font-mono hidden"></div>
+            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden"></div>
           </div>
         </div>
 
@@ -1331,7 +1335,7 @@
           <div class="flex flex-col md:flex-row justify-between items-center gap-3 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
             <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
               <div class="inline-flex items-center gap-2 bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-800 shadow-inner w-full sm:w-auto">
-                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
                   <i class="fa-solid fa-store"></i> Loja:
                 </span>
                 <select id="boleto-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
@@ -1385,7 +1389,7 @@
         <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
           <div>
             <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-calculator text-amber-400"></i> Auditoria de Boletos vs NF-e
+              <i class="fa-solid fa-calculator text-brand-300"></i> Auditoria de Boletos vs NF-e
             </h2>
             <p class="text-xs text-brand-100 mt-1">Cruzamento inteligente de faturamentos de boletos cadastrados e NF-e importadas por loja.</p>
           </div>
@@ -1413,7 +1417,7 @@
         <!-- Dashboard Stat Cards Auditoria -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-amber-500 font-black text-xl">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-500 font-black text-xl">
               <i class="fa-solid fa-file-invoice"></i>
             </div>
             <div>
@@ -1422,7 +1426,7 @@
             </div>
           </div>
           <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-amber-500 font-black text-xl">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-500 font-black text-xl">
               <i class="fa-solid fa-barcode"></i>
             </div>
             <div>
@@ -1453,7 +1457,7 @@
         <div class="card bg-paper p-6 rounded-2xl border border-border">
           <div class="space-y-4">
             <div class="flex justify-between items-center">
-              <h3 class="text-sm font-extrabold uppercase text-amber-500 tracking-wider">Resultados da Análise</h3>
+              <h3 class="text-sm font-extrabold uppercase text-brand-500 tracking-wider">Resultados da Análise</h3>
               <span class="text-[10px] text-muted font-bold">Dados cruzados em tempo real</span>
             </div>
             <div class="table-wrap">
@@ -1489,7 +1493,7 @@
         <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-sliders text-amber-400"></i> Painel de Configurações
+              <i class="fa-solid fa-sliders text-brand-300"></i> Painel de Configurações
             </h2>
             <p class="text-xs text-brand-100 mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
           </div>
@@ -1505,7 +1509,7 @@
           <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
             <div>
               <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-palette text-amber-500"></i> Aparência & Personalização
+                <i class="fa-solid fa-palette text-brand-500"></i> Aparência & Personalização
               </h3>
               <p class="text-xs text-muted mb-4">Ajuste o visual do aplicativo para se adaptar ao seu estilo de trabalho.</p>
               
@@ -1522,7 +1526,7 @@
                 <div class="field">
                   <label class="block text-xs font-bold uppercase mb-2">Cor de Destaque (Accent)</label>
                   <div class="flex items-center gap-3">
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#5c3a21" style="background-color: #5c3a21;" title="Cacau Show (Padrão)"></button>
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#56707f" style="background-color: #56707f;" title="Padrão (Slate)"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#ff7a00" style="background-color: #ff7a00;" title="Faça Amigos"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#10b981" style="background-color: #10b981;" title="Esmeralda"></button>
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3b82f6" style="background-color: #3b82f6;" title="Azul Moderno"></button>
@@ -1536,7 +1540,7 @@
           <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
             <div>
               <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-shield-halved text-amber-500"></i> Segurança & Sessão
+                <i class="fa-solid fa-shield-halved text-brand-500"></i> Segurança & Sessão
               </h3>
               <p class="text-xs text-muted mb-4">Gerencie as regras de expiração e altere seus dados de autenticação rápida.</p>
               
@@ -1601,11 +1605,11 @@
             <div class="flex items-center justify-between mb-4">
               <div>
                 <h3 class="text-base font-bold flex items-center gap-2">
-                  <i class="fa-solid fa-bell text-amber-500"></i> Canais e Regras de Notificações
+                  <i class="fa-solid fa-bell text-brand-500"></i> Canais e Regras de Notificações
                 </h3>
                 <p class="text-xs text-muted mt-1">Gerencie quais perfis recebem cada tipo de alerta por email ou push notification.</p>
               </div>
-              <div id="notif-owner-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-950/40 border border-amber-800/50 text-amber-700 hidden">
+              <div id="notif-owner-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-brand-800/40 border border-brand-700/40 text-brand-700 hidden">
                 <i class="fa-solid fa-lock-open"></i> Edição habilitada
               </div>
             </div>
@@ -1625,81 +1629,7 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-border" id="notif-table-body">
-                  <tr>
-                    <td class="py-3 px-4">
-                      <div class="font-bold">Acúmulo de Envelopes (>= R$ 1.000)</div>
-                      <div class="text-[10px] text-muted">Alerta de segurança ao atingir limite em trânsito</div>
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-envelopes-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-envelopes-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-envelopes-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="py-3 px-4">
-                      <div class="font-bold">Início de Inventário</div>
-                      <div class="text-[10px] text-muted">Aviso de abertura do inventário mensal cego</div>
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-inicio-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-inicio-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-inicio-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="py-3 px-4">
-                      <div class="font-bold">Conclusão de Inventário</div>
-                      <div class="text-[10px] text-muted">Confirmação de finalização das contagens</div>
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-fim-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-fim-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-inv-fim-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="py-3 px-4">
-                      <div class="font-bold">Conferência de NF-e</div>
-                      <div class="text-[10px] text-muted">Início e fim do recebimento/conferência de notas</div>
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-nfe-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-nfe-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-nfe-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="py-3 px-4">
-                      <div class="font-bold">Divergência de Fundo de Caixa</div>
-                      <div class="text-[10px] text-muted">Aviso de diferença no fechamento/abertura</div>
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-divergencia-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-divergencia-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                    <td class="py-3 px-4 text-center">
-                      <input type="checkbox" id="notif-divergencia-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
-                    </td>
-                  </tr>
+                  <!-- Renderizado dinamicamente via JS (renderNotificationTable) -->
                 </tbody>
               </table>
             </div>
@@ -1714,7 +1644,7 @@
           <!-- Card: Manutenção & Dados -->
           <div class="card p-6 rounded-2xl border border-border md:col-span-2">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-database text-amber-500"></i> Gestão de Dados & Armazenamento Local
+              <i class="fa-solid fa-database text-brand-500"></i> Gestão de Dados & Armazenamento Local
             </h3>
             <p class="text-xs text-muted mb-4">Exporte backups de segurança, importe dados existentes ou redefina o banco local em caso de inconsistência persistente.</p>
             
@@ -1761,7 +1691,7 @@
           <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-border">
-                <i class="fa-solid fa-circle-info text-amber-500 text-lg"></i>
+                <i class="fa-solid fa-circle-info text-brand-500 text-lg"></i>
               </div>
               <div>
                 <span class="block text-xs font-bold">HUB de Operações — v4.0.0</span>

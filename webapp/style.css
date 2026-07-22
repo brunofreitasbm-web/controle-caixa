@@ -1,68 +1,69 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  --wine: #7c5840; /* Softened premium lighter warm chocolate */
-  --wine-light: #ab8e7d;
-  --wine-dark: #422617;
-  --gold: #d4b57e; /* Softer, lighter gold/champagne tone */
-  --gold-light: #faf5ed;
-  --gold-dark: #7c5840;
-  --gold-gradient: linear-gradient(135deg, #f2e3d0 0%, #d4b57e 100%);
-  --wine-gradient: linear-gradient(135deg, #7c5840 0%, #422617 100%);
-  --cream: #fbf9f6; /* Very clean, soft warm cream background */
+  /* Módulo Cacau Show — paleta neutra "slate/sage", suave e de leitura agradável */
+  --wine: #56707f; /* Acento primário: azul-ardósia suave (substitui o marrom cacau) */
+  --wine-light: #8ba4b0;
+  --wine-dark: #33434d;
+  --gold: #7fa895; /* Acento secundário: verde-sálvia suave (substitui o dourado) */
+  --gold-light: #eef4f0;
+  --gold-dark: #4d6b5c;
+  --gold-gradient: linear-gradient(135deg, #eef4f0 0%, #7fa895 100%);
+  --wine-gradient: linear-gradient(135deg, #56707f 0%, #33434d 100%);
+  --cream: #f6f8f9; /* Fundo neutro frio, suave */
   --paper: #ffffff;
-  --ink: #3c322f; /* Soft brown-gray charcoal for text, highly readable but softer than #2b2321 */
-  --muted: #9e8d89;
-  --border: #f0e6df; /* Softer, lighter border */
-  --green: #2fa159; /* Softer, lighter green */
-  --green-light: #f0fbf4;
-  --amber: #d99a26; /* Softer, lighter amber */
-  --amber-light: #fffbf2;
-  --red: #d14949; /* Softer, lighter red */
-  --red-light: #fff5f5;
+  --ink: #333c44; /* Cinza-azulado escuro, alto contraste e conforto de leitura */
+  --muted: #7c8992;
+  --border: #e4eaed; /* Borda suave neutra */
+  --green: #3f9e6d;
+  --green-light: #eef8f2;
+  --amber: #c99a3f;
+  --amber-light: #fbf5e9;
+  --red: #cf5b57;
+  --red-light: #fdf1f0;
   --radius: 16px;
-  --shadow-sm: 0 4px 12px rgba(124, 88, 64, 0.015);
-  --shadow-md: 0 10px 30px rgba(124, 88, 64, 0.03), 0 1px 3px rgba(124, 88, 64, 0.008);
-  --shadow-lg: 0 20px 50px rgba(124, 88, 64, 0.06), 0 2px 8px rgba(124, 88, 64, 0.02);
+  --shadow-sm: 0 4px 12px rgba(51, 60, 68, 0.02);
+  --shadow-md: 0 10px 30px rgba(51, 60, 68, 0.04), 0 1px 3px rgba(51, 60, 68, 0.01);
+  --shadow-lg: 0 20px 50px rgba(51, 60, 68, 0.07), 0 2px 8px rgba(51, 60, 68, 0.03);
   --transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Harmonized Menu Palette (Light Mode - Softened Warm Charcoal theme) */
-  --sidebar-bg: linear-gradient(180deg, #483d3a 0%, #352c2a 100%); /* Lighter sidebar background */
-  --topbar-bg: rgba(72, 61, 58, 0.96);
-  --topbar-border: rgba(212, 181, 126, 0.2);
-  --sidebar-group-header-color: #f7ede2;
-  --sidebar-active-bg: linear-gradient(135deg, #f2e3d0 0%, #d4b57e 100%);
-  --sidebar-active-text: #24110d;
+  /* Harmonized Menu Palette (Light Mode - Slate/Sage neutro) */
+  --sidebar-bg: linear-gradient(180deg, #3d4a54 0%, #2b343c 100%);
+  --topbar-bg: rgba(61, 74, 84, 0.96);
+  --topbar-border: rgba(127, 168, 149, 0.2);
+  --sidebar-group-header-color: #eef4f0;
+  --sidebar-active-bg: linear-gradient(135deg, #eef4f0 0%, #7fa895 100%);
+  --sidebar-active-text: #1d2b23;
   --sidebar-text-muted: rgba(255, 255, 255, 0.75);
   --sidebar-text-hover: #ffffff;
   --sidebar-hover-bg: rgba(255, 255, 255, 0.09);
 }
 
 :root[data-theme="dark"] {
-  --wine: #d2b48c; /* Golden cocoa highlight */
-  --wine-light: #e4d3c2;
-  --wine-dark: #251c18;
-  --gold: #dcb36c;
-  --gold-light: #efe5d9;
-  --gold-dark: #5c3a21;
-  --gold-gradient: linear-gradient(135deg, #efe5d9 0%, #dcb36c 50%, #5c3a21 100%);
-  --wine-gradient: linear-gradient(135deg, #a1887f 0%, #5d4037 100%);
-  --cream: #141110; /* Dark chocolate charcoal background */
-  --paper: #1d1816; /* Clean card background */
-  --ink: #f5f0eb; /* Extremely readable warm light text */
-  --muted: #a69590;
-  --border: #352d2a;
+  --wine: #9db8c4; /* Realce azul-ardósia suave sobre fundo escuro */
+  --wine-light: #c4d6dd;
+  --wine-dark: #1c272c;
+  --gold: #8fc1a8; /* Realce verde-sálvia suave sobre fundo escuro */
+  --gold-light: #dcece3;
+  --gold-dark: #35503f;
+  --gold-gradient: linear-gradient(135deg, #dcece3 0%, #8fc1a8 50%, #35503f 100%);
+  --wine-gradient: linear-gradient(135deg, #7c96a3 0%, #3a4750 100%);
+  --cream: #181c20; /* Fundo neutro escuro, sem tom marrom */
+  --paper: #21262b; /* Superfície de cartão */
+  --ink: #e9edf0; /* Texto claro cinza-azulado, leitura confortável */
+  --muted: #97a3aa;
+  --border: #2d343a;
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.25);
 
   /* Harmonized Menu Palette (Dark Mode) */
-  --sidebar-bg: linear-gradient(180deg, #181413 0%, #0c0908 100%);
-  --topbar-bg: rgba(24, 20, 19, 0.96);
-  --topbar-border: rgba(220, 179, 108, 0.15);
-  --sidebar-group-header-color: #efe5d9;
-  --sidebar-active-bg: linear-gradient(135deg, #efe5d9 0%, #dcb36c 100%);
-  --sidebar-active-text: #0c0402;
+  --sidebar-bg: linear-gradient(180deg, #15191c 0%, #0c0f11 100%);
+  --topbar-bg: rgba(21, 25, 28, 0.96);
+  --topbar-border: rgba(143, 193, 168, 0.15);
+  --sidebar-group-header-color: #dcece3;
+  --sidebar-active-bg: linear-gradient(135deg, #dcece3 0%, #8fc1a8 100%);
+  --sidebar-active-text: #0d140f;
   --sidebar-text-muted: rgba(255, 255, 255, 0.65);
   --sidebar-text-hover: #ffffff;
   --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
@@ -772,7 +773,7 @@ input:focus, select:focus {
 }
 
 .dash-total {
-  background: linear-gradient(135deg, var(--gold-light), #fff0d4);
+  background: linear-gradient(135deg, var(--gold-light), #e3f0ea);
   color: var(--wine-dark);
   font-family: 'Outfit', sans-serif;
   font-weight: 700;

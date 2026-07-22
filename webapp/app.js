@@ -871,17 +871,24 @@ function carregarConfiguracoes() {
   config = carregarJSON(CONFIG_KEY, {
     linkGrupo: "",
     theme: "auto",
-    accentColor: "#5c3a21",
+    accentColor: "#56707f",
     sessionTimeout: 1800,
     whatsappGrupos: {},
     whatsappGruposFa: {}
   });
 
+  // Migração: navegadores com a antiga cor de marca (marrom cacau) salva localmente
+  // passam a usar o novo acento neutro padrão automaticamente.
+  if (config.accentColor === "#5c3a21") {
+    config.accentColor = "#56707f";
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  }
+
   // Aplicar Tema
   aplicarTema(config.theme || "auto");
 
   // Aplicar Cor
-  aplicarCorDestaque(config.accentColor || "#5c3a21");
+  aplicarCorDestaque(config.accentColor || "#56707f");
 
   // Configurar timeout da sessão
   const timeoutVal = parseInt(config.sessionTimeout !== undefined ? config.sessionTimeout : 1800);
@@ -1282,7 +1289,7 @@ function verificarInventarioMensalNotificacao() {
         icon: "📋",
         title: "Inventário Mensal Obrigatório",
         btnText: "Entendi / Ir para Inventário",
-        btnClass: "bg-amber-600 hover:bg-amber-500 text-white font-bold"
+        btnClass: "bg-brand-600 hover:bg-brand-500 text-white font-bold"
       }
     ).then(() => {
       localStorage.setItem(storageKey, "true");
@@ -4328,12 +4335,36 @@ function initializeNotificationPrefs() {
   });
 }
 
+function renderNotifRoleCell(notifType, role, isOwner) {
+  const dis = !isOwner ? "disabled" : "";
+  const fade = !isOwner ? "opacity: 0.5;" : "";
+  return `
+    <div class="flex flex-col gap-1.5">
+      <label class="flex items-center gap-2">
+        <input type="checkbox" id="notif-${notifType}-${role}" class="notif-check" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
+        <span style="font-size: 0.7rem; opacity: 0.75;">Ativo</span>
+      </label>
+      <div class="flex items-center gap-3 pl-1">
+        <label class="flex items-center gap-1">
+          <input type="radio" name="notif-${notifType}-${role}-channel" value="email" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
+          <span style="font-size: 0.68rem;">Email</span>
+        </label>
+        <label class="flex items-center gap-1">
+          <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
+          <span style="font-size: 0.68rem;">Push</span>
+        </label>
+      </div>
+    </div>
+  `;
+}
+
 function renderNotificationTable() {
   const tbody = document.getElementById("notif-table-body");
+  if (!tbody) return;
   const isOwner = currentUser && currentUser.role === "owner";
   const badgeEl = document.getElementById("notif-owner-badge");
 
-  if (isOwner && badgeEl) badgeEl.classList.remove("hidden");
+  if (badgeEl) badgeEl.classList.toggle("hidden", !isOwner);
 
   const notifLabels = {
     "envelopes": { title: "Acúmulo de Envelopes (>= R$ 1.000)", desc: "Alerta de segurança ao atingir limite em trânsito" },
@@ -4345,6 +4376,8 @@ function renderNotificationTable() {
 
   const prefs = loadNotificationPrefs();
 
+  tbody.innerHTML = "";
+
   Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
     const label = notifLabels[notifType];
     const tr = document.createElement("tr");
@@ -4354,64 +4387,23 @@ function renderNotificationTable() {
         <div class="font-bold">${label.title}</div>
         <div class="text-[10px] text-muted">${label.desc}</div>
       </td>
-      <td class="py-4 px-4">
-        <div class="flex flex-col gap-2">
-          <label class="flex items-center gap-2">
-            <input type="checkbox" id="notif-${notifType}-colab" class="notif-check" data-type="${notifType}" data-role="colab" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem; opacity: 0.7;">Email</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-colab-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Email</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-colab-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Push</span>
-          </label>
-        </div>
-      </td>
-      <td class="py-4 px-4">
-        <div class="flex flex-col gap-2">
-          <label class="flex items-center gap-2">
-            <input type="checkbox" id="notif-${notifType}-lider" class="notif-check" data-type="${notifType}" data-role="lider" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem; opacity: 0.7;">Ativo</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-lider-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Email</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-lider-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Push</span>
-          </label>
-        </div>
-      </td>
-      <td class="py-4 px-4">
-        <div class="flex flex-col gap-2">
-          <label class="flex items-center gap-2">
-            <input type="checkbox" id="notif-${notifType}-owner" class="notif-check" data-type="${notifType}" data-role="owner" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem; opacity: 0.7;">Ativo</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-owner-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Email</span>
-          </label>
-          <label class="flex items-center gap-2">
-            <input type="radio" name="notif-${notifType}-owner-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
-            <span style="font-size: 0.7rem;">Push</span>
-          </label>
-        </div>
-      </td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "colab", isOwner)}</td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "lider", isOwner)}</td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "owner", isOwner)}</td>
     `;
 
     tbody.appendChild(tr);
   });
 
-  // Carregar preferências salvas
+  // Carregar preferências salvas (ativo/inativo + canal por perfil)
   Object.keys(prefs).forEach(notifType => {
-    Object.keys(prefs[notifType]).forEach(role => {
+    ["colab", "lider", "owner"].forEach(role => {
       const checkbox = document.getElementById(`notif-${notifType}-${role}`);
-      if (checkbox) checkbox.checked = prefs[notifType][role];
+      if (checkbox) checkbox.checked = !!prefs[notifType][role];
+
+      const channel = prefs[notifType][`${role}_ch`] || "email";
+      const radio = document.querySelector(`input.notif-channel[name="notif-${notifType}-${role}-channel"][value="${channel}"]`);
+      if (radio) radio.checked = true;
     });
   });
 }
@@ -4468,14 +4460,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ['dragenter', 'dragover'].forEach(eventName => {
       nfDropZone.addEventListener(eventName, () => {
-        nfDropZone.classList.add('border-amber-500', 'bg-brand-900/30');
+        nfDropZone.classList.add('border-brand-500', 'bg-brand-900/30');
         nfDropZone.classList.remove('border-brand-700/80');
       }, false);
     });
 
     ['dragleave', 'dragend', 'drop'].forEach(eventName => {
       nfDropZone.addEventListener(eventName, () => {
-        nfDropZone.classList.remove('border-amber-500', 'bg-brand-900/30');
+        nfDropZone.classList.remove('border-brand-500', 'bg-brand-900/30');
         nfDropZone.classList.add('border-brand-700/80');
       }, false);
     });
@@ -4659,7 +4651,7 @@ function handleNfFiles(files) {
   if (infoEl) {
     infoEl.classList.remove('hidden');
     infoEl.textContent = `Processando ${files.length} arquivo(s)...`;
-    infoEl.className = "mt-3 text-xs text-amber-400 font-mono";
+    infoEl.className = "mt-3 text-xs text-brand-300 font-mono";
   }
 
   let processedCount = 0;
@@ -4688,7 +4680,7 @@ function handleNfFiles(files) {
         } else if (successCount > 0) {
           infoEl.className = "mt-3 text-xs text-emerald-400 font-mono bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40 text-left";
         } else {
-          infoEl.className = "mt-3 text-xs text-amber-400 font-mono bg-amber-950/20 p-2.5 rounded-lg border border-amber-900/40 text-left";
+          infoEl.className = "mt-3 text-xs text-brand-300 font-mono bg-brand-800/20 p-2.5 rounded-lg border border-brand-700/40 text-left";
         }
       }
 
@@ -5738,7 +5730,7 @@ function renderTable() {
     tr.className = `hover:bg-brand-900/30 transition-all border-b border-brand-900/20 ${rowBorder}`;
     tr.innerHTML = `
       <td class="py-3 px-4">
-        <div class="font-mono text-xs text-amber-400 font-extrabold tracking-wider">${cod7}</div>
+        <div class="font-mono text-xs text-brand-300 font-extrabold tracking-wider">${cod7}</div>
       </td>
       <td class="py-3 px-4 text-brand-100 font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-brand-300">${p.dataEntrada || '-'}</td>
@@ -5748,7 +5740,7 @@ function renderTable() {
       </td>
       <td class="py-3 px-4 text-center text-xs font-bold">${p.daysRemaining !== null ? `${p.daysRemaining} dias` : 'N/A'} ${urgentSignal}</td>
       <td class="py-3 px-4 text-center">
-        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-400/50 transition-all" />
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-400/50 transition-all" />
       </td>
     `;
 
@@ -6603,7 +6595,7 @@ function inicializarPainelConfiguracoes() {
   }
 
   // Cor de destaque ativa
-  aplicarCorDestaque(config.accentColor || "#5c3a21");
+  aplicarCorDestaque(config.accentColor || "#56707f");
 }
 
 // Configurações: Ouvir eventos após o carregamento da página
