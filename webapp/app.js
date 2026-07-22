@@ -7704,8 +7704,10 @@ async function abrirModalEditDisc(userName) {
   renderRhModulo();
 }
 
-// Leitor de PDF DISC via PDF.js
-async function parseDiscPdf(file, userName) {
+// Processamento em lote ou individual de arquivos PDF DISC
+async function handleDiscPdfs(files, selectedUser) {
+  if (!files || files.length === 0) return;
+
   if (!window.pdfjsLib) {
     showToast("Biblioteca de PDF não carregada no navegador.", "erro");
     return;
@@ -7716,70 +7718,97 @@ async function parseDiscPdf(file, userName) {
   const progressLabel = document.getElementById("disc-progress-label");
 
   if (containerInfo) containerInfo.classList.remove("hidden");
-  if (progressBar) progressBar.style.width = "20%";
-  if (progressLabel) progressLabel.textContent = "Carregando PDF DISC...";
 
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    
-    let textContent = "";
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const pageText = content.items.map(item => item.str).join(" ");
-      textContent += pageText + " ";
-      if (progressBar) progressBar.style.width = `${Math.round((p / pdf.numPages) * 70)}%`;
+  const colabs = obterListaColaboradores();
+  const profiles = loadDiscProfiles();
+  let processados = 0;
+
+  for (let idx = 0; idx < files.length; idx++) {
+    const file = files[idx];
+    const pct = Math.round(((idx + 1) / files.length) * 100);
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (progressLabel) progressLabel.textContent = `Processando arquivo ${idx + 1} de ${files.length}: ${file.name}`;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let textContent = "";
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(" ");
+        textContent += pageText + " ";
+      }
+
+      const textUpper = textContent.toUpperCase();
+      const fileNameUpper = file.name.toUpperCase();
+
+      // Tentar identificar o colaborador pelo nome no texto do PDF ou no nome do arquivo
+      let targetUser = selectedUser;
+      if (!targetUser || files.length > 1) {
+        const colabEncontrado = colabs.find(c => {
+          const cNome = c.nome.toUpperCase();
+          return textUpper.includes(cNome) || fileNameUpper.includes(cNome);
+        });
+        if (colabEncontrado) targetUser = colabEncontrado.nome;
+      }
+
+      if (!targetUser) {
+        if (files.length === 1 && selectedUser) {
+          targetUser = selectedUser;
+        } else {
+          console.warn(`Não foi possível determinar o colaborador para o arquivo: ${file.name}`);
+          continue;
+        }
+      }
+
+      // Algoritmo de extração das pontuações D, I, S, C
+      let d = 25, i = 25, s = 25, c = 25;
+
+      const matchD = textUpper.match(/DOMINÂNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/DOMINANTE[^\d]*(\d{1,3})/i);
+      const matchI = textUpper.match(/INFLUÊNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/INFLUENCIADOR[^\d]*(\d{1,3})/i);
+      const matchS = textUpper.match(/ESTABILIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/ESTÁVEL[^\d]*(\d{1,3})/i);
+      const matchC = textUpper.match(/CONFORMIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/CONFORME[^\d]*(\d{1,3})/i);
+
+      if (matchD) d = parseInt(matchD[1]);
+      if (matchI) i = parseInt(matchI[1]);
+      if (matchS) s = parseInt(matchS[1]);
+      if (matchC) c = parseInt(matchC[1]);
+
+      let perfilPredominante = "Dominante";
+      let max = d;
+      if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+      if (s > max) { max = s; perfilPredominante = "Estável"; }
+      if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+      profiles[targetUser] = {
+        userName: targetUser,
+        d, i, s, c,
+        perfilPredominante,
+        dataAtualizacao: new Date().toISOString().split("T")[0]
+      };
+
+      processados++;
+    } catch (err) {
+      console.error(`Erro ao processar PDF ${file.name}:`, err);
     }
-
-    if (progressBar) progressBar.style.width = "90%";
-    if (progressLabel) progressLabel.textContent = "Analisando perfil comportamental...";
-
-    const textUpper = textContent.toUpperCase();
-    
-    // Algoritmo de extração das pontuações D, I, S, C
-    let d = 25, i = 25, s = 25, c = 25;
-
-    const matchD = textUpper.match(/DOMINÂNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/DOMINANTE[^\d]*(\d{1,3})/i);
-    const matchI = textUpper.match(/INFLUÊNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/INFLUENCIADOR[^\d]*(\d{1,3})/i);
-    const matchS = textUpper.match(/ESTABILIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/ESTÁVEL[^\d]*(\d{1,3})/i);
-    const matchC = textUpper.match(/CONFORMIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/CONFORME[^\d]*(\d{1,3})/i);
-
-    if (matchD) d = parseInt(matchD[1]);
-    if (matchI) i = parseInt(matchI[1]);
-    if (matchS) s = parseInt(matchS[1]);
-    if (matchC) c = parseInt(matchC[1]);
-
-    let perfilPredominante = "Dominante";
-    let max = d;
-    if (i > max) { max = i; perfilPredominante = "Influenciador"; }
-    if (s > max) { max = s; perfilPredominante = "Estável"; }
-    if (c > max) { max = c; perfilPredominante = "Conforme"; }
-
-    const profiles = loadDiscProfiles();
-    profiles[userName] = {
-      userName,
-      d, i, s, c,
-      perfilPredominante,
-      dataAtualizacao: new Date().toISOString().split("T")[0]
-    };
-
-    saveDiscProfiles(profiles);
-
-    if (progressBar) progressBar.style.width = "100%";
-    if (progressLabel) progressLabel.textContent = "Concluído!";
-
-    setTimeout(() => {
-      if (containerInfo) containerInfo.classList.add("hidden");
-      showToast(`Perfil DISC em PDF para ${userName} lido e salvo! (${perfilPredominante})`, "sucesso");
-      renderRhModulo();
-    }, 600);
-
-  } catch (err) {
-    console.error("Erro ao ler PDF DISC:", err);
-    if (containerInfo) containerInfo.classList.add("hidden");
-    showToast("Erro ao ler o arquivo PDF DISC.", "erro");
   }
+
+  saveDiscProfiles(profiles);
+
+  if (progressBar) progressBar.style.width = "100%";
+  if (progressLabel) progressLabel.textContent = "Concluído!";
+
+  setTimeout(() => {
+    if (containerInfo) containerInfo.classList.add("hidden");
+    if (processados > 0) {
+      showToast(`Sucesso! ${processados} laudo(s) DISC em PDF processado(s) e salvo(s).`, "sucesso");
+      renderRhModulo();
+    } else {
+      showToast("Nenhum laudo DISC foi associado. Selecione o colaborador ou insira o nome no arquivo.", "erro");
+    }
+  }, 600);
 }
 
 function inicializarRhListeners() {
@@ -7834,21 +7863,17 @@ function inicializarRhListeners() {
     });
   }
 
-  // Upload PDF DISC Listener
+  // Upload PDF DISC Listener (Múltiplos ou Único)
   const discFileInput = document.getElementById("disc-pdf-file");
   const userSelect = document.getElementById("disc-upload-user-select");
 
   if (discFileInput) {
     discFileInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
+      const files = Array.from(e.target.files);
       const userName = userSelect ? userSelect.value : "";
-      if (!file) return;
-      if (!userName) {
-        showToast("Por favor, selecione o(a) colaborador(a) antes de anexar o PDF.", "erro");
-        discFileInput.value = "";
-        return;
-      }
-      parseDiscPdf(file, userName);
+      if (!files || files.length === 0) return;
+      handleDiscPdfs(files, userName);
+      discFileInput.value = "";
     });
   }
 }
