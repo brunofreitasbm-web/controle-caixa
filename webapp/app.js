@@ -7447,13 +7447,15 @@ function renderRhModulo() {
     return;
   }
 
-  // Preencher dropdown de seleção de colaboradores para o upload
+  const profiles = loadDiscProfiles();
   const colabs = obterListaColaboradores();
+
+  // Preencher dropdown de seleção de colaboradores para o upload (apenas colaboradores ativos no RH)
   const selectUpload = document.getElementById("disc-upload-user-select");
   if (selectUpload) {
     const valorAtual = selectUpload.value;
-    selectUpload.innerHTML = '<option value="">Selecione o(a) colaborador(a)...</option>';
-    colabs.forEach(c => {
+    selectUpload.innerHTML = '<option value="">Detecção Automática ou Escolher Colaborador...</option>';
+    colabs.filter(c => !(profiles[c.nome] && profiles[c.nome].excludedFromRh)).forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.nome;
       opt.textContent = `${c.nome} (${c.role === 'owner' ? 'Owner' : c.role === 'consultora_dashboard' ? 'Líder Operacional' : 'Consultor(a)'})`;
@@ -7488,13 +7490,15 @@ function renderRhTable() {
   tbody.innerHTML = "";
 
   colabs.forEach(c => {
+    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
+    if (prof.excludedFromRh) return; // Ocultar do Módulo RH
+
     const store = getStoreForColab(c.nome);
     if (filterStore !== "all" && store !== "all" && store !== filterStore) {
       return;
     }
 
     count++;
-    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
     
     let badgeClass = "disc-badge-c";
     if (prof.perfilPredominante === "Dominante") badgeClass = "disc-badge-d";
@@ -7530,11 +7534,14 @@ function renderRhTable() {
       <td class="py-3 px-4 text-center font-mono font-bold text-emerald-400">${prof.s}%</td>
       <td class="py-3 px-4 text-center font-mono font-bold text-indigo-400">${prof.c}%</td>
       <td class="py-3 px-4 text-right flex items-center justify-end gap-1.5">
-        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1">
+        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1" title="Enviar convite via WhatsApp">
           <i class="fa-brands fa-whatsapp"></i> Convidar
         </a>
-        <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}">
+        <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}" title="Ajustar valores DISC">
           <i class="fa-solid fa-pen"></i> Ajustar
+        </button>
+        <button class="px-2 py-1 rounded bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 text-[10px] font-bold btn-remove-rh-disc" data-user="${c.nome}" title="Desconsiderar colaborador do RH">
+          <i class="fa-solid fa-trash-can"></i>
         </button>
       </td>
     `;
@@ -7543,6 +7550,37 @@ function renderRhTable() {
 
   const countBadge = document.getElementById("rh-colab-count-badge");
   if (countBadge) countBadge.textContent = `${count} colaborador(es)`;
+
+  // Opção de Restaurar Colaboradores Excluídos
+  const excludedColabs = colabs.filter(c => profiles[c.nome] && profiles[c.nome].excludedFromRh);
+  const containerRestaurar = document.getElementById("rh-restore-container");
+  if (containerRestaurar) {
+    if (excludedColabs.length > 0) {
+      containerRestaurar.innerHTML = `
+        <button id="btn-restore-rh-colab" class="px-2.5 py-1 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-xs font-bold transition">
+          <i class="fa-solid fa-rotate-left"></i> Restaurar Removidos (${excludedColabs.length})
+        </button>
+      `;
+      containerRestaurar.classList.remove("hidden");
+      document.getElementById("btn-restore-rh-colab").addEventListener("click", async () => {
+        const nomesExcluidos = excludedColabs.map(c => c.nome).join(", ");
+        const selected = prompt(`Qual colaborador deseja restaurar no Módulo RH?\nOcultos no RH: ${nomesExcluidos}`, excludedColabs[0].nome);
+        if (!selected) return;
+        const target = excludedColabs.find(c => c.nome.toLowerCase() === selected.trim().toLowerCase());
+        if (target) {
+          profiles[target.nome].excludedFromRh = false;
+          saveDiscProfiles(profiles);
+          showToast(`${target.nome} restaurado(a) no Módulo RH!`, "sucesso");
+          renderRhModulo();
+        } else {
+          showToast("Colaborador não encontrado na lista de removidos.", "erro");
+        }
+      });
+    } else {
+      containerRestaurar.innerHTML = "";
+      containerRestaurar.classList.add("hidden");
+    }
+  }
 
   // Listeners para trocar a loja do colaborador
   document.querySelectorAll(".rh-colab-store-select").forEach(select => {
@@ -7567,6 +7605,26 @@ function renderRhTable() {
       abrirModalEditDisc(u);
     });
   });
+
+  // Event Listeners para remoção do Módulo RH
+  document.querySelectorAll(".btn-remove-rh-disc").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const userName = btn.dataset.user;
+      const confirmRemove = await showConfirm(
+        `Tem certeza que deseja desconsiderar ${userName} do Módulo RH? Isso removerá o perfil apenas dos relatórios de RH, sem afetar o cadastro geral ou registros de caixa do sistema.`,
+        { title: "Remover Perfil do RH", icon: "⚠️", confirmBtnText: "Sim, remover", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirmRemove) return;
+
+      const profiles = loadDiscProfiles();
+      if (!profiles[userName]) profiles[userName] = {};
+      profiles[userName].excludedFromRh = true;
+      saveDiscProfiles(profiles);
+
+      showToast(`${userName} desconsiderado(a) do Módulo RH.`, "sucesso");
+      renderRhModulo();
+    });
+  });
 }
 
 function renderRhDashboard() {
@@ -7577,6 +7635,9 @@ function renderRhDashboard() {
   let sumD = 0, sumI = 0, sumS = 0, sumC = 0, total = 0;
 
   colabs.forEach(c => {
+    const prof = profiles[c.nome];
+    if (prof && prof.excludedFromRh) return; // Ignorar no Dashboard do RH
+
     const store = getStoreForColab(c.nome);
     if (filterStore !== "all" && store !== "all" && store !== filterStore) return;
 
