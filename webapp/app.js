@@ -57,10 +57,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro"],
-  consultora_dashboard: ["registro", "dashboard", "historico"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque"],
   consultora_fa: ["faca-amigos"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque"],
 };
 
 // ==========================================================================
@@ -1245,7 +1245,7 @@ function validarValoresTempoReal(fundoId, envelopeId, errorFundoId, errorEnvelop
     let tipo = "";
     if (isCacauShow) tipo = document.querySelector(`#tipo-operacao .seg-btn.active`)?.dataset.value;
     else if (isFa) tipo = document.querySelector(`#fa-tipo-operacao .seg-btn.active`)?.dataset.value;
-                 
+
     if (tipo !== "Fechamento") {
       envelopeInput.classList.remove("input-error");
       if (errEnvelope) errEnvelope.classList.add("hidden");
@@ -1254,7 +1254,7 @@ function validarValoresTempoReal(fundoId, envelopeId, errorFundoId, errorEnvelop
 
     const fundo = parseMoeda(fundoInput.value);
     const env = parseMoeda(envelopeInput.value);
-    
+
     if (fundoInput.value && envelopeInput.value) {
       // Alerta se envelope for < 30% do fundo (quebra muito alta ou esquecimento de venda)
       if (env < (fundo * 0.3) && env !== 0) {
@@ -2950,23 +2950,23 @@ atualizarBadgeSync();
 async function inscreverPushNotificacoes() {
   if (currentUser.role !== 'owner') return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  
+
   try {
     const swReg = await navigator.serviceWorker.register('/sw.js');
     console.log('Service Worker registrado', swReg);
-    
+
     let subscription = await swReg.pushManager.getSubscription();
     if (!subscription) {
       const resVapid = await fetch('/api/vapidPublicKey');
       const vapidPublicKey = await resVapid.text();
-      
+
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
       subscription = await swReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedVapidKey
       });
     }
-    
+
     await fetch('/api/subscribe', {
       method: 'POST',
       body: JSON.stringify({ subscription, usuario: currentUser.nome }),
@@ -3032,7 +3032,7 @@ async function carregarColaboradores() {
       if (Array.isArray(data) && data.length > 0) {
         USERS = data.map(c => ({ nome: c.nome, role: c.role }));
         localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
-        
+
         // FORÇAR ATUALIZAÇÃO DO ROLE SE MUDOU NO BANCO
         if (currentUser) {
           const userDb = USERS.find(u => u.nome === currentUser.nome);
@@ -3196,7 +3196,7 @@ if (btnAdminPinResetar) {
     if (API_ONLINE) {
       try {
         await fetch(`${API_BASE}/pins/${encodeURIComponent(usuarioPinAdminEmEdicao)}`, { method: "DELETE" });
-      } catch(e) { console.error(e); }
+      } catch (e) { console.error(e); }
     }
     delete pins[usuarioPinAdminEmEdicao];
     localStorage.setItem(PIN_KEY, JSON.stringify(pins));
@@ -3227,7 +3227,7 @@ async function excluirColaborador(nome) {
         showToast(`Erro ao excluir: ${resData.error}`, "erro");
         return;
       }
-    } catch(e) {
+    } catch (e) {
       showToast("Erro ao se conectar ao servidor.", "erro");
       return;
     }
@@ -3277,7 +3277,7 @@ if (formCadastrarColab) {
           pins[nome] = '****';
           localStorage.setItem(PIN_KEY, JSON.stringify(pins));
         }
-      } catch(err) {
+      } catch (err) {
         showToast("Erro de comunicação com o servidor.", "erro");
         return;
       }
@@ -3304,6 +3304,720 @@ if (btnAtualizarColab) {
     await renderizarColaboradores();
     showToast("Lista de colaboradores atualizada.", "info");
   };
+}
+
+/* ==========================================================================
+   CACAU SHOW UNIFIED DATABASE BRIDGE - INTEGRAÇÃO APP CONTROLE DE CAIXA & INVENTÁRIO
+   ========================================================================== */
+class CacauShowControlBoxBridge {
+  constructor() {
+    this.channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cacaushow_app_bridge') : null;
+    this.initListeners();
+  }
+
+  initListeners() {
+    if (this.channel) {
+      this.channel.onmessage = (event) => {
+        if (event.data && event.data.type === 'INVENTORY_UPDATE') {
+          const { storeId, payload } = event.data;
+          console.log(`📦 [Inventário & Validade -> Caixa] Atualização recebida para a Loja ${storeId}:`, payload);
+          if (typeof showToast === 'function') {
+            showToast(`📦 Estoque Atualizado: ${payload.description} (${payload.countedQty || 0} UN)`, "info");
+          }
+        }
+      };
+    }
+  }
+
+  // Obter inventário e validades da loja
+  getInventarioLoja(storeId) {
+    const items = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith(`cacaushow_db_inventory_${storeId}_`)) {
+        try {
+          items.push(JSON.parse(localStorage.getItem(key)));
+        } catch (e) { }
+      }
+    }
+    return items;
+  }
+
+  // Dar baixa de venda no estoque do inventário direto do Caixa
+  baixarEstoqueVenda(storeId, productCode, qtdVendida) {
+    const key = `cacaushow_db_inventory_${storeId}_${productCode}`;
+    const data = localStorage.getItem(key);
+    if (data) {
+      const item = JSON.parse(data);
+      const atual = Number(item.countedQty || 0);
+      item.countedQty = Math.max(0, atual - qtdVendida);
+      item.lastUpdated = new Date().toISOString();
+
+      localStorage.setItem(key, JSON.stringify(item));
+      if (this.channel) {
+        this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload: item });
+      }
+      return item;
+    }
+    return null;
+  }
+}
+
+window.cacauShowBoxBridge = new CacauShowControlBoxBridge();
+
+/* ==========================================================================
+   CACAU SHOW LOGISTICS & INVENTORY SYSTEM - INTEGRATED ENGINE
+   ========================================================================== */
+
+let products = [];
+let currentFilter = 'all';
+let searchQuery = '';
+let html5QrCode = null;
+let importedNfs = {};
+let activeNfNumber = null;
+let nfSearchQuery = '';
+let html5QrCodeNf = null;
+let currentStore = '9175';
+const today = new Date();
+const formattedTodayStr = today.toLocaleDateString('pt-BR');
+
+// Init Event Listeners para a Logística
+document.addEventListener('DOMContentLoaded', () => {
+  const nfFileEl = document.getElementById('nf-file');
+  if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
+
+  const nfSearchInput = document.getElementById('nf-search-input');
+  if (nfSearchInput) {
+    nfSearchInput.addEventListener('input', (e) => {
+      nfSearchQuery = e.target.value.trim().toLowerCase();
+      renderNfTable();
+    });
+  }
+
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderTable();
+    });
+  }
+
+  const filterAll = document.getElementById('filter-all');
+  if (filterAll) filterAll.addEventListener('click', () => setFilter('all'));
+  const filterRed = document.getElementById('filter-red');
+  if (filterRed) filterRed.addEventListener('click', () => setFilter('red'));
+  const filterYellow = document.getElementById('filter-yellow');
+  if (filterYellow) filterYellow.addEventListener('click', () => setFilter('yellow'));
+  const filterGreen = document.getElementById('filter-green');
+  if (filterGreen) filterGreen.addEventListener('click', () => setFilter('green'));
+
+  const btnExport = document.getElementById('btn-export');
+  if (btnExport) btnExport.addEventListener('click', exportExcel);
+
+  const btnToggleNfScanner = document.getElementById('btn-toggle-nf-scanner');
+  if (btnToggleNfScanner) btnToggleNfScanner.addEventListener('click', toggleNfScanner);
+
+  const btnBackGallery = document.getElementById('btn-back-to-gallery');
+  if (btnBackGallery) btnBackGallery.addEventListener('click', backToNfGallery);
+
+  checkMonthlyInventoryAlert();
+});
+
+function formatDate(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function dateToInputVal(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function setFilter(filterType) {
+  currentFilter = filterType;
+  renderTable();
+}
+
+function playBeep(type = 'success') {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } else if (type === 'error') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) { }
+}
+
+function checkMonthlyInventoryAlert() {
+  const currentDay = today.getDate();
+  const currentMonth = today.toLocaleString('pt-BR', { month: 'long' });
+  const capitalizedMonth = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
+
+  const monthNameEl = document.getElementById('current-month-name');
+  if (monthNameEl) monthNameEl.textContent = `${capitalizedMonth} / ${today.getFullYear()}`;
+
+  const badgeEl = document.getElementById('monthly-deadline-badge');
+  if (badgeEl) {
+    if (currentDay > 25) {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white animate-pulse shadow-md border border-red-500";
+      badgeEl.textContent = "⚠️ ATENÇÃO: PRAZO DIA 25 EXCEDIDO!";
+    } else if (currentDay >= 20) {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-600 text-white animate-pulse shadow-md border border-orange-500";
+      badgeEl.textContent = `⚠️ RETA FINAL (FALTA ${25 - currentDay} DIA(S))`;
+    } else {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-800 text-brand-200 border border-brand-700";
+      badgeEl.textContent = "Prazo: Dia 25";
+    }
+  }
+}
+
+function handleNfFileUpload(event) {
+  const files = Array.from(event.target.files);
+  if (!files || files.length === 0) return;
+
+  const infoEl = document.getElementById('nf-file-info');
+  if (infoEl) infoEl.textContent = `${files.length} nota(s) selecionada(s) para importação.`;
+
+  let processedCount = 0;
+  files.forEach(file => {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.xml')) {
+      parseXmlNfe(file, () => {
+        processedCount++;
+        if (processedCount === files.length) renderNfCardsGallery();
+      });
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      parseExcelNfe(file, () => {
+        processedCount++;
+        if (processedCount === files.length) renderNfCardsGallery();
+      });
+    } else {
+      processedCount++;
+    }
+  });
+}
+
+function detectStoreFromRazaoSocial(razaoSocialText) {
+  if (!razaoSocialText) return null;
+  const text = razaoSocialText.toString().toUpperCase();
+  if (text.includes('0001008688') || text.includes('IB MARIO COVAS') || text.includes('MARIO COVAS')) return '9201';
+  if (text.includes('0001008056') || text.includes('IB ICOARACI') || text.includes('ICOARACI')) return '4304';
+  if (text.includes('0001006495') || text.includes('IB COMERCIO DE DOCES CACAU LTDA') || text.includes('MARAMBAIA')) return '9175';
+  return null;
+}
+
+function detectBoxMultiplier(detElement, xProdText) {
+  const uCom = detElement.querySelector('uCom') ? detElement.querySelector('uCom').textContent.toUpperCase() : '';
+  const qCom = detElement.querySelector('qCom') ? parseFloat(detElement.querySelector('qCom').textContent) : 1;
+  const qTrib = detElement.querySelector('qTrib') ? parseFloat(detElement.querySelector('qTrib').textContent) : 1;
+
+  if ((uCom.includes('CX') || uCom.includes('BOX') || uCom.includes('FD')) && qTrib > qCom && qCom > 0) {
+    return Math.round(qTrib / qCom);
+  }
+
+  const desc = xProdText.toUpperCase();
+  const matchRegex = /(?:CX|FD|C\/|BOX|DISP|DISPLAY)\s*(\d+)/i;
+  const match = desc.match(matchRegex);
+  if (match && match[1]) {
+    const val = parseInt(match[1]);
+    if (val > 1) return val;
+  }
+  return 1;
+}
+
+function parseXmlNfe(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const xmlText = e.target.result;
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+    const nNF = xmlDoc.querySelector('nNF') ? xmlDoc.querySelector('nNF').textContent.trim() : `NF-${Date.now().toString().slice(-5)}`;
+    const dhEmi = xmlDoc.querySelector('dhEmi') ? xmlDoc.querySelector('dhEmi').textContent : (xmlDoc.querySelector('dEmi') ? xmlDoc.querySelector('dEmi').textContent : '');
+    const qVol = xmlDoc.querySelector('qVol') ? xmlDoc.querySelector('qVol').textContent : '1';
+    const xNomeEmit = xmlDoc.querySelector('emit > xNome') ? xmlDoc.querySelector('emit > xNome').textContent : 'Cacau Show CD';
+    const xNomeDest = xmlDoc.querySelector('dest > xNome') ? xmlDoc.querySelector('dest > xNome').textContent : '';
+    const cnpjDest = xmlDoc.querySelector('dest > CNPJ') ? xmlDoc.querySelector('dest > CNPJ').textContent : '';
+
+    const targetStore = detectStoreFromRazaoSocial(`${xNomeDest} ${cnpjDest}`) || currentStore;
+
+    let formattedDate = '-';
+    if (dhEmi) {
+      const d = new Date(dhEmi);
+      if (!isNaN(d.getTime())) formattedDate = formatDate(d);
+    }
+
+    const info = {
+      numero: nNF,
+      emissao: formattedDate,
+      rawEmissaoDate: dhEmi ? new Date(dhEmi) : new Date(),
+      volumes: qVol,
+      fornecedor: xNomeEmit,
+      destinatario: xNomeDest,
+      targetStore: targetStore
+    };
+
+    const detElements = xmlDoc.querySelectorAll('det');
+    const productsList = [];
+
+    detElements.forEach((det, idx) => {
+      const cProd = det.querySelector('cProd') ? det.querySelector('cProd').textContent.trim() : `ITEM-${idx + 1}`;
+      const cEAN = det.querySelector('cEAN') ? det.querySelector('cEAN').textContent.trim() : '';
+      const xProd = det.querySelector('xProd') ? det.querySelector('xProd').textContent.trim() : 'Produto Desconhecido';
+      const qCom = det.querySelector('qCom') ? parseFloat(det.querySelector('qCom').textContent) : 0;
+
+      const boxMultiplier = detectBoxMultiplier(det, xProd);
+      const totalUnitsFaturadas = Math.round(qCom * boxMultiplier);
+
+      let expDate = null;
+      const dVal = det.querySelector('dVal');
+      if (dVal && dVal.textContent) expDate = new Date(dVal.textContent + 'T12:00:00');
+
+      const savedQty = localStorage.getItem(`nfcnt_${targetStore}_${nNF}_${cProd}`);
+      const savedValidade = localStorage.getItem(`nfval_${targetStore}_${nNF}_${cProd}`);
+
+      let validadeDate = expDate;
+      if (savedValidade) validadeDate = new Date(savedValidade);
+
+      let daysRemaining = null;
+      if (validadeDate) {
+        const diffTime = validadeDate.getTime() - today.getTime();
+        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      productsList.push({
+        code: cProd,
+        barras: cEAN !== 'SEM GTIN' ? cEAN : '',
+        description: xProd,
+        nfQty: qCom,
+        boxMultiplier: boxMultiplier,
+        totalUnits: totalUnitsFaturadas,
+        countedQty: savedQty !== null ? savedQty : '',
+        validade: validadeDate,
+        daysRemaining: daysRemaining
+      });
+    });
+
+    importedNfs[nNF] = { info, products: productsList };
+    activeNfNumber = nNF;
+
+    if (callback) callback();
+  };
+  reader.readAsText(file);
+}
+
+function parseExcelNfe(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    let headerRowIndex = 0;
+    let headers = [];
+
+    for (let r = 0; r < Math.min(5, rawRows.length); r++) {
+      const row = rawRows[r];
+      if (row && row.some(val => typeof val === 'string' && (val.toLowerCase().includes('cód. produto') || val.toLowerCase().includes('código') || val.toLowerCase().includes('produto')))) {
+        headerRowIndex = r;
+        headers = row;
+        break;
+      }
+    }
+
+    const colMap = {};
+    headers.forEach((h, idx) => {
+      if (h) colMap[h.toString().trim()] = idx;
+    });
+
+    const getVal = (row, keys) => {
+      for (let k of keys) {
+        if (colMap[k] !== undefined) return row[colMap[k]];
+      }
+      return undefined;
+    };
+
+    const firstRow = rawRows[headerRowIndex + 1] || [];
+    const numNF = getVal(firstRow, ['Nº Nota', 'Nota', 'NF', 'Nº NF']) || `NF-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const numNfStr = numNF.toString().trim();
+
+    const info = {
+      numero: numNfStr,
+      emissao: formattedTodayStr,
+      volumes: '1',
+      fornecedor: 'Cacau Show CD'
+    };
+
+    const productsList = [];
+    for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+      const row = rawRows[r];
+      if (!row || row.length === 0) continue;
+
+      const code = getVal(row, ['Cód. Produto', 'Código', 'Cod']);
+      if (!code) continue;
+
+      const desc = getVal(row, ['Desc. Produto', 'PRODUTO', 'Descrição']) || 'Item Nota';
+      const barras = getVal(row, ['Barras', 'EAN']) || '';
+      const qtdNota = getVal(row, ['Quantidade', 'QTD', 'Qtd Faturada', 'Qtd']) || 0;
+      const codeStr = code.toString().trim();
+
+      const savedQty = localStorage.getItem(`nfcnt_${currentStore}_${numNfStr}_${codeStr}`);
+      productsList.push({
+        code: codeStr,
+        barras: barras ? barras.toString().trim() : '',
+        description: desc.toString().trim(),
+        nfQty: Number(qtdNota),
+        countedQty: savedQty !== null ? savedQty : '',
+        validade: null,
+        daysRemaining: null
+      });
+    }
+
+    importedNfs[numNfStr] = { info, products: productsList };
+    activeNfNumber = numNfStr;
+    if (callback) callback();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function backToNfGallery() {
+  document.getElementById('nf-work-area').classList.add('hidden');
+  renderNfCardsGallery();
+}
+
+function renderNfCardsGallery() {
+  const nfKeys = Object.keys(importedNfs);
+  if (nfKeys.length === 0) return;
+
+  document.getElementById('nf-work-area').classList.add('hidden');
+  document.getElementById('nf-cards-gallery-section').classList.remove('hidden');
+
+  const grid = document.getElementById('nf-cards-grid');
+  grid.innerHTML = '';
+
+  nfKeys.forEach(numNF => {
+    const nfData = importedNfs[numNF];
+    const totalItens = nfData.products.length;
+    let conferidosCount = 0;
+    let faltasCount = 0;
+
+    nfData.products.forEach(p => {
+      if (p.countedQty !== '') conferidosCount++;
+      const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+      if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+    });
+
+    let statusText = 'Pendente';
+    let cardBgClass = 'border-brand-800/40 bg-brand-950/40';
+    let statusBadgeClass = 'bg-brand-900/80 text-brand-300 border-brand-800';
+
+    if (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) {
+      statusText = 'ENTRADA OK NO SISTEMA CACAU SHOW';
+      cardBgClass = 'border-emerald-600/60 bg-emerald-950/30';
+      statusBadgeClass = 'bg-emerald-600 text-white font-extrabold shadow-md';
+    } else if (faltasCount > 0 && conferidosCount > 0) {
+      statusText = `PENDÊNCIA (${faltasCount} Faltas)`;
+      cardBgClass = 'border-orange-500/60 bg-orange-950/30';
+      statusBadgeClass = 'bg-orange-600 text-white font-extrabold shadow-md animate-pulse';
+    }
+
+    const card = document.createElement('div');
+    card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
+    card.innerHTML = `
+      <div class="flex justify-between items-start mb-3">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
+        <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info.volumes} CX</span>
+      </div>
+      <div class="mb-4">
+        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal</div>
+        <div class="text-2xl font-black text-white font-mono">Nº ${numNF}</div>
+        <div class="text-xs text-brand-300 mt-1 truncate">${nfData.info.fornecedor}</div>
+      </div>
+      <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
+        <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
+      </div>
+    `;
+    card.addEventListener('click', () => openNfConferenceDirectScanner(numNF));
+    grid.appendChild(card);
+  });
+}
+
+function openNfConferenceDirectScanner(numNF) {
+  activeNfNumber = numNF;
+  document.getElementById('nf-cards-gallery-section').classList.add('hidden');
+  document.getElementById('nf-work-area').classList.remove('hidden');
+  renderNfDashboard();
+
+  const scannerContainer = document.getElementById('nf-scanner-container');
+  if (scannerContainer && scannerContainer.classList.contains('hidden')) {
+    toggleNfScanner();
+  }
+}
+
+function renderNfDashboard() {
+  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
+  const currentNf = importedNfs[activeNfNumber];
+  document.getElementById('nf-numero').textContent = currentNf.info.numero;
+  updateNfStats();
+  renderNfTable();
+}
+
+function updateNfStats() {
+  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
+  const currentNf = importedNfs[activeNfNumber];
+  let faltasCount = 0;
+  currentNf.products.forEach(p => {
+    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+    if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+  });
+  const el = document.getElementById('nf-faltas-count');
+  if (el) el.textContent = faltasCount;
+}
+
+function toggleNfScanner() {
+  const container = document.getElementById('nf-scanner-container');
+  const btnText = document.getElementById('nf-scanner-btn-text');
+  if (container.classList.contains('hidden')) {
+    container.classList.remove('hidden');
+    if (btnText) btnText.textContent = "Desativar Câmera";
+    startNfScanner();
+  } else {
+    container.classList.add('hidden');
+    if (btnText) btnText.textContent = "Ativar Câmera NF";
+    stopNfScanner();
+  }
+}
+
+function startNfScanner() {
+  if (typeof Html5QrCode === 'undefined') return;
+  if (html5QrCodeNf === null) html5QrCodeNf = new Html5QrCode("nf-reader");
+  const config = { fps: 15, qrbox: { width: 300, height: 180 } };
+  html5QrCodeNf.start({ facingMode: "environment" }, config, onNfScanSuccess, () => { }).catch(err => console.error(err));
+}
+
+function stopNfScanner() {
+  if (html5QrCodeNf && html5QrCodeNf.isScanning) html5QrCodeNf.stop().catch(err => console.error(err));
+}
+
+function onNfScanSuccess(decodedText) {
+  const cleanCode = decodedText.trim();
+  let targetNfNumber = activeNfNumber;
+  let currentNf = importedNfs[targetNfNumber];
+  let p = currentNf ? currentNf.products.find(prod => prod.barras === cleanCode || prod.code === cleanCode) : null;
+
+  if (!p) {
+    for (const numNF of Object.keys(importedNfs)) {
+      if (numNF !== activeNfNumber) {
+        const found = importedNfs[numNF].products.find(prod => prod.barras === cleanCode || prod.code === cleanCode);
+        if (found) {
+          p = found;
+          activeNfNumber = numNF;
+          showToast(`⚡ Carga Misturada: NF Nº ${numNF}`, "info");
+          break;
+        }
+      }
+    }
+  }
+
+  if (p) {
+    if (navigator.vibrate) navigator.vibrate(150);
+    playBeep('success');
+    const currentQty = p.countedQty === '' ? 0 : Number(p.countedQty);
+    const newQty = currentQty + 1;
+    saveNfQuantity(p.code, newQty.toString());
+  } else {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    playBeep('error');
+  }
+}
+
+function saveNfQuantity(code, value) {
+  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
+  const currentNf = importedNfs[activeNfNumber];
+  const p = currentNf.products.find(prod => prod.code === code);
+  if (p) {
+    p.countedQty = value;
+    localStorage.setItem(`nfcnt_${currentStore}_${activeNfNumber}_${code}`, value);
+    autoCreditNfProductToInventory(currentNf.info, p);
+    updateNfStats();
+    renderNfTable();
+  }
+}
+
+function autoCreditNfProductToInventory(nfInfo, p) {
+  const targetStore = nfInfo.targetStore || currentStore;
+  const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
+  if (countedBoxes <= 0) return;
+
+  const totalUnits = Math.round(countedBoxes * (p.boxMultiplier || 1));
+  let invProd = products.find(prod => prod.code === p.code);
+  if (!invProd) {
+    invProd = {
+      code: p.code,
+      barras: p.barras,
+      description: p.description,
+      validade: p.validade,
+      daysRemaining: p.daysRemaining,
+      countedQty: '',
+      dataEntrada: nfInfo.emissao,
+      qtdEntradaUnidades: totalUnits
+    };
+    products.push(invProd);
+  } else {
+    invProd.dataEntrada = nfInfo.emissao;
+    invProd.qtdEntradaUnidades = totalUnits;
+  }
+
+  dbBridge.saveInventoryItem(targetStore, invProd);
+  renderTable();
+}
+
+function renderNfTable() {
+  const tbody = document.getElementById('nf-inventory-tbody');
+  if (!tbody || !activeNfNumber || !importedNfs[activeNfNumber]) return;
+  tbody.innerHTML = '';
+
+  const currentNf = importedNfs[activeNfNumber];
+  currentNf.products.forEach(p => {
+    const counted = p.countedQty === '' ? null : Number(p.countedQty);
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-brand-900/30 transition-all border-b border-brand-900/20';
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div class="font-semibold text-brand-100 text-xs">${p.description}</div>
+        <div class="text-[10px] text-brand-300 font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''}</div>
+      </td>
+      <td class="py-3 px-4 text-center text-xs text-brand-200">${p.validade ? formatDate(p.validade) : '-'}</td>
+      <td class="py-3 px-4 text-center text-xs text-brand-300">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs">${p.nfQty}</td>
+      <td class="py-3 px-4 text-center">
+        <input type="number" value="${p.countedQty}" placeholder="0" class="nf-qty-input w-16 text-center bg-brand-950 border border-brand-800 text-white rounded py-1 font-bold text-xs" />
+      </td>
+      <td class="py-3 px-4 text-center text-xs">
+        ${counted === p.nfQty ? 'Conforme' : counted < p.nfQty ? 'Falta' : 'Pendente'}
+      </td>
+    `;
+    const qtyInput = tr.querySelector('.nf-qty-input');
+    qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value));
+    tbody.appendChild(tr);
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('inventory-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  products.sort((a, b) => {
+    if (a.daysRemaining === null && b.daysRemaining === null) return 0;
+    if (a.daysRemaining === null) return 1;
+    if (b.daysRemaining === null) return -1;
+    return a.daysRemaining - b.daysRemaining;
+  });
+
+  products.forEach(p => {
+    let rowBorder = 'border-l-4 border-l-emerald-500';
+    let urgentSignal = '';
+
+    if (p.daysRemaining !== null) {
+      if (p.daysRemaining <= 20) {
+        rowBorder = 'border-l-4 border-l-red-600 bg-red-950/30';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">Vender Urgente</span>`;
+      } else if (p.daysRemaining <= 40) {
+        rowBorder = 'border-l-4 border-l-yellow-500';
+      }
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = `hover:bg-brand-900/30 transition-all border-b border-brand-900/20 ${rowBorder}`;
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div class="font-mono text-xs text-brand-300 font-bold">${p.code}</div>
+        <div class="text-[10px] text-brand-400 font-mono">${p.barras ? `EAN: ${p.barras}` : ''}</div>
+      </td>
+      <td class="py-3 px-4 text-brand-100 font-medium text-xs">${p.description}</td>
+      <td class="py-3 px-4 text-center font-mono text-xs text-brand-300">${p.dataEntrada || '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-brand-200">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
+      <td class="py-3 px-4 text-center">
+        <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-brand-950 border border-brand-900 rounded px-2 py-1 text-white text-xs" />
+      </td>
+      <td class="py-3 px-4 text-center text-xs font-bold">${p.daysRemaining !== null ? `${p.daysRemaining} dias` : 'N/A'} ${urgentSignal}</td>
+      <td class="py-3 px-4 text-center">
+        <input type="number" value="${p.countedQty}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm" />
+      </td>
+    `;
+
+    const qtyInput = tr.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+    });
+
+    const validadeInput = tr.querySelector('.validade-input');
+    validadeInput.addEventListener('change', (e) => {
+      const d = e.target.value ? new Date(e.target.value + 'T12:00:00') : null;
+      p.validade = d;
+      if (d) {
+        const diffTime = d.getTime() - today.getTime();
+        p.daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      } else {
+        p.daysRemaining = null;
+      }
+      dbBridge.saveInventoryItem(currentStore, p);
+      renderTable();
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+function exportExcel() {
+  if (products.length === 0) return;
+  const header = ['Código', 'QTD INVENTARIADA', 'PRODUTO', 'DATA ENTRADA', 'VALIDADE', 'DIAS A VENCER', 'STATUS ALERT'];
+  const rows = [header];
+
+  products.forEach(p => {
+    rows.push([
+      p.code,
+      p.countedQty === '' ? 0 : Number(p.countedQty),
+      p.description,
+      p.dataEntrada || '-',
+      p.validade ? formatDate(p.validade) : '',
+      p.daysRemaining !== null ? p.daysRemaining : '',
+      p.daysRemaining <= 20 ? 'VENDER URGENTE' : 'OK'
+    ]);
+  });
+
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario_Estoque");
+  XLSX.writeFile(workbook, `Inventario_Estoque_Loja_${currentStore}.xlsx`);
 }
 
 

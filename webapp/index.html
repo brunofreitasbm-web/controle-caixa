@@ -13,6 +13,37 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
+<!-- Tailwind CSS CDN para Módulo de Logística -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  if (typeof console !== 'undefined' && console.warn) {
+    const _warn = console.warn;
+    console.warn = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+      _warn.apply(console, args);
+    };
+  }
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            50: '#fdfbf7', 100: '#f7f2ea', 200: '#efe3d3', 300: '#e3cdb2', 400: '#d4b28c',
+            500: '#c59567', 600: '#b47e52', 700: '#94623f', 800: '#774f35', 900: '#2d1f19', 950: '#1c1310'
+          }
+        }
+      }
+    }
+  }
+</script>
+<!-- FontAwesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- EmailJS CDN -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- HTML5 QR Code Scanner -->
+<script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
 
@@ -124,6 +155,14 @@
       <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
         <span class="tab-icon">📅</span>
         <span class="tab-text">Dashboard Mensal</span>
+      </button>
+      <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe">
+        <span class="tab-icon">🚚</span>
+        <span class="tab-text">Conferência de NF-e</span>
+      </button>
+      <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
+        <span class="tab-icon">📦</span>
+        <span class="tab-text">Inventário de Estoque</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">
         <span class="tab-icon">🔍</span>
@@ -724,6 +763,190 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: CONFERÊNCIA DE NF-E (LOGÍSTICA) ===================== -->
+    <section id="tab-conferencia-nfe" class="tab-content hidden" role="tabpanel">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <!-- Galeria de Cards NF-e Importadas -->
+        <div id="nf-cards-gallery-section" class="space-y-6">
+          <div class="glass-card p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 text-center shadow-xl">
+            <h2 class="font-display text-xl font-bold text-brand-200">Painel de Recepção & Conferência de NF-e</h2>
+            <p class="text-xs text-brand-400 mt-1 max-w-lg mx-auto">Selecione ou importe notas fiscais XML/Excel para iniciar a conferência física com leitor de câmera direct.</p>
+            
+            <div class="mt-4 flex flex-wrap justify-center gap-3">
+              <label class="cursor-pointer inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md">
+                <i class="fa-solid fa-file-circle-plus"></i> Importar Novas NF-e (XML/Excel)
+                <input type="file" id="nf-file" accept=".xml, .xlsx, .xls" multiple class="hidden">
+              </label>
+              <button id="btn-nf-email" class="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-850 text-brand-200 border border-brand-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+                <i class="fa-solid fa-envelope"></i> Enviar Relatório por E-mail
+              </button>
+              <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
+              </button>
+            </div>
+            <div id="nf-file-info" class="mt-2 text-[11px] text-brand-400 font-mono"></div>
+          </div>
+
+          <!-- Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="nf-cards-grid">
+            <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
+              <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
+              Nenhuma Nota Fiscal importada. Clique acima para importar o XML/Excel da nota fiscal.
+            </div>
+          </div>
+        </div>
+
+        <!-- Área de Trabalho / Bipagem Direct Direct NF -->
+        <div id="nf-work-area" class="hidden space-y-6">
+          <div class="flex items-center justify-between bg-brand-950/80 p-4 rounded-2xl border border-brand-900 shadow-md">
+            <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-brand-900 text-brand-200 hover:bg-brand-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-800">
+              <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria de Notas
+            </button>
+            <span class="text-xs font-mono font-bold text-brand-300">NF Nº <span id="nf-numero">-</span></span>
+          </div>
+
+          <!-- Camera Scanner Viewport -->
+          <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 text-center shadow-xl">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5"><i class="fa-solid fa-camera"></i> Leitor Direct de Código de Barras (Hands-Free)</span>
+              <button id="btn-toggle-nf-scanner" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-video"></i> <span id="nf-scanner-btn-text">Ativar Câmera NF</span>
+              </button>
+            </div>
+            <div id="nf-scanner-container" class="hidden w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden border border-brand-800 relative">
+              <div id="nf-reader" class="w-full"></div>
+            </div>
+          </div>
+
+          <!-- Tabela de Produtos NF -->
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900">
+            <div class="p-3 bg-brand-950 border-b border-brand-900 flex justify-between items-center">
+              <input type="text" id="nf-search-input" placeholder="Filtrar produtos da nota..." class="bg-brand-900 border border-brand-800 text-brand-200 text-xs rounded-lg px-3 py-1.5 w-64 focus:outline-none">
+              <span class="text-xs text-brand-400 font-mono">Faltas: <strong id="nf-faltas-count" class="text-orange-400">0</strong></span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Produto</th>
+                    <th class="py-3 px-4 text-center">Validade</th>
+                    <th class="py-3 px-4 text-center">Dias a Vencer</th>
+                    <th class="py-3 px-4 text-center">Qtd NF</th>
+                    <th class="py-3 px-4 text-center w-24">Qtd Rec</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="nf-inventory-tbody" class="divide-y divide-brand-900/40">
+                  <!-- Injetado por JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ABA: INVENTÁRIO DE ESTOQUE (LOGÍSTICA) ===================== -->
+    <section id="tab-inventario-estoque" class="tab-content hidden" role="tabpanel">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <!-- Banner de Alerta Mensal -->
+        <div id="monthly-inventory-alert" class="p-4 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-700/50 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-800/80 text-brand-300 flex items-center justify-center text-xl shrink-0 border border-brand-700/50">
+              <i class="fa-solid fa-calendar-check"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <strong class="text-brand-100 font-display font-extrabold text-sm uppercase tracking-wider">Inventário Mensal Obrigatório</strong>
+                <span id="monthly-deadline-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-800 text-brand-200 border border-brand-700">Prazo: Dia 25</span>
+              </div>
+              <p class="text-xs text-brand-300 mt-0.5">O inventário cego mensal de validade deve ser realizado no mínimo 1 vez até o <strong>dia 25 de cada mês</strong>.</p>
+            </div>
+          </div>
+          <div class="text-right text-xs font-mono font-bold text-brand-400 bg-brand-950/80 px-3 py-1.5 rounded-xl border border-brand-900 shrink-0">
+            Mês: <span id="current-month-name" class="text-brand-200 font-bold">-</span>
+          </div>
+        </div>
+
+        <!-- Dashboard Stat Cards Inventário -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
+            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-white" id="stat-total-products">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Produtos</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-red-500 border border-brand-900">
+            <div class="p-3 bg-red-950/40 rounded-xl text-red-400 text-xl"><i class="fa-solid fa-circle-exclamation"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-red-400" id="stat-red">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Crítico (≤ 20 dias)</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-yellow-500 border border-brand-900">
+            <div class="p-3 bg-yellow-950/40 rounded-xl text-yellow-400 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-yellow-400" id="stat-yellow">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Alerta (21-40 dias)</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-emerald-500 border border-brand-900">
+            <div class="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 text-xl"><i class="fa-solid fa-check-circle"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-emerald-400" id="stat-green">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">No Prazo (> 40 dias)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toolbar & Tabela de Estoque -->
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
+          <div class="relative w-full md:w-80">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-brand-400">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" id="search-input" placeholder="Buscar por barras, código ou descrição..." class="w-full bg-brand-950 border border-brand-900 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-brand-500 text-xs transition">
+          </div>
+          
+          <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+            <button id="filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md">Todos</button>
+            <button id="filter-red" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40">Crítico</button>
+            <button id="filter-yellow" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-yellow-400 border border-yellow-900/40">Alerta</button>
+            <button id="filter-green" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40">No Prazo</button>
+            <button id="btn-export" class="ml-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
+              <i class="fa-solid fa-file-export"></i> Concluir e Exportar
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <th class="py-3 px-4">Código / EAN (Barras)</th>
+                  <th class="py-3 px-4">Produto</th>
+                  <th class="py-3 px-4 text-center">Data Entrada NF</th>
+                  <th class="py-3 px-4 text-center">Entrada (UN)</th>
+                  <th class="py-3 px-4 text-center">Data Validade</th>
+                  <th class="py-3 px-4 text-center">Dias a Vencer</th>
+                  <th class="py-3 px-4 text-center w-32">QTD Inventariada</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody" class="divide-y divide-brand-900/40">
+                <!-- Injetado por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
   </div> <!-- /.app-main -->
 </div> <!-- /#app -->
@@ -825,6 +1048,8 @@
   <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon">📊</span>Dashboard</button>
   <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon">📜</span>Histórico</button>
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon">📅</span>Mensal</button>
+  <button class="bottom-nav-btn" data-tab="conferencia-nfe"><span class="nav-icon">🚚</span>NF-e</button>
+  <button class="bottom-nav-btn" data-tab="inventario-estoque"><span class="nav-icon">📦</span>Estoque</button>
   <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon">🔍</span>Auditoria</button>
   <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon">🧡</span>FA</button>
   <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon">👥</span>Colab</button>
