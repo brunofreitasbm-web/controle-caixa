@@ -7468,6 +7468,10 @@ function renderRhModulo() {
 }
 
 function getStoreForColab(nome) {
+  const profiles = loadDiscProfiles();
+  if (profiles[nome] && profiles[nome].store) {
+    return profiles[nome].store;
+  }
   if (nome === "Bruno" || nome === "Isabella") return "all";
   if (nome === "Alexandra" || nome === "LiderOP") return "9201";
   return "9175";
@@ -7497,21 +7501,27 @@ function renderRhTable() {
     else if (prof.perfilPredominante === "Influenciador") badgeClass = "disc-badge-i";
     else if (prof.perfilPredominante === "Estável") badgeClass = "disc-badge-s";
 
-    let storeLabel = "Todas as Lojas";
-    if (store === "9175") storeLabel = "Loja 9175 - Marambaia";
-    else if (store === "9201") storeLabel = "Loja 9201 - Mário Covas";
-    else if (store === "4304") storeLabel = "Loja 4304 - Icoaraci";
-    else if (store === "fa-parque") storeLabel = "Faça Amigos - Parque";
-    else if (store === "fa-playground") storeLabel = "Faça Amigos - Playground";
-    else if (store === "fa-grao-para") storeLabel = "Faça Amigos - Grão-Pará";
-
     const tr = document.createElement("tr");
     tr.className = "hover:bg-brand-900/40 transition";
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-brand-100 flex items-center gap-2">
         <i class="fa-solid fa-user-circle text-brand-400"></i> ${c.nome}
       </td>
-      <td class="py-3 px-4 text-brand-300 text-[11px]">${storeLabel}</td>
+      <td class="py-3 px-4">
+        <select class="rh-colab-store-select bg-brand-900 text-brand-100 border border-brand-700 rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-indigo-500 cursor-pointer" data-user="${c.nome}">
+          <option value="all" ${store === 'all' ? 'selected' : ''}>Todas as Lojas (Geral)</option>
+          <optgroup label="Cacau Show">
+            <option value="9175" ${store === '9175' ? 'selected' : ''}>9175 - Marambaia</option>
+            <option value="9201" ${store === '9201' ? 'selected' : ''}>9201 - Mário Covas</option>
+            <option value="4304" ${store === '4304' ? 'selected' : ''}>4304 - Icoaraci</option>
+          </optgroup>
+          <optgroup label="Faça Amigos">
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>Faça Amigos - Parque</option>
+            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>Faça Amigos - Playground</option>
+            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>Faça Amigos - Grão-Pará</option>
+          </optgroup>
+        </select>
+      </td>
       <td class="py-3 px-4 text-center">
         <span class="disc-badge ${badgeClass}">${prof.perfilPredominante}</span>
       </td>
@@ -7533,6 +7543,22 @@ function renderRhTable() {
 
   const countBadge = document.getElementById("rh-colab-count-badge");
   if (countBadge) countBadge.textContent = `${count} colaborador(es)`;
+
+  // Listeners para trocar a loja do colaborador
+  document.querySelectorAll(".rh-colab-store-select").forEach(select => {
+    select.addEventListener("change", (e) => {
+      const userName = e.target.dataset.user;
+      const newStore = e.target.value;
+      const profiles = loadDiscProfiles();
+      if (!profiles[userName]) {
+        profiles[userName] = { userName, d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado", dataAtualizacao: new Date().toISOString().split("T")[0] };
+      }
+      profiles[userName].store = newStore;
+      saveDiscProfiles(profiles);
+      showToast(`Unidade/Loja de ${userName} atualizada!`, "sucesso");
+      renderRhModulo();
+    });
+  });
 
   // Event Listeners para botões de ajuste manual
   document.querySelectorAll(".btn-edit-disc").forEach(btn => {
