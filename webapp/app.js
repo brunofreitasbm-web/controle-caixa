@@ -6203,33 +6203,29 @@ async function parseBoletoPdf(file) {
     try {
       const arrayBuffer = e.target.result;
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let textContent = "";
+      const allItems = [];
+      let fullText = "";
       
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const text = await page.getTextContent();
         
-        const items = text.items;
-        const linesMap = {};
-        
-        items.forEach(item => {
-          const y = Math.round(item.transform[5] * 10) / 10;
-          let foundY = Object.keys(linesMap).find(key => Math.abs(parseFloat(key) - y) < 4);
-          if (!foundY) {
-            foundY = y;
-            linesMap[foundY] = [];
-          }
-          linesMap[foundY].push(item);
-        });
-
-        const sortedY = Object.keys(linesMap).sort((a, b) => parseFloat(b) - parseFloat(a));
-        sortedY.forEach(y => {
-          const lineItems = linesMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
-          textContent += lineItems.map(item => item.str).join(" ") + "\n";
-        });
+        const pageItems = text.items
+          .map(item => ({
+            str: item.str,
+            x: Math.round(item.transform[4] * 10) / 10,
+            y: Math.round(item.transform[5] * 10) / 10,
+            w: Math.round(item.width * 10) / 10,
+            h: Math.round(item.height * 10) / 10,
+            page: i
+          }))
+          .filter(item => item.str.trim() !== '');
+          
+        allItems.push(...pageItems);
+        fullText += text.items.map(item => item.str).join(" ") + "\n";
       }
 
-      const boletosExtraidos = extrairBoletosDoTexto(textContent);
+      const boletosExtraidos = extrairBoletosDoTexto(allItems, fullText);
 
       const semLojaDetectada = boletosExtraidos.filter(b => !b.lojaAutoDetectada).length;
       if (semLojaDetectada > 0) {
@@ -6330,89 +6326,122 @@ function detectStoreFromBoletoLine(texto) {
 // dígitos de sequência) como âncora, já que ele aparece de forma confiável
 // no início de cada linha da tabela, e extraímos os campos de dentro de
 // cada bloco (que pode ter quebras de linha no meio).
-function extrairBoletosDoTexto(text) {
+function extrairBoletosDoTexto(items, fullText) {
   const boletosExtraidos = [];
+  const lojaDoRelatorio = detectStoreFromBoletoLine(fullText);
 
-  // A loja normalmente vem do cabeçalho do relatório (filtro "Lojas"), já que
-  // o portal gera um relatório por loja selecionada — não por linha da tabela.
-  const lojaDoRelatorio = detectStoreFromBoletoLine(text);
+  // Group items by page
+  const pages = [...new Set(items.map(item => item.page))];
+  
+  pages.forEach(pageNum => {
+    const pageItems = items.filter(item => item.page === pageNum);
 
-  // Duas variações confirmadas de "Número Doc.": o padrão "10 dígitos-3
-  // dígitos" (ex.: 0091545332-002) e, para cobranças de terceiros como
-  // licenças de software, "9 dígitos-2/3 letras" (ex.: 984023952-SS). O
-  // segundo grupo usa letras propositalmente para não colidir com o "Doc.
-  // Fat." (que também tem 9 dígitos, mas sempre seguido de 3 dígitos).
-  const anchorRegex = /(?:(\d{10})-\s*(\d{3})|(\d{9})-\s*([A-Z]{2,3}))(?=\D)/g;
-  const anchors = [];
-  let m;
-  while ((m = anchorRegex.exec(text)) !== null) {
-    anchors.push({
-      index: m.index,
-      numero: m[1] || m[3],
-      seq: m[2] || m[4]
+    // 1. Find all prefix items (document number prefixes: 9-10 digits, optionally ending with a hyphen, located at x between 38 and 46)
+    const prefixItems = pageItems.filter(item => item.x >= 38 && item.x <= 46 && /^\d{9,10}-?$/.test(item.str));
+    
+    // Sort prefix items by Y descending
+    prefixItems.sort((a, b) => b.y - a.y);
+
+    // 2. Define rows based on prefix Y coordinates directly
+    const rows = prefixItems.map((prefix, idx) => {
+      // Top boundary: 20 units above prefix Y to cover any high elements in the row
+      const topBoundary = prefix.y + 20.0;
+      // Bottom boundary is exactly the next prefix's Y coordinate (or 0 for the last row)
+      const bottomBoundary = (idx + 1 < prefixItems.length) ? prefixItems[idx + 1].y : 0.0;
+      
+      return {
+        prefix,
+        topBoundary,
+        bottomBoundary,
+        items: []
+      };
     });
-  }
 
-  for (let i = 0; i < anchors.length; i++) {
-    const inicio = anchors[i].index;
-    const fim = i + 1 < anchors.length ? anchors[i + 1].index : text.length;
-    const bloco = text.slice(inicio, fim).replace(/\s+/g, ' ').trim();
-
-    if (!bloco.toLowerCase().includes('debito') && !bloco.toLowerCase().includes('débito')) continue;
-
-    const dateMatch = bloco.match(/\b(\d{2})\/(\d{2})\/(\d{2,4})\b/);
-    if (!dateMatch) continue;
-    let vencimento = dateMatch[0];
-    if (dateMatch[3].length === 2) {
-      vencimento = `${dateMatch[1]}/${dateMatch[2]}/20${dateMatch[3]}`;
-    }
-
-    const valueMatch = bloco.match(/R\$\s*([\d.,]*\d)/);
-    if (!valueMatch) continue;
-    const valor = parseMoedaPdf(valueMatch[1]);
-    if (!valor) continue;
-
-    const documento = `${anchors[i].numero}-${anchors[i].seq}`;
-
-    // "Doc. Fat." — é o campo que corresponde ao número da NF-e (usado no
-    // cruzamento da Auditoria de Boletos), não o "Número Doc." acima. Nem
-    // todo boleto tem esse vínculo (cobranças que não vêm de mercadoria).
-    const docFatMatch = bloco.match(/\b(\d{6,9}-\d{3})\s+\d{2}\/\d{2}\/\d{2,4}/);
-    const docFaturamento = docFatMatch ? docFatMatch[1] : null;
-
-    // Nº Parcela (ex.: "1/2") — indica pagamento parcelado da mesma cobrança
-    const parcelaMatch = bloco.match(/\b(\d+\/\d+)\b/);
-    const parcela = parcelaMatch ? parcelaMatch[1] : '1/1';
-
-    let descricao = "Duplicata Cacau Show";
-    // .pop() (não [1]): "Tipo Doc." às vezes já contém "Débitos" no plural
-    // (ex.: "Outros Débitos"), o que geraria uma divisão a mais antes da
-    // coluna "Tipo" (o "Debito" de verdade).
-    const afterDebito = bloco.split(/d[eé]bito/i).pop();
-    if (afterDebito) {
-      const descMatch = afterDebito.trim().match(/^(.+?)\s+\d+\/\d+\s+\d{6,10}/);
-      if (descMatch && descMatch[1]) descricao = descMatch[1].trim();
-    }
-
-    // Loja: usa o contexto do relatório; se o próprio bloco citar uma loja
-    // diferente (relatórios com "Todas as Lojas"), ela tem prioridade.
-    const lojaNoBloco = detectStoreFromBoletoLine(bloco);
-    const loja = lojaNoBloco || lojaDoRelatorio || currentStore || "9175";
-    const lojaAutoDetectada = !!(lojaNoBloco || lojaDoRelatorio);
-
-    boletosExtraidos.push({
-      id: uid(),
-      documento,
-      docFaturamento,
-      parcela,
-      loja,
-      lojaAutoDetectada,
-      descricao,
-      vencimento,
-      valor,
-      status: "Aberto"
+    // 3. Assign items to rows
+    pageItems.forEach(item => {
+      const row = rows.find(r => item.y > r.bottomBoundary && item.y <= r.topBoundary);
+      if (row) {
+        row.items.push(item);
+      }
     });
-  }
+
+    // 4. Process each row
+    rows.forEach(row => {
+      // Sort items horizontally
+      row.items.sort((a, b) => a.x - b.x);
+
+      const prefixItem = row.prefix;
+
+      // Find suffix
+      const suffixItem = row.items.find(item => item.x > prefixItem.x && item.x < 70 && (/^\d{3}$/.test(item.str) || /^[A-Z]{2,3}$/.test(item.str)));
+      
+      let documento = prefixItem.str;
+      if (suffixItem) {
+        const cleanPrefix = prefixItem.str.endsWith('-') ? prefixItem.str.slice(0, -1) : prefixItem.str;
+        documento = `${cleanPrefix}-${suffixItem.str}`;
+      }
+
+      // Only process debits
+      const isDebito = row.items.some(item => /d[eé]bito/i.test(item.str));
+      if (!isDebito) return;
+
+      // Find date
+      const dateItem = row.items.find(item => /^\b\d{2}\/\d{2}\/\d{2,4}\b$/.test(item.str));
+      if (!dateItem) return;
+      
+      let vencimento = dateItem.str;
+      const dateParts = vencimento.split('/');
+      if (dateParts[2].length === 2) {
+        vencimento = `${dateParts[0]}/${dateParts[1]}/20${dateParts[2]}`;
+      }
+
+      // Find valor
+      const valorItems = row.items.filter(item => item.x >= 480 && item.x <= 515);
+      let valorStr = "";
+      valorItems.forEach(vi => {
+        valorStr += " " + vi.str;
+      });
+      valorStr = valorStr.trim();
+
+      const valor = parseMoedaPdf(valorStr);
+      if (!valor) return;
+
+      // Find Doc. Faturamento
+      const docFatPrefixItem = row.items.find(item => item.x >= 370 && item.x <= 395 && /^\d{6,9}-$/.test(item.str));
+      let docFaturamento = null;
+      if (docFatPrefixItem) {
+        const docFatSuffixItem = row.items.find(item => item.x > docFatPrefixItem.x && item.x < 420 && /^\d{3}$/.test(item.str));
+        if (docFatSuffixItem) {
+          docFaturamento = `${docFatPrefixItem.str}${docFatSuffixItem.str}`;
+        }
+      }
+
+      const parcelaItem = row.items.find(item => item.x >= 300 && item.x <= 330 && /^\d+\/\d+$/.test(item.str));
+      const parcela = parcelaItem ? parcelaItem.str : "1/1";
+
+      const rowText = row.items.map(item => item.str).join(" ");
+      const lojaNoBloco = detectStoreFromBoletoLine(rowText);
+      const loja = lojaNoBloco || lojaDoRelatorio || currentStore || "9175";
+      const lojaAutoDetectada = !!(lojaNoBloco || lojaDoRelatorio);
+
+      const descItems = row.items.filter(item => item.x >= 185 && item.x < 300);
+      let descricao = descItems.map(item => item.str).join(" ").trim();
+      if (!descricao) descricao = "Duplicata Cacau Show";
+
+      boletosExtraidos.push({
+        id: uid(),
+        documento,
+        docFaturamento,
+        parcela,
+        loja,
+        lojaAutoDetectada,
+        descricao,
+        vencimento,
+        valor,
+        status: "Aberto"
+      });
+    });
+  });
 
   return boletosExtraidos;
 }
