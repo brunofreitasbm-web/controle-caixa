@@ -273,46 +273,37 @@ function carregarJSON(key, fallback) {
 const offlineBanner = document.getElementById("offline-banner");
 
 async function checkApiConnection() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s para Render
+  const endpoints = [
+    API_BASE,
+    "http://localhost:5000/api",
+    "http://127.0.0.1:5000/api"
+  ];
 
-  try {
-    let res = await fetch(`${API_BASE}/config`, { method: "GET", signal: controller.signal });
-    if (!res.ok && API_BASE === "/api" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-      try {
-        const resFallback = await fetch("http://localhost:5000/api/config", { method: "GET", signal: controller.signal });
-        if (resFallback.ok) {
-          API_BASE = "http://localhost:5000/api";
-          res = resFallback;
-        }
-      } catch(e) {}
+  for (const ep of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${ep}/config`, { method: "GET", signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res && res.ok) {
+        if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
+        API_BASE = ep;
+        API_ONLINE = true;
+        offlineBanner.style.display = "none";
+        return true;
+      }
+    } catch (e) {
+      // Tentar próximo endpoint
     }
-    clearTimeout(timeoutId);
-    if (res && res.ok) {
-      if (!API_ONLINE) console.log("API Backend conectada!");
-      API_ONLINE = true;
-      offlineBanner.style.display = "none";
-    } else {
-      throw new Error();
-    }
-  } catch (err) {
-    if (API_BASE === "/api" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-      try {
-        const resFallback = await fetch("http://localhost:5000/api/config", { method: "GET" });
-        if (resFallback.ok) {
-          API_BASE = "http://localhost:5000/api";
-          API_ONLINE = true;
-          offlineBanner.style.display = "none";
-          return;
-        }
-      } catch(e) {}
-    }
-    if (API_ONLINE || offlineBanner.style.display !== "block") {
-      console.warn("API Backend offline. Usando localStorage.");
-    }
-    API_ONLINE = false;
-    offlineBanner.style.display = "block";
   }
+
+  if (API_ONLINE || offlineBanner.style.display !== "block") {
+    console.warn("API Backend offline. Executando modo offline com armazenamento local.");
+  }
+  API_ONLINE = false;
+  offlineBanner.style.display = "block";
+  return false;
 }
 
 // --- Sincronização Inicial ---
@@ -2378,15 +2369,16 @@ document.getElementById("modal-foto-fechar").addEventListener("click", () => {
 });
 
 const RETIRADA_CUTOFFS = {
-  'Icoaraci': '2026-06-05T23:59:59.999Z',
-  'Marambaia': '2026-06-06T23:59:59.999Z',
-  'Desligado': '2026-06-06T23:59:59.999Z',
-  'Mário Covas': '2026-06-06T23:59:59.999Z',
-  'Venda Direta': '2026-06-06T23:59:59.999Z'
+  'Icoaraci': '2025-06-05T23:59:59.999Z',
+  'Marambaia': '2025-06-06T23:59:59.999Z',
+  'Desligado': '2025-06-06T23:59:59.999Z',
+  'Mário Covas': '2025-06-06T23:59:59.999Z',
+  'Venda Direta': '2025-06-06T23:59:59.999Z'
 };
 
 function eHistoricoArquivado(r) {
-  const cutoff = RETIRADA_CUTOFFS[r.loja] || '2026-06-06T23:59:59.999Z';
+  if (!r || !r.dataOperacao) return false;
+  const cutoff = RETIRADA_CUTOFFS[r.loja] || '2025-06-06T23:59:59.999Z';
   return r.dataOperacao <= cutoff;
 }
 
