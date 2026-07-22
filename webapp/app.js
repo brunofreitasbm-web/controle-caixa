@@ -3461,7 +3461,7 @@ atualizarBadgeSync();
 
 // ==================== PUSH NOTIFICATIONS ====================
 async function inscreverPushNotificacoes() {
-  if (currentUser.role !== 'owner') return;
+  if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra') return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
@@ -3950,6 +3950,41 @@ function inicializarImportedNfs() {
   }
 }
 
+function verificarBoletosVesperaNotificacao() {
+  const amanha = new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  const amanhaStr = amanha.toLocaleDateString("pt-BR");
+  const hojeStr = new Date().toLocaleDateString("pt-BR");
+
+  boletos.forEach(b => {
+    if (b.status === "Aberto" && b.vencimento === amanhaStr) {
+      const key = `notif_vespera_${b.id}_${hojeStr}`;
+      if (!localStorage.getItem(key)) {
+        const storeLabel = b.loja === "9175" ? "Marambaia (9175)" : (b.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
+        
+        fetch('/api/notificar-gestao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destinatarios: ['Isabella'],
+            assunto: `⏳ Boleto Vencendo Amanhã - Loja ${storeLabel}`,
+            mensagem: `Atenção Isabella,\n\nHá um boleto vencendo amanhã (${b.vencimento}) no valor de ${formatBRL(b.valor)} para a loja ${storeLabel}.\n\n` +
+              `• Loja: ${storeLabel}\n` +
+              `• Valor: ${formatBRL(b.valor)}\n` +
+              `• Descrição: ${b.descricao}\n` +
+              `• Documento: ${b.documento}`,
+            operador: 'Sistema'
+          })
+        })
+        .then(() => {
+          localStorage.setItem(key, "true");
+        })
+        .catch(err => console.error("Erro ao notificar boleto de véspera:", err));
+      }
+    }
+  });
+}
+
 async function carregarBoletosServidor() {
   try {
     const res = await fetch("/api/boletos");
@@ -3969,6 +4004,7 @@ async function carregarBoletosServidor() {
       });
       
       renderBoletos();
+      verificarBoletosVesperaNotificacao();
       if (window.carregarAuditoriaBoletos) {
         window.carregarAuditoriaBoletos();
       }
@@ -4542,12 +4578,12 @@ function notificarGestaoConferencia(tipo, numNF) {
     mensagem = `A conferência da NF Nº ${numNF} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
   }
 
-  // Notificação silenciosa via backend API (Push + Email para Bruno e Isabella)
+  // Notificação silenciosa via backend API (Push + Email para Bruno, Isabella e Alexandra)
   fetch('/api/notificar-gestao', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
       assunto: assunto,
       mensagem: mensagem,
       numNF: numNF,
@@ -4929,6 +4965,25 @@ function renderNfTable() {
   });
 }
 
+function triggerInventoryStartedNotification() {
+  const ano = new Date().getFullYear();
+  const mes = new Date().getMonth();
+  const storageKey = `inv_started_${ano}_${mes}_${currentStore}`;
+  if (!localStorage.getItem(storageKey)) {
+    localStorage.setItem(storageKey, "true");
+    fetch('/api/notificar-gestao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+        assunto: `📋 Inventário Iniciado - Loja ${getLojaNomePorCodigo(currentStore)}`,
+        mensagem: `A colaboradora ${currentUser.nome} iniciou a contagem física do Inventário de Estoque na Loja ${getLojaNomePorCodigo(currentStore)}.`,
+        operador: currentUser.nome
+      })
+    }).catch(err => console.error('Erro na notificação de início de inventário:', err));
+  }
+}
+
 function renderTable() {
   const tbody = document.getElementById('inventory-tbody');
   if (!tbody) return;
@@ -4993,6 +5048,7 @@ function renderTable() {
     qtyInput.addEventListener('input', (e) => {
       p.countedQty = e.target.value;
       dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
     });
 
     const validadeInput = tr.querySelector('.validade-input');
@@ -5006,6 +5062,7 @@ function renderTable() {
         p.daysRemaining = null;
       }
       dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
       renderTable();
     });
 
@@ -5072,7 +5129,19 @@ function exportExcel() {
 
   showToast(`Inventário da Loja ${currentStore} concluído e exportado com sucesso!`, 'success');
 
-  // Se TODAS as lojas concluírem o Inventário Mensal, notificar Bruno e Isabella
+  // Notificar conclusão da loja individual
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+      assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
+      mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
+      operador: currentUser.nome
+    })
+  }).catch(err => console.error('Erro na notificação de conclusão individual:', err));
+
+  // Se TODAS as lojas concluírem o Inventário Mensal, notificar Bruno, Isabella e Alexandra
   if (lojasConcluidas.length === lojasRequeridas.length) {
     const notifTodasConcluidasKey = `inv_notif_todas_lojas_${ano}_${mes}`;
     if (!localStorage.getItem(notifTodasConcluidasKey)) {
@@ -5083,7 +5152,7 @@ function exportExcel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinatarios: ['Bruno', 'Isabella'],
+          destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
           assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
           mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
           operador: currentUser.nome
@@ -5091,7 +5160,7 @@ function exportExcel() {
       }).catch(err => console.error('Erro na notificação de conclusão total:', err));
 
       showModal(
-        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno e Isabella.`,
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella e Alexandra.`,
         {
           icon: "🚀",
           title: "Inventário Mensal Finalizado",
@@ -5381,15 +5450,35 @@ function renderBoletos(statusFilter = "all") {
   });
 
   let totalAberto = 0;
+  let totalAbertoAteHoje = 0;
   let totalPago = 0;
   let vencendoHoje = 0;
-  const hojeStr = new Date().toLocaleDateString("pt-BR");
+  
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const hojeStr = hoje.toLocaleDateString("pt-BR");
+
+  const parseDataLocal = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    }
+    return new Date(dateStr);
+  };
 
   boletos.forEach(b => {
     const matchStore = (storeFilter === "all" || b.loja === storeFilter);
     if (matchStore) {
       if (b.status === "Aberto") {
         totalAberto += b.valor;
+        
+        const dataVenc = parseDataLocal(b.vencimento);
+        dataVenc.setHours(0, 0, 0, 0);
+        if (dataVenc <= hoje) {
+          totalAbertoAteHoje += b.valor;
+        }
+        
         if (b.vencimento === hojeStr) {
           vencendoHoje++;
         }
@@ -5400,11 +5489,13 @@ function renderBoletos(statusFilter = "all") {
   });
 
   const statAberto = document.getElementById("stat-boletos-aberto-total");
+  const statAbertoHoje = document.getElementById("stat-boletos-aberto-hoje");
   const statCount = document.getElementById("stat-boletos-count");
   const statVencendo = document.getElementById("stat-boletos-vencendo-hoje");
   const statPagos = document.getElementById("stat-boletos-pagos");
 
   if (statAberto) statAberto.textContent = formatBRL(totalAberto);
+  if (statAbertoHoje) statAbertoHoje.textContent = formatBRL(totalAbertoAteHoje);
   if (statCount) statCount.textContent = filtered.length;
   if (statVencendo) statVencendo.textContent = vencendoHoje;
   if (statPagos) statPagos.textContent = formatBRL(totalPago);
@@ -5717,7 +5808,7 @@ function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBolet
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
       assunto: assunto,
       mensagem: mensagem,
       operador: currentUser ? currentUser.nome : 'Sistema'
@@ -5725,7 +5816,7 @@ function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBolet
   })
   .then(() => {
     localStorage.setItem(key, "true");
-    console.log(`Notificação de divergência enviada para Bruno e Isabella.`);
+    console.log(`Notificação de divergência enviada para Bruno, Isabella e Alexandra.`);
   })
   .catch(err => console.error("Erro ao enviar notificação de auditoria:", err));
 }

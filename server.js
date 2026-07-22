@@ -34,7 +34,7 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
 
   const mailOptions = {
     from: `"Controle de Caixa Cacau Show" <${user}>`,
-    to: 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com',
+    to: 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com, alexandracabral733@gmail.com',
     subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${loja}`,
     text: `Olá Bruno e Isabella,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValor.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendente.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
     html: `<p>Olá Bruno e Isabella,</p>
@@ -59,9 +59,19 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
   });
 }
 
-function enviarNotificacaoPush(title, body) {
+function enviarNotificacaoPush(title, body, targetUsers = null) {
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
-  db.all('SELECT * FROM push_subscriptions', [], (err, rows) => {
+  
+  let query = 'SELECT * FROM push_subscriptions';
+  let params = [];
+  
+  if (Array.isArray(targetUsers) && targetUsers.length > 0) {
+    const placeholders = targetUsers.map(() => '?').join(',');
+    query += ` WHERE LOWER(usuario) IN (${placeholders})`;
+    params = targetUsers.map(u => u.trim().toLowerCase());
+  }
+
+  db.all(query, params, (err, rows) => {
     if (err) {
       console.error('Erro ao buscar subscriptions:', err.message);
       return;
@@ -599,8 +609,8 @@ app.post('/api/divergencia', (req, res) => {
     auth: { user, pass }
   });
   
-  // TODO: Usuário informou que vai adicionar o email da Alexandra depois
-  const destinatarios = 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com';
+  // Adicionado o email da Alexandra
+  const destinatarios = 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com, alexandracabral733@gmail.com';
   
   transporter.sendMail({
     from: `"Controle de Caixa Cacau Show" <${user}>`,
@@ -624,6 +634,61 @@ app.post('/api/divergencia', (req, res) => {
     }
     res.json({ sent: true });
   });
+});
+
+// Notificação para a Gestão (Push + Email)
+app.post('/api/notificar-gestao', (req, res) => {
+  const { destinatarios, assunto, mensagem } = req.body;
+  if (!destinatarios || !Array.isArray(destinatarios)) {
+    return res.status(400).json({ error: 'Lista de destinatários é obrigatória.' });
+  }
+
+  // 1. Enviar Notificação Push para os destinatários selecionados
+  enviarNotificacaoPush(assunto, mensagem, destinatarios);
+
+  // 2. Enviar E-mail de Notificação (se SMTP estiver configurado)
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  
+  if (host && user && pass) {
+    const EMAIL_MAP = {
+      'bruno': 'brunofreitasbm@gmail.com',
+      'isabella': 'isabella.vgoncalves@gmail.com',
+      'alexandra': 'alexandracabral733@gmail.com'
+    };
+
+    const targetEmails = destinatarios
+      .map(d => EMAIL_MAP[d.trim().toLowerCase()])
+      .filter(Boolean);
+
+    if (targetEmails.length > 0) {
+      const transporter = nodemailer.createTransport({
+        host,
+        port: parseInt(process.env.SMTP_PORT) || 465,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user, pass }
+      });
+
+      const mailOptions = {
+        from: `"Controle de Caixa Cacau Show" <${user}>`,
+        to: targetEmails.join(', '),
+        subject: assunto,
+        text: mensagem,
+        html: `<p>${mensagem.replace(/\n/g, '<br>')}</p>`
+      };
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Erro ao enviar e-mail de notificação de gestão:', error);
+        } else {
+          console.log('E-mail de notificação de gestão enviado com sucesso:', info.response);
+        }
+      });
+    }
+  }
+
+  res.json({ success: true });
 });
 
 // 3. Obter todos os registros
