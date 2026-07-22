@@ -4692,6 +4692,10 @@ function handleNfFileUpload(event) {
 }
 
 function handleNfFiles(files) {
+  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
+    showToast("Apenas o Líder de Operações ou Owner podem fazer importação de NF-e.", "erro");
+    return;
+  }
   if (!files || files.length === 0) return;
 
   const infoEl = document.getElementById('nf-file-info');
@@ -6192,6 +6196,10 @@ function inicializarBoletosTab() {
 }
 
 async function parseBoletoPdf(file) {
+  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
+    showToast("Apenas o Líder de Operações ou Owner podem fazer importação de Boletos.", "erro");
+    return;
+  }
   const fileInfo = document.getElementById("boleto-file-info");
   if (fileInfo) {
     fileInfo.textContent = `Processando: ${file.name}...`;
