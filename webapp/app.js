@@ -3,7 +3,7 @@
 // Banco de dados centralizado via API. Fallback para LocalStorage se offline.
 // ==========================================================================
 
-const API_BASE = window.location.protocol === "file:"
+let API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
 const STORAGE_KEY = "cacaushow_controle_caixa_v1";
@@ -322,11 +322,13 @@ async function inicializarDados() {
   if (API_ONLINE) {
     try {
       const resReg = await fetch(`${API_BASE}/registros`);
-      registros = await resReg.json();
+      const dataReg = await resReg.json();
+      registros = Array.isArray(dataReg) ? dataReg : [];
 
       // Carregar registros FA
       const resRegFA = await fetch(`${API_BASE}/registros-fa`);
-      registrosFA = await resRegFA.json();
+      const dataRegFA = await resRegFA.json();
+      registrosFA = Array.isArray(dataRegFA) ? dataRegFA : [];
 
       // GET /api/pins agora retorna apenas quais usuários têm PIN (sem os PINs reais)
       const resPins = await fetch(`${API_BASE}/pins`);
