@@ -2980,3 +2980,41 @@ body.tema-fa .topbar {
   --color-brand-success: var(--green);
   --color-brand-danger: var(--red);
 }
+
+/* Botões de Destaque Prominentes para Importação (XML / PDF) */
+.btn-upload-highlight {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.6rem !important;
+  background: linear-gradient(135deg, #3c4d58 0%, #161c21 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 0.85rem !important;
+  padding: 0.8rem 1.8rem !important;
+  border-radius: 0.85rem !important;
+  box-shadow: 0 6px 18px rgba(22, 28, 33, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.btn-upload-highlight i {
+  font-size: 1rem !important;
+  color: #ffffff !important;
+}
+
+.btn-upload-highlight:hover {
+  background: linear-gradient(135deg, #4d616e 0%, #27323b 100%) !important;
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 10px 25px rgba(22, 28, 33, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.btn-upload-highlight:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 8px rgba(22, 28, 33, 0.4) !important;
+}
