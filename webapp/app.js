@@ -7429,6 +7429,18 @@ function saveDiscProfiles(profiles) {
   }
 }
 
+function obterListaColaboradores() {
+  if (Array.isArray(USERS) && USERS.length > 0) {
+    return USERS;
+  }
+  return [
+    { nome: "Alexandra", role: "consultora_dashboard" },
+    { nome: "LiderOP", role: "consultora_dashboard" },
+    { nome: "Bruno", role: "owner" },
+    { nome: "Isabella", role: "owner" }
+  ];
+}
+
 function renderRhModulo() {
   if (!currentUser || currentUser.role !== "owner") {
     showToast("Acesso restrito ao perfil Owner.", "erro");
