@@ -7507,7 +7507,10 @@ function renderRhTable() {
       <td class="py-3 px-4 text-center font-mono font-bold text-amber-400">${prof.i}%</td>
       <td class="py-3 px-4 text-center font-mono font-bold text-emerald-400">${prof.s}%</td>
       <td class="py-3 px-4 text-center font-mono font-bold text-indigo-400">${prof.c}%</td>
-      <td class="py-3 px-4 text-right">
+      <td class="py-3 px-4 text-right flex items-center justify-end gap-1.5">
+        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1">
+          <i class="fa-brands fa-whatsapp"></i> Convidar
+        </a>
         <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}">
           <i class="fa-solid fa-pen"></i> Ajustar
         </button>
