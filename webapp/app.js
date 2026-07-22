@@ -67,6 +67,24 @@ const TABS_POR_ROLE = {
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
 };
 
+// Mapeamento de perfis para as preferências de notificação
+const ROLE_NOTIF_MAP = {
+  "consultora": "colab",
+  "consultora_dashboard": "lider",
+  "consultora_fa": "colab",
+  "owner": "owner"
+};
+
+// Notificação por tipo e perfil (default: tudo ativado)
+const DEFAULT_NOTIF_PREFS = {
+  "envelopes": { colab: true, lider: true, owner: true },
+  "inv-inicio": { colab: true, lider: true, owner: true },
+  "inv-fim": { colab: true, lider: true, owner: true },
+  "nfe": { colab: true, lider: true, owner: true },
+  "divergencia": { colab: true, lider: true, owner: true }
+};
+const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
+
 // ==========================================================================
 // UI Helpers (Toast, Loading, Modal, Session)
 // ==========================================================================
@@ -506,8 +524,19 @@ const defaultNotifRules = {
 };
 
 function getDestinatariosNotificacao(tipo) {
-  const rules = config.notificacoes || defaultNotifRules;
-  const typeRules = rules[tipo] || { colab: false, lider: true, owner: true };
+  // Mapeamento de tipo de notificação para chave nas preferências
+  const notifTypeMap = {
+    'conferencia_nfe': 'nfe',
+    'inventario_inicio': 'inv-inicio',
+    'inventario_fim': 'inv-fim',
+    'envelopes': 'envelopes',
+    'divergencia': 'divergencia'
+  };
+
+  const prefKey = notifTypeMap[tipo] || tipo;
+  const prefs = loadNotificationPrefs();
+  const typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+
   const rolesPermitidos = [];
   if (typeRules.colab) {
     rolesPermitidos.push('consultora', 'consultora_fa');
@@ -518,7 +547,7 @@ function getDestinatariosNotificacao(tipo) {
   if (typeRules.owner) {
     rolesPermitidos.push('owner');
   }
-  
+
   return USERS.filter(u => rolesPermitidos.includes(u.role)).map(u => u.nome);
 }
 
@@ -4214,11 +4243,84 @@ async function inicializarBoletos() {
 }
 
 // Init Event Listeners para a Logística
+// ==========================================================================
+// MÓDULO: PREFERÊNCIAS DE NOTIFICAÇÕES (Owner pode configurar)
+// ==========================================================================
+
+function loadNotificationPrefs() {
+  const saved = localStorage.getItem(NOTIF_PREFS_KEY);
+  return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS));
+}
+
+function saveNotificationPrefs(prefs) {
+  localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs));
+  showToast("Preferências de notificações salvas com sucesso!", "sucesso");
+}
+
+function shouldNotifyUser(notificationType, userRole) {
+  if (!currentUser || currentUser.role !== "owner") return true;
+
+  const prefs = loadNotificationPrefs();
+  const notifKey = notificationType;
+  const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
+
+  if (prefs[notifKey] && prefs[notifKey][roleKey] !== undefined) {
+    return prefs[notifKey][roleKey];
+  }
+  return true; // default: notificar
+}
+
+function initializeNotificationPrefs() {
+  const prefs = loadNotificationPrefs();
+
+  // Preencher checkboxes baseado nas preferências salvas
+  Object.keys(prefs).forEach(notifType => {
+    const colab = document.getElementById(`notif-${notifType}-colab`);
+    const lider = document.getElementById(`notif-${notifType}-lider`);
+    const owner = document.getElementById(`notif-${notifType}-owner`);
+
+    if (colab) colab.checked = prefs[notifType].colab;
+    if (lider) lider.checked = prefs[notifType].lider;
+    if (owner) owner.checked = prefs[notifType].owner;
+  });
+}
+
+function setupNotificationEvents() {
+  const btnSave = document.getElementById("config-btn-save-notificacoes");
+  if (!btnSave) return;
+
+  btnSave.addEventListener("click", () => {
+    if (currentUser && currentUser.role !== "owner") {
+      showToast("Apenas Owners podem modificar as preferências de notificações.", "erro");
+      return;
+    }
+
+    const prefs = {};
+
+    // Ler todos os checkboxes e montar o objeto de preferências
+    Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
+      const colab = document.getElementById(`notif-${notifType}-colab`);
+      const lider = document.getElementById(`notif-${notifType}-lider`);
+      const owner = document.getElementById(`notif-${notifType}-owner`);
+
+      prefs[notifType] = {
+        colab: colab ? colab.checked : true,
+        lider: lider ? lider.checked : true,
+        owner: owner ? owner.checked : true
+      };
+    });
+
+    saveNotificationPrefs(prefs);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   inicializarAutosaveForm();
   registrarLimparErroAoDigitar();
   inicializarImportedNfs();
   inicializarBoletos();
+  initializeNotificationPrefs();
+  setupNotificationEvents();
   
   const nfFileEl = document.getElementById('nf-file');
   if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
