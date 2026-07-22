@@ -307,6 +307,7 @@
               <option>Vitória</option>
               <option>Débora</option>
               <option>Alexandra</option>
+              <option>LiderOP</option>
               <option>Janine</option>
               <option>Estheffany</option>
               <option>Sabrina</option>
@@ -1591,6 +1592,110 @@
             <div class="flex justify-end gap-3 mt-4">
               <button type="button" id="config-btn-save-whatsapp" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Links do WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- Card: Configurações de Notificações -->
+          <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-bell text-amber-500"></i> Canais e Regras de Notificações
+            </h3>
+            <p class="text-xs text-muted mb-4">Gerencie quais perfis de acesso recebem cada tipo de alerta e notificação por e-mail ou push.</p>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Tipo de Notificação</th>
+                    <th class="py-3 px-4 text-center">Colaborador</th>
+                    <th class="py-3 px-4 text-center">Líder de Operações</th>
+                    <th class="py-3 px-4 text-center">Owner / Administrador</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  <tr>
+                    <td class="py-3 px-4">
+                      <div class="font-bold">Acúmulo de Envelopes (>= R$ 1.000)</div>
+                      <div class="text-[10px] text-muted">Alerta de segurança ao atingir limite em trânsito</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-envelopes-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-envelopes-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-envelopes-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-4">
+                      <div class="font-bold">Início de Inventário</div>
+                      <div class="text-[10px] text-muted">Aviso de abertura do inventário mensal cego</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-inicio-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-inicio-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-inicio-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-4">
+                      <div class="font-bold">Conclusão de Inventário</div>
+                      <div class="text-[10px] text-muted">Confirmação de finalização das contagens</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-fim-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-fim-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-inv-fim-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-4">
+                      <div class="font-bold">Conferência de NF-e</div>
+                      <div class="text-[10px] text-muted">Início e fim do recebimento/conferência de notas</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-nfe-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-nfe-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-nfe-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-4">
+                      <div class="font-bold">Divergência de Fundo de Caixa</div>
+                      <div class="text-[10px] text-muted">Aviso de diferença no fechamento/abertura</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-divergencia-colab" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-divergencia-lider" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                      <input type="checkbox" id="notif-divergencia-owner" class="rounded border-border text-gold focus:ring-gold" style="width: 16px; height: 16px;" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-4">
+              <button type="button" id="config-btn-save-notificacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Notificações
               </button>
             </div>
           </div>

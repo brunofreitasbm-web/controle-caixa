@@ -10,6 +10,52 @@ const bcrypt = require('bcryptjs');
 const webPush = require('web-push');
 const BCRYPT_ROUNDS = 10;
 
+function obterEmailsDestinatarios(notificationType, callback) {
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
+    let rules = {
+      envelopes: { colab: false, lider: true, owner: true },
+      inventario_inicio: { colab: false, lider: true, owner: true },
+      inventario_conclusao: { colab: false, lider: true, owner: true },
+      conferencia_nfe: { colab: false, lider: true, owner: true },
+      divergencia_caixa: { colab: false, lider: true, owner: true }
+    };
+    if (!errConfig && rowConfig && rowConfig.valor) {
+      try {
+        rules = JSON.parse(rowConfig.valor);
+      } catch (e) {}
+    }
+
+    const typeRules = rules[notificationType] || { colab: false, lider: true, owner: true };
+    const enabledRoles = [];
+    if (typeRules.colab) enabledRoles.push('consultora', 'consultora_fa');
+    if (typeRules.lider) enabledRoles.push('consultora_dashboard');
+    if (typeRules.owner) enabledRoles.push('owner');
+
+    db.all('SELECT nome, role FROM colaboradores', [], (errColab, colabs) => {
+      if (errColab || !colabs) {
+        return callback([]);
+      }
+
+      const EMAIL_MAP = {
+        'bruno': 'brunofreitasbm@gmail.com',
+        'isabella': 'isabella.vgoncalves@gmail.com',
+        'alexandra': 'alexandracabral733@gmail.com',
+        'liderop': 'alexandracabral733@gmail.com'
+      };
+
+      const recipientNames = colabs
+        .filter(c => enabledRoles.includes(c.role))
+        .map(c => c.nome.toLowerCase());
+
+      const targetEmails = recipientNames
+        .map(name => EMAIL_MAP[name])
+        .filter(Boolean);
+
+      callback(targetEmails);
+    });
+  });
+}
+
 function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT) || 465;
@@ -22,22 +68,25 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
     return;
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user,
-      pass
+  obterEmailsDestinatarios('envelopes', (targetEmails) => {
+    if (targetEmails.length === 0) {
+      console.log('Notificação de envelopes acumulados por e-mail ignorada (nenhum destinatário configurado).');
+      return;
     }
-  });
 
-  const mailOptions = {
-    from: `"Controle de Caixa Cacau Show" <${user}>`,
-    to: 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com, alexandracabral733@gmail.com',
-    subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${loja}`,
-    text: `Olá Bruno e Isabella,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValor.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendente.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
-    html: `<p>Olá Bruno e Isabella,</p>
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass }
+    });
+
+    const mailOptions = {
+      from: `"Controle de Caixa Cacau Show" <${user}>`,
+      to: targetEmails.join(', '),
+      subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${loja}`,
+      text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValor.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendente.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
+      html: `<p>Olá,</p>
 <p>O limite de <strong>R$ 1.000,00</strong> em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: <strong>${loja}</strong>.</p>
 <h3>Detalhes:</h3>
 <ul>
@@ -48,54 +97,93 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
 <p>Por favor, providencie a retirada.</p>
 <br>
 <p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
-  };
+    };
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('Erro ao enviar e-mail de notificação:', error);
-    } else {
-      console.log('E-mail de notificação enviado com sucesso:', info.response);
-    }
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Erro ao enviar e-mail de notificação:', error);
+      } else {
+        console.log('E-mail de notificação enviado com sucesso:', info.response);
+      }
+    });
   });
 }
 
-function enviarNotificacaoPush(title, body, targetUsers = null) {
+function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
   
-  let query = 'SELECT * FROM push_subscriptions';
-  let params = [];
-  
-  if (Array.isArray(targetUsers) && targetUsers.length > 0) {
-    const placeholders = targetUsers.map(() => '?').join(',');
-    query += ` WHERE LOWER(usuario) IN (${placeholders})`;
-    params = targetUsers.map(u => u.trim().toLowerCase());
-  }
-
-  db.all(query, params, (err, rows) => {
-    if (err) {
-      console.error('Erro ao buscar subscriptions:', err.message);
-      return;
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
+    let rules = null;
+    if (!errConfig && rowConfig && rowConfig.valor) {
+      try {
+        rules = JSON.parse(rowConfig.valor);
+      } catch (e) {}
     }
-    
-    const promises = (rows || []).map(row => {
-      const sub = {
-        endpoint: row.endpoint,
-        keys: {
-          p256dh: row.keys_p256dh,
-          auth: row.keys_auth
+
+    db.all('SELECT nome, role FROM colaboradores', [], (errColab, colabs) => {
+      if (errColab || !colabs) return;
+
+      let finalTargetUsers = null;
+      if (Array.isArray(targetUsers) && targetUsers.length > 0) {
+        finalTargetUsers = targetUsers.map(u => u.trim().toLowerCase());
+      }
+
+      if (notificationType && rules) {
+        const enabledRoles = [];
+        if (rules[notificationType]?.colab) enabledRoles.push('consultora', 'consultora_fa');
+        if (rules[notificationType]?.lider) enabledRoles.push('consultora_dashboard');
+        if (rules[notificationType]?.owner) enabledRoles.push('owner');
+
+        const allowedNames = colabs
+          .filter(c => enabledRoles.includes(c.role))
+          .map(c => c.nome.toLowerCase());
+
+        if (finalTargetUsers) {
+          finalTargetUsers = finalTargetUsers.filter(u => allowedNames.includes(u));
+        } else {
+          finalTargetUsers = allowedNames;
         }
-      };
-      return webPush.sendNotification(sub, payload).catch(error => {
-        console.error('Erro ao enviar push para endpoint:', row.endpoint, error);
-        if (error.statusCode === 404 || error.statusCode === 410) {
-          console.log('Subscription expirada. Removendo do banco.');
-          db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [row.endpoint]);
+      }
+
+      let query = 'SELECT * FROM push_subscriptions';
+      let params = [];
+      
+      if (finalTargetUsers && finalTargetUsers.length > 0) {
+        const placeholders = finalTargetUsers.map(() => '?').join(',');
+        query += ` WHERE LOWER(usuario) IN (${placeholders})`;
+        params = finalTargetUsers;
+      } else if (finalTargetUsers && finalTargetUsers.length === 0) {
+        console.log(`Push notification (${title}) cancelada porque nenhum perfil tem permissão ativa.`);
+        return;
+      }
+
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          console.error('Erro ao buscar subscriptions:', err.message);
+          return;
         }
+        
+        const promises = (rows || []).map(row => {
+          const sub = {
+            endpoint: row.endpoint,
+            keys: {
+              p256dh: row.keys_p256dh,
+              auth: row.keys_auth
+            }
+          };
+          return webPush.sendNotification(sub, payload).catch(error => {
+            console.error('Erro ao enviar push para endpoint:', row.endpoint, error);
+            if (error.statusCode === 404 || error.statusCode === 410) {
+              console.log('Subscription expirada. Removendo do banco.');
+              db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [row.endpoint]);
+            }
+          });
+        });
+        
+        Promise.all(promises).then(() => {
+          console.log(`Push notifications (${title}) enviadas para ${rows.length} dispositivos.`);
+        });
       });
-    });
-    
-    Promise.all(promises).then(() => {
-      console.log(`Push notifications (${title}) enviadas para ${rows.length} dispositivos.`);
     });
   });
 }
@@ -222,190 +310,247 @@ if (isPostgres) {
 }
 
 function initDb() {
-  const initQueries = [
-    `CREATE TABLE IF NOT EXISTS configuracoes (
-      chave TEXT PRIMARY KEY,
-      valor TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS pins (
-      usuario TEXT PRIMARY KEY,
-      pin TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS registros (
-      id TEXT PRIMARY KEY,
-      consultor TEXT,
-      loja TEXT,
-      tipoOperacao TEXT,
-      dataOperacao TEXT,
-      fundoCaixa REAL,
-      valorEnvelope REAL,
-      observacoes TEXT,
-      fotoEnvelope TEXT,
-      status TEXT,
-      dataRetirada TEXT,
-      retiradoPor TEXT,
-      confirmadoPorApp TEXT,
-      autorizadoPor TEXT,
-      mensagemGerada INTEGER DEFAULT 0,
-      criadoEm TEXT,
-      deletadoEm TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS registros_fa (
-      id TEXT PRIMARY KEY,
-      consultor TEXT,
-      loja TEXT,
-      tipoOperacao TEXT,
-      dataOperacao TEXT,
-      fundoCaixa REAL,
-      valorEnvelope REAL,
-      observacoes TEXT,
-      fotoEnvelope TEXT,
-      status TEXT,
-      dataRetirada TEXT,
-      retiradoPor TEXT,
-      confirmadoPorApp TEXT,
-      autorizadoPor TEXT,
-      mensagemGerada INTEGER DEFAULT 0,
-      criadoEm TEXT,
-      deletadoEm TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS logs_auditoria (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      registroId TEXT,
-      acao TEXT,
-      descricao TEXT,
-      usuario TEXT,
-      data TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      endpoint TEXT NOT NULL,
-      keys_p256dh TEXT NOT NULL,
-      keys_auth TEXT NOT NULL,
-      usuario TEXT,
-      criadoEm TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS colaboradores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT UNIQUE NOT NULL,
-      role TEXT NOT NULL,
-      criadoEm TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS nfs (
-      numero TEXT PRIMARY KEY,
-      info TEXT,
-      products TEXT,
-      criadoEm TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS boletos (
-      id TEXT PRIMARY KEY,
-      documento TEXT,
-      loja TEXT,
-      descricao TEXT,
-      vencimento TEXT,
-      valor REAL,
-      status TEXT,
-      pagoEm TEXT,
-      criadoEm TEXT
-    )`
-  ];
+  const checkSql = isPostgres 
+    ? "SELECT column_name FROM information_schema.columns WHERE table_name = 'nfs' AND column_name = 'id'"
+    : "PRAGMA table_info(nfs)";
 
-  let promise = Promise.resolve();
-  initQueries.forEach(query => {
-    // Para logs_auditoria AUTOINCREMENT funciona no SQLite, mas no Postgres seria SERIAL.
-    // Como a tabela logs_auditoria terá insert automático, vamos adaptar para não usar id explícito nas queries se possível.
-    let finalQuery = query;
-    if (isPostgres && query.includes('AUTOINCREMENT')) {
-      finalQuery = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY');
+  db.all(checkSql, [], (err, rows) => {
+    let hasId = false;
+    if (isPostgres) {
+      hasId = rows && rows.length > 0;
+    } else {
+      hasId = rows && rows.some(r => r.name === 'id');
     }
-    
-    promise = promise.then(() => {
-      return new Promise((resolve, reject) => {
-        db.run(finalQuery, [], (err) => {
-          if (err) {
-            console.error('Erro ao inicializar tabela:', err.message);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-    });
-  });
 
-  // Tenta adicionar a coluna deletadoEm se ela não existir (tabela principal)
-  promise = promise.then(() => {
-    return new Promise(resolve => {
-      db.run('ALTER TABLE registros ADD COLUMN deletadoEm TEXT', [], () => resolve());
-    });
-  });
+    const startInitialization = () => {
+      const initQueries = [
+        `CREATE TABLE IF NOT EXISTS configuracoes (
+          chave TEXT PRIMARY KEY,
+          valor TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS pins (
+          usuario TEXT PRIMARY KEY,
+          pin TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS registros (
+          id TEXT PRIMARY KEY,
+          consultor TEXT,
+          loja TEXT,
+          tipoOperacao TEXT,
+          dataOperacao TEXT,
+          fundoCaixa REAL,
+          valorEnvelope REAL,
+          observacoes TEXT,
+          fotoEnvelope TEXT,
+          status TEXT,
+          dataRetirada TEXT,
+          retiradoPor TEXT,
+          confirmadoPorApp TEXT,
+          autorizadoPor TEXT,
+          mensagemGerada INTEGER DEFAULT 0,
+          criadoEm TEXT,
+          deletadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS registros_fa (
+          id TEXT PRIMARY KEY,
+          consultor TEXT,
+          loja TEXT,
+          tipoOperacao TEXT,
+          dataOperacao TEXT,
+          fundoCaixa REAL,
+          valorEnvelope REAL,
+          observacoes TEXT,
+          fotoEnvelope TEXT,
+          status TEXT,
+          dataRetirada TEXT,
+          retiradoPor TEXT,
+          confirmadoPorApp TEXT,
+          autorizadoPor TEXT,
+          mensagemGerada INTEGER DEFAULT 0,
+          criadoEm TEXT,
+          deletadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS logs_auditoria (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          registroId TEXT,
+          acao TEXT,
+          descricao TEXT,
+          usuario TEXT,
+          data TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          endpoint TEXT NOT NULL,
+          keys_p256dh TEXT NOT NULL,
+          keys_auth TEXT NOT NULL,
+          usuario TEXT,
+          criadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS colaboradores (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT UNIQUE NOT NULL,
+          role TEXT NOT NULL,
+          criadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS nfs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero TEXT,
+          info TEXT,
+          products TEXT,
+          criadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS boletos (
+          id TEXT PRIMARY KEY,
+          documento TEXT,
+          loja TEXT,
+          descricao TEXT,
+          vencimento TEXT,
+          valor REAL,
+          status TEXT,
+          pagoEm TEXT,
+          criadoEm TEXT
+        )`
+      ];
 
-  // Tenta adicionar a coluna deletadoEm na tabela FA se ela não existir
-  promise = promise.then(() => {
-    return new Promise(resolve => {
-      db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
-    });
-  });
-
-  promise = promise.then(() => {
-    return new Promise(resolve => {
-      db.get('SELECT COUNT(*) as count FROM colaboradores', [], (err, row) => {
-        if (!err && row && (parseInt(row.count) === 0 || parseInt(row.count) === undefined || row.count === '0')) {
-          const defaultUsers = [
-            { nome: "Ana Júlia", role: "consultora" },
-            { nome: "Vitória", role: "consultora" },
-            { nome: "Débora", role: "consultora" },
-            { nome: "Alexandra", role: "consultora_dashboard" },
-            { nome: "Janine", role: "consultora" },
-            { nome: "Estheffany", role: "consultora" },
-            { nome: "Sabrina", role: "consultora" },
-            { nome: "Alice", role: "consultora_fa" },
-            { nome: "Alessandra", role: "consultora_fa" },
-            { nome: "Isabella", role: "owner" },
-            { nome: "Bruno", role: "owner" }
-          ];
-          const agora = new Date().toISOString();
-          let inserts = defaultUsers.map(u => {
-            return new Promise(res => {
-              db.run(
-                'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO NOTHING',
-                [u.nome, u.role, agora],
-                () => res()
-              );
+      let promise = Promise.resolve();
+      initQueries.forEach(query => {
+        let finalQuery = query;
+        if (isPostgres && query.includes('AUTOINCREMENT')) {
+          finalQuery = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY');
+        }
+        
+        promise = promise.then(() => {
+          return new Promise((resolve, reject) => {
+            db.run(finalQuery, [], (err2) => {
+              if (err2) {
+                console.error('Erro ao inicializar tabela:', err2.message);
+                reject(err2);
+              } else {
+                resolve();
+              }
             });
           });
-          Promise.all(inserts).then(() => resolve());
-        } else {
-          resolve();
+        });
+      });
+
+      // Tenta adicionar a coluna deletadoEm se ela não existir (tabela principal)
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN deletadoEm TEXT', [], () => resolve());
+        });
+      });
+
+      // Tenta adicionar a coluna deletadoEm na tabela FA se ela não existir
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.get('SELECT COUNT(*) as count FROM colaboradores', [], (err3, row) => {
+            const defaultUsers = [
+              { nome: "Ana Júlia", role: "consultora" },
+              { nome: "Vitória", role: "consultora" },
+              { nome: "Débora", role: "consultora" },
+              { nome: "Alexandra", role: "consultora_dashboard" },
+              { nome: "LiderOP", role: "consultora_dashboard" },
+              { nome: "Janine", role: "consultora" },
+              { nome: "Estheffany", role: "consultora" },
+              { nome: "Sabrina", role: "consultora" },
+              { nome: "Alice", role: "consultora_fa" },
+              { nome: "Alessandra", role: "consultora_fa" },
+              { nome: "Isabella", role: "owner" },
+              { nome: "Bruno", role: "owner" }
+            ];
+            const agora = new Date().toISOString();
+            let inserts = defaultUsers.map(u => {
+              return new Promise(res => {
+                db.run(
+                  'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO NOTHING',
+                  [u.nome, u.role, agora],
+                  () => res()
+                );
+              });
+            });
+            Promise.all(inserts).then(() => resolve());
+          });
+        });
+      });
+
+      promise.then(() => {
+        console.log('Banco de dados inicializado com sucesso.');
+        
+        // Inicializar VAPID keys para Web Push
+        db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err3, row) => {
+          let vapidKeys;
+          if (!err3 && row && row.valor) {
+            vapidKeys = JSON.parse(row.valor);
+          } else {
+            vapidKeys = webPush.generateVAPIDKeys();
+            db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
+          }
+          webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
+          global.vapidPublicKey = vapidKeys.publicKey;
+          console.log('Web Push VAPID keys configuradas.');
+        });
+
+        if (require.main === module) {
+          app.listen(PORT, () => {
+            console.log(`Servidor rodando na porta ${PORT}`);
+          });
         }
+      }).catch((err3) => {
+        console.error('Erro na inicialização do banco de dados:', err3);
       });
-    });
-  });
+    };
 
-  promise.then(() => {
-    console.log('Banco de dados inicializado com sucesso.');
-    
-    // Inicializar VAPID keys para Web Push
-    db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err, row) => {
-      let vapidKeys;
-      if (!err && row && row.valor) {
-        vapidKeys = JSON.parse(row.valor);
-      } else {
-        vapidKeys = webPush.generateVAPIDKeys();
-        db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
-      }
-      webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
-      global.vapidPublicKey = vapidKeys.publicKey;
-      console.log('Web Push VAPID keys configuradas.');
-    });
-
-    if (require.main === module) {
-      app.listen(PORT, () => {
-        console.log(`Servidor rodando na porta ${PORT}`);
+    if (!hasId && rows && rows.length > 0) {
+      console.log("Migrando tabela nfs para suportar múltiplos registros com o mesmo número...");
+      db.all("SELECT * FROM nfs", [], (err2, data) => {
+        if (err2) return startInitialization();
+        db.run("DROP TABLE nfs", [], (err3) => {
+          if (err3) return startInitialization();
+          const createSql = isPostgres
+            ? `CREATE TABLE nfs (
+                id SERIAL PRIMARY KEY,
+                numero TEXT,
+                info TEXT,
+                products TEXT,
+                criadoEm TEXT
+              )`
+            : `CREATE TABLE nfs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero TEXT,
+                info TEXT,
+                products TEXT,
+                criadoEm TEXT
+              )`;
+          db.run(createSql, [], (err4) => {
+            if (err4) return startInitialization();
+            let insPromise = Promise.resolve();
+            (data || []).forEach(row => {
+              insPromise = insPromise.then(() => {
+                return new Promise((resolve) => {
+                  db.run(
+                    "INSERT INTO nfs (numero, info, products, criadoEm) VALUES (?, ?, ?, ?)",
+                    [row.numero, row.info, row.products, row.criadoEm],
+                    () => resolve()
+                  );
+                });
+              });
+            });
+            insPromise.then(() => {
+              console.log("Migração da tabela nfs concluída com sucesso!");
+              startInitialization();
+            });
+          });
+        });
       });
+    } else {
+      startInitialization();
     }
-  }).catch((err) => {
-    console.error('Erro na inicialização do banco de dados:', err);
   });
 }
 
@@ -426,7 +571,7 @@ function registrarLog(registroId, acao, descricao, usuario) {
 app.get('/api/logs', (req, res) => {
   const { usuario } = req.query;
   const userLower = (usuario || '').trim().toLowerCase();
-  if (userLower !== 'bruno' && userLower !== 'isabella' && userLower !== 'alexandra') {
+  if (userLower !== 'bruno' && userLower !== 'isabella' && userLower !== 'alexandra' && userLower !== 'liderop') {
     return res.status(403).json({ error: 'Acesso negado. Sem permissão para ver os logs.' });
   }
   db.all('SELECT * FROM logs_auditoria ORDER BY data DESC LIMIT 100', [], (err, rows) => {
@@ -601,22 +746,25 @@ app.post('/api/divergencia', (req, res) => {
   if (!host || !user || !pass) {
     return res.json({ sent: false, reason: 'SMTP não configurado' });
   }
-  
-  const transporter = nodemailer.createTransport({
-    host,
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: { user, pass }
-  });
-  
-  // Adicionado o email da Alexandra
-  const destinatarios = 'brunofreitasbm@gmail.com, isabella.vgoncalves@gmail.com, alexandracabral733@gmail.com';
-  
-  transporter.sendMail({
-    from: `"Controle de Caixa Cacau Show" <${user}>`,
-    to: destinatarios,
-    subject: `⚠️ Divergência de Fundo de Caixa - Loja ${loja}`,
-    html: `<p>Olá,</p>
+
+  obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
+    if (targetEmails.length === 0) {
+      console.log('Notificação de divergência por e-mail ignorada (nenhum destinatário configurado).');
+      return res.json({ sent: false, reason: 'Nenhum destinatário configurado' });
+    }
+    
+    const transporter = nodemailer.createTransport({
+      host,
+      port: parseInt(process.env.SMTP_PORT) || 465,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: { user, pass }
+    });
+    
+    transporter.sendMail({
+      from: `"Controle de Caixa Cacau Show" <${user}>`,
+      to: targetEmails.join(', '),
+      subject: `⚠️ Divergência de Fundo de Caixa - Loja ${loja}`,
+      html: `<p>Olá,</p>
 <p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${loja}</strong>.</p>
 <h3>Detalhes:</h3>
 <ul>
@@ -627,12 +775,13 @@ app.post('/api/divergencia', (req, res) => {
 </ul>
 <p>Por favor, investigue a divergência.</p>
 <p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
-  }, (error) => {
-    if (error) {
-      console.error('Erro ao enviar e-mail de divergência:', error);
-      return res.json({ sent: false, reason: error.message });
-    }
-    res.json({ sent: true });
+    }, (error) => {
+      if (error) {
+        console.error('Erro ao enviar e-mail de divergência:', error);
+        return res.json({ sent: false, reason: error.message });
+      }
+      res.json({ sent: true });
+    });
   });
 });
 
@@ -655,7 +804,8 @@ app.post('/api/notificar-gestao', (req, res) => {
     const EMAIL_MAP = {
       'bruno': 'brunofreitasbm@gmail.com',
       'isabella': 'isabella.vgoncalves@gmail.com',
-      'alexandra': 'alexandracabral733@gmail.com'
+      'alexandra': 'alexandracabral733@gmail.com',
+      'liderop': 'alexandracabral733@gmail.com'
     };
 
     const targetEmails = destinatarios
@@ -921,6 +1071,7 @@ app.get('/api/nfs', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     try {
       const result = (rows || []).map(r => ({
+        id: r.id,
         numero: r.numero,
         info: JSON.parse(r.info || '{}'),
         products: JSON.parse(r.products || '[]'),
@@ -937,9 +1088,51 @@ app.post('/api/nfs', (req, res) => {
   const { numero, info, products } = req.body;
   if (!numero) return res.status(400).json({ error: 'Número da NF-e é obrigatório.' });
 
-  db.get('SELECT numero FROM nfs WHERE numero = ?', [numero], (err, row) => {
+  db.all('SELECT * FROM nfs WHERE numero = ?', [numero], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (row) {
+    
+    // Check if there is an exact duplicate (same store and identical products list and quantities)
+    const isDuplicate = (rows || []).some(row => {
+      try {
+        const rowInfo = JSON.parse(row.info || '{}');
+        const rowProducts = JSON.parse(row.products || '[]');
+        
+        // 1. Compare store
+        const store1 = (rowInfo.targetStore || '').toString().trim();
+        const store2 = (info.targetStore || '').toString().trim();
+        if (store1 !== store2) return false;
+        
+        // 2. Compare products and quantities
+        const p1 = rowProducts || [];
+        const p2 = products || [];
+        if (p1.length !== p2.length) return false;
+        
+        const map1 = {};
+        for (const item of p1) {
+          const code = (item.code || '').toString().trim();
+          const qty = Number(item.nfQty || 0);
+          map1[code] = (map1[code] || 0) + qty;
+        }
+        
+        const map2 = {};
+        for (const item of p2) {
+          const code = (item.code || '').toString().trim();
+          const qty = Number(item.nfQty || 0);
+          map2[code] = (map2[code] || 0) + qty;
+        }
+        
+        const keys1 = Object.keys(map1);
+        for (const key of keys1) {
+          if (map1[key] !== map2[key]) return false;
+        }
+        
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (isDuplicate) {
       return res.status(409).json({ success: false, error: 'duplicated', message: 'Esta NF-e já foi importada anteriormente.' });
     }
 
@@ -959,28 +1152,66 @@ app.put('/api/nfs/:numero', (req, res) => {
   const { numero } = req.params;
   const { info, products } = req.body;
 
-  const fields = [];
-  const values = [];
-
-  if (info) {
-    fields.push('info = ?');
-    values.push(JSON.stringify(info));
-  }
-  if (products) {
-    fields.push('products = ?');
-    values.push(JSON.stringify(products));
-  }
-
-  if (fields.length === 0) {
-    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
-  }
-
-  values.push(numero);
-  const sql = `UPDATE nfs SET ${fields.join(', ')} WHERE numero = ?`;
-
-  db.run(sql, values, function(err) {
+  db.all('SELECT * FROM nfs WHERE numero = ?', [numero], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'Nota Fiscal não encontrada.' });
+    }
+
+    // Find the row that matches the store
+    const incomingStore = info && info.targetStore ? info.targetStore.toString().trim() : '';
+    let targetRow = null;
+    
+    for (const r of rows) {
+      try {
+        const rowInfo = JSON.parse(r.info || '{}');
+        const rowStore = rowInfo.targetStore ? rowInfo.targetStore.toString().trim() : '';
+        if (rowStore === incomingStore) {
+          targetRow = r;
+          break;
+        }
+      } catch (e) {}
+    }
+
+    if (!targetRow && rows.length === 1) {
+      targetRow = rows[0];
+    }
+
+    if (!targetRow) {
+      return res.status(404).json({ error: 'Nota Fiscal correspondente a esta loja não encontrada.' });
+    }
+
+    const fields = [];
+    const values = [];
+
+    if (info) {
+      fields.push('info = ?');
+      values.push(JSON.stringify(info));
+    }
+    if (products) {
+      fields.push('products = ?');
+      values.push(JSON.stringify(products));
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+    }
+
+    if (targetRow.id !== undefined) {
+      values.push(targetRow.id);
+      const sql = `UPDATE nfs SET ${fields.join(', ')} WHERE id = ?`;
+      db.run(sql, values, function(err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({ success: true });
+      });
+    } else {
+      values.push(numero);
+      const sql = `UPDATE nfs SET ${fields.join(', ')} WHERE numero = ?`;
+      db.run(sql, values, function(err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({ success: true });
+      });
+    }
   });
 });
 
@@ -1001,10 +1232,10 @@ app.post('/api/boletos/import', (req, res) => {
 
   let promises = boletos.map(b => {
     return new Promise((resolve) => {
-      // Verificar duplicados combinando loja, descricao, vencimento e valor
+      // Verificar duplicados combinando loja, documento, descricao, vencimento e valor
       db.get(
-        'SELECT id FROM boletos WHERE loja = ? AND descricao = ? AND vencimento = ? AND valor = ?',
-        [b.loja, b.descricao, b.vencimento, b.valor],
+        'SELECT id FROM boletos WHERE loja = ? AND documento = ? AND descricao = ? AND vencimento = ? AND valor = ?',
+        [b.loja, b.documento, b.descricao, b.vencimento, b.valor],
         (err, row) => {
           if (err || row) {
             resolve({ status: 'ignored', boleto: b });

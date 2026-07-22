@@ -48,6 +48,7 @@ let USERS = [
   { nome: "Vitória", role: "consultora" },
   { nome: "Débora", role: "consultora" },
   { nome: "Alexandra", role: "consultora_dashboard" },
+  { nome: "LiderOP", role: "consultora_dashboard" },
   { nome: "Janine", role: "consultora" },
   { nome: "Estheffany", role: "consultora" },
   { nome: "Sabrina", role: "consultora" },
@@ -421,7 +422,7 @@ function registrarLimparErroAoDigitar() {
 
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
-const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
+const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra", "LiderOP"];
 const AUTORIZADORES = ["Bruno", "Isabella"];
 
 let API_ONLINE = false;
@@ -496,6 +497,31 @@ async function checkApiConnection() {
   return false;
 }
 
+const defaultNotifRules = {
+  envelopes: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_conclusao: { colab: false, lider: true, owner: true },
+  conferencia_nfe: { colab: false, lider: true, owner: true },
+  divergencia_caixa: { colab: false, lider: true, owner: true }
+};
+
+function getDestinatariosNotificacao(tipo) {
+  const rules = config.notificacoes || defaultNotifRules;
+  const typeRules = rules[tipo] || { colab: false, lider: true, owner: true };
+  const rolesPermitidos = [];
+  if (typeRules.colab) {
+    rolesPermitidos.push('consultora', 'consultora_fa');
+  }
+  if (typeRules.lider) {
+    rolesPermitidos.push('consultora_dashboard');
+  }
+  if (typeRules.owner) {
+    rolesPermitidos.push('owner');
+  }
+  
+  return USERS.filter(u => rolesPermitidos.includes(u.role)).map(u => u.nome);
+}
+
 // --- Sincronização Inicial ---
 async function inicializarDados() {
   await checkApiConnection();
@@ -542,7 +568,7 @@ async function inicializarDados() {
                 if (p.validade) p.validade = new Date(p.validade);
               });
             }
-            serverNfs[nf.numero] = { info: nf.info, products: nf.products };
+            serverNfs[nf.numero + '_' + (nf.info.targetStore || currentStore)] = { info: nf.info, products: nf.products };
           });
           importedNfs = serverNfs;
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
@@ -1038,7 +1064,7 @@ function iniciarModuloBase(moduloOpcional) {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
   }
 
-  const nomesPermitidosBoletos = ["Alexandra", "Bruno", "Isabella"];
+  const nomesPermitidosBoletos = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
   if (!nomesPermitidosBoletos.includes(currentUser.nome)) {
     tabsPermitidas = tabsPermitidas.filter(tab => tab !== "boletos");
   }
@@ -1211,7 +1237,7 @@ function verificarInventarioMensalNotificacao() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        destinatarios: ['Alexandra', 'Bruno', 'Isabella'],
+        destinatarios: getDestinatariosNotificacao('inventario_inicio'),
         assunto: `📋 AVISO: Início do Inventário Mensal Obrigatório (${dataInicioStr})`,
         mensagem: `Atenção Alexandra, o Inventário Mensal Obrigatório das lojas foi iniciado hoje (${dataInicioStr}). O prazo para conclusão pelas colaboradoras é de 2 dias úteis, finalizando em ${dataTerminoStr}.`,
         operador: currentUser.nome
@@ -2866,7 +2892,7 @@ function renderDashboard() {
         <td>${avisoCelula(r)}</td>
         <td>${podeRetirar
           ? `<button class="btn-retirar" data-id="${r.id}">Marcar retirado</button>`
-          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella ou Alexandra</span>`}</td>
+          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella, Alexandra ou LiderOP</span>`}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -2942,7 +2968,7 @@ const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
 function abrirModalRetirada(target) {
   if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
-    showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
+    showModal("Apenas Bruno, Isabella, Alexandra ou LiderOP podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
   retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
@@ -2963,7 +2989,7 @@ function abrirModalRetirada(target) {
   document.getElementById("retirada-responsavel").value = "";
   autorizacaoPinInput.value = "";
 
-  const precisaAutorizacao = currentUser.nome === "Alexandra";
+  const precisaAutorizacao = currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP";
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
 
   modalRetirada.classList.remove("hidden");
@@ -2983,7 +3009,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
   }
 
   let autorizadoPor = null;
-  if (currentUser.nome === "Alexandra") {
+  if (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP") {
     const pinDigitado = autorizacaoPinInput.value.trim();
     autorizadoPor = AUTORIZADORES.find(nome => pins[nome] && pins[nome] === pinDigitado);
     if (!autorizadoPor) {
@@ -3469,7 +3495,7 @@ document.getElementById("session-pin").addEventListener("keydown", e => {
 // RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
 // ==========================================================================
 const RESUMO_KEY = "cacaushow_ultimo_resumo";
-const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
+const RESUMO_USUARIOS = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
 
 function mostrarResumoMatinal() {
   if (!currentUser || !RESUMO_USUARIOS.includes(currentUser.nome)) return;
@@ -3630,7 +3656,7 @@ atualizarBadgeSync();
 
 // ==================== PUSH NOTIFICATIONS ====================
 async function inscreverPushNotificacoes() {
-  if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra') return;
+  if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra' && currentUser.nome !== 'LiderOP') return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
@@ -4486,6 +4512,37 @@ function detectBoxMultiplier(detElement, xProdText) {
   return 1;
 }
 
+function isClientNfeDuplicate(nNF, targetStore, productsList) {
+  const key = `${nNF}_${targetStore}`;
+  const existing = importedNfs[key];
+  if (!existing) return false;
+  
+  const p1 = existing.products || [];
+  const p2 = productsList || [];
+  if (p1.length !== p2.length) return false;
+  
+  const map1 = {};
+  for (const item of p1) {
+    const code = (item.code || '').toString().trim();
+    const qty = Number(item.nfQty || 0);
+    map1[code] = (map1[code] || 0) + qty;
+  }
+  
+  const map2 = {};
+  for (const item of p2) {
+    const code = (item.code || '').toString().trim();
+    const qty = Number(item.nfQty || 0);
+    map2[code] = (map2[code] || 0) + qty;
+  }
+  
+  const keys1 = Object.keys(map1);
+  for (const key of keys1) {
+    if (map1[key] !== map2[key]) return false;
+  }
+  
+  return true;
+}
+
 function parseXmlNfe(file, callback) {
   const reader = new FileReader();
   reader.onload = function (e) {
@@ -4568,6 +4625,8 @@ function parseXmlNfe(file, callback) {
       });
     });
 
+    const isDuplicate = isClientNfeDuplicate(nNF, targetStore, productsList);
+
     if (API_ONLINE) {
       fetch(`${API_BASE}/nfs`, {
         method: 'POST',
@@ -4585,9 +4644,9 @@ function parseXmlNfe(file, callback) {
       })
       .then(data => {
         if (data) {
-          importedNfs[nNF] = { info, products: productsList };
+          importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-          activeNfNumber = nNF;
+          activeNfNumber = nNF + '_' + targetStore;
           if (callback) callback('success');
           else showToast(`NF-e Nº ${nNF} importada com sucesso!`, 'sucesso');
           setTimeout(() => {
@@ -4603,14 +4662,14 @@ function parseXmlNfe(file, callback) {
         else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
-      if (importedNfs[nNF]) {
+      if (isDuplicate) {
         if (callback) callback('duplicate');
         else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
         return;
       }
-      importedNfs[nNF] = { info, products: productsList };
+      importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-      activeNfNumber = nNF;
+      activeNfNumber = nNF + '_' + targetStore;
       if (callback) callback('success');
       else showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
     }
@@ -4658,7 +4717,8 @@ function parseExcelNfe(file, callback) {
       numero: numNfStr,
       emissao: formattedTodayStr,
       volumes: '1',
-      fornecedor: 'Cacau Show CD'
+      fornecedor: 'Cacau Show CD',
+      targetStore: currentStore
     };
 
     const productsList = [];
@@ -4686,6 +4746,8 @@ function parseExcelNfe(file, callback) {
       });
     }
 
+    const isDuplicate = isClientNfeDuplicate(numNfStr, currentStore, productsList);
+
     if (API_ONLINE) {
       fetch(`${API_BASE}/nfs`, {
         method: 'POST',
@@ -4703,9 +4765,9 @@ function parseExcelNfe(file, callback) {
       })
       .then(data => {
         if (data) {
-          importedNfs[numNfStr] = { info, products: productsList };
+          importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-          activeNfNumber = numNfStr;
+          activeNfNumber = numNfStr + '_' + currentStore;
           if (callback) callback('success');
           else showToast(`NF-e Nº ${numNfStr} importada com sucesso!`, 'sucesso');
         }
@@ -4716,14 +4778,14 @@ function parseExcelNfe(file, callback) {
         else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
-      if (importedNfs[numNfStr]) {
+      if (isDuplicate) {
         if (callback) callback('duplicate');
         else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
         return;
       }
-      importedNfs[numNfStr] = { info, products: productsList };
+      importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-      activeNfNumber = numNfStr;
+      activeNfNumber = numNfStr + '_' + currentStore;
       if (callback) callback('success');
       else showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
     }
@@ -4781,7 +4843,7 @@ function renderNfCardsGallery() {
       </div>
       <div class="mb-4">
         <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal</div>
-        <div class="text-2xl font-black text-white font-mono">Nº ${numNF}</div>
+        <div class="text-2xl font-black text-white font-mono">Nº ${nfData.info.numero}</div>
         <div class="text-xs text-brand-300 mt-1 truncate">${nfData.info.fornecedor}</div>
       </div>
       <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
@@ -4829,11 +4891,11 @@ function notificarGestaoConferencia(tipo, numNF) {
 
   if (tipo === 'inicio') {
     assunto = `🚀 Início de Conferência de NF-e - Loja ${lojaNome}`;
-    mensagem = `A colaboradora ${operador} iniciou a conferência física da NF Nº ${numNF} (${nfData.info.fornecedor}) na Loja ${lojaNome}. Total de itens: ${totalItens}.`;
+    mensagem = `A colaboradora ${operador} iniciou a conferência física da NF Nº ${nfData.info.numero} (${nfData.info.fornecedor}) na Loja ${lojaNome}. Total de itens: ${totalItens}.`;
   } else if (tipo === 'conclusao') {
     const status = (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) ? '100% OK' : `PENDÊNCIA (${faltasCount} Faltas)`;
     assunto = `📋 Conferência de NF-e Finalizada (${status}) - Loja ${lojaNome}`;
-    mensagem = `A conferência da NF Nº ${numNF} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
+    mensagem = `A conferência da NF Nº ${nfData.info.numero} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
   }
 
   // Notificação silenciosa via backend API (Push + Email para Bruno, Isabella e Alexandra)
@@ -4841,10 +4903,10 @@ function notificarGestaoConferencia(tipo, numNF) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+      destinatarios: getDestinatariosNotificacao('conferencia_nfe'),
       assunto: assunto,
       mensagem: mensagem,
-      numNF: numNF,
+      numNF: nfData.info.numero,
       loja: lojaNome,
       operador: operador
     })
@@ -4874,7 +4936,7 @@ function notificarWhatsappGestao() {
   let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
   if (activeNfNumber && importedNfs[activeNfNumber]) {
     const nfData = importedNfs[activeNfNumber];
-    textoMsg += `NF Nº: ${activeNfNumber}\n`;
+    textoMsg += `NF Nº: ${nfData.info.numero}\n`;
     textoMsg += `Fornecedor: ${nfData.info.fornecedor}\n`;
     textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n\n`;
     
@@ -5291,7 +5353,7 @@ function triggerInventoryStartedNotification() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
         assunto: `📋 Inventário Iniciado - Loja ${getLojaNomePorCodigo(currentStore)}`,
         mensagem: `A colaboradora ${currentUser.nome} iniciou a contagem física do Inventário de Estoque na Loja ${getLojaNomePorCodigo(currentStore)}.`,
         operador: currentUser.nome
@@ -5553,7 +5615,7 @@ function exportExcel() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
       assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
       mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
       operador: currentUser.nome
@@ -5571,7 +5633,7 @@ function exportExcel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+          destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
           assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
           mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
           operador: currentUser.nome
@@ -5579,7 +5641,7 @@ function exportExcel() {
       }).catch(err => console.error('Erro na notificação de conclusão total:', err));
 
       showModal(
-        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella e Alexandra.`,
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella, Alexandra e LiderOP.`,
         {
           icon: "🚀",
           title: "Inventário Mensal Finalizado",
@@ -6007,69 +6069,76 @@ window.carregarAuditoriaBoletos = function() {
 
   tbody.innerHTML = "";
 
-  // 1. Group boletos by base document number (removing hyphen/letters, e.g. "123456-01" -> "123456")
+  // 1. Group boletos by base document number and store (e.g. "123456" + "_" + "9175")
   const boletosAgrupados = {};
   boletos.forEach(b => {
     const parts = b.documento.split("-");
     const baseDoc = parts[0].trim();
+    const groupKey = `${baseDoc}_${b.loja}`;
     
-    if (!boletosAgrupados[baseDoc]) {
-      boletosAgrupados[baseDoc] = {
+    if (!boletosAgrupados[groupKey]) {
+      boletosAgrupados[groupKey] = {
         baseDoc: baseDoc,
+        groupKey: groupKey,
         documentosOriginais: [],
         lojas: new Set(),
         valorTotal: 0,
         boletosRef: []
       };
     }
-    boletosAgrupados[baseDoc].documentosOriginais.push(b.documento);
-    boletosAgrupados[baseDoc].lojas.add(b.loja);
-    boletosAgrupados[baseDoc].valorTotal += b.valor;
-    boletosAgrupados[baseDoc].boletosRef.push(b);
+    boletosAgrupados[groupKey].documentosOriginais.push(b.documento);
+    boletosAgrupados[groupKey].lojas.add(b.loja);
+    boletosAgrupados[groupKey].valorTotal += b.valor;
+    boletosAgrupados[groupKey].boletosRef.push(b);
   });
 
   // 2. Correlate with importedNfs
   const auditMap = {};
 
   // Add from boletos
-  Object.keys(boletosAgrupados).forEach(baseDoc => {
-    const group = boletosAgrupados[baseDoc];
+  Object.keys(boletosAgrupados).forEach(groupKey => {
+    const group = boletosAgrupados[groupKey];
+    const storeOfGroup = Array.from(group.lojas)[0] || "9175";
     
     let matchesStoreFilter = false;
     if (storeFilter === "all") {
       matchesStoreFilter = true;
     } else {
-      matchesStoreFilter = group.lojas.has(storeFilter);
+      matchesStoreFilter = (storeOfGroup === storeFilter);
     }
 
     if (!matchesStoreFilter) return;
 
-    auditMap[baseDoc] = {
-      baseDoc: baseDoc,
+    auditMap[groupKey] = {
+      baseDoc: group.baseDoc,
+      groupKey: groupKey,
       boletosGroup: group,
       nfeRef: null,
-      loja: Array.from(group.lojas)[0] || "9175"
+      loja: storeOfGroup
     };
   });
 
   // Add from importedNfs
-  Object.keys(importedNfs).forEach(nNF => {
-    const nf = importedNfs[nNF];
+  Object.keys(importedNfs).forEach(key => {
+    const nf = importedNfs[key];
     const targetStore = nf.info.targetStore || "9175";
+    const nNF = nf.info.numero;
+    const groupKey = `${nNF}_${targetStore}`;
     
     if (storeFilter !== "all" && targetStore !== storeFilter) {
       return;
     }
 
-    if (!auditMap[nNF]) {
-      auditMap[nNF] = {
+    if (!auditMap[groupKey]) {
+      auditMap[groupKey] = {
         baseDoc: nNF,
+        groupKey: groupKey,
         boletosGroup: null,
         nfeRef: nf,
         loja: targetStore
       };
     } else {
-      auditMap[nNF].nfeRef = nf;
+      auditMap[groupKey].nfeRef = nf;
     }
   });
 
@@ -6227,7 +6296,7 @@ function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBolet
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
       assunto: assunto,
       mensagem: mensagem,
       operador: currentUser ? currentUser.nome : 'Sistema'
@@ -6235,7 +6304,7 @@ function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBolet
   })
   .then(() => {
     localStorage.setItem(key, "true");
-    console.log(`Notificação de divergência enviada para Bruno, Isabella e Alexandra.`);
+    console.log(`Notificação de divergência enviada para Bruno, Isabella, Alexandra e LiderOP.`);
   })
   .catch(err => console.error("Erro ao enviar notificação de auditoria:", err));
 }
