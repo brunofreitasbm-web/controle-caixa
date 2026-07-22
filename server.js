@@ -44,9 +44,13 @@ function obterEmailsDestinatarios(notificationType, callback) {
         'liderop': 'alexandracabral733@gmail.com'
       };
 
-      const recipientNames = colabs
+      let recipientNames = colabs
         .filter(c => enabledRoles.includes(c.role))
         .map(c => c.nome.toLowerCase());
+
+      if (notificationType === 'divergencia_caixa') {
+        recipientNames = recipientNames.filter(name => name !== 'bruno' && name !== 'isabella');
+      }
 
       const targetEmails = recipientNames
         .map(name => EMAIL_MAP[name])
@@ -135,9 +139,13 @@ function enviarNotificacaoPush(title, body, targetUsers = null, notificationType
         if (rules[notificationType]?.lider) enabledRoles.push('consultora_dashboard');
         if (rules[notificationType]?.owner) enabledRoles.push('owner');
 
-        const allowedNames = colabs
+        let allowedNames = colabs
           .filter(c => enabledRoles.includes(c.role))
           .map(c => c.nome.toLowerCase());
+
+        if (notificationType === 'divergencia_caixa') {
+          allowedNames = allowedNames.filter(name => name !== 'bruno' && name !== 'isabella');
+        }
 
         if (finalTargetUsers) {
           finalTargetUsers = finalTargetUsers.filter(u => allowedNames.includes(u));
