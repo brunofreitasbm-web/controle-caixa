@@ -12,6 +12,7 @@ const PIN_KEY = "cacaushow_pins_v1";
 const CONFIG_KEY = "cacaushow_config_v2";
 const THEME_KEY = "cacaushow_theme";
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
+let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dinamicamente do config)
 
 const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
 const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
@@ -23,7 +24,7 @@ const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
 // 2. Clique no nome do grupo no topo para abrir os dados do grupo.
 // 3. Clique em "Convidar via link" (ou "Invite via link").
 // 4. Copiar link (ex: https://chat.whatsapp.com/...) e cole abaixo dentro das aspas.
-const WHATSAPP_GRUPOS = {
+let WHATSAPP_GRUPOS = {
   "Marambaia": "https://chat.whatsapp.com/HMdUcq1xcoEHj0Z5TUSX7I",
   "Icoaraci": "https://chat.whatsapp.com/Jc5ORUEzXNH5TNYfTZSKsp",
   "Mário Covas": "https://chat.whatsapp.com/EL12D3ceZOPLEColPZZhvF",
@@ -31,7 +32,7 @@ const WHATSAPP_GRUPOS = {
 };
 
 // Grupos WhatsApp do FaçaAmigos (preencher quando disponibilizar os links)
-const WHATSAPP_GRUPOS_FA = {
+let WHATSAPP_GRUPOS_FA = {
   "Grão Pará": "",       // TODO: cole o link do grupo Grão Pará aqui
   "ParqueShopping": "https://chat.whatsapp.com/LpA1OZEKr0aCyLf0GoUXyt",  // TODO: cole o link do grupo ParqueShopping aqui
   "Parque Circuito": ""  // TODO: cole o link do grupo Parque Circuito aqui
@@ -59,10 +60,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos"],
-  consultora_fa: ["faca-amigos"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque", "boletos"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos", "configuracoes"],
+  consultora_fa: ["faca-amigos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
 };
 
 // ==========================================================================
@@ -566,21 +567,86 @@ function mesmoDia(isoA, isoB) {
 }
 
 // ==========================================================================
-// TEMA
+// TEMA & CONFIGURAÇÕES GERAIS (HUB de Operações)
 // ==========================================================================
 function aplicarTema(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
+  let temaReal = theme;
+  if (theme === "auto") {
+    temaReal = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  document.documentElement.setAttribute("data-theme", temaReal);
+  const themeSelect = document.getElementById("config-theme-select");
+  if (themeSelect) themeSelect.value = theme;
 }
-(function initTema() {
-  const salvo = localStorage.getItem(THEME_KEY);
-  if (salvo) aplicarTema(salvo);
+
+function aplicarCorDestaque(color) {
+  if (!color) return;
+  document.documentElement.style.setProperty('--wine', color);
+  document.documentElement.style.setProperty('--wine-light', color + 'ee');
+  // Destacar botão ativo no painel
+  document.querySelectorAll(".config-accent-btn").forEach(btn => {
+    if (btn.dataset.accent === color) {
+      btn.style.outline = "2px solid #ffffff";
+      btn.style.transform = "scale(1.15)";
+    } else {
+      btn.style.outline = "none";
+      btn.style.transform = "scale(1)";
+    }
+  });
+}
+
+// Escutar mudanças de tema do sistema operacional se configurado como auto
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (config.theme === "auto" || !config.theme) {
+    aplicarTema("auto");
+  }
+});
+
+function carregarConfiguracoes() {
+  config = carregarJSON(CONFIG_KEY, {
+    linkGrupo: "",
+    theme: "auto",
+    accentColor: "#3d1a11",
+    sessionTimeout: 1800,
+    whatsappGrupos: {},
+    whatsappGruposFa: {}
+  });
+
+  // Aplicar Tema
+  aplicarTema(config.theme || "auto");
+
+  // Aplicar Cor
+  aplicarCorDestaque(config.accentColor || "#3d1a11");
+
+  // Configurar timeout da sessão
+  const timeoutVal = parseInt(config.sessionTimeout !== undefined ? config.sessionTimeout : 1800);
+  if (timeoutVal === 0) {
+    sessionTimeoutMs = 0;
+  } else {
+    sessionTimeoutMs = timeoutVal * 1000;
+  }
+
+  // Sobrescrever grupos de WhatsApp com os links salvos no config
+  if (config.whatsappGrupos) {
+    Object.assign(WHATSAPP_GRUPOS, config.whatsappGrupos);
+  }
+  if (config.whatsappGruposFa) {
+    Object.assign(WHATSAPP_GRUPOS_FA, config.whatsappGruposFa);
+  }
+}
+
+// Inicializar carregamento de configurações e aplicar imediatamente
+(function initConfiguracoes() {
+  carregarConfiguracoes();
 })();
+
 document.getElementById("btn-tema").addEventListener("click", () => {
   const atual = document.documentElement.getAttribute("data-theme") ||
     (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const novo = atual === "dark" ? "light" : "dark";
   aplicarTema(novo);
-  localStorage.setItem(THEME_KEY, novo);
+  config.theme = novo;
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 });
 
 // ==========================================================================
@@ -738,10 +804,10 @@ function iniciarModuloBase(moduloOpcional) {
   // Se for owner, sobrescrever as abas permitidas de acordo com o módulo escolhido
   if (currentUser.role === "owner" && moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
-      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria", "colaboradores"];
+      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria", "colaboradores", "auditoria-boletos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos"];
+      tabsPermitidas = ["faca-amigos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
@@ -751,6 +817,11 @@ function iniciarModuloBase(moduloOpcional) {
   const nomesPermitidosBoletos = ["Alexandra", "Bruno", "Isabella"];
   if (!nomesPermitidosBoletos.includes(currentUser.nome)) {
     tabsPermitidas = tabsPermitidas.filter(tab => tab !== "boletos");
+  }
+
+  const nomesPermitidosAuditoriaBoletos = ["Bruno", "Isabella"];
+  if (!nomesPermitidosAuditoriaBoletos.includes(currentUser.nome)) {
+    tabsPermitidas = tabsPermitidas.filter(tab => tab !== "auditoria-boletos");
   }
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -768,6 +839,11 @@ function iniciarModuloBase(moduloOpcional) {
   if (groupLogistica) {
     const temTabLogistica = Array.from(groupLogistica.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     groupLogistica.classList.toggle("hidden", !temTabLogistica);
+  }
+  const groupBoletos = document.getElementById("group-boletos");
+  if (groupBoletos) {
+    const temTabBoletos = Array.from(groupBoletos.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    groupBoletos.classList.toggle("hidden", !temTabBoletos);
   }
 
   // Sync bottom nav visibility (#7)
@@ -983,7 +1059,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "auditoria-boletos", "configuracoes"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1009,6 +1085,10 @@ function ativarTab(tabName) {
   activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
   activePanel.classList.add("active");
 
+  if (tabName === "configuracoes") {
+    inicializarPainelConfiguracoes();
+  }
+
   // Sync bottom nav (#7)
   document.querySelectorAll(".bottom-nav-btn").forEach(b => b.classList.remove("active"));
   const activeBottom = document.querySelector(`.bottom-nav-btn[data-tab="${tabName}"]`);
@@ -1023,6 +1103,7 @@ function ativarTab(tabName) {
   if (tabName === "auditoria") carregarAuditoria();
   if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
   if (tabName === "colaboradores") renderizarColaboradores();
+  if (tabName === "auditoria-boletos") carregarAuditoriaBoletos();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -2821,26 +2902,29 @@ if (btnAtualizarAuditoria) {
 // ==========================================================================
 // SESSÃO: TIMEOUT POR INATIVIDADE (#17)
 // ==========================================================================
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
-const SESSION_WARNING_MS = 25 * 60 * 1000; // aviso aos 25 min
 let sessionTimer = null;
 let sessionWarningTimer = null;
 const SESSION_EVENTS = ["mousedown", "mousemove", "keydown", "touchstart", "scroll", "click"];
 
 function resetSessionTimer() {
-  if (!currentUser) return;
+  if (!currentUser || sessionTimeoutMs === 0) {
+    clearTimeout(sessionTimer);
+    clearTimeout(sessionWarningTimer);
+    return;
+  }
   clearTimeout(sessionTimer);
   clearTimeout(sessionWarningTimer);
 
-  // Warning timer
+  // Warning timer (5 min antes ou logo antes de expirar)
+  const warningTime = Math.max(1000, sessionTimeoutMs - 5 * 60 * 1000);
   sessionWarningTimer = setTimeout(() => {
-    showToast("Sua sessão será bloqueada em 5 minutos por inatividade.", "info");
-  }, SESSION_WARNING_MS);
+    showToast("Sua sessão será bloqueada em breve por inatividade.", "info");
+  }, warningTime);
 
   // Lock timer
   sessionTimer = setTimeout(() => {
     lockSession();
-  }, SESSION_TIMEOUT_MS);
+  }, sessionTimeoutMs);
 }
 
 function lockSession() {
@@ -3808,6 +3892,9 @@ function parseXmlNfe(file, callback) {
 
     const targetStore = detectStoreFromRazaoSocial(`${xNomeDest} ${cnpjDest}`) || currentStore;
 
+    const vNFEl = xmlDoc.querySelector('total > ICMSTot > vNF') || xmlDoc.querySelector('vNF');
+    const valorTotal = vNFEl ? parseFloat(vNFEl.textContent) : 0;
+
     let formattedDate = '-';
     if (dhEmi) {
       const d = new Date(dhEmi);
@@ -3821,7 +3908,8 @@ function parseXmlNfe(file, callback) {
       volumes: qVol,
       fornecedor: xNomeEmit,
       destinatario: xNomeDest,
-      targetStore: targetStore
+      targetStore: targetStore,
+      valorTotal: valorTotal
     };
 
     const detElements = xmlDoc.querySelectorAll('det');
@@ -3873,6 +3961,12 @@ function parseXmlNfe(file, callback) {
     importedNfs[nNF] = { info, products: productsList };
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
     activeNfNumber = nNF;
+
+    setTimeout(() => {
+      if (window.carregarAuditoriaBoletos) {
+        window.carregarAuditoriaBoletos();
+      }
+    }, 800);
 
     if (callback) callback();
   };
@@ -4519,6 +4613,19 @@ function inicializarBoletosTab() {
     });
   }
 
+  const auditoriaStoreFilter = document.getElementById("auditoria-store-filter");
+  if (auditoriaStoreFilter) {
+    auditoriaStoreFilter.addEventListener("change", () => carregarAuditoriaBoletos());
+  }
+
+  const btnAtualizarAuditoria = document.getElementById("btn-atualizar-auditoria");
+  if (btnAtualizarAuditoria) {
+    btnAtualizarAuditoria.addEventListener("click", () => {
+      carregarAuditoriaBoletos();
+      showToast("Auditoria de Boletos atualizada!", "sucesso");
+    });
+  }
+
   renderBoletos();
 }
 
@@ -4586,6 +4693,11 @@ async function parseBoletoPdf(file) {
 
         localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
         renderBoletos();
+        setTimeout(() => {
+          if (window.carregarAuditoriaBoletos) {
+            window.carregarAuditoriaBoletos();
+          }
+        }, 800);
         showToast(`${boletosExtraidos.length} boletos carregados!`, "sucesso");
         if (fileInfo) {
           fileInfo.textContent = `Sucesso: ${boletosExtraidos.length} boletos carregados.`;
@@ -4790,5 +4902,481 @@ window.excluirBoleto = async function(id) {
   }
 };
 
+window.carregarAuditoriaBoletos = function() {
+  const storeFilter = document.getElementById("auditoria-store-filter")?.value || "all";
+  const tbody = document.getElementById("auditoria-tbody");
+  if (!tbody) return;
 
+  tbody.innerHTML = "";
 
+  // 1. Group boletos by base document number (removing hyphen/letters, e.g. "123456-01" -> "123456")
+  const boletosAgrupados = {};
+  boletos.forEach(b => {
+    const parts = b.documento.split("-");
+    const baseDoc = parts[0].trim();
+    
+    if (!boletosAgrupados[baseDoc]) {
+      boletosAgrupados[baseDoc] = {
+        baseDoc: baseDoc,
+        documentosOriginais: [],
+        lojas: new Set(),
+        valorTotal: 0,
+        boletosRef: []
+      };
+    }
+    boletosAgrupados[baseDoc].documentosOriginais.push(b.documento);
+    boletosAgrupados[baseDoc].lojas.add(b.loja);
+    boletosAgrupados[baseDoc].valorTotal += b.valor;
+    boletosAgrupados[baseDoc].boletosRef.push(b);
+  });
+
+  // 2. Correlate with importedNfs
+  const auditMap = {};
+
+  // Add from boletos
+  Object.keys(boletosAgrupados).forEach(baseDoc => {
+    const group = boletosAgrupados[baseDoc];
+    
+    let matchesStoreFilter = false;
+    if (storeFilter === "all") {
+      matchesStoreFilter = true;
+    } else {
+      matchesStoreFilter = group.lojas.has(storeFilter);
+    }
+
+    if (!matchesStoreFilter) return;
+
+    auditMap[baseDoc] = {
+      baseDoc: baseDoc,
+      boletosGroup: group,
+      nfeRef: null,
+      loja: Array.from(group.lojas)[0] || "9175"
+    };
+  });
+
+  // Add from importedNfs
+  Object.keys(importedNfs).forEach(nNF => {
+    const nf = importedNfs[nNF];
+    const targetStore = nf.info.targetStore || "9175";
+    
+    if (storeFilter !== "all" && targetStore !== storeFilter) {
+      return;
+    }
+
+    if (!auditMap[nNF]) {
+      auditMap[nNF] = {
+        baseDoc: nNF,
+        boletosGroup: null,
+        nfeRef: nf,
+        loja: targetStore
+      };
+    } else {
+      auditMap[nNF].nfeRef = nf;
+    }
+  });
+
+  const auditList = [];
+  let totalNfeAuditado = 0;
+  let totalBoletoAuditado = 0;
+  let divergenciasCount = 0;
+
+  Object.keys(auditMap).forEach(key => {
+    const item = auditMap[key];
+    const nfe = item.nfeRef;
+    const bg = item.boletosGroup;
+
+    let valorNfe = 0;
+    let valorBoletos = 0;
+    let statusText = "OK";
+    let statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+    let isDivergent = false;
+    let descDivergencia = "";
+
+    if (nfe) {
+      valorNfe = nfe.info.valorTotal || 0;
+      totalNfeAuditado += valorNfe;
+    }
+
+    if (bg) {
+      valorBoletos = bg.valorTotal;
+      totalBoletoAuditado += valorBoletos;
+    }
+
+    if (nfe && bg) {
+      const diff = Math.abs(valorNfe - valorBoletos);
+      
+      const nfeStore = nfe.info.targetStore || "9175";
+      const boletoStores = Array.from(bg.lojas);
+      const storeMismatch = !boletoStores.includes(nfeStore);
+
+      if (diff > 0.05) {
+        isDivergent = true;
+        divergenciasCount++;
+        statusText = `Divergência de Valor`;
+        descDivergencia = `Diferença de ${formatBRL(diff)}`;
+        statusClass = "bg-red-950 text-red-400 border border-red-900/40";
+        notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+      } else if (storeMismatch) {
+        isDivergent = true;
+        divergenciasCount++;
+        statusText = "Loja Divergente";
+        descDivergencia = `NF-e na loja ${nfeStore}, Títulos na loja ${boletoStores.join(', ')}`;
+        statusClass = "bg-orange-950 text-orange-400 border border-orange-900/40";
+        notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+      } else {
+        statusText = "Conciliado";
+        statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+      }
+    } else if (bg && !nfe) {
+      isDivergent = true;
+      divergenciasCount++;
+      statusText = "Sem NF-e";
+      descDivergencia = "Nenhuma NF-e importada correspondente a este título";
+      statusClass = "bg-amber-950 text-amber-400 border border-amber-900/40";
+      notificarDivergenciaAuditoria(item.loja, "Não Importada", 0, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+    } else if (nfe && !bg) {
+      isDivergent = true;
+      divergenciasCount++;
+      statusText = "Sem Boleto";
+      descDivergencia = "Nenhum boleto registrado para esta NF-e";
+      statusClass = "bg-blue-950 text-blue-400 border border-blue-900/40";
+      notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, "Não Encontrado", 0, descDivergencia);
+    }
+
+    auditList.push({
+      loja: item.loja,
+      nfeNumber: nfe ? nfe.info.numero : "—",
+      valorNfe: valorNfe,
+      documentoBoleto: bg ? bg.documentosOriginais.join(", ") : "—",
+      valorBoletos: valorBoletos,
+      statusText: statusText,
+      statusClass: statusClass,
+      descDivergencia: descDivergencia,
+      isDivergent: isDivergent
+    });
+  });
+
+  const statNfe = document.getElementById("stat-audit-nfe-total");
+  const statBoleto = document.getElementById("stat-audit-boleto-total");
+  const statDivergente = document.getElementById("stat-audit-divergente");
+  const statStatus = document.getElementById("stat-audit-status");
+  const iconDivergente = document.getElementById("icon-audit-divergente");
+
+  if (statNfe) statNfe.textContent = formatBRL(totalNfeAuditado);
+  if (statBoleto) statBoleto.textContent = formatBRL(totalBoletoAuditado);
+  if (statDivergente) {
+    statDivergente.textContent = divergenciasCount;
+    statDivergente.className = divergenciasCount > 0 ? "text-2xl font-black text-red-500" : "text-2xl font-black text-white";
+  }
+  if (iconDivergente) {
+    iconDivergente.className = divergenciasCount > 0 ? "w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-red-500 font-black text-xl animate-pulse" : "w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-400 font-black text-xl";
+  }
+
+  if (statStatus) {
+    if (divergenciasCount === 0) {
+      statStatus.textContent = "100% OK";
+      statStatus.className = "text-2xl font-black text-emerald-400";
+    } else {
+      statStatus.textContent = "Atenção";
+      statStatus.className = "text-2xl font-black text-amber-500";
+    }
+  }
+
+  if (auditList.length === 0) {
+    tbody.innerHTML = `
+      <tr class="text-brand-400 text-center">
+        <td colspan="6" class="py-8">Nenhum dado encontrado para os filtros selecionados.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  auditList.sort((a, b) => b.isDivergent - a.isDivergent);
+
+  auditList.forEach(item => {
+    const tr = document.createElement("tr");
+    const storeLabel = item.loja === "9175" ? "Marambaia (9175)" : (item.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
+    
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-bold">${storeLabel}</td>
+      <td class="py-3 px-4 font-mono font-bold">${item.nfeNumber}</td>
+      <td class="py-3 px-4 text-right font-mono font-bold">${item.valorNfe > 0 ? formatBRL(item.valorNfe) : "—"}</td>
+      <td class="py-3 px-4 font-mono">${item.documentoBoleto}</td>
+      <td class="py-3 px-4 text-right font-mono font-bold">${item.valorBoletos > 0 ? formatBRL(item.valorBoletos) : "—"}</td>
+      <td class="py-3 px-4 text-center">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${item.statusClass}">${item.statusText}</span>
+        ${item.descDivergencia ? `<div class="text-[10px] text-muted font-medium mt-1">${item.descDivergencia}</div>` : ""}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+};
+
+function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBoleto, valorBoletos, detalheDivergencia) {
+  const storeLabel = loja === "9175" ? "Marambaia (9175)" : (loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
+  const key = `audit_notif_v3_${loja}_${nfeNumber}_${documentoBoleto}_${detalheDivergencia.replace(/\s+/g, '')}`;
+  if (localStorage.getItem(key)) return;
+
+  const assunto = `⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos - Loja ${storeLabel}`;
+  const mensagem = `Atenção Bruno e Isabella,\n\nFoi identificada uma divergência na auditoria de boletos vs NF-e da Loja ${storeLabel}:\n\n` +
+    `• Loja: ${storeLabel}\n` +
+    `• Nota Fiscal (NF-e): ${nfeNumber} (Valor NF: ${formatBRL(valorNfe)})\n` +
+    `• Documento/Boleto: ${documentoBoleto} (Valor Títulos: ${formatBRL(valorBoletos)})\n` +
+    `• Detalhes da Divergência: ${detalheDivergencia}\n\n` +
+    `👉 Ação Recomendada: Por favor, abram um SAF imediatamente no portal Cacau Show para contestar esta divergência.`;
+
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: ['Bruno', 'Isabella'],
+      assunto: assunto,
+      mensagem: mensagem,
+      operador: currentUser ? currentUser.nome : 'Sistema'
+    })
+  })
+  .then(() => {
+    localStorage.setItem(key, "true");
+    console.log(`Notificação de divergência enviada para Bruno e Isabella.`);
+  })
+  .catch(err => console.error("Erro ao enviar notificação de auditoria:", err));
+}
+
+// ==========================================================================
+// CONFIGURAÇÕES: LÓGICA DE UI E EVENTOS
+// ==========================================================================
+function inicializarPainelConfiguracoes() {
+  if (!currentUser) return;
+
+  // Atualizar informações do sobre
+  const configUserInfo = document.getElementById("config-user-info");
+  if (configUserInfo) {
+    configUserInfo.textContent = `${currentUser.nome} (${currentUser.role === 'owner' ? 'Administrador' : 'Consultor'})`;
+  }
+  
+  // Status da conexão
+  const connBadge = document.getElementById("config-connection-badge");
+  if (connBadge) {
+    connBadge.textContent = API_ONLINE ? "Conectado" : "Modo Offline";
+    connBadge.className = `px-3 py-1 rounded-full text-[10px] font-bold ${
+      API_ONLINE ? 'bg-emerald-950 border border-emerald-800 text-emerald-400' : 'bg-red-950 border border-red-800 text-red-400'
+    }`;
+  }
+
+  // Preencher campos
+  const configThemeSelect = document.getElementById("config-theme-select");
+  if (configThemeSelect) configThemeSelect.value = config.theme || "auto";
+  
+  const configTimeoutSelect = document.getElementById("config-timeout-select");
+  if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
+
+  // Mostrar aba do WhatsApp se for owner/administrador
+  const cardWa = document.getElementById("config-card-whatsapp");
+  if (currentUser.role === "owner") {
+    if (cardWa) cardWa.classList.remove("hidden");
+    
+    // Renderizar inputs Cacau Show
+    const containerCacau = document.getElementById("config-wa-cacau-inputs");
+    if (containerCacau) {
+      containerCacau.innerHTML = "";
+      Object.keys(WHATSAPP_GRUPOS).forEach(loja => {
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <label class="block text-[10px] text-muted font-semibold mb-1">${loja}</label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${WHATSAPP_GRUPOS[loja] || ''}" placeholder="Link do grupo...">
+        `;
+        containerCacau.appendChild(field);
+      });
+    }
+
+    // Renderizar inputs Faça Amigos
+    const containerFa = document.getElementById("config-wa-fa-inputs");
+    if (containerFa) {
+      containerFa.innerHTML = "";
+      Object.keys(WHATSAPP_GRUPOS_FA).forEach(loja => {
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <label class="block text-[10px] text-muted font-semibold mb-1">${loja}</label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${WHATSAPP_GRUPOS_FA[loja] || ''}" placeholder="Link do grupo...">
+        `;
+        containerFa.appendChild(field);
+      });
+    }
+  } else {
+    if (cardWa) cardWa.classList.add("hidden");
+  }
+
+  // Cor de destaque ativa
+  aplicarCorDestaque(config.accentColor || "#3d1a11");
+}
+
+// Configurações: Ouvir eventos após o carregamento da página
+document.addEventListener("DOMContentLoaded", () => {
+  // Alteração de Tema no Painel
+  const themeSelect = document.getElementById("config-theme-select");
+  if (themeSelect) {
+    themeSelect.addEventListener("change", (e) => {
+      const val = e.target.value;
+      aplicarTema(val);
+      config.theme = val;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      showToast("Tema atualizado com sucesso!", "sucesso");
+    });
+  }
+
+  // Alteração de Cor de Destaque
+  document.querySelectorAll(".config-accent-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const color = btn.dataset.accent;
+      aplicarCorDestaque(color);
+      config.accentColor = color;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      showToast("Cor de destaque atualizada!", "sucesso");
+    });
+  });
+
+  // Alteração do Timeout
+  const timeoutSelect = document.getElementById("config-timeout-select");
+  if (timeoutSelect) {
+    timeoutSelect.addEventListener("change", (e) => {
+      const val = parseInt(e.target.value);
+      config.sessionTimeout = val;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      
+      if (val === 0) {
+        sessionTimeoutMs = 0;
+      } else {
+        sessionTimeoutMs = val * 1000;
+      }
+      resetSessionTimer();
+      showToast("Tempo limite de sessão atualizado!", "sucesso");
+    });
+  }
+
+  // Atalhos de Segurança
+  const btnChangePin = document.getElementById("config-btn-change-pin");
+  if (btnChangePin) {
+    btnChangePin.addEventListener("click", () => {
+      const btnTrocarPin = document.getElementById("btn-trocar-pin");
+      if (btnTrocarPin) btnTrocarPin.click();
+    });
+  }
+
+  const btnLogout = document.getElementById("config-btn-logout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", () => {
+      const btnTrocarUser = document.getElementById("btn-trocar-usuario");
+      if (btnTrocarUser) btnTrocarUser.click();
+    });
+  }
+
+  // Salvar links do WhatsApp (Owner)
+  const btnSaveWa = document.getElementById("config-btn-save-whatsapp");
+  if (btnSaveWa) {
+    btnSaveWa.addEventListener("click", () => {
+      const cacauInputs = document.querySelectorAll(".config-wa-cacau-input");
+      const faInputs = document.querySelectorAll(".config-wa-fa-input");
+      
+      config.whatsappGrupos = config.whatsappGrupos || {};
+      cacauInputs.forEach(input => {
+        const loja = input.dataset.loja;
+        config.whatsappGrupos[loja] = input.value.trim();
+        WHATSAPP_GRUPOS[loja] = input.value.trim();
+      });
+
+      config.whatsappGruposFa = config.whatsappGruposFa || {};
+      faInputs.forEach(input => {
+        const loja = input.dataset.loja;
+        config.whatsappGruposFa[loja] = input.value.trim();
+        WHATSAPP_GRUPOS_FA[loja] = input.value.trim();
+      });
+
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
+    });
+  }
+
+  // Exportar Backup JSON
+  const btnExport = document.getElementById("config-btn-export");
+  if (btnExport) {
+    btnExport.addEventListener("click", () => {
+      try {
+        const backupData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          backupData[key] = localStorage.getItem(key);
+        }
+        
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `backup_hub_operacoes_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Backup exportado com sucesso!", "sucesso");
+      } catch (e) {
+        showToast("Erro ao exportar backup.", "erro");
+      }
+    });
+  }
+
+  // Importar Backup
+  const btnImportTrigger = document.getElementById("config-btn-import-trigger");
+  const importFile = document.getElementById("config-import-file");
+  if (btnImportTrigger && importFile) {
+    btnImportTrigger.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          
+          const confirmar = await showConfirm(
+            "Isso substituirá os dados atuais do navegador pelos dados do arquivo. Deseja prosseguir?",
+            { title: "Confirmar Importação", icon: "⚠️", confirmBtnText: "Importar", confirmBtnClass: "btn-primary" }
+          );
+          
+          if (!confirmar) return;
+
+          Object.keys(imported).forEach(key => {
+            localStorage.setItem(key, imported[key]);
+          });
+          
+          showToast("Dados importados! Reiniciando aplicação...", "sucesso");
+          setTimeout(() => window.location.reload(), 1500);
+        } catch (e) {
+          showToast("Arquivo de backup inválido.", "erro");
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Limpar Tudo (Reset)
+  const btnClear = document.getElementById("config-btn-clear");
+  if (btnClear) {
+    btnClear.addEventListener("click", async () => {
+      const confirm1 = await showConfirm(
+        "Tem certeza que deseja limpar TODOS os dados locais deste dispositivo? Isso removerá PINs locais e preferências.",
+        { title: "Limpeza de Cache Local", icon: "⚠️", confirmBtnText: "Sim, limpar", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirm1) return;
+
+      const confirm2 = await showConfirm(
+        "Esta ação é irreversível no navegador atual. Deseja mesmo continuar?",
+        { title: "ATENÇÃO - Ação Crítica", icon: "🔥", confirmBtnText: "Apagar tudo", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirm2) return;
+
+      localStorage.clear();
+      showToast("Dados apagados! Reiniciando...", "sucesso");
+      setTimeout(() => window.location.reload(), 1500);
+    });
+  }
+});

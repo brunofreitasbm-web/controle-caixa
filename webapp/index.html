@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#5c1a2b">
-<meta name="description" content="Gestão Integrada Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
-<title>Gestão Integrada Cacau Show</title>
+<meta name="theme-color" content="#3d1a11">
+<meta name="description" content="HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
+<title>HUB de Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -68,7 +68,7 @@
   <div class="modal login-modal">
     <div class="logo-dot logo-dot-lg"></div>
     <h2 id="login-title">Quem é você?</h2>
-    <p class="modal-sub">Selecione seu nome para entrar no Gestão Integrada Cacau Show.</p>
+    <p class="modal-sub">Selecione seu nome para entrar no HUB de Operações.</p>
     <div class="field">
       <select id="login-select" aria-label="Selecione seu nome">
         <option value="" disabled selected>Selecione seu nome</option>
@@ -116,7 +116,7 @@
     <div class="module-cards">
       <button id="btn-mod-cacau" class="module-card card-cacau">
         <span class="mod-icon"><i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i></span>
-        <h3>Gestão Integrada Cacau Show</h3>
+        <h3>HUB de Operações</h3>
         <p>Financeiro e Logístico</p>
       </button>
       
@@ -140,7 +140,7 @@
       <div class="brand">
         <div class="logo-dot"></div>
         <div>
-          <h1 style="font-size: 1.05rem; line-height: 1.2;">Gestão Integrada</h1>
+          <h1 style="font-size: 1.05rem; line-height: 1.2;">HUB de Operações</h1>
           <span class="subtitle">Cacau Show & Faça Amigos</span>
         </div>
       </div>
@@ -152,7 +152,7 @@
       <div class="sidebar-group expanded" id="group-controle-caixa">
         <button class="sidebar-group-header" aria-expanded="true">
           <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
-          <span class="group-title">Módulo Controle de Caixa</span>
+          <span class="group-title">Controle de Caixa</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
@@ -179,7 +179,7 @@
       <div class="sidebar-group expanded" id="group-logistica">
         <button class="sidebar-group-header" aria-expanded="true">
           <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
-          <span class="group-title">Módulo Logística</span>
+          <span class="group-title">Logística</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
@@ -191,9 +191,24 @@
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventário de Estoque</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Gestão de Boletos -->
+      <div class="sidebar-group expanded" id="group-boletos">
+        <button class="sidebar-group-header" aria-expanded="true">
+          <span class="group-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+          <span class="group-title">Gestão de Boletos</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
           <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos">
             <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-            <span class="tab-text">Gestão de Boletos</span>
+            <span class="tab-text">Boletos</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos">
+            <span class="tab-icon"><i class="fa-solid fa-calculator text-amber-500"></i></span>
+            <span class="tab-text">Auditoria Boletos</span>
           </button>
         </div>
       </div>
@@ -210,6 +225,10 @@
       <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
         <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
         <span class="tab-text">Colaboradores</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
+        <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
+        <span class="tab-text">Configurações</span>
       </button>
     </nav>
 
@@ -236,7 +255,7 @@
         </button>
         <div class="topbar-brand-mobile">
           <div class="logo-dot logo-dot-sm"></div>
-          <span class="topbar-title">Gestão Integrada</span>
+          <span class="topbar-title">HUB de Operações</span>
         </div>
       </div>
       <div class="user-box">
@@ -1206,11 +1225,11 @@
             </div>
           </div>
 
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950">
+          <div class="table-wrap">
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Documento / Tipo</th>
                     <th class="py-3 px-4">Loja / Empresa</th>
                     <th class="py-3 px-4">Descrição</th>
@@ -1228,6 +1247,298 @@
               </table>
             </div>
           </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ABA: AUDITORIA DE BOLETOS (EXCLUSIVO BRUNO E ISABELLA) ===================== -->
+    <section id="tab-auditoria-boletos" class="tab-panel hidden" role="tabpanel">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <!-- Banner e Título -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-amber-400"></i> Auditoria de Boletos vs NF-e
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">Cruzamento inteligente de faturamentos de boletos cadastrados e NF-e importadas por loja.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest animate-pulse">Acesso Super Restrito</span>
+          </div>
+        </div>
+
+        <!-- Filtros e Controles -->
+        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <label for="auditoria-store-filter" class="text-xs font-bold text-brand-300 w-full sm:w-auto">Filtrar por Loja:</label>
+            <select id="auditoria-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
+              <option value="all">Todas as Lojas</option>
+              <option value="9175">Marambaia (9175)</option>
+              <option value="4304">Icoaraci (4304)</option>
+              <option value="9201">Mário Covas (9201)</option>
+            </select>
+          </div>
+          <button id="btn-atualizar-auditoria" class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center">
+            <i class="fa-solid fa-rotate"></i> Atualizar Auditoria
+          </button>
+        </div>
+
+        <!-- Dashboard Stat Cards Auditoria -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-amber-500 font-black text-xl">
+              <i class="fa-solid fa-file-invoice"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-white" id="stat-audit-nfe-total">R$ 0,00</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total NF-e</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-amber-500 font-black text-xl">
+              <i class="fa-solid fa-barcode"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-white" id="stat-audit-boleto-total">R$ 0,00</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Boletos</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-red-500 font-black text-xl" id="icon-audit-divergente">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-red-400" id="stat-audit-divergente">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Divergências</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-emerald-500 font-black text-xl">
+              <i class="fa-solid fa-shield-check"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-emerald-400" id="stat-audit-status">100% OK</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Status Geral</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-paper p-6 rounded-2xl border border-border">
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <h3 class="text-sm font-extrabold uppercase text-amber-500 tracking-wider">Resultados da Análise</h3>
+              <span class="text-[10px] text-muted font-bold">Dados cruzados em tempo real</span>
+            </div>
+            <div class="table-wrap">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Loja</th>
+                    <th class="py-3 px-4">Nº NF-e</th>
+                    <th class="py-3 px-4 text-right">Valor NF-e</th>
+                    <th class="py-3 px-4">Doc. Faturamento</th>
+                    <th class="py-3 px-4 text-right">Valor Boletos</th>
+                    <th class="py-3 px-4 text-center">Status / Divergência</th>
+                  </tr>
+                </thead>
+                <tbody id="auditoria-tbody" class="divide-y divide-brand-900/40">
+                  <tr class="text-brand-400 text-center">
+                    <td colspan="6" class="py-8">Aguardando processamento dos dados...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ABA: CONFIGURAÇÕES (TODOS OS PERFIS, ADVANCED SECTIONS POR PERFIL) ===================== -->
+    <section id="tab-configuracoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-configuracoes">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <!-- Banner e Título -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-amber-400"></i> Painel de Configurações
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
+          </div>
+          <div>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Ajustes do HUB</span>
+          </div>
+        </div>
+
+        <!-- Grid de Configurações -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Card: Aparência e Tema -->
+          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-palette text-amber-500"></i> Aparência & Personalização
+              </h3>
+              <p class="text-xs text-muted mb-4">Ajuste o visual do aplicativo para se adaptar ao seu estilo de trabalho.</p>
+              
+              <div class="space-y-4">
+                <div class="field">
+                  <label class="block text-xs font-bold uppercase mb-1">Tema Visual</label>
+                  <select id="config-theme-select" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+                    <option value="light">Claro</option>
+                    <option value="dark">Escuro</option>
+                    <option value="auto">Automático (Seguir Sistema)</option>
+                  </select>
+                </div>
+                
+                <div class="field">
+                  <label class="block text-xs font-bold uppercase mb-2">Cor de Destaque (Accent)</label>
+                  <div class="flex items-center gap-3">
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3d1a11" style="background-color: #3d1a11;" title="Cacau Show (Padrão)"></button>
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#ff7a00" style="background-color: #ff7a00;" title="Faça Amigos"></button>
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#10b981" style="background-color: #10b981;" title="Esmeralda"></button>
+                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3b82f6" style="background-color: #3b82f6;" title="Azul Moderno"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Segurança & Sessão -->
+          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-shield-halved text-amber-500"></i> Segurança & Sessão
+              </h3>
+              <p class="text-xs text-muted mb-4">Gerencie as regras de expiração e altere seus dados de autenticação rápida.</p>
+              
+              <div class="space-y-4">
+                <div class="field">
+                  <label class="block text-xs font-bold uppercase mb-1">Tempo Limite por Inatividade</label>
+                  <select id="config-timeout-select" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+                    <option value="300">5 minutos</option>
+                    <option value="900">15 minutos</option>
+                    <option value="1800">30 minutos</option>
+                    <option value="3600">1 hora</option>
+                    <option value="0">Nunca bloquear</option>
+                  </select>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-2 pt-2">
+                  <button type="button" id="config-btn-change-pin" class="flex-1 py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-key"></i> Alterar meu PIN
+                  </button>
+                  <button type="button" id="config-btn-logout" class="flex-1 py-2.5 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i> Sair / Mudar Usuário
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: WhatsApp Lojas (Apenas Owners/Gestores) -->
+          <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-brands fa-whatsapp text-emerald-500"></i> Links dos Grupos de WhatsApp das Lojas
+            </h3>
+            <p class="text-xs text-muted mb-4">Configure os links de convite para os relatórios serem enviados diretamente para os grupos corretos de cada filial.</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Cacau Show -->
+              <div class="space-y-3 p-4 rounded-xl bg-cream border border-border">
+                <h4 class="text-xs font-bold border-b border-border pb-1 mb-2">Cacau Show</h4>
+                <div class="space-y-3" id="config-wa-cacau-inputs">
+                  <!-- Inputs serão renderizados via JS ou estáticos -->
+                </div>
+              </div>
+              
+              <!-- Faça Amigos -->
+              <div class="space-y-3 p-4 rounded-xl bg-cream border border-border">
+                <h4 class="text-xs font-bold border-b border-border pb-1 mb-2">Faça Amigos</h4>
+                <div class="space-y-3" id="config-wa-fa-inputs">
+                  <!-- Inputs serão renderizados via JS ou estáticos -->
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-4">
+              <button type="button" id="config-btn-save-whatsapp" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Links do WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- Card: Manutenção & Dados -->
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-database text-amber-500"></i> Gestão de Dados & Armazenamento Local
+            </h3>
+            <p class="text-xs text-muted mb-4">Exporte backups de segurança, importe dados existentes ou redefina o banco local em caso de inconsistência persistente.</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <!-- Exportar -->
+              <div class="p-4 rounded-xl bg-cream border border-border flex flex-col justify-between">
+                <div>
+                  <h4 class="text-xs font-bold mb-1">Exportar Backup</h4>
+                  <p class="text-[10px] text-muted mb-3">Faz o download dos dados de transações locais no formato JSON.</p>
+                </div>
+                <button type="button" id="config-btn-export" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-download"></i> Exportar Dados (.json)
+                </button>
+              </div>
+
+              <!-- Importar -->
+              <div class="p-4 rounded-xl bg-cream border border-border flex flex-col justify-between">
+                <div>
+                  <h4 class="text-xs font-bold mb-1">Importar Backup</h4>
+                  <p class="text-[10px] text-muted mb-3">Restaura transações a partir de um backup local exportado anteriormente.</p>
+                </div>
+                <div class="relative">
+                  <input type="file" id="config-import-file" class="hidden" accept=".json">
+                  <button type="button" id="config-btn-import-trigger" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-upload"></i> Selecionar e Importar
+                  </button>
+                </div>
+              </div>
+
+              <!-- Limpar Cache -->
+              <div class="p-4 rounded-xl bg-cream border border-border flex flex-col justify-between">
+                <div>
+                  <h4 class="text-xs font-bold mb-1">Limpar Dados Locais</h4>
+                  <p class="text-[10px] text-muted mb-3">Apaga o cache local deste navegador. Não afeta a base do servidor central.</p>
+                </div>
+                <button type="button" id="config-btn-clear" class="w-full py-2.5 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-trash-can"></i> Limpar Tudo (Reset)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Informações do Sistema -->
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-border">
+                <i class="fa-solid fa-circle-info text-amber-500 text-lg"></i>
+              </div>
+              <div>
+                <span class="block text-xs font-bold">HUB de Operações — v4.0.0</span>
+                <span class="block text-[10px] text-muted">Ambiente de Operações e Recebimentos Integrados</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="text-right">
+                <span class="block text-[10px] text-muted">Usuário Ativo</span>
+                <span class="block text-xs font-bold" id="config-user-info">-</span>
+              </div>
+              <div class="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-950/10 border border-emerald-800/30 text-emerald-700" id="config-connection-badge">
+                Conectado
+              </div>
+            </div>
+          </div>
+
         </div>
 
       </div>

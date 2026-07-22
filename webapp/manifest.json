@@ -1,12 +1,12 @@
 {
-  "name": "Gestão Integrada Cacau Show",
-  "short_name": "Gestão Integrada",
-  "description": "Gestão Integrada Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)",
+  "name": "HUB de Operações",
+  "short_name": "HUB de Operações",
+  "description": "HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#faf7f2",
-  "theme_color": "#5c1a2b",
+  "theme_color": "#3d1a11",
   "icons": [
     {
       "src": "icons/icon-192.png",
