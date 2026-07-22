@@ -1,7 +1,7 @@
 {
-  "name": "Controle de Caixa",
-  "short_name": "Controle de Caixa",
-  "description": "Controle de Caixa",
+  "name": "Gestão Integrada Cacau Show",
+  "short_name": "Gestão Integrada",
+  "description": "Gestão Integrada Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

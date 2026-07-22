@@ -50,8 +50,10 @@ let USERS = [
   { nome: "Janine", role: "consultora" },
   { nome: "Estheffany", role: "consultora" },
   { nome: "Sabrina", role: "consultora" },
+  { nome: "Treinamento Cacau Show", role: "consultora" },
   { nome: "Alice", role: "consultora_fa" },
   { nome: "Alessandra", role: "consultora_fa" },
+  { nome: "Treinamento Faça Amigos", role: "consultora_fa" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
 ];
@@ -360,6 +362,10 @@ function carregarDadosLocais() {
 
 // --- Salvar dados ---
 async function salvarRegistroAPI(reg) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) {
+    console.log("Modo Treinamento: Registro não armazenado no Banco de Dados/LocalStorage.");
+    return true; // Retorna sucesso sem persistir
+  }
   if (API_ONLINE) {
     try {
       const res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
@@ -448,6 +454,10 @@ async function salvarPinAPI(usuario, pin) {
 // ==================== FAÇAAMIGOS API FUNCTIONS ====================
 
 async function salvarRegistroFAAPI(reg) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) {
+    console.log("Modo Treinamento FA: Registro não armazenado no Banco de Dados/LocalStorage.");
+    return true; // Retorna sucesso sem persistir
+  }
   if (API_ONLINE) {
     try {
       const res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
@@ -742,6 +752,19 @@ function iniciarModuloBase(moduloOpcional) {
     const permitido = tabsPermitidas.includes(btn.dataset.tab);
     btn.classList.toggle("hidden", !permitido);
   });
+
+  // Atualizar visibilidade dos grupos do menu lateral
+  const groupCaixa = document.getElementById("group-controle-caixa");
+  if (groupCaixa) {
+    const temTabCaixa = Array.from(groupCaixa.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    groupCaixa.classList.toggle("hidden", !temTabCaixa);
+  }
+  const groupLogistica = document.getElementById("group-logistica");
+  if (groupLogistica) {
+    const temTabLogistica = Array.from(groupLogistica.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    groupLogistica.classList.toggle("hidden", !temTabLogistica);
+  }
+
   // Sync bottom nav visibility (#7)
   document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
     const permitido = tabsPermitidas.includes(btn.dataset.tab);
@@ -749,16 +772,6 @@ function iniciarModuloBase(moduloOpcional) {
   });
   document.getElementById("bottom-nav").classList.remove("hidden");
   document.getElementById("fab-novo-registro").classList.remove("hidden");
-
-  // Exibir botão de alternar rápida de módulo para Bruno e Isabella (owners)
-  const btnAlternarCacau = document.getElementById("btn-alternar-cacau");
-  if (btnAlternarCacau) {
-    const ehOwnerFA = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
-    btnAlternarCacau.classList.toggle("hidden", !ehOwnerFA);
-    btnAlternarCacau.onclick = () => {
-      iniciarModuloBase("cacau-show");
-    };
-  }
 
   // Configura a aba padrão após selecionar módulo (Owners)
   if (currentUser.role === "owner" && moduloOpcional) {
@@ -774,6 +787,9 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab(tabsPermitidas[0]);
     }
   }
+
+  // Verificar aviso de Inventário Mensal Obrigatório para colaboradoras Cacau Show
+  verificarInventarioMensalNotificacao();
 
   // Configurações específicas por role
   const isFAConsultora = currentUser.role === "consultora_fa";
@@ -819,6 +835,96 @@ function iniciarModuloBase(moduloOpcional) {
   renderHistorico();
   resetSessionTimer();
   mostrarResumoMatinal();
+}
+
+/**
+ * Função para calcular se a data atual corresponde ao 1º dia útil da última semana do mês
+ * e notificar as colaboradoras da Cacau Show com prazo de 2 dias úteis, notificando Alexandra.
+ */
+function verificarInventarioMensalNotificacao() {
+  if (!currentUser) return;
+  
+  // Apenas colaboradoras da Cacau Show (não aplica a consultora_fa pura)
+  if (currentUser.role === "consultora_fa") return;
+
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth(); // 0-indexed
+  const diaSemana = hoje.getDay(); // 0=Dom, 1=Seg, 2=Ter...
+
+  // Obter o último dia do mês
+  const ultimoDiaMes = new Date(ano, mes + 1, 0);
+  const totalDiasMes = ultimoDiaMes.getDate();
+
+  // Encontrar o 1º dia útil da última semana (últimos 7 dias do mês)
+  let primeiroDiaUtilUltimaSemana = null;
+  for (let d = totalDiasMes - 6; d <= totalDiasMes; d++) {
+    const dataTemp = new Date(ano, mes, d);
+    const dayOfWeek = dataTemp.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Não é Sábado nem Domingo
+      primeiroDiaUtilUltimaSemana = dataTemp;
+      break;
+    }
+  }
+
+  if (!primeiroDiaUtilUltimaSemana) return;
+
+  // Verificar se HOJE é o 1º dia útil da última semana
+  const isHojePrimeiroDiaUtil = hoje.getDate() === primeiroDiaUtilUltimaSemana.getDate() &&
+                                hoje.getMonth() === primeiroDiaUtilUltimaSemana.getMonth() &&
+                                hoje.getFullYear() === primeiroDiaUtilUltimaSemana.getFullYear();
+
+  if (!isHojePrimeiroDiaUtil) return;
+
+  // Evitar notificação repetida no mesmo dia para o mesmo usuário
+  const storageKey = `inv_alert_${ano}_${mes}_${currentUser.nome}`;
+  if (localStorage.getItem(storageKey)) return;
+
+  // Calcular a data de término (2 dias úteis após o 1º dia útil)
+  let diasAdicionados = 0;
+  let dataTermino = new Date(primeiroDiaUtilUltimaSemana);
+  while (diasAdicionados < 2) {
+    dataTermino.setDate(dataTermino.getDate() + 1);
+    const dow = dataTermino.getDay();
+    if (dow !== 0 && dow !== 6) {
+      diasAdicionados++;
+    }
+  }
+
+  const dataInicioStr = primeiroDiaUtilUltimaSemana.toLocaleDateString('pt-BR');
+  const dataTerminoStr = dataTermino.toLocaleDateString('pt-BR');
+
+  // Disparar Notificação Silenciosa para Alexandra (Gestão/Dashboard) sobre o início e fim do prazo
+  const notifKeyAlexandra = `inv_notif_alexandra_${ano}_${mes}`;
+  if (!localStorage.getItem(notifKeyAlexandra)) {
+    localStorage.setItem(notifKeyAlexandra, "true");
+    fetch('/api/notificar-gestao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinatarios: ['Alexandra', 'Bruno', 'Isabella'],
+        assunto: `📋 AVISO: Início do Inventário Mensal Obrigatório (${dataInicioStr})`,
+        mensagem: `Atenção Alexandra, o Inventário Mensal Obrigatório das lojas foi iniciado hoje (${dataInicioStr}). O prazo para conclusão pelas colaboradoras é de 2 dias úteis, finalizando em ${dataTerminoStr}.`,
+        operador: currentUser.nome
+      })
+    }).catch(err => console.error('Erro notificação Alexandra:', err));
+  }
+
+  // Exibir Pop-up de Alerta para a Colaboradora
+  setTimeout(() => {
+    showModal(
+      `⚠️ INVENTÁRIO MENSAL OBRIGATÓRIO INICIADO!\n\nHoje (${dataInicioStr}) é o primeiro dia útil para a realização do Inventário Cego Mensal Obrigatório de estoque e validade.\n\n⏰ Prazo para conclusão: 2 dias úteis (Término até ${dataTerminoStr}).\n\nPor favor, acesse a aba "Inventário de Estoque" no Módulo Logística para iniciar a contagem.`,
+      {
+        icon: "📋",
+        title: "Inventário Mensal Obrigatório",
+        btnText: "Entendi / Ir para Inventário",
+        btnClass: "bg-amber-600 hover:bg-amber-500 text-white font-bold"
+      }
+    ).then(() => {
+      localStorage.setItem(storageKey, "true");
+      ativarTab("inventario-estoque");
+    });
+  }, 600);
 }
 
 // Botões de Seleção de Módulo
@@ -872,7 +978,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -938,6 +1044,25 @@ if (sidebarOverlayEl) sidebarOverlayEl.addEventListener("click", fecharSidebarMo
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") fecharSidebarMobile();
+});
+
+// Toggle expandir/colapsar grupos da sidebar (Acordeão suave)
+document.querySelectorAll(".sidebar-group-header").forEach(header => {
+  header.addEventListener("click", () => {
+    const group = header.closest(".sidebar-group");
+    if (group) {
+      const isExpanded = group.classList.contains("expanded");
+      if (isExpanded) {
+        group.classList.remove("expanded");
+        group.classList.add("collapsed");
+        header.setAttribute("aria-expanded", "false");
+      } else {
+        group.classList.remove("collapsed");
+        group.classList.add("expanded");
+        header.setAttribute("aria-expanded", "true");
+      }
+    }
+  });
 });
 
 
@@ -1338,7 +1463,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   // Se salvar na API com sucesso, adicionamos localmente e atualizamos.
   const apiSalvo = await salvarRegistroAPI(registro);
-  if (apiSalvo) {
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento"))) {
     registros.push(registro);
   }
 
@@ -1453,7 +1578,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   };
 
   const apiSalvo = await salvarRegistroFAAPI(registro);
-  if (apiSalvo) {
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento"))) {
     registrosFA.push(registro);
   }
 
@@ -3361,9 +3486,32 @@ class CacauShowControlBoxBridge {
     }
     return null;
   }
+
+  // Salvar item de inventário individualmente no localStorage e notificar via BroadcastChannel
+  saveInventoryItem(storeId, item) {
+    if (!storeId || !item || !item.code) return;
+    const key = `cacaushow_db_inventory_${storeId}_${item.code}`;
+    const payload = {
+      code: item.code,
+      barras: item.barras || '',
+      description: item.description || '',
+      validade: item.validade ? new Date(item.validade).toISOString() : null,
+      daysRemaining: item.daysRemaining,
+      countedQty: item.countedQty !== undefined ? item.countedQty : '',
+      dataEntrada: item.dataEntrada || '',
+      qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+    if (this.channel) {
+      this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload });
+    }
+    return payload;
+  }
 }
 
 window.cacauShowBoxBridge = new CacauShowControlBoxBridge();
+const dbBridge = window.cacauShowBoxBridge;
 
 /* ==========================================================================
    CACAU SHOW LOGISTICS & INVENTORY SYSTEM - INTEGRATED ENGINE
@@ -3411,8 +3559,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterGreen = document.getElementById('filter-green');
   if (filterGreen) filterGreen.addEventListener('click', () => setFilter('green'));
 
+  const storeSelectors = document.querySelectorAll('.store-selector, #store-selector');
+  if (storeSelectors.length > 0) {
+    currentStore = storeSelectors[0].value || '9175';
+    storeSelectors.forEach(sel => {
+      sel.value = currentStore;
+      sel.addEventListener('change', (e) => {
+        currentStore = e.target.value;
+        document.querySelectorAll('.store-selector, #store-selector').forEach(s => {
+          s.value = currentStore;
+        });
+        loadInventoryForCurrentStore();
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
+        showToast(`Loja ativa alterada para Loja ${currentStore}`, 'info');
+      });
+    });
+  }
+  loadInventoryForCurrentStore();
+
   const btnExport = document.getElementById('btn-export');
   if (btnExport) btnExport.addEventListener('click', exportExcel);
+
+  const btnNfWhatsapp = document.getElementById('btn-nf-whatsapp');
+  if (btnNfWhatsapp) btnNfWhatsapp.addEventListener('click', notificarWhatsappGestao);
 
   const btnToggleNfScanner = document.getElementById('btn-toggle-nf-scanner');
   if (btnToggleNfScanner) btnToggleNfScanner.addEventListener('click', toggleNfScanner);
@@ -3422,6 +3592,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   checkMonthlyInventoryAlert();
 });
+
+function loadInventoryForCurrentStore() {
+  const savedItems = dbBridge.getInventarioLoja(currentStore);
+  products = savedItems.map(item => ({
+    code: item.code,
+    barras: item.barras || '',
+    description: item.description || 'Produto',
+    validade: item.validade ? new Date(item.validade) : null,
+    daysRemaining: item.daysRemaining !== undefined ? item.daysRemaining : null,
+    countedQty: item.countedQty !== undefined ? item.countedQty : '',
+    dataEntrada: item.dataEntrada || '',
+    qtdEntradaUnidades: item.qtdEntradaUnidades || 0
+  }));
+}
 
 function formatDate(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return '';
@@ -3610,8 +3794,13 @@ function parseXmlNfe(file, callback) {
         daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       }
 
+      // Salvar vínculo do cProd (código de 7 dígitos da NF-e XML) com o produto para o inventário de estoque
+      const cod7Digitos = cProd.replace(/\D/g, '').padStart(7, '0').slice(-7) || cProd;
+      localStorage.setItem(`nfe_cprod_${cEAN}`, cod7Digitos);
+      if (cProd) localStorage.setItem(`nfe_cprod_desc_${xProd.trim().toUpperCase()}`, cod7Digitos);
+
       productsList.push({
-        code: cProd,
+        code: cod7Digitos,
         barras: cEAN !== 'SEM GTIN' ? cEAN : '',
         description: xProd,
         nfQty: qCom,
@@ -3774,10 +3963,88 @@ function openNfConferenceDirectScanner(numNF) {
   document.getElementById('nf-work-area').classList.remove('hidden');
   renderNfDashboard();
 
+  // Notificar Bruno e Isabella (Push + Email) sobre início da conferência
+  notificarGestaoConferencia('inicio', numNF);
+
   const scannerContainer = document.getElementById('nf-scanner-container');
   if (scannerContainer && scannerContainer.classList.contains('hidden')) {
     toggleNfScanner();
   }
+}
+
+function notificarGestaoConferencia(tipo, numNF) {
+  if (!numNF || !importedNfs[numNF]) return;
+  const nfData = importedNfs[numNF];
+  const lojaNome = getLojaNomePorCodigo(nfData.info.targetStore || currentStore);
+  const operador = currentUser ? currentUser.nome : 'Colaboradora';
+
+  let totalItens = nfData.products.length;
+  let conferidosCount = 0;
+  let faltasCount = 0;
+
+  nfData.products.forEach(p => {
+    if (p.countedQty !== '') conferidosCount++;
+    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+    if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+  });
+
+  let assunto = '';
+  let mensagem = '';
+
+  if (tipo === 'inicio') {
+    assunto = `🚀 Início de Conferência de NF-e - Loja ${lojaNome}`;
+    mensagem = `A colaboradora ${operador} iniciou a conferência física da NF Nº ${numNF} (${nfData.info.fornecedor}) na Loja ${lojaNome}. Total de itens: ${totalItens}.`;
+  } else if (tipo === 'conclusao') {
+    const status = (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) ? '100% OK' : `PENDÊNCIA (${faltasCount} Faltas)`;
+    assunto = `📋 Conferência de NF-e Finalizada (${status}) - Loja ${lojaNome}`;
+    mensagem = `A conferência da NF Nº ${numNF} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
+  }
+
+  // Notificação silenciosa via backend API (Push + Email para Bruno e Isabella)
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: ['Bruno', 'Isabella'],
+      assunto: assunto,
+      mensagem: mensagem,
+      numNF: numNF,
+      loja: lojaNome,
+      operador: operador
+    })
+  }).catch(err => console.error('Disparo silencioso de notificação:', err));
+}
+
+function getLojaNomePorCodigo(codigo) {
+  if (codigo === '9175') return 'Marambaia';
+  if (codigo === '4304') return 'Icoaraci';
+  if (codigo === '9201') return 'Mário Covas';
+  return codigo || 'Marambaia';
+}
+
+function notificarWhatsappGestao() {
+  let storeCode = currentStore;
+  if (activeNfNumber && importedNfs[activeNfNumber]) {
+    storeCode = importedNfs[activeNfNumber].info.targetStore || currentStore;
+  }
+  const storeName = getLojaNomePorCodigo(storeCode);
+  const linkGrupo = WHATSAPP_GRUPOS[storeName];
+
+  if (!linkGrupo) {
+    showToast(`Nenhum grupo de WhatsApp configurado para a Loja ${storeName}.`, 'erro');
+    return;
+  }
+
+  let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
+  if (activeNfNumber && importedNfs[activeNfNumber]) {
+    const nfData = importedNfs[activeNfNumber];
+    textoMsg += `NF Nº: ${activeNfNumber}\nFornecedor: ${nfData.info.fornecedor}\nOperador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n`;
+  } else {
+    textoMsg += `Conferências em andamento na loja.\n`;
+  }
+
+  const urlWhatsapp = linkGrupo;
+  window.open(urlWhatsapp, '_blank');
 }
 
 function renderNfDashboard() {
@@ -3851,6 +4118,16 @@ function onNfScanSuccess(decodedText) {
     const currentQty = p.countedQty === '' ? 0 : Number(p.countedQty);
     const newQty = currentQty + 1;
     saveNfQuantity(p.code, newQty.toString());
+    
+    // Focar no campo de quantidade inventariada do produto bipado
+    setTimeout(() => {
+      const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`) || document.querySelector('.qty-input');
+      if (rowInput) {
+        rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        rowInput.focus();
+        rowInput.select();
+      }
+    }, 100);
   } else {
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     playBeep('error');
@@ -3867,6 +4144,17 @@ function saveNfQuantity(code, value) {
     autoCreditNfProductToInventory(currentNf.info, p);
     updateNfStats();
     renderNfTable();
+
+    // Checar se a conferência desta NF foi totalmente concluída
+    let conferidosCount = 0;
+    let totalItens = currentNf.products.length;
+    currentNf.products.forEach(item => {
+      if (item.countedQty !== '') conferidosCount++;
+    });
+    if (conferidosCount === totalItens && totalItens > 0 && !currentNf._notificadoConclusao) {
+      currentNf._notificadoConclusao = true;
+      notificarGestaoConferencia('conclusao', activeNfNumber);
+    }
   }
 }
 
@@ -3954,12 +4242,28 @@ function renderTable() {
       }
     }
 
+    // Buscar o COD_PROD de 7 dígitos vindo dos XMLs das NF-e
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
     const tr = document.createElement('tr');
     tr.className = `hover:bg-brand-900/30 transition-all border-b border-brand-900/20 ${rowBorder}`;
     tr.innerHTML = `
       <td class="py-3 px-4">
-        <div class="font-mono text-xs text-brand-300 font-bold">${p.code}</div>
-        <div class="text-[10px] text-brand-400 font-mono">${p.barras ? `EAN: ${p.barras}` : ''}</div>
+        <div class="font-mono text-xs text-amber-400 font-extrabold tracking-wider">${cod7}</div>
       </td>
       <td class="py-3 px-4 text-brand-100 font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-brand-300">${p.dataEntrada || '-'}</td>
@@ -3969,7 +4273,7 @@ function renderTable() {
       </td>
       <td class="py-3 px-4 text-center text-xs font-bold">${p.daysRemaining !== null ? `${p.daysRemaining} dias` : 'N/A'} ${urgentSignal}</td>
       <td class="py-3 px-4 text-center">
-        <input type="number" value="${p.countedQty}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm" />
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-400/50 transition-all" />
       </td>
     `;
 
@@ -3998,26 +4302,93 @@ function renderTable() {
 }
 
 function exportExcel() {
-  if (products.length === 0) return;
-  const header = ['Código', 'QTD INVENTARIADA', 'PRODUTO', 'DATA ENTRADA', 'VALIDADE', 'DIAS A VENCER', 'STATUS ALERT'];
+  if (products.length === 0) {
+    showToast("Nenhum produto cadastrado para exportação de inventário.", "warning");
+    return;
+  }
+
+  // Padrão solicitado: 1 coluna "COD_PROD" (código de 7 dígitos) e 1 coluna "QTDE_INV" (quantidade inventariada)
+  const header = ['COD_PROD', 'QTDE_INV'];
   const rows = [header];
 
   products.forEach(p => {
-    rows.push([
-      p.code,
-      p.countedQty === '' ? 0 : Number(p.countedQty),
-      p.description,
-      p.dataEntrada || '-',
-      p.validade ? formatDate(p.validade) : '',
-      p.daysRemaining !== null ? p.daysRemaining : '',
-      p.daysRemaining <= 20 ? 'VENDER URGENTE' : 'OK'
-    ]);
+    // Buscar código de 7 dígitos extraído da NF-e (XML) por EAN/Barras ou Descrição do produto
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+
+    // Formatar código garantindo exatamente 7 dígitos numéricos
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const qtdeInv = p.countedQty === '' ? 0 : Number(p.countedQty);
+    rows.push([cod7, qtdeInv]);
   });
 
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario_Estoque");
-  XLSX.writeFile(workbook, `Inventario_Estoque_Loja_${currentStore}.xlsx`);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "INVENTARIO");
+
+  // Nome do arquivo conforme o padrão de 1 por loja (.xls / .xlsx)
+  const filename = `INVENTARIO_LOJA_${currentStore}.xls`;
+  XLSX.writeFile(workbook, filename);
+
+  // Marcar conclusão do inventário da loja atual no localStorage
+  const ano = new Date().getFullYear();
+  const mes = new Date().getMonth();
+  const storeKey = `inv_completed_${ano}_${mes}_${currentStore}`;
+  localStorage.setItem(storeKey, JSON.stringify({
+    concluidoEm: new Date().toISOString(),
+    operador: currentUser.nome,
+    loja: currentStore,
+    totalItens: products.length
+  }));
+
+  const lojasRequeridas = ['9175', '4304', '9201'];
+  const lojasConcluidas = lojasRequeridas.filter(lj => {
+    return localStorage.getItem(`inv_completed_${ano}_${mes}_${lj}`) !== null;
+  });
+
+  showToast(`Inventário da Loja ${currentStore} concluído e exportado com sucesso!`, 'success');
+
+  // Se TODAS as lojas concluírem o Inventário Mensal, notificar Bruno e Isabella
+  if (lojasConcluidas.length === lojasRequeridas.length) {
+    const notifTodasConcluidasKey = `inv_notif_todas_lojas_${ano}_${mes}`;
+    if (!localStorage.getItem(notifTodasConcluidasKey)) {
+      localStorage.setItem(notifTodasConcluidasKey, "true");
+
+      const mesNome = new Date().toLocaleString('pt-BR', { month: 'long' });
+      fetch('/api/notificar-gestao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinatarios: ['Bruno', 'Isabella'],
+          assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
+          mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
+          operador: currentUser.nome
+        })
+      }).catch(err => console.error('Erro na notificação de conclusão total:', err));
+
+      showModal(
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno e Isabella.`,
+        {
+          icon: "🚀",
+          title: "Inventário Mensal Finalizado",
+          btnText: "Excelente",
+          btnClass: "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+        }
+      );
+    }
+  }
 }
 
 

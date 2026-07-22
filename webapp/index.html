@@ -6,8 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#5c1a2b">
-<meta name="description" content="Controle de Caixa">
-<title>Controle de Caixa</title>
+<meta name="description" content="Gestão Integrada Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
+<title>Gestão Integrada Cacau Show</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -60,7 +60,7 @@
   <div class="modal login-modal">
     <div class="logo-dot logo-dot-lg"></div>
     <h2 id="login-title">Quem é você?</h2>
-    <p class="modal-sub">Selecione seu nome para entrar no Controle de Caixa.</p>
+    <p class="modal-sub">Selecione seu nome para entrar no Gestão Integrada Cacau Show.</p>
     <div class="field">
       <select id="login-select" aria-label="Selecione seu nome">
         <option value="" disabled selected>Selecione seu nome</option>
@@ -102,19 +102,19 @@
 <!-- ===================== OVERLAY: SELEÇÃO DE MÓDULOS (OWNERS) ===================== -->
 <div id="module-selection-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="module-title" aria-modal="true">
   <div class="modal module-modal">
-    <h2 id="module-title">Escolha o Sistema</h2>
+    <h2 id="module-title">Escolha o Módulo</h2>
     <p class="modal-sub">Qual operação você deseja acessar agora?</p>
     
     <div class="module-cards">
       <button id="btn-mod-cacau" class="module-card card-cacau">
         <span class="mod-icon">🍫</span>
-        <h3>Cacau Show</h3>
-        <p>Gestão de caixa e envelopes</p>
+        <h3>Gestão Integrada Cacau Show</h3>
+        <p>Financeiro e Logístico</p>
       </button>
       
       <button id="btn-mod-faca" class="module-card card-faca">
         <span class="mod-icon">🧡</span>
-        <h3>FaçaAmigos</h3>
+        <h3>Faça Amigos (Financeiro)</h3>
         <p>Controle de caixa FaçaAmigos</p>
       </button>
     </div>
@@ -132,55 +132,68 @@
       <div class="brand">
         <div class="logo-dot"></div>
         <div>
-          <h1>Controle de Caixa</h1>
-          <span class="subtitle">Grupo Isabella e Bruno</span>
+          <h1 style="font-size: 1.05rem; line-height: 1.2;">Gestão Integrada</h1>
+          <span class="subtitle">Cacau Show & Faça Amigos</span>
         </div>
       </div>
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
-    <!-- Seletor de Loja Ativa -->
-    <div class="sidebar-store-wrap" style="padding: 10px 14px; background: rgba(0,0,0,0.2); margin: 0 10px 10px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
-      <label for="store-selector" style="display: block; font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.7; margin-bottom: 4px; color: var(--gold-color, #d9a74a);">Loja Ativa</label>
-      <select id="store-selector" style="width: 100%; background: var(--bg-dark, #1c1310); color: var(--text-color, #efe3d3); border: 1px solid var(--border-color, #4a2c20); padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
-        <option value="9175" selected>Loja 9175 - Marambaia</option>
-        <option value="4304">Loja 4304 - Icoaraci</option>
-        <option value="9201">Loja 9201 - Mário Covas</option>
-      </select>
-    </div>
-
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
-      <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
-        <span class="tab-icon">✍️</span>
-        <span class="tab-text">Novo Registro</span>
-      </button>
-      <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
-        <span class="tab-icon">📊</span>
-        <span class="tab-text">Dashboard de Envelopes</span>
-      </button>
-      <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">
-        <span class="tab-icon">📜</span>
-        <span class="tab-text">Histórico</span>
-      </button>
-      <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
-        <span class="tab-icon">📅</span>
-        <span class="tab-text">Dashboard Mensal</span>
-      </button>
-      <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe">
-        <span class="tab-icon">🚚</span>
-        <span class="tab-text">Conferência de NF-e</span>
-      </button>
-      <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
-        <span class="tab-icon">📦</span>
-        <span class="tab-text">Inventário de Estoque</span>
-      </button>
+      <!-- Módulo Cacau Show: Controle de Caixa -->
+      <div class="sidebar-group expanded" id="group-controle-caixa">
+        <button class="sidebar-group-header" aria-expanded="true">
+          <span class="group-icon">💰</span>
+          <span class="group-title">Módulo Controle de Caixa</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
+            <span class="tab-icon">✍️</span>
+            <span class="tab-text">Novo Registro</span>
+          </button>
+          <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
+            <span class="tab-icon">📊</span>
+            <span class="tab-text">Dashboard de Envelopes</span>
+          </button>
+          <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">
+            <span class="tab-icon">📜</span>
+            <span class="tab-text">Histórico</span>
+          </button>
+          <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
+            <span class="tab-icon">📅</span>
+            <span class="tab-text">Dashboard Mensal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Módulo Logística: Conferência e Inventário -->
+      <div class="sidebar-group expanded" id="group-logistica">
+        <button class="sidebar-group-header" aria-expanded="true">
+          <span class="group-icon">📦</span>
+          <span class="group-title">Módulo Logística</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe">
+            <span class="tab-icon">🚚</span>
+            <span class="tab-text">Conferência de NF-e</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
+            <span class="tab-icon">📋</span>
+            <span class="tab-text">Inventário de Estoque</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Outras opções do sistema -->
       <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">
         <span class="tab-icon">🔍</span>
         <span class="tab-text">Auditoria</span>
       </button>
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
         <span class="tab-icon">🧡</span>
-        <span class="tab-text">FaçaAmigos</span>
+        <span class="tab-text">Faça Amigos (Financeiro)</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
         <span class="tab-icon">👥</span>
@@ -211,7 +224,7 @@
         </button>
         <div class="topbar-brand-mobile">
           <div class="logo-dot logo-dot-sm"></div>
-          <span class="topbar-title">Controle de Caixa</span>
+          <span class="topbar-title">Gestão Integrada</span>
         </div>
       </div>
       <div class="user-box">
@@ -493,7 +506,6 @@
           <span>Grão Pará</span>
           <span>ParqueShopping</span>
           <span>Parque Circuito</span>
-          <button id="btn-alternar-cacau" class="btn-modulo-switch hidden" title="Mudar para módulo Cacau Show">🍫 Cacau Show</button>
         </div>
       </div>
 
@@ -774,23 +786,29 @@
     </section>
 
     <!-- ===================== ABA: CONFERÊNCIA DE NF-E (LOGÍSTICA) ===================== -->
-    <section id="tab-conferencia-nfe" class="tab-content hidden" role="tabpanel">
+    <section id="tab-conferencia-nfe" class="tab-panel hidden" role="tabpanel">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
-        
         <!-- Galeria de Cards NF-e Importadas -->
         <div id="nf-cards-gallery-section" class="space-y-6">
           <div class="glass-card p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 text-center shadow-xl">
             <h2 class="font-display text-xl font-bold text-brand-200">Painel de Recepção & Conferência de NF-e</h2>
-            <p class="text-xs text-brand-400 mt-1 max-w-lg mx-auto">Selecione ou importe notas fiscais XML/Excel para iniciar a conferência física com leitor de câmera direct.</p>
+            <p class="text-xs text-brand-400 mt-1 max-w-lg mx-auto">Importe os arquivos XML das notas fiscais extraídos do portal Cacau Digital para iniciar a conferência física com leitor de câmera direct.</p>
             
-            <div class="mt-4 flex flex-wrap justify-center gap-3">
+            <div class="mt-4 flex flex-wrap justify-center items-center gap-3">
+              <div class="inline-flex items-center gap-2 bg-brand-950/80 px-3.5 py-2 rounded-xl border border-brand-800 shadow-inner">
+                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-store"></i> Loja Ativa:
+                </span>
+                <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                  <option value="9175" selected>Loja 9175 - Marambaia</option>
+                  <option value="4304">Loja 4304 - Icoaraci</option>
+                  <option value="9201">Loja 9201 - Mário Covas</option>
+                </select>
+              </div>
               <label class="cursor-pointer inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md">
-                <i class="fa-solid fa-file-circle-plus"></i> Importar Novas NF-e (XML/Excel)
-                <input type="file" id="nf-file" accept=".xml, .xlsx, .xls" multiple class="hidden">
+                <i class="fa-solid fa-file-circle-plus"></i> Importar Novas NF-e XML (Extraído do Cacau Digital)
+                <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
               </label>
-              <button id="btn-nf-email" class="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-850 text-brand-200 border border-brand-700 font-bold px-4 py-2 rounded-xl text-xs transition">
-                <i class="fa-solid fa-envelope"></i> Enviar Relatório por E-mail
-              </button>
               <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
                 <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
               </button>
@@ -802,7 +820,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="nf-cards-grid">
             <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
               <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
-              Nenhuma Nota Fiscal importada. Clique acima para importar o XML/Excel da nota fiscal.
+              Nenhuma Nota Fiscal importada. Clique acima para importar os arquivos XML da nota fiscal extraídos do Cacau Digital.
             </div>
           </div>
         </div>
@@ -813,7 +831,19 @@
             <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-brand-900 text-brand-200 hover:bg-brand-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-800">
               <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria de Notas
             </button>
-            <span class="text-xs font-mono font-bold text-brand-300">NF Nº <span id="nf-numero">-</span></span>
+            <div class="flex items-center gap-3">
+              <div class="inline-flex items-center gap-2 bg-brand-900/80 px-3 py-1 rounded-xl border border-brand-800">
+                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-store"></i> Loja:
+                </span>
+                <select class="store-selector bg-brand-950 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                  <option value="9175" selected>Loja 9175 - Marambaia</option>
+                  <option value="4304">Loja 4304 - Icoaraci</option>
+                  <option value="9201">Loja 9201 - Mário Covas</option>
+                </select>
+              </div>
+              <span class="text-xs font-mono font-bold text-brand-300">NF Nº <span id="nf-numero">-</span></span>
+            </div>
           </div>
 
           <!-- Camera Scanner Viewport -->
@@ -859,7 +889,7 @@
     </section>
 
     <!-- ===================== ABA: INVENTÁRIO DE ESTOQUE (LOGÍSTICA) ===================== -->
-    <section id="tab-inventario-estoque" class="tab-content hidden" role="tabpanel">
+    <section id="tab-inventario-estoque" class="tab-panel hidden" role="tabpanel">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner de Alerta Mensal -->
@@ -876,34 +906,30 @@
               <p class="text-xs text-brand-300 mt-0.5">O inventário cego mensal de validade deve ser realizado no mínimo 1 vez até o <strong>dia 25 de cada mês</strong>.</p>
             </div>
           </div>
-          <div class="text-right text-xs font-mono font-bold text-brand-400 bg-brand-950/80 px-3 py-1.5 rounded-xl border border-brand-900 shrink-0">
-            Mês: <span id="current-month-name" class="text-brand-200 font-bold">-</span>
+          <div class="flex items-center gap-3 shrink-0">
+            <div class="inline-flex items-center gap-2 bg-brand-950/90 px-3 py-1.5 rounded-xl border border-brand-700/60 shadow-md">
+              <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-store"></i> Loja Ativa:
+              </span>
+              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                <option value="9175" selected>Loja 9175 - Marambaia</option>
+                <option value="4304">Loja 4304 - Icoaraci</option>
+                <option value="9201">Loja 9201 - Mário Covas</option>
+              </select>
+            </div>
+            <div class="text-right text-xs font-mono font-bold text-brand-400 bg-brand-950/80 px-3 py-2 rounded-xl border border-brand-900 shrink-0">
+              Mês: <span id="current-month-name" class="text-brand-200 font-bold">-</span>
+            </div>
           </div>
         </div>
 
-        <!-- Seção de Importação de Planilha & Ativação de Leitor de Câmera -->
-        <div id="upload-section" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-800 shadow-xl text-center">
-          <h3 class="text-lg font-bold text-brand-200 mb-2"><i class="fa-solid fa-file-excel text-emerald-500 mr-2"></i> Importar Planilha de Estoque (Excel)</h3>
-          <p class="text-xs text-brand-400 max-w-lg mx-auto mb-4">Selecione a planilha de inventário exportada do sistema ou utilize o leitor de código de barras via câmera para contagem física.</p>
-          
-          <div class="flex flex-wrap justify-center gap-3">
-            <label class="cursor-pointer inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md">
-              <i class="fa-solid fa-folder-open"></i> Selecionar Planilha Excel (.xlsx)
-              <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
-            </label>
-            <button id="btn-toggle-scanner" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md">
-              <i class="fa-solid fa-camera"></i> <span id="scanner-btn-text">Ativar Câmera Leitora</span>
-            </button>
-            <button id="btn-switch-camera" class="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-brand-300 border border-brand-800 font-bold px-3 py-2.5 rounded-xl text-xs transition">
-              <i class="fa-solid fa-camera-rotate"></i> Alternar Câmera
-            </button>
-          </div>
-          <div id="file-info" class="mt-3 text-[11px] text-brand-300 font-mono"></div>
-
-          <!-- Camera Viewport Container -->
-          <div id="scanner-container" class="hidden mt-4 w-full max-w-md mx-auto bg-black rounded-2xl overflow-hidden border border-brand-700 relative shadow-2xl">
-            <div id="reader" class="w-full"></div>
-          </div>
+        <!-- Seção Oculta de suporte ao JS para upload Excel e leitor -->
+        <div id="upload-section" class="hidden">
+          <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
+          <button id="btn-toggle-scanner" class="hidden"><span id="scanner-btn-text"></span></button>
+          <button id="btn-switch-camera" class="hidden"></button>
+          <div id="file-info" class="hidden"></div>
+          <div id="scanner-container" class="hidden"><div id="reader"></div></div>
         </div>
 
         <!-- Dashboard Stat Cards Inventário -->
@@ -940,11 +966,23 @@
 
         <!-- Toolbar & Tabela de Estoque -->
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
-          <div class="relative w-full md:w-80">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-brand-400">
-              <i class="fa-solid fa-magnifying-glass"></i>
-            </span>
-            <input type="text" id="search-input" placeholder="Buscar por barras, código ou descrição..." class="w-full bg-brand-950 border border-brand-900 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-brand-500 text-xs transition">
+          <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div class="inline-flex items-center gap-2 bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-800 shadow-inner w-full sm:w-auto">
+              <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-store"></i> Loja:
+              </span>
+              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
+                <option value="9175" selected>Loja 9175 - Marambaia</option>
+                <option value="4304">Loja 4304 - Icoaraci</option>
+                <option value="9201">Loja 9201 - Mário Covas</option>
+              </select>
+            </div>
+            <div class="relative w-full sm:w-72">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-brand-400">
+                <i class="fa-solid fa-magnifying-glass"></i>
+              </span>
+              <input type="text" id="search-input" placeholder="Buscar por barras, código ou descrição..." class="w-full bg-brand-950 border border-brand-900 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-brand-500 text-xs transition">
+            </div>
           </div>
           
           <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
@@ -963,7 +1001,7 @@
             <table class="w-full text-left border-collapse text-xs">
               <thead>
                 <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
-                  <th class="py-3 px-4">Código / EAN (Barras)</th>
+                  <th class="py-3 px-4 font-mono text-amber-400 font-extrabold">COD_PROD</th>
                   <th class="py-3 px-4">Produto</th>
                   <th class="py-3 px-4 text-center">Data Entrada NF</th>
                   <th class="py-3 px-4 text-center">Entrada (UN)</th>
