@@ -579,6 +579,16 @@ async function inicializarDados() {
       config = await resConfig.json();
       if (!config.linkGrupo) config.linkGrupo = "";
 
+      // Sincronizar preferências de notificação do servidor para local
+      if (config.notificacoes_config) {
+        try {
+          const serverPrefs = JSON.parse(config.notificacoes_config);
+          localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(serverPrefs));
+        } catch (e) {
+          console.error("Erro ao sincronizar notificacoes_config do servidor:", e);
+        }
+      }
+
       // Carregar lista de colaboradores cadastrados
       await carregarColaboradores();
 
@@ -4334,8 +4344,9 @@ function loadNotificationPrefs() {
   return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS));
 }
 
-function saveNotificationPrefs(prefs) {
+async function saveNotificationPrefs(prefs) {
   localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs));
+  await salvarConfigAPI("notificacoes_config", JSON.stringify(prefs));
   showToast("Preferências de notificações salvas com sucesso!", "sucesso");
 }
 
@@ -4495,16 +4506,23 @@ function setupNotificationEvents() {
 
     const prefs = {};
 
-    // Ler todos os checkboxes e montar o objeto de preferências
+    // Ler todos os checkboxes e canais de rádio, montando o objeto de preferências
     Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
       const colab = document.getElementById(`notif-${notifType}-colab`);
       const lider = document.getElementById(`notif-${notifType}-lider`);
       const owner = document.getElementById(`notif-${notifType}-owner`);
 
+      const colab_ch = document.querySelector(`input[name="notif-${notifType}-colab-channel"]:checked`)?.value || "email";
+      const lider_ch = document.querySelector(`input[name="notif-${notifType}-lider-channel"]:checked`)?.value || "email";
+      const owner_ch = document.querySelector(`input[name="notif-${notifType}-owner-channel"]:checked`)?.value || "email";
+
       prefs[notifType] = {
         colab: colab ? colab.checked : true,
         lider: lider ? lider.checked : true,
-        owner: owner ? owner.checked : true
+        owner: owner ? owner.checked : true,
+        colab_ch: colab_ch,
+        lider_ch: lider_ch,
+        owner_ch: owner_ch
       };
     });
 
@@ -7126,6 +7144,8 @@ function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBolet
 // ==========================================================================
 function inicializarPainelConfiguracoes() {
   if (!currentUser) return;
+
+  renderNotificationTable();
 
   // Atualizar informações do sobre
   const configUserInfo = document.getElementById("config-user-info");
