@@ -1,17 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  --wine: #4a121a;
-  --wine-light: #5c1a2b;
-  --wine-dark: #330b10;
-  --gold: #bd954b;
-  --gold-light: #dfcba5;
-  --gold-dark: #8c6a2c;
+  --wine: #8a1827;
+  --wine-light: #9e1b32;
+  --wine-dark: #28100a;
+  --gold: #c49c51;
+  --gold-light: #efe5d9;
+  --gold-dark: #3d1a11;
+  --gold-gradient: linear-gradient(135deg, #efe5d9 0%, #c49c51 50%, #3d1a11 100%);
+  --wine-gradient: linear-gradient(135deg, #3d1a11 0%, #25100a 100%);
   --cream: #faf6f0;
   --paper: #ffffff;
   --ink: #201617;
   --muted: #826e70;
-  --border: #f0e6dc;
+  --border: #e8ded2;
   --green: #1d723a;
   --green-light: #e8f5ec;
   --amber: #c27c0e;
@@ -19,27 +21,29 @@
   --red: #b92c2c;
   --red-light: #fdf2f2;
   --radius: 16px;
-  --shadow-sm: 0 2px 8px rgba(74, 18, 26, 0.04);
-  --shadow-md: 0 8px 24px rgba(74, 18, 26, 0.08);
-  --shadow-lg: 0 16px 48px rgba(74, 18, 26, 0.12);
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-sm: 0 4px 12px rgba(61, 26, 17, 0.03);
+  --shadow-md: 0 10px 30px rgba(61, 26, 17, 0.06), 0 1px 3px rgba(61, 26, 17, 0.02);
+  --shadow-lg: 0 20px 50px rgba(61, 26, 17, 0.1), 0 2px 8px rgba(61, 26, 17, 0.04);
+  --transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root[data-theme="dark"] {
-  --wine: #8e2b39;
-  --wine-light: #b03a4b;
-  --wine-dark: #5a141e;
+  --wine: #c84557;
+  --wine-light: #d9586b;
+  --wine-dark: #1d0a06;
   --gold: #dcb36c;
-  --gold-light: #ebd6b0;
-  --gold-dark: #aa803c;
-  --cream: #140d0e;
-  --paper: #1e1415;
-  --ink: #f7eded;
+  --gold-light: #efe5d9;
+  --gold-dark: #3d1a11;
+  --gold-gradient: linear-gradient(135deg, #efe5d9 0%, #dcb36c 50%, #3d1a11 100%);
+  --wine-gradient: linear-gradient(135deg, #25100a 0%, #170a06 100%);
+  --cream: #120906;
+  --paper: #1d0e0a;
+  --ink: #fcf8f5;
   --muted: #a69294;
-  --border: #2e2022;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+  --border: #2d1610;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 * {
@@ -97,7 +101,7 @@ body {
 
 .sidebar {
   width: 270px;
-  background: linear-gradient(180deg, var(--wine-dark, #2b0810) 0%, #3d0e19 100%);
+  background: linear-gradient(180deg, var(--wine-dark, #28100a) 0%, #3d1a11 100%);
   color: white;
   display: flex;
   flex-direction: column;
@@ -517,9 +521,26 @@ main {
   padding: 32px;
   margin-bottom: 24px;
   transition: var(--transition);
+  position: relative;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--wine-gradient);
+  opacity: 0;
+  transition: var(--transition);
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 .card:hover {
   box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.card:hover::before {
+  opacity: 1;
 }
 
 .card h2 {
@@ -528,6 +549,7 @@ main {
   font-size: 1.6rem;
   margin-bottom: 24px;
   font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 /* ==========================================================================
@@ -737,9 +759,9 @@ input:focus, select:focus {
 
 .loja-card {
   background: var(--paper);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 26px;
   box-shadow: var(--shadow-md);
   border-top: 5px solid var(--wine);
   transition: var(--transition);
@@ -752,17 +774,27 @@ input:focus, select:focus {
   top: 0;
   left: 0;
   right: 0;
-  height: 100%;
-  background: linear-gradient(to bottom, rgba(74, 18, 26, 0.01), transparent);
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(189, 149, 75, 0.02), transparent);
   pointer-events: none;
+  opacity: 0;
+  transition: var(--transition);
 }
 .loja-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-6px) scale(1.01);
   box-shadow: var(--shadow-lg);
+  border-color: rgba(189, 149, 75, 0.35);
+  border-top-color: var(--gold);
+}
+.loja-card:hover::before {
+  opacity: 1;
 }
 
 .loja-card.alerta {
   border-top-color: var(--red);
+}
+.loja-card.alerta:hover {
+  border-top-color: var(--gold);
 }
 
 .loja-card h4 {

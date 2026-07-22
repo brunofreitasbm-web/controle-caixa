@@ -28,8 +28,8 @@
       extend: {
         colors: {
           brand: {
-            50: '#fdfbf7', 100: '#f7f2ea', 200: '#efe3d3', 300: '#e3cdb2', 400: '#d4b28c',
-            500: '#c59567', 600: '#b47e52', 700: '#94623f', 800: '#774f35', 900: '#2d1f19', 950: '#1c1310'
+            50: '#fdfaf2', 100: '#f8efe0', 200: '#ebdbbe', 300: '#deb88e', 400: '#d09660',
+            500: '#bd783d', 600: '#a35c2f', 700: '#854624', 800: '#64321b', 900: '#3d1a11', 950: '#25100a'
           }
         }
       }
@@ -44,6 +44,14 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- HTML5 QR Code Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
+<!-- PDF.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+  // Configurar worker do PDF.js
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  }
+</script>
 </head>
 <body>
 
@@ -84,7 +92,7 @@
 <!-- ===================== OVERLAY: SESSÃO EXPIRADA ===================== -->
 <div id="session-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="session-title" aria-modal="true">
   <div class="modal login-modal">
-    <div class="session-lock-icon">🔒</div>
+    <div class="session-lock-icon"><i class="fa-solid fa-lock" style="font-size: 2.5rem; color: var(--gold);"></i></div>
     <h2 id="session-title">Sessão pausada</h2>
     <p class="modal-sub">Você ficou inativo(a). Digite seu PIN para continuar.</p>
     <div class="field">
@@ -107,13 +115,13 @@
     
     <div class="module-cards">
       <button id="btn-mod-cacau" class="module-card card-cacau">
-        <span class="mod-icon">🍫</span>
+        <span class="mod-icon"><i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i></span>
         <h3>Gestão Integrada Cacau Show</h3>
         <p>Financeiro e Logístico</p>
       </button>
       
       <button id="btn-mod-faca" class="module-card card-faca">
-        <span class="mod-icon">🧡</span>
+        <span class="mod-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
         <h3>Faça Amigos (Financeiro)</h3>
         <p>Controle de caixa FaçaAmigos</p>
       </button>
@@ -143,26 +151,26 @@
       <!-- Módulo Cacau Show: Controle de Caixa -->
       <div class="sidebar-group expanded" id="group-controle-caixa">
         <button class="sidebar-group-header" aria-expanded="true">
-          <span class="group-icon">💰</span>
+          <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
           <span class="group-title">Módulo Controle de Caixa</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
           <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
-            <span class="tab-icon">✍️</span>
+            <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
             <span class="tab-text">Novo Registro</span>
           </button>
           <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
-            <span class="tab-icon">📊</span>
+            <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
             <span class="tab-text">Dashboard de Envelopes</span>
           </button>
           <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">
-            <span class="tab-icon">📜</span>
+            <span class="tab-icon"><i class="fa-solid fa-receipt"></i></span>
             <span class="tab-text">Histórico</span>
           </button>
           <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
-            <span class="tab-icon">📅</span>
-            <span class="tab-text">Dashboard Mensal</span>
+            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="tab-text">Dashboard Mês</span>
           </button>
         </div>
       </div>
@@ -170,33 +178,37 @@
       <!-- Módulo Logística: Conferência e Inventário -->
       <div class="sidebar-group expanded" id="group-logistica">
         <button class="sidebar-group-header" aria-expanded="true">
-          <span class="group-icon">📦</span>
+          <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
           <span class="group-title">Módulo Logística</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
           <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe">
-            <span class="tab-icon">🚚</span>
+            <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
             <span class="tab-text">Conferência de NF-e</span>
           </button>
           <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
-            <span class="tab-icon">📋</span>
+            <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventário de Estoque</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos">
+            <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+            <span class="tab-text">Gestão de Boletos</span>
           </button>
         </div>
       </div>
 
       <!-- Outras opções do sistema -->
       <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">
-        <span class="tab-icon">🔍</span>
+        <span class="tab-icon"><i class="fa-solid fa-user-shield"></i></span>
         <span class="tab-text">Auditoria</span>
       </button>
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
-        <span class="tab-icon">🧡</span>
+        <span class="tab-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
         <span class="tab-text">Faça Amigos (Financeiro)</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
-        <span class="tab-icon">👥</span>
+        <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
         <span class="tab-text">Colaboradores</span>
       </button>
     </nav>
@@ -228,9 +240,9 @@
         </div>
       </div>
       <div class="user-box">
-        <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo">📲 Instalar App</button>
-        <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações">🔔<span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
-        <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌓<span id="sync-badge" class="sync-badge hidden"></span></button>
+        <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo"><i class="fa-solid fa-mobile-screen-button"></i> Instalar App</button>
+        <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações"><i class="fa-solid fa-bell"></i><span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
+        <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro"><i class="fa-solid fa-circle-half-stroke"></i><span id="sync-badge" class="sync-badge hidden"></span></button>
       </div>
     </header>
 
@@ -322,14 +334,14 @@
 
       <!-- Gerador de mensagem WhatsApp pós-fechamento -->
       <div id="aviso-banner" class="card aviso-banner hidden">
-        <h3>📋 Gerador de Mensagem WhatsApp</h3>
+        <h3><i class="fa-solid fa-paste"></i> Gerador de Mensagem WhatsApp</h3>
         <p class="aviso-instrucao">1. Copie a mensagem abaixo. 2. Abra o grupo do WhatsApp da loja/gestão. 3. Cole e envie.</p>
         <textarea id="aviso-texto" class="aviso-textarea" readonly rows="6"></textarea>
         <div id="aviso-botoes" class="aviso-botoes">
-          <button type="button" id="btn-copiar-mensagem" class="btn-secondary">📋 Copiar mensagem</button>
-          <a id="btn-abrir-whatsapp" class="btn-whatsapp" target="_blank" rel="noopener noreferrer">📲 Abrir WhatsApp</a>
+          <button type="button" id="btn-copiar-mensagem" class="btn-secondary"><i class="fa-solid fa-copy"></i> Copiar mensagem</button>
+          <a id="btn-abrir-whatsapp" class="btn-whatsapp" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp</a>
         </div>
-        <p id="aviso-status" class="aviso-status hidden">✅ Mensagem gerada — não esqueça de enviar ao grupo!</p>
+        <p id="aviso-status" class="aviso-status hidden"><i class="fa-solid fa-circle-check"></i> Mensagem gerada — não esqueça de enviar ao grupo!</p>
       </div>
     </section>
 
@@ -341,7 +353,7 @@
       </div>
 
       <div id="alerta-sem-fechamento" class="card alerta-card hidden" role="alert">
-        <strong>⚠ Lojas sem fechamento registrado hoje:</strong>
+        <strong><i class="fa-solid fa-triangle-exclamation"></i> Lojas sem fechamento registrado hoje:</strong>
         <span id="lojas-sem-fechamento"></span>
       </div>
 
@@ -383,7 +395,7 @@
             </thead>
             <tbody></tbody>
           </table>
-          <div id="pendentes-vazio" class="empty-state hidden">Nenhum envelope pendente de retirada 🎉</div>
+          <div id="pendentes-vazio" class="empty-state hidden"><i class="fa-solid fa-circle-check" style="font-size: 2rem; color: var(--green); margin-bottom: 8px; display: block;"></i> Nenhum envelope pendente de retirada</div>
         </div>
       </div>
     </section>
@@ -733,15 +745,15 @@
       <div class="card">
         <div class="table-header">
           <div>
-            <h2>👥 Gerenciamento de Colaboradores</h2>
+            <h2><i class="fa-solid fa-users-gear"></i> Gerenciamento de Colaboradores</h2>
             <p class="section-desc" style="margin-top: 4px; opacity: 0.85; font-size: 0.9rem;">Cadastre novos colaboradores, altere PINs ou remova acessos. (Acesso exclusivo para Bruno e Isabella)</p>
           </div>
-          <button id="btn-atualizar-colaboradores" class="btn-secondary">🔄 Atualizar Lista</button>
+          <button id="btn-atualizar-colaboradores" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Atualizar Lista</button>
         </div>
 
         <!-- Form Cadastro de Colaborador -->
         <form id="form-cadastrar-colaborador" class="form-card-inner" style="margin-top: 16px; margin-bottom: 24px; padding: 18px; background: var(--bg-card-alt, rgba(0,0,0,0.03)); border-radius: 12px; border: 1px solid var(--border-color, rgba(0,0,0,0.1));">
-          <h3 style="margin-top:0; margin-bottom: 14px; font-size: 1.1rem;">➕ Cadastrar / Atualizar Colaborador</h3>
+          <h3 style="margin-top:0; margin-bottom: 14px; font-size: 1.1rem;"><i class="fa-solid fa-user-plus"></i> Cadastrar / Atualizar Colaborador</h3>
           <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
             <div class="field">
               <label for="colab-nome">Nome do Colaborador *</label>
@@ -814,6 +826,64 @@
               </button>
             </div>
             <div id="nf-file-info" class="mt-2 text-[11px] text-brand-400 font-mono"></div>
+          </div>
+
+          <!-- FLUXO VISUAL PARA ALEXANDRA (DOWNLOAD E IMPORTAÇÃO DE XMLs) -->
+          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg">
+            <h3 class="text-xs font-extrabold uppercase text-amber-400 tracking-wider mb-4 flex items-center gap-1.5 justify-center md:justify-start">
+              <i class="fa-solid fa-route text-amber-500"></i> Passo a Passo para Alexandra (Extração & Importação de XMLs)
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center text-xs font-medium">
+              <!-- Passo 1 -->
+              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+                <div class="flex flex-col items-center w-full">
+                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">1</span>
+                  <strong class="text-brand-200 text-sm">Cacau Digital</strong>
+                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Acesse o portal da Cacau Show.</p>
+                </div>
+                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              </div>
+              
+              <!-- Passo 2 -->
+              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+                <div class="flex flex-col items-center w-full">
+                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">2</span>
+                  <strong class="text-brand-200 text-sm">Pedidos > Notas Fiscais</strong>
+                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Navegue pelo menu de Pedidos e selecione Notas Fiscais.</p>
+                </div>
+                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              </div>
+
+              <!-- Passo 3 -->
+              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+                <div class="flex flex-col items-center w-full">
+                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">3</span>
+                  <strong class="text-brand-200 text-sm">Loja & Período</strong>
+                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione a loja correspondente e filtre pelo período desejado.</p>
+                </div>
+                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              </div>
+
+              <!-- Passo 4 -->
+              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+                <div class="flex flex-col items-center w-full">
+                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">4</span>
+                  <strong class="text-brand-200 text-sm">Seleciona & Baixar XMLs</strong>
+                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione as notas desejadas e clique em Baixar XMLs.</p>
+                </div>
+                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              </div>
+
+              <!-- Passo 5 -->
+              <div class="p-3 bg-amber-950/40 border border-amber-800/55 hover:border-amber-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+                <div class="flex flex-col items-center w-full">
+                  <span class="w-7 h-7 rounded-full bg-amber-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
+                  <strong class="text-amber-400 text-sm">Extrair & Importar</strong>
+                  <p class="text-[11px] text-amber-300/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
+                </div>
+                <div class="mt-2 text-amber-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
+              </div>
+            </div>
           </div>
 
           <!-- Cards Grid -->
@@ -967,16 +1037,6 @@
         <!-- Toolbar & Tabela de Estoque -->
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
           <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-            <div class="inline-flex items-center gap-2 bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-800 shadow-inner w-full sm:w-auto">
-              <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
-                <i class="fa-solid fa-store"></i> Loja:
-              </span>
-              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
-                <option value="9175" selected>Loja 9175 - Marambaia</option>
-                <option value="4304">Loja 4304 - Icoaraci</option>
-                <option value="9201">Loja 9201 - Mário Covas</option>
-              </select>
-            </div>
             <div class="relative w-full sm:w-72">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-brand-400">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -1014,6 +1074,159 @@
                 <!-- Injetado por JS -->
               </tbody>
             </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ABA: GESTÃO DE BOLETOS (FINANCEIRO EXCLUSIVO) ===================== -->
+    <section id="tab-boletos" class="tab-panel hidden" role="tabpanel">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <!-- Banner e Título -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 class="font-display text-xl font-bold text-brand-200 flex items-center gap-2">
+              <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> Gestão de Boletos e Títulos
+            </h2>
+            <p class="text-xs text-brand-400 mt-1">Módulo financeiro exclusivo para controle, importação e notificação de vencimentos de boletos.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest animate-pulse">Acesso Restrito</span>
+          </div>
+        </div>
+
+        <!-- FLUXO VISUAL PARA ALEXANDRA -->
+        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60">
+          <h3 class="text-xs font-extrabold uppercase text-amber-400 tracking-wider mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info"></i> Passo a Passo para Alexandra (Importação de Títulos)
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center text-xs font-medium">
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">1</span>
+              <strong class="text-brand-200">Cacau Digital</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Acesse a extranet da Cacau Show</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">2</span>
+              <strong class="text-brand-200">Financeiro > Título</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Navegue até a consulta de títulos</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">3</span>
+              <strong class="text-brand-200">Filtrar por Loja</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Filtre os boletos em aberto</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">4</span>
+              <strong class="text-brand-200">Imprimir em PDF</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Gere o arquivo PDF do relatório</span>
+            </div>
+            <div class="p-3 bg-amber-950/40 border border-amber-800/55 rounded-xl flex flex-col items-center animate-pulse">
+              <span class="w-6 h-6 rounded-full bg-amber-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
+              <strong class="text-amber-400">Importar no Sistema</strong>
+              <span class="text-[10px] text-amber-300/80 mt-1">Arraste ou selecione o PDF abaixo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Stat Cards Boletos -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- CARD EM VERMELHO - TÍTULOS EM ABERTO -->
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-red-600 border border-brand-900">
+            <div class="p-3 bg-red-950/60 rounded-xl text-red-500 text-xl"><i class="fa-solid fa-circle-exclamation animate-pulse"></i></div>
+            <div>
+              <div class="text-2xl font-black text-red-500" id="stat-boletos-aberto-total">R$ 0,00</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Títulos em Aberto</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
+            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-receipt"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-white" id="stat-boletos-count">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total de Boletos</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
+            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-clock"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-white" id="stat-boletos-vencendo-hoje">0</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Vencendo Hoje</div>
+            </div>
+          </div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
+            <div class="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 text-xl"><i class="fa-solid fa-check-double"></i></div>
+            <div>
+              <div class="text-2xl font-bold text-emerald-400" id="stat-boletos-pagos">R$ 0,00</div>
+              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Pago</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção de Importação de PDF -->
+        <div class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Relatório de Títulos PDF</h3>
+              <p class="text-xs text-brand-400 mt-1">Selecione o PDF exportado do portal Consulta de Títulos da Cacau Show</p>
+            </div>
+            <label class="cursor-pointer inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition shadow-md mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
+              <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
+            </label>
+            <div id="boleto-file-info" class="text-xs text-amber-400 font-mono hidden"></div>
+          </div>
+        </div>
+
+        <!-- Tabela de Boletos Importados -->
+        <div class="space-y-4">
+          <div class="flex flex-col md:flex-row justify-between items-center gap-3 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <div class="inline-flex items-center gap-2 bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-800 shadow-inner w-full sm:w-auto">
+                <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+                  <i class="fa-solid fa-store"></i> Loja:
+                </span>
+                <select id="boleto-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
+                  <option value="all">Todas as Lojas</option>
+                  <option value="9175">Loja 9175 - Marambaia</option>
+                  <option value="4304">Loja 4304 - Icoaraci</option>
+                  <option value="9201">Loja 9201 - Mário Covas</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+              <button id="boleto-filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md">Todos</button>
+              <button id="boleto-filter-aberto" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40">Em Aberto</button>
+              <button id="boleto-filter-pago" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40">Pagos</button>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Documento / Tipo</th>
+                    <th class="py-3 px-4">Loja / Empresa</th>
+                    <th class="py-3 px-4">Descrição</th>
+                    <th class="py-3 px-4 text-center">Vencimento</th>
+                    <th class="py-3 px-4 text-right">Valor</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="boletos-tbody" class="divide-y divide-brand-900/40">
+                  <tr class="text-brand-400 text-center">
+                    <td colspan="7" class="py-8">Nenhum boleto importado até o momento.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1232,19 +1445,19 @@
 
 <!-- Bottom Navigation (Mobile PWA — #7) -->
 <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile">
-  <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon">✍️</span>Registro</button>
-  <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon">📊</span>Dashboard</button>
-  <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon">📜</span>Histórico</button>
-  <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon">📅</span>Mensal</button>
-  <button class="bottom-nav-btn" data-tab="conferencia-nfe"><span class="nav-icon">🚚</span>NF-e</button>
-  <button class="bottom-nav-btn" data-tab="inventario-estoque"><span class="nav-icon">📦</span>Estoque</button>
-  <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon">🔍</span>Auditoria</button>
-  <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon">🧡</span>FA</button>
-  <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon">👥</span>Colab</button>
+  <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon"><i class="fa-solid fa-file-signature"></i></span>Registro</button>
+  <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>Dashboard</button>
+  <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>Histórico</button>
+  <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Mensal</button>
+  <button class="bottom-nav-btn" data-tab="conferencia-nfe"><span class="nav-icon"><i class="fa-solid fa-truck"></i></span>NF-e</button>
+  <button class="bottom-nav-btn" data-tab="inventario-estoque"><span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span>Estoque</button>
+  <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>Auditoria</button>
+  <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>FA</button>
+  <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span>Colab</button>
 </nav>
 
 <!-- FAB — Floating Action Button (mobile) -->
-<button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro">➕</button>
+<button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
 <script src="app.js?v=2"></script>
 </body>

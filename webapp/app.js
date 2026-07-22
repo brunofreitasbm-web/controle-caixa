@@ -60,9 +60,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos"],
   consultora_fa: ["faca-amigos"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque", "boletos"],
 };
 
 // ==========================================================================
@@ -74,9 +74,9 @@ function showToast(mensagem, tipo = "info") {
   const toast = document.createElement("div");
   toast.className = `toast ${tipo}`;
 
-  let icon = "ℹ️";
-  if (tipo === "sucesso") icon = "✅";
-  if (tipo === "erro") icon = "❌";
+  let icon = '<i class="fa-solid fa-circle-info"></i>';
+  if (tipo === "sucesso") icon = '<i class="fa-solid fa-circle-check" style="color: var(--green);"></i>';
+  if (tipo === "erro") icon = '<i class="fa-solid fa-circle-xmark" style="color: var(--red);"></i>';
 
   toast.innerHTML = `<span>${icon}</span> <span>${mensagem}</span>`;
   container.appendChild(toast);
@@ -738,7 +738,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Se for owner, sobrescrever as abas permitidas de acordo com o módulo escolhido
   if (currentUser.role === "owner" && moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
-      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "auditoria", "colaboradores"];
+      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria", "colaboradores"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos"];
@@ -746,6 +746,11 @@ function iniciarModuloBase(moduloOpcional) {
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
+  }
+
+  const nomesPermitidosBoletos = ["Alexandra", "Bruno", "Isabella"];
+  if (!nomesPermitidosBoletos.includes(currentUser.nome)) {
+    tabsPermitidas = tabsPermitidas.filter(tab => tab !== "boletos");
   }
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -3529,8 +3534,60 @@ let currentStore = '9175';
 const today = new Date();
 const formattedTodayStr = today.toLocaleDateString('pt-BR');
 
+function inicializarImportedNfs() {
+  const salvas = carregarJSON("cacaushow_imported_nfs", {});
+  const agora = new Date().getTime();
+  const limpas = {};
+  
+  for (const numNF in salvas) {
+    const nf = salvas[numNF];
+    if (nf.info && nf.info.concluidaEm) {
+      const tempoConclusao = new Date(nf.info.concluidaEm).getTime();
+      if (agora - tempoConclusao > 24 * 60 * 60 * 1000) {
+        continue;
+      }
+    }
+    if (nf.products) {
+      nf.products.forEach(p => {
+        if (p.validade) p.validade = new Date(p.validade);
+      });
+    }
+    if (nf.info && nf.info.rawEmissaoDate) {
+      nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+    }
+    limpas[numNF] = nf;
+  }
+  
+  importedNfs = limpas;
+  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+  
+  const keys = Object.keys(importedNfs);
+  if (keys.length > 0 && !activeNfNumber) {
+    activeNfNumber = keys[0];
+  }
+}
+
+function inicializarBoletos() {
+  const todos = carregarJSON("cacaushow_boletos_v1", []);
+  const agora = new Date().getTime();
+  
+  boletos = todos.filter(b => {
+    if (b.status === "Pago" && b.pagoEm) {
+      const tempoPagamento = new Date(b.pagoEm).getTime();
+      if (agora - tempoPagamento > 24 * 60 * 60 * 1000) {
+        return false;
+      }
+    }
+    return true;
+  });
+  
+  localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+}
+
 // Init Event Listeners para a Logística
 document.addEventListener('DOMContentLoaded', () => {
+  inicializarImportedNfs();
+  inicializarBoletos();
   const nfFileEl = document.getElementById('nf-file');
   if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
 
@@ -3591,6 +3648,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnBackGallery) btnBackGallery.addEventListener('click', backToNfGallery);
 
   checkMonthlyInventoryAlert();
+  inicializarBoletosTab();
 });
 
 function loadInventoryForCurrentStore() {
@@ -3813,6 +3871,7 @@ function parseXmlNfe(file, callback) {
     });
 
     importedNfs[nNF] = { info, products: productsList };
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
     activeNfNumber = nNF;
 
     if (callback) callback();
@@ -3889,6 +3948,7 @@ function parseExcelNfe(file, callback) {
     }
 
     importedNfs[numNfStr] = { info, products: productsList };
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
     activeNfNumber = numNfStr;
     if (callback) callback();
   };
@@ -4151,10 +4211,19 @@ function saveNfQuantity(code, value) {
     currentNf.products.forEach(item => {
       if (item.countedQty !== '') conferidosCount++;
     });
-    if (conferidosCount === totalItens && totalItens > 0 && !currentNf._notificadoConclusao) {
-      currentNf._notificadoConclusao = true;
-      notificarGestaoConferencia('conclusao', activeNfNumber);
+    if (conferidosCount === totalItens && totalItens > 0) {
+      if (!currentNf.info.concluidaEm) {
+        currentNf.info.concluidaEm = new Date().toISOString();
+      }
+      if (!currentNf._notificadoConclusao) {
+        currentNf._notificadoConclusao = true;
+        notificarGestaoConferencia('conclusao', activeNfNumber);
+      }
+    } else {
+      currentNf.info.concluidaEm = null;
+      currentNf._notificadoConclusao = false;
     }
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
   }
 }
 
@@ -4390,5 +4459,336 @@ function exportExcel() {
     }
   }
 }
+
+/* ==========================================================================
+   MÓDULO DE GESTÃO DE BOLETOS
+   ========================================================================== */
+
+let boletos = carregarJSON("cacaushow_boletos_v1", []);
+
+function inicializarBoletosTab() {
+  const fileInput = document.getElementById("boleto-pdf-file");
+  if (fileInput) {
+    fileInput.addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        parseBoletoPdf(file);
+        fileInput.value = "";
+      }
+    });
+  }
+
+  const storeFilter = document.getElementById("boleto-store-filter");
+  if (storeFilter) {
+    storeFilter.addEventListener("change", () => renderBoletos());
+  }
+
+  const btnAll = document.getElementById("boleto-filter-all");
+  const btnAberto = document.getElementById("boleto-filter-aberto");
+  const btnPago = document.getElementById("boleto-filter-pago");
+
+  let statusFilter = "all";
+
+  if (btnAll) {
+    btnAll.addEventListener("click", () => {
+      statusFilter = "all";
+      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
+      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40";
+      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40";
+      renderBoletos(statusFilter);
+    });
+  }
+
+  if (btnAberto) {
+    btnAberto.addEventListener("click", () => {
+      statusFilter = "Aberto";
+      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-white border border-brand-800/40";
+      btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
+      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40";
+      renderBoletos(statusFilter);
+    });
+  }
+
+  if (btnPago) {
+    btnPago.addEventListener("click", () => {
+      statusFilter = "Pago";
+      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-white border border-brand-800/40";
+      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40";
+      btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
+      renderBoletos(statusFilter);
+    });
+  }
+
+  renderBoletos();
+}
+
+async function parseBoletoPdf(file) {
+  const fileInfo = document.getElementById("boleto-file-info");
+  if (fileInfo) {
+    fileInfo.textContent = `Processando: ${file.name}...`;
+    fileInfo.classList.remove("hidden");
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const arrayBuffer = e.target.result;
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let textContent = "";
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const text = await page.getTextContent();
+        
+        const items = text.items;
+        const linesMap = {};
+        
+        items.forEach(item => {
+          const y = Math.round(item.transform[5] * 10) / 10;
+          let foundY = Object.keys(linesMap).find(key => Math.abs(parseFloat(key) - y) < 4);
+          if (!foundY) {
+            foundY = y;
+            linesMap[foundY] = [];
+          }
+          linesMap[foundY].push(item);
+        });
+
+        const sortedY = Object.keys(linesMap).sort((a, b) => parseFloat(b) - parseFloat(a));
+        sortedY.forEach(y => {
+          const lineItems = linesMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
+          textContent += lineItems.map(item => item.str).join(" ") + "\n";
+        });
+      }
+
+      const boletosExtraidos = extrairBoletosDoTexto(textContent);
+      if (boletosExtraidos.length > 0) {
+        const boletosInseridosNesteLote = [];
+        boletosExtraidos.forEach(novoB => {
+          const existeNoBanco = boletos.some(b =>
+            b.loja === novoB.loja &&
+            b.documento === novoB.documento &&
+            b.descricao === novoB.descricao &&
+            b.vencimento === novoB.vencimento &&
+            b.valor === novoB.valor
+          );
+          const existeNoLote = boletosInseridosNesteLote.some(b =>
+            b.loja === novoB.loja &&
+            b.documento === novoB.documento &&
+            b.descricao === novoB.descricao &&
+            b.vencimento === novoB.vencimento &&
+            b.valor === novoB.valor
+          );
+          if (!existeNoBanco && !existeNoLote) {
+            boletos.push(novoB);
+            boletosInseridosNesteLote.push(novoB);
+          }
+        });
+
+        localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+        renderBoletos();
+        showToast(`${boletosExtraidos.length} boletos carregados!`, "sucesso");
+        if (fileInfo) {
+          fileInfo.textContent = `Sucesso: ${boletosExtraidos.length} boletos carregados.`;
+        }
+      } else {
+        showToast("Não foi possível identificar boletos no formato do arquivo.", "erro");
+        if (fileInfo) {
+          fileInfo.textContent = "Erro: Formato de boleto não reconhecido.";
+        }
+      }
+    } catch (err) {
+      console.error("Erro PDF:", err);
+      showToast("Erro ao decodificar arquivo PDF.", "erro");
+      if (fileInfo) {
+        fileInfo.textContent = "Erro no processamento.";
+      }
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseMoedaPdf(str) {
+  if (!str) return 0;
+  let clean = str.replace(/[^\d.,]/g, '');
+  const lastDot = clean.lastIndexOf('.');
+  const lastComma = clean.lastIndexOf(',');
+  if (lastDot > lastComma) {
+    clean = clean.replace(/,/g, '');
+    return parseFloat(clean) || 0;
+  } else if (lastComma > lastDot) {
+    clean = clean.replace(/\./g, '').replace(',', '.');
+    return parseFloat(clean) || 0;
+  } else {
+    return parseFloat(clean) || 0;
+  }
+}
+
+function extrairBoletosDoTexto(text) {
+  const boletosExtraidos = [];
+  const lines = text.split('\n');
+
+  lines.forEach(line => {
+    const cleanLine = line.replace(/\s+/g, ' ').trim();
+    if (!cleanLine) return;
+
+    // Apenas extrair linhas relacionadas a Débito/Debito
+    if (!cleanLine.toLowerCase().includes("debito") && !cleanLine.toLowerCase().includes("débito")) {
+      return;
+    }
+
+    const dateRegex = /\b(\d{2})\/(\d{2})\/(\d{2,4})\b/;
+    const dateMatch = cleanLine.match(dateRegex);
+    
+    const valueRegex = /\b\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\b/;
+    const valueMatch = cleanLine.match(valueRegex);
+
+    if (dateMatch && valueMatch) {
+      let vencimento = dateMatch[0];
+      if (dateMatch[3].length === 2) {
+        vencimento = `${dateMatch[1]}/${dateMatch[2]}/20${dateMatch[3]}`;
+      }
+
+      const valor = parseMoedaPdf(valueMatch[0]);
+
+      const docRegex = /\b(\d{6,12}\s*-\s*[a-zA-Z0-9]{2,3})\b/i;
+      const docMatch = cleanLine.match(docRegex);
+      const documento = docMatch ? docMatch[1].replace(/\s+/g, '') : Math.floor(100000 + Math.random() * 900000).toString() + "-001";
+
+      let descricao = "Duplicata Cacau Show";
+      const descMatch = cleanLine.match(/(?:MATRIZ|MANAUS|LTDA|COMUNICACAO)\s+(.*?)\s+\b\d\/\d\b/i);
+      if (descMatch && descMatch[1]) {
+        descricao = descMatch[1].trim();
+      } else {
+        const codeTextMatch = cleanLine.match(/\b\d{7,10}-\s*[A-Z_0-9]+/i);
+        if (codeTextMatch) {
+          descricao = codeTextMatch[0].replace(/\s+/g, '');
+        }
+      }
+
+      let loja = "9175";
+      if (cleanLine.includes("4304") || cleanLine.toLowerCase().includes("icoaraci")) {
+        loja = "4304";
+      } else if (cleanLine.includes("9201") || cleanLine.toLowerCase().includes("mario") || cleanLine.toLowerCase().includes("mário")) {
+        loja = "9201";
+      }
+
+      boletosExtraidos.push({
+        id: uid(),
+        documento,
+        loja,
+        descricao,
+        vencimento,
+        valor,
+        status: "Aberto"
+      });
+    }
+  });
+
+  return boletosExtraidos;
+}
+
+function renderBoletos(statusFilter = "all") {
+  const storeFilter = document.getElementById("boleto-store-filter")?.value || "all";
+  const tbody = document.getElementById("boletos-tbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  let filtered = boletos.filter(b => {
+    const matchStore = (storeFilter === "all" || b.loja === storeFilter);
+    const matchStatus = (statusFilter === "all" || b.status === statusFilter);
+    return matchStore && matchStatus;
+  });
+
+  let totalAberto = 0;
+  let totalPago = 0;
+  let vencendoHoje = 0;
+  const hojeStr = new Date().toLocaleDateString("pt-BR");
+
+  boletos.forEach(b => {
+    const matchStore = (storeFilter === "all" || b.loja === storeFilter);
+    if (matchStore) {
+      if (b.status === "Aberto") {
+        totalAberto += b.valor;
+        if (b.vencimento === hojeStr) {
+          vencendoHoje++;
+        }
+      } else if (b.status === "Pago") {
+        totalPago += b.valor;
+      }
+    }
+  });
+
+  const statAberto = document.getElementById("stat-boletos-aberto-total");
+  const statCount = document.getElementById("stat-boletos-count");
+  const statVencendo = document.getElementById("stat-boletos-vencendo-hoje");
+  const statPagos = document.getElementById("stat-boletos-pagos");
+
+  if (statAberto) statAberto.textContent = formatBRL(totalAberto);
+  if (statCount) statCount.textContent = filtered.length;
+  if (statVencendo) statVencendo.textContent = vencendoHoje;
+  if (statPagos) statPagos.textContent = formatBRL(totalPago);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr class="text-brand-400 text-center">
+        <td colspan="7" class="py-8">Nenhum boleto encontrado para os filtros selecionados.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  filtered.forEach(b => {
+    const tr = document.createElement("tr");
+    let statusClass = "status-aberto";
+    if (b.status === "Pago") statusClass = "status-retirado";
+    
+    const storeLabel = b.loja === "9175" ? "Marambaia (9175)" : (b.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
+
+    let actionButtons = "";
+    const isOwner = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+
+    if (b.status === "Aberto") {
+      actionButtons += `<button class="btn-retirar" onclick="marcarBoletoComoPago('${b.id}')"><i class="fa-solid fa-check"></i> Pagar</button> `;
+    }
+    
+    if (isOwner) {
+      actionButtons += `<button class="btn-excluir" onclick="excluirBoleto('${b.id}')"><i class="fa-solid fa-trash"></i></button>`;
+    }
+
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-mono font-bold">${b.documento}</td>
+      <td class="py-3 px-4">${storeLabel}</td>
+      <td class="py-3 px-4">${b.descricao}</td>
+      <td class="py-3 px-4 text-center font-mono font-semibold">${b.vencimento}</td>
+      <td class="py-3 px-4 text-right font-mono font-bold">${formatBRL(b.valor)}</td>
+      <td class="py-3 px-4 text-center"><span class="status-pill ${statusClass}">${b.status}</span></td>
+      <td class="py-3 px-4 text-center">${actionButtons || "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.marcarBoletoComoPago = function(id) {
+  const boleto = boletos.find(b => b.id === id);
+  if (boleto) {
+    boleto.status = "Pago";
+    boleto.pagoEm = new Date().toISOString();
+    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+    renderBoletos();
+    showToast("Boleto marcado como pago!", "sucesso");
+  }
+};
+
+window.excluirBoleto = async function(id) {
+  const confirm = await showConfirm("Deseja realmente excluir este boleto?");
+  if (confirm) {
+    boletos = boletos.filter(b => b.id !== id);
+    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
+    renderBoletos();
+    showToast("Boleto excluído com sucesso.", "sucesso");
+  }
+};
+
 
 
