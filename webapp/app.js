@@ -984,6 +984,7 @@ document.getElementById("btn-trocar-usuario").addEventListener("click", () => {
   resetLoginForm();
   appEl.classList.add("hidden");
   loginOverlay.classList.remove("hidden");
+  atualizarNotificacoes();
 });
 
 function entrarNoApp() {
@@ -2116,6 +2117,7 @@ function mostrarFaGeradorMensagem(registro) {
 // LOJAS_FA moved to top of file (near LOJAS) to avoid temporal dead zone
 
 function renderFaDashboard() {
+  atualizarNotificacoes();
   const filtroLoja = document.getElementById("fa-filtro-loja-pendentes").value;
   const pendentes = registrosFA.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
 
@@ -2557,6 +2559,187 @@ modalConfirmarBtn.addEventListener("click", async function faConfirmarHandler() 
   showToast("Retirada FA confirmada com sucesso!", "sucesso");
 });
 
+// --- Notificações System ---
+function obterNotificacoesPendentes() {
+  if (!currentUser || currentUser.role !== "owner") return [];
+
+  // Obter pendências de Cacau Show
+  const cshow = (registros || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+    .map(r => ({
+      id: r.id,
+      loja: r.loja,
+      valor: Number(r.valorEnvelope) || 0,
+      data: r.dataOperacao,
+      consultor: r.consultor,
+      origem: "Cacau Show"
+    }));
+
+  // Obter pendências de Faça Amigos
+  const famigos = (registrosFA || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+    .map(r => ({
+      id: r.id,
+      loja: r.loja,
+      valor: Number(r.valorEnvelope) || 0,
+      data: r.dataOperacao,
+      consultor: r.consultor,
+      origem: "Faça Amigos"
+    }));
+
+  // Combinamos ambas e ordenamos pela data da operação (mais recente primeiro)
+  return [...cshow, ...famigos].sort((a, b) => new Date(b.data) - new Date(a.data));
+}
+
+function atualizarNotificacoes() {
+  const btnNotif = document.getElementById("btn-notificacoes");
+  const badgeNotif = document.getElementById("notificacao-badge");
+  const dropdown = document.getElementById("notifications-dropdown");
+  const list = document.getElementById("notifications-list");
+
+  if (!btnNotif || !badgeNotif) return;
+
+  if (!currentUser || currentUser.role !== "owner") {
+    btnNotif.classList.add("hidden");
+    if (dropdown) dropdown.classList.add("hidden");
+    return;
+  }
+
+  btnNotif.classList.remove("hidden");
+
+  const pendentes = obterNotificacoesPendentes();
+  
+  // Obter IDs já lidos de localStorage
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {
+    lidas = [];
+  }
+
+  // Filtrar apenas as pendências que ainda não foram marcadas como lidas
+  const unreadCount = pendentes.filter(p => !lidas.includes(p.id)).length;
+
+  if (unreadCount > 0) {
+    badgeNotif.textContent = unreadCount;
+    badgeNotif.classList.remove("hidden");
+  } else {
+    badgeNotif.classList.add("hidden");
+  }
+
+  // Renderizar a lista (limitado às últimas 7)
+  if (list) {
+    list.innerHTML = "";
+    const ultimasSete = pendentes.slice(0, 7);
+
+    if (ultimasSete.length === 0) {
+      list.innerHTML = `
+        <div class="notification-empty">
+          <i class="fa-regular fa-bell-slash"></i>
+          Nenhuma pendência recente
+        </div>
+      `;
+    } else {
+      ultimasSete.forEach(p => {
+        const isUnread = !lidas.includes(p.id);
+        const item = document.createElement("div");
+        item.className = `notification-item${isUnread ? " unread" : ""}`;
+        item.dataset.id = p.id;
+        
+        // Formatar data
+        let dataFormatada = "";
+        try {
+          dataFormatada = new Date(p.data).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+          });
+        } catch(e) {
+          dataFormatada = p.data;
+        }
+
+        const origemClass = p.origem === "Cacau Show" ? "cacau" : "faca";
+        const valorFormatado = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.valor);
+
+        item.innerHTML = `
+          <div class="notification-meta">
+            <span class="notification-origin ${origemClass}">${p.origem}</span>
+            <span class="notification-date">${dataFormatada}</span>
+          </div>
+          <div class="notification-title">${p.loja}</div>
+          <div class="notification-desc">${valorFormatado} • Reg. por ${p.consultor}</div>
+        `;
+
+        item.addEventListener("click", () => {
+          if (isUnread) {
+            marcarComoLida(p.id);
+          }
+        });
+
+        list.appendChild(item);
+      });
+    }
+  }
+}
+
+function marcarComoLida(id) {
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {}
+
+  if (!lidas.includes(id)) {
+    lidas.push(id);
+    localStorage.setItem("notificacoes_lidas", JSON.stringify(lidas));
+    atualizarNotificacoes();
+  }
+}
+
+function marcarTodasComoLidas() {
+  const pendentes = obterNotificacoesPendentes();
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {}
+
+  pendentes.forEach(p => {
+    if (!lidas.includes(p.id)) {
+      lidas.push(p.id);
+    }
+  });
+
+  localStorage.setItem("notificacoes_lidas", JSON.stringify(lidas));
+  atualizarNotificacoes();
+}
+
+// Configurar Event Listeners das notificações
+function inicializarNotificacoesListeners() {
+  const btnNotif = document.getElementById("btn-notificacoes");
+  const dropdown = document.getElementById("notifications-dropdown");
+  const btnMarcarLidas = document.getElementById("btn-marcar-todas-lidas");
+
+  if (btnNotif && dropdown) {
+    btnNotif.onclick = (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("hidden");
+    };
+  }
+
+  if (btnMarcarLidas) {
+    btnMarcarLidas.onclick = (e) => {
+      e.stopPropagation();
+      marcarTodasComoLidas();
+    };
+  }
+
+  // Fechar ao clicar fora
+  document.addEventListener("click", (e) => {
+    if (dropdown && !dropdown.classList.contains("hidden")) {
+      if (!dropdown.contains(e.target) && e.target !== btnNotif) {
+        dropdown.classList.add("hidden");
+      }
+    }
+  });
+}
+
 // --- Dashboard ---
 
 function renderDashboard() {
@@ -2564,21 +2747,7 @@ function renderDashboard() {
   const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
 
   // --- Atualizar Badge de Notificação (Pendências) ---
-  const btnNotif = document.getElementById("btn-notificacoes");
-  const badgeNotif = document.getElementById("notificacao-badge");
-  if (btnNotif && badgeNotif) {
-    if (currentUser && currentUser.role === "owner") {
-      btnNotif.classList.remove("hidden");
-      if (pendentes.length > 0) {
-        badgeNotif.textContent = pendentes.length;
-        badgeNotif.classList.remove("hidden");
-      } else {
-        badgeNotif.classList.add("hidden");
-      }
-    } else {
-      btnNotif.classList.add("hidden");
-    }
-  }
+  atualizarNotificacoes();
 
 
   const hoje = new Date().toISOString();
@@ -4024,8 +4193,42 @@ document.addEventListener('DOMContentLoaded', () => {
   registrarLimparErroAoDigitar();
   inicializarImportedNfs();
   inicializarBoletos();
+  
   const nfFileEl = document.getElementById('nf-file');
   if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
+
+  // Inicializar Drag and Drop para o Painel de NF-e
+  const nfDropZone = document.getElementById('nf-drop-zone');
+  if (nfDropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, () => {
+        nfDropZone.classList.add('border-amber-500', 'bg-brand-900/30');
+        nfDropZone.classList.remove('border-brand-700/80');
+      }, false);
+    });
+
+    ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, () => {
+        nfDropZone.classList.remove('border-amber-500', 'bg-brand-900/30');
+        nfDropZone.classList.add('border-brand-700/80');
+      }, false);
+    });
+
+    nfDropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files && files.length > 0) {
+        handleNfFiles(Array.from(files));
+      }
+    }, false);
+  }
 
   const nfSearchInput = document.getElementById('nf-search-input');
   if (nfSearchInput) {
@@ -4176,26 +4379,70 @@ function checkMonthlyInventoryAlert() {
 
 function handleNfFileUpload(event) {
   const files = Array.from(event.target.files);
+  handleNfFiles(files);
+}
+
+function handleNfFiles(files) {
   if (!files || files.length === 0) return;
 
   const infoEl = document.getElementById('nf-file-info');
-  if (infoEl) infoEl.textContent = `${files.length} nota(s) selecionada(s) para importação.`;
+  if (infoEl) {
+    infoEl.classList.remove('hidden');
+    infoEl.textContent = `Processando ${files.length} arquivo(s)...`;
+    infoEl.className = "mt-3 text-xs text-amber-400 font-mono";
+  }
 
   let processedCount = 0;
+  let successCount = 0;
+  let duplicateCount = 0;
+  let errorCount = 0;
+
+  const onProcessed = (status) => {
+    processedCount++;
+    if (status === 'success') successCount++;
+    else if (status === 'duplicate') duplicateCount++;
+    else errorCount++;
+
+    if (processedCount === files.length) {
+      renderNfCardsGallery();
+      
+      if (infoEl) {
+        infoEl.innerHTML = `
+          Importação concluída!<br>
+          ✅ ${successCount} importada(s) com sucesso<br>
+          ⚠️ ${duplicateCount} já existente(s) ignorada(s)<br>
+          ❌ ${errorCount} erro(s) ou formato inválido
+        `;
+        if (errorCount > 0) {
+          infoEl.className = "mt-3 text-xs text-red-400 font-mono bg-red-950/20 p-2.5 rounded-lg border border-red-900/40 text-left";
+        } else if (successCount > 0) {
+          infoEl.className = "mt-3 text-xs text-emerald-400 font-mono bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40 text-left";
+        } else {
+          infoEl.className = "mt-3 text-xs text-amber-400 font-mono bg-amber-950/20 p-2.5 rounded-lg border border-amber-900/40 text-left";
+        }
+      }
+
+      if (errorCount === 0 && duplicateCount === 0 && successCount > 0) {
+        showToast(`${successCount} Nota(s) Fiscal(is) importada(s) com sucesso!`, 'sucesso');
+      } else if (successCount > 0 || duplicateCount > 0) {
+        showToast(`Importação em lote concluída (${successCount} OK, ${duplicateCount} duplicados, ${errorCount} erros)`, 'info');
+      } else if (errorCount > 0) {
+        showToast(`Erro ao importar arquivos XML. Verifique o console ou detalhes.`, 'erro');
+      }
+
+      const nfFileEl = document.getElementById('nf-file');
+      if (nfFileEl) nfFileEl.value = '';
+    }
+  };
+
   files.forEach(file => {
     const fileName = file.name.toLowerCase();
     if (fileName.endsWith('.xml')) {
-      parseXmlNfe(file, () => {
-        processedCount++;
-        if (processedCount === files.length) renderNfCardsGallery();
-      });
+      parseXmlNfe(file, onProcessed);
     } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      parseExcelNfe(file, () => {
-        processedCount++;
-        if (processedCount === files.length) renderNfCardsGallery();
-      });
+      parseExcelNfe(file, onProcessed);
     } else {
-      processedCount++;
+      onProcessed('error');
     }
   });
 }
@@ -4318,8 +4565,8 @@ function parseXmlNfe(file, callback) {
       })
       .then(res => {
         if (res.status === 409) {
-          showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
-          if (callback) callback();
+          if (callback) callback('duplicate');
+          else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
           return null;
         }
         if (!res.ok) throw new Error('Erro ao salvar no servidor');
@@ -4330,31 +4577,31 @@ function parseXmlNfe(file, callback) {
           importedNfs[nNF] = { info, products: productsList };
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
           activeNfNumber = nNF;
-          showToast(`NF-e Nº ${nNF} importada com sucesso!`, 'sucesso');
+          if (callback) callback('success');
+          else showToast(`NF-e Nº ${nNF} importada com sucesso!`, 'sucesso');
           setTimeout(() => {
             if (window.carregarAuditoriaBoletos) {
               window.carregarAuditoriaBoletos();
             }
           }, 800);
-          if (callback) callback();
         }
       })
       .catch(err => {
-        showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
         console.error(err);
-        if (callback) callback();
+        if (callback) callback('error');
+        else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
       if (importedNfs[nNF]) {
-        showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
-        if (callback) callback();
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
         return;
       }
       importedNfs[nNF] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
       activeNfNumber = nNF;
-      showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
-      if (callback) callback();
+      if (callback) callback('success');
+      else showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
     }
   };
   reader.readAsText(file);
@@ -4436,8 +4683,8 @@ function parseExcelNfe(file, callback) {
       })
       .then(res => {
         if (res.status === 409) {
-          showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
-          if (callback) callback();
+          if (callback) callback('duplicate');
+          else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
           return null;
         }
         if (!res.ok) throw new Error('Erro ao salvar no servidor');
@@ -4448,26 +4695,26 @@ function parseExcelNfe(file, callback) {
           importedNfs[numNfStr] = { info, products: productsList };
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
           activeNfNumber = numNfStr;
-          showToast(`NF-e Nº ${numNfStr} importada com sucesso!`, 'sucesso');
-          if (callback) callback();
+          if (callback) callback('success');
+          else showToast(`NF-e Nº ${numNfStr} importada com sucesso!`, 'sucesso');
         }
       })
       .catch(err => {
-        showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
         console.error(err);
-        if (callback) callback();
+        if (callback) callback('error');
+        else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
       if (importedNfs[numNfStr]) {
-        showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
-        if (callback) callback();
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
         return;
       }
       importedNfs[numNfStr] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
       activeNfNumber = numNfStr;
-      showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
-      if (callback) callback();
+      if (callback) callback('success');
+      else showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
     }
   };
   reader.readAsArrayBuffer(file);
@@ -6058,4 +6305,6 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => window.location.reload(), 1500);
     });
   }
+
+  inicializarNotificacoesListeners();
 });
