@@ -13,33 +13,8 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
-<!-- Tailwind CSS CDN para Módulo de Logística -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  if (typeof console !== 'undefined' && console.warn) {
-    const _warn = console.warn;
-    console.warn = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
-      _warn.apply(console, args);
-    };
-  }
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: {
-          display: ['Outfit', 'sans-serif']
-        },
-        colors: {
-          /* Paleta neutra "slate/sage" do módulo Cacau Show — leitura suave, sem o marrom/dourado da marca */
-          brand: {
-            50: '#f5f7f8', 100: '#e8edf0', 200: '#cdd8de', 300: '#a7bac3', 400: '#7c94a1',
-            500: '#5e7583', 600: '#4a5f6c', 700: '#3c4d58', 800: '#2e3b44', 900: '#212a31', 950: '#161c21'
-          }
-        }
-      }
-    }
-  }
-</script>
+<!-- Tailwind CSS estático compilado localmente -->
+<link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <!-- EmailJS CDN -->
@@ -93,11 +68,23 @@
       <p class="modal-sub" id="login-pin-instrucao">Digite seu PIN para entrar.</p>
       <div class="field">
         <label id="login-pin-label" for="login-pin">PIN (4 dígitos)</label>
-        <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****">
+        <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
+        <div id="pin-dots-login" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        </div>
       </div>
       <div class="field hidden" id="login-pin-confirm-wrap">
         <label for="login-pin-confirm">Confirme o PIN</label>
-        <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****">
+        <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
+        <div id="pin-dots-confirm" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        </div>
       </div>
       <p id="login-msg" class="form-msg-erro hidden" role="alert"></p>
       <div class="modal-actions modal-actions-center">
@@ -115,7 +102,13 @@
     <p class="modal-sub">Você ficou inativo(a). Digite seu PIN para continuar.</p>
     <div class="field">
       <label for="session-pin">PIN (4 dígitos)</label>
-      <input type="password" id="session-pin" inputmode="numeric" maxlength="4" placeholder="****">
+      <input type="password" id="session-pin" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
+      <div id="pin-dots-session" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+      </div>
     </div>
     <p id="session-msg" class="form-msg-erro hidden" role="alert"></p>
     <div class="modal-actions modal-actions-center">
@@ -945,7 +938,12 @@
                 <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
                 <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
               </label>
-              <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden"></div>
+              <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
+                <div id="nf-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
+                <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
+                  <div id="nf-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
             </div>
 
             <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
@@ -1349,7 +1347,12 @@
               <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
               <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
             </label>
-            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden"></div>
+            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
+              <div id="boleto-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
+              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
+                <div id="boleto-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -2923,3 +2923,60 @@ body.tema-fa .topbar {
     right: -40px;
   }
 }
+
+/* --- UX/UI Engineering Improvements --- */
+
+/* Transições e Animações de Login */
+.slide-out-left {
+  animation: slideOutLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Indicador de Bolinhas do PIN */
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--wine-light);
+  background-color: transparent;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pin-dot.filled {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(127, 168, 149, 0.5);
+}
+
+/* Variáveis de Cores Consistentes (Design System) */
+:root {
+  --color-brand-primary: var(--wine);
+  --color-brand-success: var(--green);
+  --color-brand-danger: var(--red);
+}

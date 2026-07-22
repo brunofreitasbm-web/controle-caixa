@@ -989,16 +989,40 @@ function selecionarUsuarioLogin(nome) {
     loginEntrarBtn.textContent = "Criar PIN e Entrar";
   }
 
-  loginStepCards.classList.add("hidden");
-  loginStepPin.classList.remove("hidden");
-  setTimeout(() => loginPinInput.focus(), 50);
+  loginStepCards.classList.remove("slide-out-left");
+  loginStepPin.classList.remove("slide-in-right");
+  loginStepCards.classList.add("slide-out-left");
+  
+  setTimeout(() => {
+    loginStepCards.classList.add("hidden");
+    loginStepCards.classList.remove("slide-out-left");
+    loginStepPin.classList.remove("hidden");
+    loginStepPin.classList.add("slide-in-right");
+    
+    // Reset/clear dots for new input
+    updatePinDots(loginPinInput, "pin-dots-login");
+    updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
+    
+    setTimeout(() => loginPinInput.focus(), 50);
+  }, 200);
 }
 
 loginBackBtn.addEventListener("click", () => {
   loginUsuarioSelecionado = null;
+  loginStepPin.classList.remove("slide-in-right");
   loginStepPin.classList.add("hidden");
   loginStepCards.classList.remove("hidden");
+  loginStepCards.classList.add("slide-in-right");
   loginMsg.classList.add("hidden");
+  
+  loginPinInput.value = "";
+  loginPinConfirmInput.value = "";
+  updatePinDots(loginPinInput, "pin-dots-login");
+  updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
+  
+  setTimeout(() => {
+    loginStepCards.classList.remove("slide-in-right");
+  }, 350);
 });
 
 function pinValido(v) { return /^\d{4}$/.test(v); }
@@ -1007,6 +1031,8 @@ function resetLoginForm() {
   loginUsuarioSelecionado = null;
   loginPinInput.value = "";
   loginPinConfirmInput.value = "";
+  updatePinDots(loginPinInput, "pin-dots-login");
+  updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
   loginPinConfirmWrap.classList.add("hidden");
   loginMsg.classList.add("hidden");
   loginEntrarBtn.textContent = "Entrar";
@@ -3522,9 +3548,11 @@ function lockSession() {
   if (!currentUser) return;
   const overlay = document.getElementById("session-overlay");
   overlay.classList.remove("hidden");
-  document.getElementById("session-pin").value = "";
+  const sessionPin = document.getElementById("session-pin");
+  sessionPin.value = "";
+  updatePinDots(sessionPin, "pin-dots-session");
   document.getElementById("session-msg").classList.add("hidden");
-  document.getElementById("session-pin").focus();
+  sessionPin.focus();
 }
 
 // Event listeners para reset do timer
@@ -4484,7 +4512,48 @@ function setupNotificationEvents() {
   });
 }
 
+function updatePinDots(inputEl, dotsContainerId) {
+  const container = document.getElementById(dotsContainerId);
+  if (!container) return;
+  const dots = container.querySelectorAll(".pin-dot");
+  const len = inputEl.value.length;
+  dots.forEach((dot, index) => {
+    if (index < len) {
+      dot.classList.add("filled");
+    } else {
+      dot.classList.remove("filled");
+    }
+  });
+}
+
+function setupPinDotsEventHandlers() {
+  const loginPinInput = document.getElementById("login-pin");
+  const loginPinConfirmInput = document.getElementById("login-pin-confirm");
+  const sessionPinInput = document.getElementById("session-pin");
+
+  const pinInputsSetup = [
+    { input: loginPinInput, dots: "pin-dots-login" },
+    { input: loginPinConfirmInput, dots: "pin-dots-confirm" },
+    { input: sessionPinInput, dots: "pin-dots-session" }
+  ];
+  
+  pinInputsSetup.forEach(setup => {
+    if (setup.input) {
+      const container = document.getElementById(setup.dots);
+      if (container) {
+        container.addEventListener("click", () => {
+          setup.input.focus();
+        });
+      }
+      setup.input.addEventListener("input", () => {
+        updatePinDots(setup.input, setup.dots);
+      });
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  setupPinDotsEventHandlers();
   inicializarAutosaveForm();
   registrarLimparErroAoDigitar();
   inicializarImportedNfs();
@@ -4699,10 +4768,13 @@ function handleNfFiles(files) {
   if (!files || files.length === 0) return;
 
   const infoEl = document.getElementById('nf-file-info');
+  const progressBar = document.getElementById('nf-progress-bar');
+  const progressLabel = document.getElementById('nf-progress-label');
   if (infoEl) {
     infoEl.classList.remove('hidden');
-    infoEl.textContent = `Processando ${files.length} arquivo(s)...`;
     infoEl.className = "mt-3 text-xs text-brand-300 font-mono";
+    if (progressLabel) progressLabel.textContent = `Processando ${files.length} arquivo(s)... 0%`;
+    if (progressBar) progressBar.style.width = '0%';
   }
 
   let processedCount = 0;
@@ -4716,9 +4788,11 @@ function handleNfFiles(files) {
     else if (status === 'duplicate') duplicateCount++;
     else errorCount++;
 
+    const percent = Math.round((processedCount / files.length) * 100);
+    if (progressBar) progressBar.style.width = `${percent}%`;
+    if (progressLabel) progressLabel.textContent = `Processando... ${percent}% (${processedCount}/${files.length})`;
+
     if (processedCount === files.length) {
-      // Ao concluir a importação, abre automaticamente a aba da loja da última
-      // nota importada, para a colaboradora já ver o que acabou de entrar.
       if (activeNfNumber && importedNfs[activeNfNumber]) {
         nfGalleryStoreFilter = importedNfs[activeNfNumber].info.targetStore || currentStore;
       }
@@ -6201,9 +6275,12 @@ async function parseBoletoPdf(file) {
     return;
   }
   const fileInfo = document.getElementById("boleto-file-info");
+  const progressBar = document.getElementById("boleto-progress-bar");
+  const progressLabel = document.getElementById("boleto-progress-label");
   if (fileInfo) {
-    fileInfo.textContent = `Processando: ${file.name}...`;
     fileInfo.classList.remove("hidden");
+    if (progressLabel) progressLabel.textContent = `Processando: ${file.name}... 0%`;
+    if (progressBar) progressBar.style.width = "0%";
   }
 
   const reader = new FileReader();
@@ -6215,6 +6292,10 @@ async function parseBoletoPdf(file) {
       let fullText = "";
       
       for (let i = 1; i <= pdf.numPages; i++) {
+        const percent = Math.round((i / pdf.numPages) * 100);
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (progressLabel) progressLabel.textContent = `Lendo páginas... ${percent}% (${i}/${pdf.numPages})`;
+
         const page = await pdf.getPage(i);
         const text = await page.getTextContent();
         
