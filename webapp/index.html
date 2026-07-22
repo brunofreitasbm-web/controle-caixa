@@ -1598,11 +1598,22 @@
 
           <!-- Card: Configurações de Notificações -->
           <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-bell text-amber-500"></i> Canais e Regras de Notificações
-            </h3>
-            <p class="text-xs text-muted mb-4">Gerencie quais perfis de acesso recebem cada tipo de alerta e notificação por e-mail ou push.</p>
-            
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-bell text-amber-500"></i> Canais e Regras de Notificações
+                </h3>
+                <p class="text-xs text-muted mt-1">Gerencie quais perfis recebem cada tipo de alerta por email ou push notification.</p>
+              </div>
+              <div id="notif-owner-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-950/40 border border-amber-800/50 text-amber-700 hidden">
+                <i class="fa-solid fa-lock-open"></i> Edição habilitada
+              </div>
+            </div>
+
+            <div class="mb-6 p-4 rounded-lg bg-blue-950/20 border border-blue-800/40 text-xs text-blue-200">
+              <strong>💡 Tip:</strong> Apenas Owners (Bruno e Isabella) podem editar essas preferências. Colaboradores e Líderes veem em leitura.
+            </div>
+
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
@@ -1613,7 +1624,7 @@
                     <th class="py-3 px-4 text-center">Owner / Administrador</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-border" id="notif-table-body">
                   <tr>
                     <td class="py-3 px-4">
                       <div class="font-bold">Acúmulo de Envelopes (>= R$ 1.000)</div>

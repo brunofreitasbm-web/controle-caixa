@@ -75,13 +75,13 @@ const ROLE_NOTIF_MAP = {
   "owner": "owner"
 };
 
-// Notificação por tipo e perfil (default: tudo ativado)
+// Notificação por tipo e perfil (default: tudo ativado via Email)
 const DEFAULT_NOTIF_PREFS = {
-  "envelopes": { colab: true, lider: true, owner: true },
-  "inv-inicio": { colab: true, lider: true, owner: true },
-  "inv-fim": { colab: true, lider: true, owner: true },
-  "nfe": { colab: true, lider: true, owner: true },
-  "divergencia": { colab: true, lider: true, owner: true }
+  "envelopes": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "inv-inicio": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 
@@ -4258,8 +4258,6 @@ function saveNotificationPrefs(prefs) {
 }
 
 function shouldNotifyUser(notificationType, userRole) {
-  if (!currentUser || currentUser.role !== "owner") return true;
-
   const prefs = loadNotificationPrefs();
   const notifKey = notificationType;
   const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
@@ -4268,6 +4266,51 @@ function shouldNotifyUser(notificationType, userRole) {
     return prefs[notifKey][roleKey];
   }
   return true; // default: notificar
+}
+
+function getNotificationChannel(notificationType, userRole) {
+  const prefs = loadNotificationPrefs();
+  const notifKey = notificationType;
+  const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
+  const channelKey = `${roleKey}_ch`;
+
+  if (prefs[notifKey] && prefs[notifKey][channelKey]) {
+    return prefs[notifKey][channelKey];
+  }
+  return "email"; // default: email
+}
+
+function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
+  if (!destinatarios || destinatarios.length === 0) return;
+
+  if (canal === "push") {
+    // Enviar Push Notification
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.getRegistration().then(registration => {
+        if (registration && registration.showNotification) {
+          registration.showNotification(assunto, {
+            body: mensagem,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag: "notificacao-cacau",
+            requireInteraction: true
+          });
+        }
+      });
+    }
+  }
+
+  // Sempre enviar para backend (email ou push via servidor)
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: destinatarios,
+      assunto: assunto,
+      mensagem: mensagem,
+      canal: canal
+    })
+  }).catch(err => console.error('Erro ao enviar notificação:', err));
 }
 
 function initializeNotificationPrefs() {
@@ -4282,6 +4325,94 @@ function initializeNotificationPrefs() {
     if (colab) colab.checked = prefs[notifType].colab;
     if (lider) lider.checked = prefs[notifType].lider;
     if (owner) owner.checked = prefs[notifType].owner;
+  });
+}
+
+function renderNotificationTable() {
+  const tbody = document.getElementById("notif-table-body");
+  const isOwner = currentUser && currentUser.role === "owner";
+  const badgeEl = document.getElementById("notif-owner-badge");
+
+  if (isOwner && badgeEl) badgeEl.classList.remove("hidden");
+
+  const notifLabels = {
+    "envelopes": { title: "Acúmulo de Envelopes (>= R$ 1.000)", desc: "Alerta de segurança ao atingir limite em trânsito" },
+    "inv-inicio": { title: "Início de Inventário", desc: "Aviso de abertura do inventário mensal cego" },
+    "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
+    "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
+    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura" }
+  };
+
+  const prefs = loadNotificationPrefs();
+
+  Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
+    const label = notifLabels[notifType];
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td class="py-4 px-4">
+        <div class="font-bold">${label.title}</div>
+        <div class="text-[10px] text-muted">${label.desc}</div>
+      </td>
+      <td class="py-4 px-4">
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="notif-${notifType}-colab" class="notif-check" data-type="${notifType}" data-role="colab" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem; opacity: 0.7;">Email</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-colab-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Email</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-colab-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Push</span>
+          </label>
+        </div>
+      </td>
+      <td class="py-4 px-4">
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="notif-${notifType}-lider" class="notif-check" data-type="${notifType}" data-role="lider" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem; opacity: 0.7;">Ativo</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-lider-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Email</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-lider-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Push</span>
+          </label>
+        </div>
+      </td>
+      <td class="py-4 px-4">
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="notif-${notifType}-owner" class="notif-check" data-type="${notifType}" data-role="owner" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem; opacity: 0.7;">Ativo</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-owner-channel" value="email" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Email</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="notif-${notifType}-owner-channel" value="push" class="notif-channel" ${!isOwner ? "disabled" : ""} style="opacity: ${!isOwner ? 0.5 : 1};" />
+            <span style="font-size: 0.7rem;">Push</span>
+          </label>
+        </div>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  // Carregar preferências salvas
+  Object.keys(prefs).forEach(notifType => {
+    Object.keys(prefs[notifType]).forEach(role => {
+      const checkbox = document.getElementById(`notif-${notifType}-${role}`);
+      if (checkbox) checkbox.checked = prefs[notifType][role];
+    });
   });
 }
 
@@ -4319,7 +4450,7 @@ document.addEventListener('DOMContentLoaded', () => {
   registrarLimparErroAoDigitar();
   inicializarImportedNfs();
   inicializarBoletos();
-  initializeNotificationPrefs();
+  renderNotificationTable();
   setupNotificationEvents();
   
   const nfFileEl = document.getElementById('nf-file');
@@ -5000,19 +5131,13 @@ function notificarGestaoConferencia(tipo, numNF) {
     mensagem = `A conferência da NF Nº ${nfData.info.numero} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
   }
 
-  // Notificação silenciosa via backend API (Push + Email para Bruno, Isabella e Alexandra)
-  fetch('/api/notificar-gestao', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      destinatarios: getDestinatariosNotificacao('conferencia_nfe'),
-      assunto: assunto,
-      mensagem: mensagem,
-      numNF: nfData.info.numero,
-      loja: lojaNome,
-      operador: operador
-    })
-  }).catch(err => console.error('Disparo silencioso de notificação:', err));
+  // Notificação via backend API respeitando preferências de canal (Email ou Push)
+  const destinatarios = getDestinatariosNotificacao('conferencia_nfe');
+  if (destinatarios.length > 0) {
+    // Determinar canal de preferência (pega do primeiro destinatário que é owner)
+    const canal = getNotificationChannel('nfe', 'owner');
+    sendNotification(destinatarios, assunto, mensagem, canal);
+  }
 }
 
 function getLojaNomePorCodigo(codigo) {
