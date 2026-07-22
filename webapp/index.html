@@ -139,6 +139,16 @@
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
+    <!-- Seletor de Loja Ativa -->
+    <div class="sidebar-store-wrap" style="padding: 10px 14px; background: rgba(0,0,0,0.2); margin: 0 10px 10px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+      <label for="store-selector" style="display: block; font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.7; margin-bottom: 4px; color: var(--gold-color, #d9a74a);">Loja Ativa</label>
+      <select id="store-selector" style="width: 100%; background: var(--bg-dark, #1c1310); color: var(--text-color, #efe3d3); border: 1px solid var(--border-color, #4a2c20); padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        <option value="9175" selected>Loja 9175 - Marambaia</option>
+        <option value="4304">Loja 4304 - Icoaraci</option>
+        <option value="9201">Loja 9201 - Mário Covas</option>
+      </select>
+    </div>
+
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
       <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
         <span class="tab-icon">✍️</span>
@@ -871,6 +881,31 @@
           </div>
         </div>
 
+        <!-- Seção de Importação de Planilha & Ativação de Leitor de Câmera -->
+        <div id="upload-section" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-800 shadow-xl text-center">
+          <h3 class="text-lg font-bold text-brand-200 mb-2"><i class="fa-solid fa-file-excel text-emerald-500 mr-2"></i> Importar Planilha de Estoque (Excel)</h3>
+          <p class="text-xs text-brand-400 max-w-lg mx-auto mb-4">Selecione a planilha de inventário exportada do sistema ou utilize o leitor de código de barras via câmera para contagem física.</p>
+          
+          <div class="flex flex-wrap justify-center gap-3">
+            <label class="cursor-pointer inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md">
+              <i class="fa-solid fa-folder-open"></i> Selecionar Planilha Excel (.xlsx)
+              <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
+            </label>
+            <button id="btn-toggle-scanner" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md">
+              <i class="fa-solid fa-camera"></i> <span id="scanner-btn-text">Ativar Câmera Leitora</span>
+            </button>
+            <button id="btn-switch-camera" class="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-brand-300 border border-brand-800 font-bold px-3 py-2.5 rounded-xl text-xs transition">
+              <i class="fa-solid fa-camera-rotate"></i> Alternar Câmera
+            </button>
+          </div>
+          <div id="file-info" class="mt-3 text-[11px] text-brand-300 font-mono"></div>
+
+          <!-- Camera Viewport Container -->
+          <div id="scanner-container" class="hidden mt-4 w-full max-w-md mx-auto bg-black rounded-2xl overflow-hidden border border-brand-700 relative shadow-2xl">
+            <div id="reader" class="w-full"></div>
+          </div>
+        </div>
+
         <!-- Dashboard Stat Cards Inventário -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
@@ -1038,6 +1073,121 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- Email Report Modal -->
+<div id="email-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-brand-700/40 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="email-modal-card">
+    <div class="flex justify-between items-start mb-4 pb-3 border-b border-brand-900">
+      <h3 class="text-base font-bold text-brand-200 flex items-center gap-2">
+        <i class="fa-solid fa-paper-plane text-brand-400"></i> Envio de Relatório de Recebimento
+      </h3>
+      <button id="btn-close-email-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="space-y-4 text-xs">
+      <div>
+        <label class="block text-[11px] text-brand-300 font-semibold uppercase mb-1">E-mail do Destinatário (Gestão/Fiscal)</label>
+        <input type="email" id="email-recipient-input" value="gestao.cacaushow@lojas.com.br" placeholder="email@cacaushow.com.br" class="w-full bg-brand-950 border border-brand-800 rounded-xl p-3 text-white focus:outline-none focus:border-brand-500 transition">
+      </div>
+
+      <div class="bg-brand-950/60 p-3 rounded-xl border border-brand-900 text-[11px] text-brand-400">
+        O relatório resumido de todas as notas fiscais conferidas será transmitido silenciosamente para a gestão.
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button id="btn-email-cancel" class="flex-1 py-2.5 bg-brand-900 border border-brand-800 text-brand-300 font-bold rounded-xl transition">
+          Cancelar
+        </button>
+        <button id="btn-email-send-now" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2">
+          <i class="fa-solid fa-paper-plane"></i> Enviar E-mail
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WhatsApp Report Modal -->
+<div id="whatsapp-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-lg mx-4 rounded-2xl border border-emerald-500/40 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="wa-modal-card">
+    <div class="flex justify-between items-start mb-4 pb-3 border-b border-brand-900">
+      <h3 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+        <i class="fa-brands fa-whatsapp text-2xl"></i> Relatório de Recebimento de NF-e
+      </h3>
+      <button id="btn-close-wa-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="space-y-4">
+      <p class="text-xs text-brand-300">
+        Copie ou envie diretamente a mensagem formatada de recebimento para o <strong>Grupo de Gestão da Cacau Show</strong>.
+      </p>
+
+      <textarea id="wa-message-text" rows="10" readonly class="w-full bg-brand-950 border border-brand-900 rounded-xl p-3 text-xs text-brand-200 font-mono focus:outline-none custom-scrollbar select-all"></textarea>
+
+      <div class="flex gap-3 pt-2">
+        <button id="btn-wa-copy" class="flex-1 py-3 bg-brand-900 hover:bg-brand-850 border border-brand-800 text-brand-300 font-bold rounded-xl text-sm transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-copy"></i> Copiar Mensagem
+        </button>
+        <button id="btn-wa-send" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-sm transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
+          <i class="fa-brands fa-whatsapp text-lg"></i> Abrir WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scan Result Quick Count Dialog Modal -->
+<div id="quick-count-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-brand-500/30 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="modal-card">
+    <div class="flex justify-between items-start mb-4">
+      <h3 class="text-xl font-bold text-brand-300 flex items-center gap-2">
+        <i class="fa-solid fa-camera-retro text-brand-400"></i> Produto Escaneado!
+      </h3>
+      <button id="btn-close-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="space-y-4">
+      <div class="bg-brand-950 p-4 rounded-xl border border-brand-900">
+        <div class="text-xs text-brand-400 font-bold uppercase tracking-wider">Descrição</div>
+        <div class="text-lg font-bold text-white mb-2" id="modal-product-desc">-</div>
+        
+        <div class="grid grid-cols-2 gap-4 mt-2">
+          <div>
+            <span class="text-xs text-brand-400 block font-semibold">Cód. Produto</span>
+            <span class="font-mono text-sm text-brand-300 font-bold" id="modal-product-code">-</span>
+          </div>
+          <div>
+            <span class="text-xs text-brand-400 block font-semibold">Código Barras</span>
+            <span class="font-mono text-sm text-brand-300 font-bold" id="modal-product-barras">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-brand-300 font-bold uppercase mb-1">Data de Validade</label>
+        <input type="date" id="modal-product-expiry" class="w-full bg-brand-950 border border-brand-900 focus:border-brand-500 rounded-xl p-3 text-white text-base font-extrabold focus:outline-none transition">
+      </div>
+
+      <div>
+        <label class="block text-xs text-brand-300 font-bold uppercase mb-1">Quantidade Contada</label>
+        <input type="number" id="modal-product-qty" placeholder="0" class="w-full bg-brand-950 border border-brand-900 focus:border-brand-500 rounded-xl p-4 text-center text-white text-3xl font-black focus:outline-none transition">
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button id="btn-modal-cancel" class="flex-1 py-3 bg-brand-900 hover:bg-brand-850 border border-brand-800 text-brand-300 font-bold rounded-xl text-sm transition">
+          Cancelar
+        </button>
+        <button id="btn-modal-save" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white font-black rounded-xl text-sm transition shadow-lg">
+          Salvar Contagem
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Popup Toast -->
+<div id="toast" class="fixed bottom-5 right-5 bg-brand-500 text-brand-950 px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+  <i class="fa-solid fa-circle-check"></i> <span id="toast-message">Salvo com sucesso!</span>
 </div>
 
 <div id="toast-container" aria-live="polite" aria-atomic="true"></div>

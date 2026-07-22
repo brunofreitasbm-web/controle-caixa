@@ -728,7 +728,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Se for owner, sobrescrever as abas permitidas de acordo com o módulo escolhido
   if (currentUser.role === "owner" && moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
-      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores"];
+      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "auditoria", "colaboradores"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos"];
