@@ -8,6 +8,7 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const webPush = require('web-push');
+const cron = require('node-cron');
 const BCRYPT_ROUNDS = 10;
 
 function obterEmailsDestinatarios(notificationType, callback) {
@@ -402,6 +403,8 @@ function initDb() {
         `CREATE TABLE IF NOT EXISTS boletos (
           id TEXT PRIMARY KEY,
           documento TEXT,
+          docFaturamento TEXT,
+          parcela TEXT,
           loja TEXT,
           descricao TEXT,
           vencimento TEXT,
@@ -444,6 +447,19 @@ function initDb() {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
+        });
+      });
+
+      // Tenta adicionar as colunas docFaturamento/parcela em boletos já existentes
+      // (número que corresponde à NF-e no relatório de títulos, usado na Auditoria)
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE boletos ADD COLUMN docFaturamento TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE boletos ADD COLUMN parcela TEXT', [], () => resolve());
         });
       });
 
@@ -1232,17 +1248,23 @@ app.post('/api/boletos/import', (req, res) => {
 
   let promises = boletos.map(b => {
     return new Promise((resolve) => {
-      // Verificar duplicados combinando loja, documento, descricao, vencimento e valor
-      db.get(
-        'SELECT id FROM boletos WHERE loja = ? AND documento = ? AND descricao = ? AND vencimento = ? AND valor = ?',
-        [b.loja, b.documento, b.descricao, b.vencimento, b.valor],
-        (err, row) => {
+      // Duplicado = mesmo Doc. Fat. (número que corresponde à NF-e) e mesmo
+      // valor, na mesma loja. Quando o boleto não tem Doc. Fat. (cobranças
+      // sem vínculo com NF-e), cai no "Número Doc." como chave equivalente.
+      const dupQuery = b.docFaturamento
+        ? 'SELECT id FROM boletos WHERE loja = ? AND docFaturamento = ? AND valor = ?'
+        : 'SELECT id FROM boletos WHERE loja = ? AND documento = ? AND valor = ?';
+      const dupParams = b.docFaturamento
+        ? [b.loja, b.docFaturamento, b.valor]
+        : [b.loja, b.documento, b.valor];
+
+      db.get(dupQuery, dupParams, (err, row) => {
           if (err || row) {
             resolve({ status: 'ignored', boleto: b });
           } else {
             db.run(
-              'INSERT INTO boletos (id, documento, loja, descricao, vencimento, valor, status, criadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-              [b.id, b.documento, b.loja, b.descricao, b.vencimento, b.valor, b.status || 'Aberto', agora],
+              'INSERT INTO boletos (id, documento, docFaturamento, parcela, loja, descricao, vencimento, valor, status, criadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [b.id, b.documento, b.docFaturamento || null, b.parcela || null, b.loja, b.descricao, b.vencimento, b.valor, b.status || 'Aberto', agora],
               (err2) => {
                 if (err2) {
                   resolve({ status: 'error', error: err2.message, boleto: b });
@@ -1286,6 +1308,141 @@ app.delete('/api/boletos/:id', (req, res) => {
     res.json({ success: true });
   });
 });
+
+// ==========================================================================
+// BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
+// ==========================================================================
+const BACKUP_EMAIL_DESTINO = 'brunofreitasbm@gmail.com';
+const BACKUP_TABELAS = ['registros', 'registros_fa', 'nfs', 'boletos', 'colaboradores', 'logs_auditoria'];
+
+function dbAllAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err); else resolve(rows || []);
+    });
+  });
+}
+
+function dbGetAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err); else resolve(row);
+    });
+  });
+}
+
+function dbRunAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, (err) => {
+      if (err) reject(err); else resolve();
+    });
+  });
+}
+
+async function gerarBackupCompleto() {
+  const backup = {};
+  for (const tabela of BACKUP_TABELAS) {
+    const rows = await dbAllAsync(`SELECT * FROM ${tabela}`);
+    // Omitir o conteúdo das fotos (base64) do backup por e-mail, para manter
+    // o anexo leve — as fotos continuam disponíveis normalmente no app.
+    if (tabela === 'registros' || tabela === 'registros_fa') {
+      backup[tabela] = rows.map(r => ({ ...r, fotoEnvelope: r.fotoEnvelope ? '[foto omitida do backup por e-mail — disponível no app]' : null }));
+    } else {
+      backup[tabela] = rows;
+    }
+  }
+  return backup;
+}
+
+// Gera e envia o backup mensal por e-mail de forma silenciosa (sem nenhuma
+// notificação no app). Idempotente: só envia uma vez por mês de referência,
+// controlado via a tabela "configuracoes" — pode ser chamada várias vezes
+// (pelo cron do Vercel ou pelo fallback local) sem duplicar o envio.
+async function enviarBackupMensalSilencioso() {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) {
+    console.warn('[Backup Mensal] SMTP não configurado — backup não enviado.');
+    return { enviado: false, motivo: 'smtp_nao_configurado' };
+  }
+
+  const agora = new Date();
+  const referencia = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
+
+  const jaEnviado = await dbGetAsync('SELECT valor FROM configuracoes WHERE chave = ?', ['ultimoBackupMensalEnviado']);
+  if (jaEnviado && jaEnviado.valor === referencia) {
+    return { enviado: false, motivo: 'ja_enviado_este_mes', referencia };
+  }
+
+  const backup = await gerarBackupCompleto();
+  const resumo = Object.entries(backup).map(([tabela, rows]) => `${tabela}: ${rows.length}`).join('\n');
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user, pass }
+  });
+
+  const mesNome = agora.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+  await transporter.sendMail({
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    to: BACKUP_EMAIL_DESTINO,
+    subject: `📦 Backup Mensal Automático — Controle de Caixa (${mesNome})`,
+    text: `Backup automático mensal gerado em ${agora.toLocaleString('pt-BR')}.\n\nRegistros incluídos:\n${resumo}\n\nO arquivo em anexo contém todos os dados em formato JSON.`,
+    attachments: [
+      {
+        filename: `backup-controle-caixa-${referencia}.json`,
+        content: JSON.stringify(backup, null, 2),
+        contentType: 'application/json'
+      }
+    ]
+  });
+
+  await dbRunAsync(
+    "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?",
+    ['ultimoBackupMensalEnviado', referencia, referencia]
+  );
+
+  console.log(`[Backup Mensal] Enviado com sucesso para ${BACKUP_EMAIL_DESTINO} (referência ${referencia}).`);
+  return { enviado: true, referencia };
+}
+
+// Endpoint manual/opcional para forçar o backup mensal fora do agendamento
+// (ex.: teste manual). O Render roda esse servidor como processo persistente,
+// então a via principal e automática é o node-cron abaixo — este endpoint não
+// é acionado por nenhum cron de plataforma. Se quiser protegê-lo contra
+// chamadas externas, configure uma variável de ambiente CRON_SECRET no Render
+// e envie o header "Authorization: Bearer <valor>" você mesmo ao chamá-lo
+// (diferente do Vercel, o Render não injeta esse header automaticamente).
+app.get('/api/cron/backup-mensal', async (req, res) => {
+  if (process.env.CRON_SECRET) {
+    const auth = req.headers['authorization'];
+    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).json({ error: 'Não autorizado.' });
+    }
+  }
+  try {
+    const resultado = await enviarBackupMensalSilencioso();
+    res.json(resultado);
+  } catch (err) {
+    console.error('[Backup Mensal] Erro ao gerar/enviar backup:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Via principal e automática: o servidor roda como processo persistente no
+// Render, então o node-cron interno confere todo dia às 6h e envia assim que
+// vira o mês, caso ainda não tenha enviado (idempotente, ver enviarBackupMensalSilencioso).
+if (require.main === module) {
+  cron.schedule('0 6 * * *', () => {
+    enviarBackupMensalSilencioso().catch(err => {
+      console.error('[Backup Mensal] Erro na verificação diária:', err);
+    });
+  });
+}
 
 module.exports = app;
 

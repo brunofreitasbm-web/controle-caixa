@@ -1170,10 +1170,99 @@ tr.selected-row {
   max-width: 400px;
   border-top: 6px solid var(--gold);
 }
+.login-modal.login-modal-wide {
+  max-width: 480px;
+}
 .logo-dot-lg {
   width: 72px;
   height: 72px;
   margin: 0 auto 20px;
+}
+
+/* Login: grade de cards de usuário (etapa 1) */
+.login-user-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 22px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 2px;
+}
+@media (max-width: 420px) {
+  .login-user-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.login-user-card {
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  font: inherit;
+}
+.login-user-card:hover,
+.login-user-card:focus-visible {
+  border-color: var(--gold);
+  background: var(--gold-light);
+  transform: translateY(-3px);
+  outline: none;
+}
+.login-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.login-user-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* Login: etapa 2 (PIN) */
+.login-back-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px 2px;
+}
+.login-back-btn:hover {
+  color: var(--wine);
+}
+.login-user-avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+  line-height: 1;
+  margin: 0 auto 14px;
 }
 
 .modal-actions-center {

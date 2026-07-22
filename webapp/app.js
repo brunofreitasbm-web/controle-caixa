@@ -925,8 +925,12 @@ document.getElementById("btn-tema").addEventListener("click", () => {
 // LOGIN / PERFIS / PIN
 // ==========================================================================
 const loginOverlay = document.getElementById("login-overlay");
-const loginSelect = document.getElementById("login-select");
-const loginPinWrap = document.getElementById("login-pin-wrap");
+const loginStepCards = document.getElementById("login-step-cards");
+const loginStepPin = document.getElementById("login-step-pin");
+const loginUserGrid = document.getElementById("login-user-grid");
+const loginBackBtn = document.getElementById("login-back-btn");
+const loginUsuarioNomeSpan = document.getElementById("login-usuario-nome");
+const loginUsuarioAvatar = document.getElementById("login-usuario-avatar");
 const loginPinLabel = document.getElementById("login-pin-label");
 const loginPinInput = document.getElementById("login-pin");
 const loginPinConfirmWrap = document.getElementById("login-pin-confirm-wrap");
@@ -935,36 +939,46 @@ const loginMsg = document.getElementById("login-msg");
 const loginEntrarBtn = document.getElementById("login-entrar");
 const appEl = document.getElementById("app");
 
-USERS.forEach(u => {
-  const opt = document.createElement("option");
-  opt.value = u.nome;
-  opt.textContent = u.nome;
-  loginSelect.appendChild(opt);
-});
+let loginUsuarioSelecionado = null;
 
-function pinValido(v) { return /^\d{4}$/.test(v); }
+// Emojis amigáveis/carinhosos para o avatar de cada colaborador(a) — sem
+// nenhuma relação com aparência ou características pessoais. A escolha é
+// estável por nome (mesma pessoa sempre vê o mesmo emoji).
+const EMOJIS_AMIGAVEIS = ['😊', '🤗', '🥰', '😄', '✨', '🌟', '💛', '🌸', '🍀', '🌻', '💫', '🌈', '😇', '🧡'];
 
-function resetLoginForm() {
-  loginSelect.value = "";
-  loginPinInput.value = "";
-  loginPinConfirmInput.value = "";
-  loginPinWrap.classList.add("hidden");
-  loginPinConfirmWrap.classList.add("hidden");
-  loginMsg.classList.add("hidden");
-  loginEntrarBtn.textContent = "Entrar";
+function getEmojiUsuario(nome) {
+  let hash = 0;
+  for (let i = 0; i < nome.length; i++) {
+    hash = (hash * 31 + nome.charCodeAt(i)) >>> 0;
+  }
+  return EMOJIS_AMIGAVEIS[hash % EMOJIS_AMIGAVEIS.length];
 }
 
-loginSelect.addEventListener("change", () => {
-  const nome = loginSelect.value;
+function renderLoginUserGrid() {
+  loginUserGrid.innerHTML = "";
+  USERS.forEach(u => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "login-user-card";
+    card.setAttribute("role", "listitem");
+    card.innerHTML = `
+      <span class="login-user-avatar">${getEmojiUsuario(u.nome)}</span>
+      <span class="login-user-name">${u.nome}</span>
+    `;
+    card.addEventListener("click", () => selecionarUsuarioLogin(u.nome));
+    loginUserGrid.appendChild(card);
+  });
+}
+renderLoginUserGrid();
+
+function selecionarUsuarioLogin(nome) {
+  loginUsuarioSelecionado = nome;
   loginMsg.classList.add("hidden");
-  if (!nome) {
-    loginPinWrap.classList.add("hidden");
-    loginPinConfirmWrap.classList.add("hidden");
-    return;
-  }
-  loginPinWrap.classList.remove("hidden");
+  loginUsuarioNomeSpan.textContent = nome;
+  loginUsuarioAvatar.textContent = getEmojiUsuario(nome);
   loginPinInput.value = "";
   loginPinConfirmInput.value = "";
+
   if (pins[nome]) {
     loginPinLabel.textContent = "PIN (4 dígitos)";
     loginPinConfirmWrap.classList.add("hidden");
@@ -974,10 +988,34 @@ loginSelect.addEventListener("change", () => {
     loginPinConfirmWrap.classList.remove("hidden");
     loginEntrarBtn.textContent = "Criar PIN e Entrar";
   }
+
+  loginStepCards.classList.add("hidden");
+  loginStepPin.classList.remove("hidden");
+  setTimeout(() => loginPinInput.focus(), 50);
+}
+
+loginBackBtn.addEventListener("click", () => {
+  loginUsuarioSelecionado = null;
+  loginStepPin.classList.add("hidden");
+  loginStepCards.classList.remove("hidden");
+  loginMsg.classList.add("hidden");
 });
 
+function pinValido(v) { return /^\d{4}$/.test(v); }
+
+function resetLoginForm() {
+  loginUsuarioSelecionado = null;
+  loginPinInput.value = "";
+  loginPinConfirmInput.value = "";
+  loginPinConfirmWrap.classList.add("hidden");
+  loginMsg.classList.add("hidden");
+  loginEntrarBtn.textContent = "Entrar";
+  loginStepPin.classList.add("hidden");
+  loginStepCards.classList.remove("hidden");
+}
+
 loginEntrarBtn.addEventListener("click", async () => {
-  const nome = loginSelect.value;
+  const nome = loginUsuarioSelecionado;
   if (!nome) { mostrarErroLogin("Selecione seu nome."); return; }
   const user = USERS.find(u => u.nome === nome);
   const pinDigitado = loginPinInput.value.trim();
@@ -1424,6 +1462,29 @@ if (sidebarOverlayEl) sidebarOverlayEl.addEventListener("click", fecharSidebarMo
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") fecharSidebarMobile();
+});
+
+// Enter ativa o botão principal (.btn-primary) do modal/overlay aberto no
+// momento, sem precisar clicar — vale para login, PIN, confirmações
+// (showModal/showConfirm) e qualquer outro .modal-overlay visível.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const tag = e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "BUTTON" || tag === "A") return;
+
+  // Quando há mais de um overlay visível ao mesmo tempo (ex.: uma confirmação
+  // aberta por cima da tela de login), o último no DOM é o que fica
+  // visualmente por cima — todos compartilham o mesmo z-index.
+  const overlaysVisiveis = Array.from(document.querySelectorAll(".modal-overlay"))
+    .filter(o => !o.classList.contains("hidden"));
+  const overlayAberto = overlaysVisiveis[overlaysVisiveis.length - 1];
+  if (!overlayAberto) return;
+
+  const btnPrincipal = overlayAberto.querySelector(".btn-primary:not(:disabled)");
+  if (btnPrincipal) {
+    e.preventDefault();
+    btnPrincipal.click();
+  }
 });
 
 // Toggle expandir/colapsar grupos da sidebar (Acordeão suave)
@@ -3522,11 +3583,6 @@ document.getElementById("session-logout").addEventListener("click", () => {
   loginOverlay.classList.remove("hidden");
 });
 
-// Enter no campo de PIN da sessão
-document.getElementById("session-pin").addEventListener("keydown", e => {
-  if (e.key === "Enter") document.getElementById("session-unlock").click();
-});
-
 // ==========================================================================
 // RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
 // ==========================================================================
@@ -3802,17 +3858,7 @@ async function carregarColaboradores() {
 }
 
 function preencherDropdownUsuarios() {
-  const loginSelect = document.getElementById("login-select");
-  if (!loginSelect) return;
-  const valAnterior = loginSelect.value;
-  loginSelect.innerHTML = `<option value="" disabled selected>Selecione seu nome...</option>`;
-  USERS.forEach(u => {
-    const opt = document.createElement("option");
-    opt.value = u.nome;
-    opt.textContent = u.nome;
-    loginSelect.appendChild(opt);
-  });
-  if (valAnterior) loginSelect.value = valAnterior;
+  if (typeof renderLoginUserGrid === "function") renderLoginUserGrid();
 
   // Atualizar select de consultoras nos formulários
   const consultorSelect = document.getElementById("consultor");
@@ -4145,6 +4191,7 @@ let activeNfNumber = null;
 let nfSearchQuery = '';
 let html5QrCodeNf = null;
 let currentStore = '9175';
+let nfGalleryStoreFilter = null; // aba ativa da galeria de NF-e (separação física por loja)
 const today = new Date();
 const formattedTodayStr = today.toLocaleDateString('pt-BR');
 
@@ -4666,6 +4713,11 @@ function handleNfFiles(files) {
     else errorCount++;
 
     if (processedCount === files.length) {
+      // Ao concluir a importação, abre automaticamente a aba da loja da última
+      // nota importada, para a colaboradora já ver o que acabou de entrar.
+      if (activeNfNumber && importedNfs[activeNfNumber]) {
+        nfGalleryStoreFilter = importedNfs[activeNfNumber].info.targetStore || currentStore;
+      }
       renderNfCardsGallery();
       
       if (infoEl) {
@@ -5056,15 +5108,57 @@ function backToNfGallery() {
 
 function renderNfCardsGallery() {
   const nfKeys = Object.keys(importedNfs);
-  if (nfKeys.length === 0) return;
 
   document.getElementById('nf-work-area').classList.add('hidden');
   document.getElementById('nf-cards-gallery-section').classList.remove('hidden');
 
+  // Contagem de notas pendentes por loja, para os badges das abas
+  const contagemPorLoja = { '9175': 0, '4304': 0, '9201': 0 };
+  nfKeys.forEach(numNF => {
+    const nf = importedNfs[numNF];
+    const loja = nf.info.targetStore || currentStore;
+    if (contagemPorLoja[loja] !== undefined) contagemPorLoja[loja]++;
+  });
+
+  if (!nfGalleryStoreFilter) nfGalleryStoreFilter = currentStore;
+
+  // Estiliza e sincroniza as abas de loja (separação física entre equipes)
+  document.querySelectorAll('.nf-store-tab').forEach(tab => {
+    const store = tab.dataset.store;
+    const countEl = tab.querySelector('.nf-store-tab-count');
+    if (countEl) countEl.textContent = `(${contagemPorLoja[store] || 0})`;
+
+    if (store === nfGalleryStoreFilter) {
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-brand-700 text-white border-brand-600 shadow-md';
+    } else {
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-brand-950 text-brand-300 border-brand-800/40 hover:bg-brand-800 hover:text-white';
+    }
+
+    if (!tab.dataset.listenerAdded) {
+      tab.addEventListener('click', () => {
+        nfGalleryStoreFilter = store;
+        renderNfCardsGallery();
+      });
+      tab.dataset.listenerAdded = 'true';
+    }
+  });
+
   const grid = document.getElementById('nf-cards-grid');
   grid.innerHTML = '';
 
-  nfKeys.forEach(numNF => {
+  const nfKeysDaLoja = nfKeys.filter(numNF => (importedNfs[numNF].info.targetStore || currentStore) === nfGalleryStoreFilter);
+
+  if (nfKeysDaLoja.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
+        <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
+        Nenhuma Nota Fiscal pendente para ${getLojaNomePorCodigo(nfGalleryStoreFilter)}.
+      </div>
+    `;
+    return;
+  }
+
+  nfKeysDaLoja.forEach(numNF => {
     const nfData = importedNfs[numNF];
     const totalItens = nfData.products.length;
     let conferidosCount = 0;
@@ -5093,11 +5187,16 @@ function renderNfCardsGallery() {
     const lojaCodigo = nfData.info.targetStore || currentStore;
     const lojaNome = getLojaNomePorCodigo(lojaCodigo);
     const lojaAutoDetectada = nfData.info.storeAutoDetectada !== false;
-    const lojaBadgeClass = lojaAutoDetectada
-      ? 'bg-brand-800/60 text-brand-200 border border-brand-700/50'
-      : 'bg-orange-950/50 text-orange-400 border border-orange-800/50 animate-pulse';
-    const lojaBadgeIcon = lojaAutoDetectada ? 'fa-store' : 'fa-triangle-exclamation';
-    const lojaBadgeTitle = lojaAutoDetectada ? 'Loja de destino detectada automaticamente pela NF-e' : 'Loja não identificada na NF-e — confira antes de conferir';
+
+    // A aba já separa por loja — o selo só aparece quando a detecção falhou,
+    // como alerta de que essa nota pode estar na aba errada.
+    const lojaAlertaHtml = lojaAutoDetectada ? '' : `
+      <div class="mb-4">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-orange-950/50 text-orange-400 border border-orange-800/50 animate-pulse" title="Loja não identificada na NF-e — confira antes de conferir">
+          <i class="fa-solid fa-triangle-exclamation"></i> ${lojaNome} (${lojaCodigo}) — não confirmada
+        </span>
+      </div>
+    `;
 
     const card = document.createElement('div');
     card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
@@ -5106,14 +5205,10 @@ function renderNfCardsGallery() {
         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
         <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info.volumes} CX</span>
       </div>
-      <div class="mb-3">
+      <div class="${lojaAutoDetectada ? 'mb-4' : 'mb-3'}">
         <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info.numero}</span></div>
       </div>
-      <div class="mb-4">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${lojaBadgeClass}" title="${lojaBadgeTitle}">
-          <i class="fa-solid ${lojaBadgeIcon}"></i> ${lojaNome} (${lojaCodigo})
-        </span>
-      </div>
+      ${lojaAlertaHtml}
       <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
         <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
       </div>
@@ -5131,6 +5226,13 @@ function openNfConferenceDirectScanner(numNF) {
 
   // Notificar Bruno e Isabella (Push + Email) sobre início da conferência
   notificarGestaoConferencia('inicio', numNF);
+
+  // Rede de segurança: se essa NF já estava 100% conferida mas o aviso ainda
+  // não tinha sido enviado (ex.: app fechado no meio do popup), reabre o aviso
+  // bloqueante antes de deixar continuar.
+  if (importedNfs[numNF]) {
+    verificarPopupConclusaoNf(importedNfs[numNF], numNF);
+  }
 
   const scannerContainer = document.getElementById('nf-scanner-container');
   if (scannerContainer && scannerContainer.classList.contains('hidden')) {
@@ -5482,6 +5584,95 @@ function onNfScanSuccess(decodedText) {
   }
 }
 
+// Monta a mensagem curta de status da conferência para o grupo da loja.
+// Sem divergência: aviso simples de conclusão. Com divergência: resumo dos
+// itens com falta (limitado, para manter a mensagem curta).
+function montarMensagemConclusaoNfe(currentNf) {
+  const numero = currentNf.info.numero;
+  const itensComFalta = [];
+  currentNf.products.forEach(p => {
+    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+    if (counted < p.nfQty) {
+      itensComFalta.push(`${p.description} (faltou ${p.nfQty - counted})`);
+    }
+  });
+
+  if (itensComFalta.length === 0) {
+    return `✅ Conferência da NF-e Nº ${numero} concluída — sem divergências.`;
+  }
+
+  const LIMITE_ITENS = 3;
+  let listaResumo = itensComFalta.slice(0, LIMITE_ITENS).join('; ');
+  if (itensComFalta.length > LIMITE_ITENS) {
+    listaResumo += `; e mais ${itensComFalta.length - LIMITE_ITENS} item(ns)`;
+  }
+
+  return `⚠️ Conferência da NF-e Nº ${numero} concluída COM DIVERGÊNCIAS:\n${listaResumo}`;
+}
+
+// Abre o popup bloqueante de aviso ao grupo da loja. Como é um .modal-overlay
+// em tela cheia sem botão de fechar/cancelar, a pessoa não consegue voltar à
+// galeria nem abrir outra NF-e sem antes confirmar o envio da mensagem.
+function abrirPopupConclusaoNfe(currentNf, numNF) {
+  const modal = document.getElementById('modal-nf-conclusao');
+  const statusTexto = document.getElementById('nf-conclusao-status-texto');
+  const textarea = document.getElementById('nf-conclusao-texto');
+  const btnCopiar = document.getElementById('btn-nf-conclusao-copiar');
+  const btnWhatsapp = document.getElementById('btn-nf-conclusao-whatsapp');
+  const btnEnviado = document.getElementById('btn-nf-conclusao-enviado');
+  if (!modal) return;
+
+  const temDivergencia = currentNf.products.some(p => {
+    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+    return counted < p.nfQty;
+  });
+  statusTexto.textContent = temDivergencia ? 'Conferência concluída com divergências' : 'Conferência concluída';
+
+  const mensagem = montarMensagemConclusaoNfe(currentNf);
+  textarea.value = mensagem;
+
+  const storeName = getLojaNomePorCodigo(currentNf.info.targetStore || currentStore);
+  const linkGrupo = WHATSAPP_GRUPOS[storeName];
+  btnWhatsapp.href = linkGrupo ? linkGrupo : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+
+  btnCopiar.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      showToast('Mensagem copiada!', 'sucesso');
+    } catch {
+      textarea.select();
+      document.execCommand('copy');
+    }
+  };
+
+  btnEnviado.onclick = () => {
+    currentNf._mensagemEnviada = true;
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs/${numNF}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
+      }).catch(err => console.error('Erro ao sincronizar confirmação de envio:', err));
+    }
+    modal.classList.add('hidden');
+    showToast('Aviso confirmado. Pode seguir para a próxima conferência.', 'sucesso');
+  };
+
+  modal.classList.remove('hidden');
+}
+
+// Verifica se a NF-e está 100% conferida e ainda não teve o aviso de
+// conclusão enviado — se for o caso, dispara o popup bloqueante.
+function verificarPopupConclusaoNf(currentNf, numNF) {
+  const totalItens = currentNf.products.length;
+  const conferidosCount = currentNf.products.filter(p => p.countedQty !== '').length;
+  const completa = conferidosCount === totalItens && totalItens > 0;
+  if (completa && !currentNf._mensagemEnviada) {
+    abrirPopupConclusaoNfe(currentNf, numNF);
+  }
+}
+
 function saveNfQuantity(code, value) {
   if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
   const currentNf = importedNfs[activeNfNumber];
@@ -5507,9 +5698,11 @@ function saveNfQuantity(code, value) {
         currentNf._notificadoConclusao = true;
         notificarGestaoConferencia('conclusao', activeNfNumber);
       }
+      verificarPopupConclusaoNf(currentNf, activeNfNumber);
     } else {
       currentNf.info.concluidaEm = null;
       currentNf._notificadoConclusao = false;
+      currentNf._mensagemEnviada = false;
     }
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
 
@@ -5920,6 +6113,7 @@ function exportExcel() {
    ========================================================================== */
 
 let boletos = [];
+let boletosSelecionados = new Set();
 
 
 function inicializarBoletosTab() {
@@ -5974,6 +6168,12 @@ function inicializarBoletosTab() {
       renderBoletos(statusFilter);
     });
   }
+
+  const btnBatchPagar = document.getElementById("btn-boleto-batch-pagar");
+  if (btnBatchPagar) btnBatchPagar.addEventListener("click", () => window.marcarBoletosComoPagoEmLote());
+
+  const btnBatchApagar = document.getElementById("btn-boleto-batch-apagar");
+  if (btnBatchApagar) btnBatchApagar.addEventListener("click", () => window.excluirBoletosEmLote());
 
   const auditoriaStoreFilter = document.getElementById("auditoria-store-filter");
   if (auditoriaStoreFilter) {
@@ -6108,89 +6308,111 @@ function parseMoedaPdf(str) {
   }
 }
 
-// Varre uma linha do relatório de boletos em busca de uma referência de loja
-// (código 9175/4304/9201, nome da filial, ou fragmento de CNPJ — mesmos
-// fragmentos usados em detectStoreFromRazaoSocial para a NF-e), retornando o
-// código da loja encontrado ou null se a linha não trouxer nenhuma referência.
-function detectStoreFromBoletoLine(line) {
-  const upper = line.toUpperCase();
+// Varre um trecho de texto do relatório de boletos em busca de uma referência
+// de loja: código 9175/4304/9201, nome da filial, fragmento de CNPJ (mesmos
+// fragmentos usados em detectStoreFromRazaoSocial para a NF-e), ou o rótulo
+// interno do portal "Consulta de Títulos" (filtro "Lojas"), retornando o
+// código da loja encontrado ou null se não houver nenhuma referência.
+function detectStoreFromBoletoLine(texto) {
+  const upper = texto.toUpperCase();
   if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688')) return '9201';
-  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056')) return '4304';
+  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056') || upper.includes('PA BELEM CRUZEIRO') || upper.includes('PA BELÉM CRUZEIRO')) return '4304';
   if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495')) return '9175';
   return null;
 }
 
+// Extrai os boletos do texto do relatório de "Consulta de Títulos" (portal
+// Cacau Digital). O relatório é uma página web impressa em PDF: o texto de
+// uma mesma linha da tabela às vezes quebra em várias linhas internas (o
+// valor "R$" fica separado do número, por exemplo) — por isso NÃO dá pra
+// confiar em "uma linha de texto = um boleto". Em vez disso, cortamos o
+// texto inteiro em blocos usando o "Número Doc." (10 dígitos + "-" + 3
+// dígitos de sequência) como âncora, já que ele aparece de forma confiável
+// no início de cada linha da tabela, e extraímos os campos de dentro de
+// cada bloco (que pode ter quebras de linha no meio).
 function extrairBoletosDoTexto(text) {
   const boletosExtraidos = [];
-  const lines = text.split('\n');
 
-  // Contexto de loja "corrente": o relatório de títulos normalmente agrupa os
-  // boletos por loja (cabeçalho de seção com o nome/CNPJ da filial, seguido de
-  // várias linhas de boletos). Lemos o PDF inteiro mantendo esse contexto, em
-  // vez de tentar achar a loja em cada linha isolada — isso é o que realmente
-  // identifica para qual loja cada boleto foi emitido.
-  let lojaCorrente = null;
+  // A loja normalmente vem do cabeçalho do relatório (filtro "Lojas"), já que
+  // o portal gera um relatório por loja selecionada — não por linha da tabela.
+  const lojaDoRelatorio = detectStoreFromBoletoLine(text);
 
-  lines.forEach(line => {
-    const cleanLine = line.replace(/\s+/g, ' ').trim();
-    if (!cleanLine) return;
+  // Duas variações confirmadas de "Número Doc.": o padrão "10 dígitos-3
+  // dígitos" (ex.: 0091545332-002) e, para cobranças de terceiros como
+  // licenças de software, "9 dígitos-2/3 letras" (ex.: 984023952-SS). O
+  // segundo grupo usa letras propositalmente para não colidir com o "Doc.
+  // Fat." (que também tem 9 dígitos, mas sempre seguido de 3 dígitos).
+  const anchorRegex = /(?:(\d{10})-\s*(\d{3})|(\d{9})-\s*([A-Z]{2,3}))(?=\D)/g;
+  const anchors = [];
+  let m;
+  while ((m = anchorRegex.exec(text)) !== null) {
+    anchors.push({
+      index: m.index,
+      numero: m[1] || m[3],
+      seq: m[2] || m[4]
+    });
+  }
 
-    const lojaNaLinha = detectStoreFromBoletoLine(cleanLine);
-    if (lojaNaLinha) lojaCorrente = lojaNaLinha;
+  for (let i = 0; i < anchors.length; i++) {
+    const inicio = anchors[i].index;
+    const fim = i + 1 < anchors.length ? anchors[i + 1].index : text.length;
+    const bloco = text.slice(inicio, fim).replace(/\s+/g, ' ').trim();
 
-    // Apenas extrair linhas relacionadas a Débito/Debito
-    if (!cleanLine.toLowerCase().includes("debito") && !cleanLine.toLowerCase().includes("débito")) {
-      return;
+    if (!bloco.toLowerCase().includes('debito') && !bloco.toLowerCase().includes('débito')) continue;
+
+    const dateMatch = bloco.match(/\b(\d{2})\/(\d{2})\/(\d{2,4})\b/);
+    if (!dateMatch) continue;
+    let vencimento = dateMatch[0];
+    if (dateMatch[3].length === 2) {
+      vencimento = `${dateMatch[1]}/${dateMatch[2]}/20${dateMatch[3]}`;
     }
 
-    const dateRegex = /\b(\d{2})\/(\d{2})\/(\d{2,4})\b/;
-    const dateMatch = cleanLine.match(dateRegex);
+    const valueMatch = bloco.match(/R\$\s*([\d.,]*\d)/);
+    if (!valueMatch) continue;
+    const valor = parseMoedaPdf(valueMatch[1]);
+    if (!valor) continue;
 
-    const valueRegex = /\b\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\b/;
-    const valueMatch = cleanLine.match(valueRegex);
+    const documento = `${anchors[i].numero}-${anchors[i].seq}`;
 
-    if (dateMatch && valueMatch) {
-      let vencimento = dateMatch[0];
-      if (dateMatch[3].length === 2) {
-        vencimento = `${dateMatch[1]}/${dateMatch[2]}/20${dateMatch[3]}`;
-      }
+    // "Doc. Fat." — é o campo que corresponde ao número da NF-e (usado no
+    // cruzamento da Auditoria de Boletos), não o "Número Doc." acima. Nem
+    // todo boleto tem esse vínculo (cobranças que não vêm de mercadoria).
+    const docFatMatch = bloco.match(/\b(\d{6,9}-\d{3})\s+\d{2}\/\d{2}\/\d{2,4}/);
+    const docFaturamento = docFatMatch ? docFatMatch[1] : null;
 
-      const valor = parseMoedaPdf(valueMatch[0]);
+    // Nº Parcela (ex.: "1/2") — indica pagamento parcelado da mesma cobrança
+    const parcelaMatch = bloco.match(/\b(\d+\/\d+)\b/);
+    const parcela = parcelaMatch ? parcelaMatch[1] : '1/1';
 
-      // "Nº DE ORDEM" do relatório de títulos (documento-parcela, ex: "1234567-001")
-      const docRegex = /\b(\d{6,12}\s*-\s*[a-zA-Z0-9]{2,3})\b/i;
-      const docMatch = cleanLine.match(docRegex);
-      const documento = docMatch ? docMatch[1].replace(/\s+/g, '') : Math.floor(100000 + Math.random() * 900000).toString() + "-001";
-
-      let descricao = "Duplicata Cacau Show";
-      const descMatch = cleanLine.match(/(?:MATRIZ|MANAUS|LTDA|COMUNICACAO)\s+(.*?)\s+\b\d\/\d\b/i);
-      if (descMatch && descMatch[1]) {
-        descricao = descMatch[1].trim();
-      } else {
-        const codeTextMatch = cleanLine.match(/\b\d{7,10}-\s*[A-Z_0-9]+/i);
-        if (codeTextMatch) {
-          descricao = codeTextMatch[0].replace(/\s+/g, '');
-        }
-      }
-
-      // Loja de emissão do boleto: usa o contexto de seção já identificado no
-      // PDF; se a linha do próprio boleto também citar uma loja, ela tem
-      // prioridade (pode estar dentro de um bloco misto).
-      const loja = lojaNaLinha || lojaCorrente || currentStore || "9175";
-      const lojaAutoDetectada = !!(lojaNaLinha || lojaCorrente);
-
-      boletosExtraidos.push({
-        id: uid(),
-        documento,
-        loja,
-        lojaAutoDetectada,
-        descricao,
-        vencimento,
-        valor,
-        status: "Aberto"
-      });
+    let descricao = "Duplicata Cacau Show";
+    // .pop() (não [1]): "Tipo Doc." às vezes já contém "Débitos" no plural
+    // (ex.: "Outros Débitos"), o que geraria uma divisão a mais antes da
+    // coluna "Tipo" (o "Debito" de verdade).
+    const afterDebito = bloco.split(/d[eé]bito/i).pop();
+    if (afterDebito) {
+      const descMatch = afterDebito.trim().match(/^(.+?)\s+\d+\/\d+\s+\d{6,10}/);
+      if (descMatch && descMatch[1]) descricao = descMatch[1].trim();
     }
-  });
+
+    // Loja: usa o contexto do relatório; se o próprio bloco citar uma loja
+    // diferente (relatórios com "Todas as Lojas"), ela tem prioridade.
+    const lojaNoBloco = detectStoreFromBoletoLine(bloco);
+    const loja = lojaNoBloco || lojaDoRelatorio || currentStore || "9175";
+    const lojaAutoDetectada = !!(lojaNoBloco || lojaDoRelatorio);
+
+    boletosExtraidos.push({
+      id: uid(),
+      documento,
+      docFaturamento,
+      parcela,
+      loja,
+      lojaAutoDetectada,
+      descricao,
+      vencimento,
+      valor,
+      status: "Aberto"
+    });
+  }
 
   return boletosExtraidos;
 }
@@ -6272,12 +6494,17 @@ function renderBoletos(statusFilter = "all") {
   if (statVencendo) statVencendo.textContent = vencendoHoje;
   if (statPagos) statPagos.textContent = formatBRL(totalPago);
 
+  // Limpar seleção de boletos que não estão mais na lista filtrada
+  const idsFiltrados = new Set(filtered.map(b => b.id));
+  boletosSelecionados = new Set([...boletosSelecionados].filter(id => idsFiltrados.has(id)));
+
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr class="text-brand-400 text-center">
-        <td colspan="7" class="py-8">Nenhum boleto encontrado para os filtros selecionados.</td>
+        <td colspan="8" class="py-8">Nenhum boleto encontrado para os filtros selecionados.</td>
       </tr>
     `;
+    atualizarBatchBarBoletos(filtered);
     return;
   }
 
@@ -6285,7 +6512,7 @@ function renderBoletos(statusFilter = "all") {
     const tr = document.createElement("tr");
     let statusClass = "status-aberto";
     if (b.status === "Pago") statusClass = "status-retirado";
-    
+
     const storeLabel = b.loja === "9175" ? "Marambaia (9175)" : (b.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
 
     let actionButtons = "";
@@ -6294,12 +6521,16 @@ function renderBoletos(statusFilter = "all") {
     if (b.status === "Aberto") {
       actionButtons += `<button class="btn-retirar" onclick="marcarBoletoComoPago('${b.id}')"><i class="fa-solid fa-check"></i> Pagar</button> `;
     }
-    
+
     if (isOwner) {
       actionButtons += `<button class="btn-excluir" onclick="excluirBoleto('${b.id}')"><i class="fa-solid fa-trash"></i></button>`;
     }
 
+    const isSelected = boletosSelecionados.has(b.id);
+    if (isSelected) tr.classList.add("selected-row");
+
     tr.innerHTML = `
+      <td class="py-3 px-4 text-center"><input type="checkbox" class="boleto-row-check" data-id="${b.id}" ${isSelected ? "checked" : ""}></td>
       <td class="py-3 px-4 font-mono font-bold">${b.documento}</td>
       <td class="py-3 px-4">${storeLabel}</td>
       <td class="py-3 px-4">${b.descricao}</td>
@@ -6310,7 +6541,112 @@ function renderBoletos(statusFilter = "all") {
     `;
     tbody.appendChild(tr);
   });
+
+  atualizarBatchBarBoletos(filtered);
+
+  const selectAll = document.getElementById("boleto-select-all");
+  if (selectAll) {
+    selectAll.onclick = () => {
+      if (selectAll.checked) {
+        filtered.forEach(b => boletosSelecionados.add(b.id));
+      } else {
+        boletosSelecionados.clear();
+      }
+      renderBoletos(statusFilter);
+    };
+  }
+
+  tbody.querySelectorAll(".boleto-row-check").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = chk.dataset.id;
+      if (chk.checked) {
+        boletosSelecionados.add(id);
+      } else {
+        boletosSelecionados.delete(id);
+      }
+      renderBoletos(statusFilter);
+    });
+  });
 }
+
+function atualizarBatchBarBoletos(filtrados) {
+  const bar = document.getElementById("boleto-batch-actions");
+  const countInfo = document.getElementById("boleto-batch-count-info");
+  const selectAllCheckbox = document.getElementById("boleto-select-all");
+  if (!bar) return;
+
+  if (boletosSelecionados.size > 0) {
+    bar.classList.remove("hidden");
+    const selecionadosList = boletos.filter(b => boletosSelecionados.has(b.id));
+    const totalValor = selecionadosList.reduce((s, b) => s + (Number(b.valor) || 0), 0);
+    countInfo.textContent = `${boletosSelecionados.size} boleto(s) selecionado(s) (${formatBRL(totalValor)})`;
+  } else {
+    bar.classList.add("hidden");
+  }
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(b => boletosSelecionados.has(b.id));
+    selectAllCheckbox.indeterminate = boletosSelecionados.size > 0 && !selectAllCheckbox.checked;
+  }
+}
+
+window.marcarBoletosComoPagoEmLote = async function() {
+  const ids = Array.from(boletosSelecionados);
+  const selecionados = boletos.filter(b => ids.includes(b.id));
+  const abertos = selecionados.filter(b => b.status === "Aberto");
+
+  if (abertos.length === 0) {
+    showToast("Nenhum boleto em aberto selecionado — os demais já estão pagos.", "info");
+    return;
+  }
+
+  const totalValor = abertos.reduce((s, b) => s + (Number(b.valor) || 0), 0);
+  const confirmado = await showConfirm(`Confirmar pagamento de ${abertos.length} boleto(s) selecionado(s), totalizando ${formatBRL(totalValor)}?`, {
+    confirmText: "Confirmar Pagamento"
+  });
+  if (!confirmado) return;
+
+  try {
+    await Promise.all(abertos.map(b => fetch("/api/boletos/pago", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: b.id })
+    })));
+    boletosSelecionados.clear();
+    await carregarBoletosServidor();
+    showToast(`${abertos.length} boleto(s) marcado(s) como pago!`, "sucesso");
+  } catch (err) {
+    console.error(err);
+    showToast("Erro de rede ao pagar boletos em lote.", "erro");
+  }
+};
+
+window.excluirBoletosEmLote = async function() {
+  const ids = Array.from(boletosSelecionados);
+  if (ids.length === 0) return;
+
+  const confirmado = await showConfirm(`Deseja realmente excluir ${ids.length} boleto(s) selecionado(s)? Esta ação não pode ser desfeita.`, {
+    confirmText: "Excluir Selecionados",
+    confirmClass: "btn-danger"
+  });
+  if (!confirmado) return;
+
+  try {
+    const resultados = await Promise.all(ids.map(id => fetch(`/api/boletos/${id}`, { method: "DELETE" })));
+    const falhas = resultados.filter(r => !r.ok).length;
+    boletosSelecionados.clear();
+    await carregarBoletosServidor();
+    if (falhas > 0) {
+      showToast(`${ids.length - falhas} excluído(s). ${falhas} com erro.`, "info");
+    } else {
+      showToast(`${ids.length} boleto(s) excluído(s) com sucesso.`, "sucesso");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Erro de rede ao excluir boletos em lote.", "erro");
+  }
+};
 
 window.marcarBoletoComoPago = async function(id) {
   try {
@@ -6361,10 +6697,18 @@ window.carregarAuditoriaBoletos = function() {
   tbody.innerHTML = "";
 
   // 1. Group boletos by base document number and store (e.g. "123456" + "_" + "9175")
+  // Prioriza "docFaturamento" (o número que realmente corresponde à NF-e no
+  // relatório de títulos, ex.: "003902732-001" → "3902732"); boletos antigos,
+  // importados antes desse campo existir, caem no comportamento anterior
+  // (usar o próprio "documento").
   const boletosAgrupados = {};
   boletos.forEach(b => {
-    const parts = b.documento.split("-");
-    const baseDoc = parts[0].trim();
+    let baseDoc;
+    if (b.docFaturamento) {
+      baseDoc = b.docFaturamento.split("-")[0].trim().replace(/^0+/, "") || "0";
+    } else {
+      baseDoc = b.documento.split("-")[0].trim();
+    }
     const groupKey = `${baseDoc}_${b.loja}`;
     
     if (!boletosAgrupados[groupKey]) {

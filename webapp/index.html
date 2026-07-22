@@ -75,26 +75,34 @@
 
 <!-- ===================== LOGIN ===================== -->
 <div id="login-overlay" class="modal-overlay" role="dialog" aria-labelledby="login-title" aria-modal="true">
-  <div class="modal login-modal">
+  <div class="modal login-modal login-modal-wide" id="login-modal-box">
     <div class="logo-dot logo-dot-lg"></div>
-    <h2 id="login-title">Quem é você?</h2>
-    <p class="modal-sub">Selecione seu nome para entrar no HUB de Operações.</p>
-    <div class="field">
-      <select id="login-select" aria-label="Selecione seu nome">
-        <option value="" disabled selected>Selecione seu nome</option>
-      </select>
+
+    <!-- ETAPA 1: cards com o nome de cada colaborador(a) -->
+    <div id="login-step-cards">
+      <h2 id="login-title">Quem é você?</h2>
+      <p class="modal-sub">Toque no seu nome para entrar no HUB de Operações.</p>
+      <div class="login-user-grid" id="login-user-grid" role="list" aria-label="Selecione seu nome"></div>
     </div>
-    <div class="field hidden" id="login-pin-wrap">
-      <label id="login-pin-label" for="login-pin">PIN (4 dígitos)</label>
-      <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****">
-    </div>
-    <div class="field hidden" id="login-pin-confirm-wrap">
-      <label for="login-pin-confirm">Confirme o PIN</label>
-      <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****">
-    </div>
-    <p id="login-msg" class="form-msg-erro hidden" role="alert"></p>
-    <div class="modal-actions modal-actions-center">
-      <button id="login-entrar" class="btn-primary">Entrar</button>
+
+    <!-- ETAPA 2: PIN da pessoa selecionada -->
+    <div id="login-step-pin" class="hidden">
+      <button type="button" id="login-back-btn" class="login-back-btn"><i class="fa-solid fa-arrow-left"></i> Trocar nome</button>
+      <div class="login-user-avatar-lg" id="login-usuario-avatar"></div>
+      <h2 id="login-title-pin">Olá, <span id="login-usuario-nome"></span></h2>
+      <p class="modal-sub" id="login-pin-instrucao">Digite seu PIN para entrar.</p>
+      <div class="field">
+        <label id="login-pin-label" for="login-pin">PIN (4 dígitos)</label>
+        <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****">
+      </div>
+      <div class="field hidden" id="login-pin-confirm-wrap">
+        <label for="login-pin-confirm">Confirme o PIN</label>
+        <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****">
+      </div>
+      <p id="login-msg" class="form-msg-erro hidden" role="alert"></p>
+      <div class="modal-actions modal-actions-center">
+        <button id="login-entrar" class="btn-primary">Entrar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -224,10 +232,6 @@
       </div>
 
       <!-- Outras opções do sistema -->
-      <button class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria">
-        <span class="tab-icon"><i class="fa-solid fa-user-shield"></i></span>
-        <span class="tab-text">Auditoria</span>
-      </button>
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
         <span class="tab-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
         <span class="tab-text">Faça Amigos (Financeiro)</span>
@@ -1019,6 +1023,19 @@
             </div>
           </div>
 
+          <!-- Abas por Loja: cada loja é fisicamente separada, com equipes diferentes -->
+          <div class="flex flex-wrap gap-2" id="nf-store-tabs" role="tablist" aria-label="Filtrar Notas Fiscais por loja">
+            <button type="button" class="nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border" data-store="9175">
+              <i class="fa-solid fa-store mr-1"></i> Marambaia <span class="nf-store-tab-count opacity-70">(0)</span>
+            </button>
+            <button type="button" class="nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border" data-store="4304">
+              <i class="fa-solid fa-store mr-1"></i> Icoaraci <span class="nf-store-tab-count opacity-70">(0)</span>
+            </button>
+            <button type="button" class="nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border" data-store="9201">
+              <i class="fa-solid fa-store mr-1"></i> Mário Covas <span class="nf-store-tab-count opacity-70">(0)</span>
+            </button>
+          </div>
+
           <!-- Cards Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="nf-cards-grid">
             <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
@@ -1360,11 +1377,20 @@
             </div>
           </div>
 
+          <div id="boleto-batch-actions" class="batch-actions-bar hidden">
+            <span id="boleto-batch-count-info">0 boletos selecionados (R$ 0,00)</span>
+            <div class="flex gap-2">
+              <button id="btn-boleto-batch-pagar" class="btn-primary btn-batch"><i class="fa-solid fa-check"></i> Pagar selecionados</button>
+              <button id="btn-boleto-batch-apagar" class="btn-secondary btn-batch" style="color: var(--red); border-color: var(--red);"><i class="fa-solid fa-trash-can"></i> Apagar selecionados</button>
+            </div>
+          </div>
+
           <div class="table-wrap">
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="boleto-select-all" title="Selecionar todos os boletos"></th>
                     <th class="py-3 px-4">Documento / Tipo</th>
                     <th class="py-3 px-4">Loja / Empresa</th>
                     <th class="py-3 px-4">Descrição</th>
@@ -1376,7 +1402,7 @@
                 </thead>
                 <tbody id="boletos-tbody" class="divide-y divide-brand-900/40">
                   <tr class="text-brand-400 text-center">
-                    <td colspan="7" class="py-8">Nenhum boleto importado até o momento.</td>
+                    <td colspan="8" class="py-8">Nenhum boleto importado até o momento.</td>
                   </tr>
                 </tbody>
               </table>
@@ -1647,6 +1673,21 @@
             </div>
           </div>
 
+          <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
+          <button type="button" class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-user-shield"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
           <!-- Card: Manutenção & Dados -->
           <div class="card p-6 rounded-2xl border border-border md:col-span-2">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
@@ -1745,6 +1786,24 @@
     <div class="modal-actions">
       <button id="modal-cancelar" class="btn-secondary">Cancelar</button>
       <button id="modal-confirmar" class="btn-primary">Confirmar Retirada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: conclusão de conferência de NF-e (obrigatório enviar aviso antes de prosseguir) -->
+<div id="modal-nf-conclusao" class="modal-overlay hidden" role="dialog" aria-labelledby="nf-conclusao-title" aria-modal="true">
+  <div class="modal" style="max-width: 480px;">
+    <h3 id="nf-conclusao-title"><i class="fa-solid fa-clipboard-check"></i> <span id="nf-conclusao-status-texto">Conferência concluída</span></h3>
+    <p class="modal-sub">Envie o aviso no grupo da loja antes de iniciar outra conferência.</p>
+    <div class="field">
+      <textarea id="nf-conclusao-texto" class="aviso-textarea" readonly rows="6"></textarea>
+    </div>
+    <div class="aviso-botoes">
+      <button type="button" id="btn-nf-conclusao-copiar" class="btn-secondary"><i class="fa-solid fa-copy"></i> Copiar mensagem</button>
+      <a id="btn-nf-conclusao-whatsapp" class="btn-whatsapp" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp</a>
+    </div>
+    <div class="modal-actions modal-actions-center" style="margin-top: 18px;">
+      <button type="button" id="btn-nf-conclusao-enviado" class="btn-primary">Já enviei a mensagem — Continuar</button>
     </div>
   </div>
 </div>
