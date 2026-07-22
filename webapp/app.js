@@ -4782,7 +4782,31 @@ function parseXmlNfe(file, callback) {
     const xNomeDest = xmlDoc.querySelector('dest > xNome') ? xmlDoc.querySelector('dest > xNome').textContent : '';
     const cnpjDest = xmlDoc.querySelector('dest > CNPJ') ? xmlDoc.querySelector('dest > CNPJ').textContent : '';
 
-    const targetStore = detectStoreFromRazaoSocial(`${xNomeDest} ${cnpjDest}`) || currentStore;
+    const storeDetectada = detectStoreFromRazaoSocial(`${xNomeDest} ${cnpjDest}`);
+    const targetStore = storeDetectada || currentStore;
+
+    // Duplicatas/parcelas de cobrança da NF-e (grupo <cobr><dup>): cada parcela traz
+    // Nº de Ordem (nDup), Vencimento (dVenc) e Valor (vDup) — usado na Auditoria de
+    // Boletos para cruzar cada parcela individualmente (parcelamento = várias duplicatas).
+    const duplicatas = [];
+    xmlDoc.querySelectorAll('cobr > dup').forEach(dup => {
+      const nDup = dup.querySelector('nDup') ? dup.querySelector('nDup').textContent.trim() : '';
+      const dVencRaw = dup.querySelector('dVenc') ? dup.querySelector('dVenc').textContent.trim() : '';
+      const vDupRaw = dup.querySelector('vDup') ? dup.querySelector('vDup').textContent.trim() : '';
+      if (!nDup && !dVencRaw && !vDupRaw) return;
+
+      let vencimentoFormatado = '';
+      if (dVencRaw) {
+        const dVencDate = new Date(dVencRaw + 'T12:00:00');
+        vencimentoFormatado = !isNaN(dVencDate.getTime()) ? formatDate(dVencDate) : dVencRaw;
+      }
+
+      duplicatas.push({
+        nDup: nDup,
+        vencimento: vencimentoFormatado,
+        valor: parseFloat(vDupRaw) || 0
+      });
+    });
 
     const vNFEl = xmlDoc.querySelector('total > ICMSTot > vNF') || xmlDoc.querySelector('vNF');
     const valorTotal = vNFEl ? parseFloat(vNFEl.textContent) : 0;
@@ -4801,8 +4825,14 @@ function parseXmlNfe(file, callback) {
       fornecedor: xNomeEmit,
       destinatario: xNomeDest,
       targetStore: targetStore,
-      valorTotal: valorTotal
+      storeAutoDetectada: !!storeDetectada,
+      valorTotal: valorTotal,
+      duplicatas: duplicatas
     };
+
+    if (!storeDetectada) {
+      showToast(`NF-e Nº ${nNF}: loja de destino não identificada pelo destinatário/CNPJ. Alocada à Loja Ativa (${getLojaNomePorCodigo(currentStore)}) — confira antes de conferir.`, 'erro');
+    }
 
     const detElements = xmlDoc.querySelectorAll('det');
     const productsList = [];
@@ -4943,7 +4973,8 @@ function parseExcelNfe(file, callback) {
       emissao: formattedTodayStr,
       volumes: '1',
       fornecedor: 'Cacau Show CD',
-      targetStore: currentStore
+      targetStore: currentStore,
+      storeAutoDetectada: false
     };
 
     const productsList = [];
@@ -5059,6 +5090,15 @@ function renderNfCardsGallery() {
       statusBadgeClass = 'bg-orange-600 text-white font-extrabold shadow-md animate-pulse';
     }
 
+    const lojaCodigo = nfData.info.targetStore || currentStore;
+    const lojaNome = getLojaNomePorCodigo(lojaCodigo);
+    const lojaAutoDetectada = nfData.info.storeAutoDetectada !== false;
+    const lojaBadgeClass = lojaAutoDetectada
+      ? 'bg-brand-800/60 text-brand-200 border border-brand-700/50'
+      : 'bg-orange-950/50 text-orange-400 border border-orange-800/50 animate-pulse';
+    const lojaBadgeIcon = lojaAutoDetectada ? 'fa-store' : 'fa-triangle-exclamation';
+    const lojaBadgeTitle = lojaAutoDetectada ? 'Loja de destino detectada automaticamente pela NF-e' : 'Loja não identificada na NF-e — confira antes de conferir';
+
     const card = document.createElement('div');
     card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
     card.innerHTML = `
@@ -5066,10 +5106,13 @@ function renderNfCardsGallery() {
         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
         <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info.volumes} CX</span>
       </div>
+      <div class="mb-3">
+        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info.numero}</span></div>
+      </div>
       <div class="mb-4">
-        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal</div>
-        <div class="text-2xl font-black text-white font-mono">Nº ${nfData.info.numero}</div>
-        <div class="text-xs text-brand-300 mt-1 truncate">${nfData.info.fornecedor}</div>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${lojaBadgeClass}" title="${lojaBadgeTitle}">
+          <i class="fa-solid ${lojaBadgeIcon}"></i> ${lojaNome} (${lojaCodigo})
+        </span>
       </div>
       <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
         <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
@@ -5239,7 +5282,7 @@ function toggleNfScanner() {
 }
 
 function startNfScanner(selectedCameraId = null) {
-  if (typeof Html5QrCode === 'undefined') {
+  if (typeof Html5Qrcode === 'undefined') {
     showToast("Biblioteca de QR Code não carregada.", "erro");
     resetNfScannerUI();
     return;
@@ -5258,7 +5301,7 @@ function startNfScanner(selectedCameraId = null) {
   }
 
   if (html5QrCodeNf === null) {
-    html5QrCodeNf = new Html5QrCode("nf-reader");
+    html5QrCodeNf = new Html5Qrcode("nf-reader");
   }
 
   const config = { fps: 15, qrbox: { width: 300, height: 180 } };
@@ -5288,7 +5331,7 @@ function startNfScanner(selectedCameraId = null) {
     });
 
   function fallbackToCameraList() {
-    Html5QrCode.getCameras()
+    Html5Qrcode.getCameras()
       .then(cameras => {
         if (!cameras || cameras.length === 0) {
           showToast("Nenhuma câmera encontrada no aparelho.", "erro");
@@ -5370,7 +5413,7 @@ function startNfScanner(selectedCameraId = null) {
     if (providedCameras) {
       populate(providedCameras);
     } else {
-      Html5QrCode.getCameras()
+      Html5Qrcode.getCameras()
         .then(cameras => {
           populate(cameras);
         })
@@ -5987,6 +6030,12 @@ async function parseBoletoPdf(file) {
       }
 
       const boletosExtraidos = extrairBoletosDoTexto(textContent);
+
+      const semLojaDetectada = boletosExtraidos.filter(b => !b.lojaAutoDetectada).length;
+      if (semLojaDetectada > 0) {
+        showToast(`${semLojaDetectada} boleto(s) sem loja identificada no PDF — alocado(s) à Loja Ativa. Confira antes de conferir.`, 'erro');
+      }
+
       if (boletosExtraidos.length > 0) {
         try {
           const res = await fetch("/api/boletos/import", {
@@ -6059,13 +6108,35 @@ function parseMoedaPdf(str) {
   }
 }
 
+// Varre uma linha do relatório de boletos em busca de uma referência de loja
+// (código 9175/4304/9201, nome da filial, ou fragmento de CNPJ — mesmos
+// fragmentos usados em detectStoreFromRazaoSocial para a NF-e), retornando o
+// código da loja encontrado ou null se a linha não trouxer nenhuma referência.
+function detectStoreFromBoletoLine(line) {
+  const upper = line.toUpperCase();
+  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688')) return '9201';
+  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056')) return '4304';
+  if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495')) return '9175';
+  return null;
+}
+
 function extrairBoletosDoTexto(text) {
   const boletosExtraidos = [];
   const lines = text.split('\n');
 
+  // Contexto de loja "corrente": o relatório de títulos normalmente agrupa os
+  // boletos por loja (cabeçalho de seção com o nome/CNPJ da filial, seguido de
+  // várias linhas de boletos). Lemos o PDF inteiro mantendo esse contexto, em
+  // vez de tentar achar a loja em cada linha isolada — isso é o que realmente
+  // identifica para qual loja cada boleto foi emitido.
+  let lojaCorrente = null;
+
   lines.forEach(line => {
     const cleanLine = line.replace(/\s+/g, ' ').trim();
     if (!cleanLine) return;
+
+    const lojaNaLinha = detectStoreFromBoletoLine(cleanLine);
+    if (lojaNaLinha) lojaCorrente = lojaNaLinha;
 
     // Apenas extrair linhas relacionadas a Débito/Debito
     if (!cleanLine.toLowerCase().includes("debito") && !cleanLine.toLowerCase().includes("débito")) {
@@ -6074,7 +6145,7 @@ function extrairBoletosDoTexto(text) {
 
     const dateRegex = /\b(\d{2})\/(\d{2})\/(\d{2,4})\b/;
     const dateMatch = cleanLine.match(dateRegex);
-    
+
     const valueRegex = /\b\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\b/;
     const valueMatch = cleanLine.match(valueRegex);
 
@@ -6086,6 +6157,7 @@ function extrairBoletosDoTexto(text) {
 
       const valor = parseMoedaPdf(valueMatch[0]);
 
+      // "Nº DE ORDEM" do relatório de títulos (documento-parcela, ex: "1234567-001")
       const docRegex = /\b(\d{6,12}\s*-\s*[a-zA-Z0-9]{2,3})\b/i;
       const docMatch = cleanLine.match(docRegex);
       const documento = docMatch ? docMatch[1].replace(/\s+/g, '') : Math.floor(100000 + Math.random() * 900000).toString() + "-001";
@@ -6101,17 +6173,17 @@ function extrairBoletosDoTexto(text) {
         }
       }
 
-      let loja = "9175";
-      if (cleanLine.includes("4304") || cleanLine.toLowerCase().includes("icoaraci")) {
-        loja = "4304";
-      } else if (cleanLine.includes("9201") || cleanLine.toLowerCase().includes("mario") || cleanLine.toLowerCase().includes("mário")) {
-        loja = "9201";
-      }
+      // Loja de emissão do boleto: usa o contexto de seção já identificado no
+      // PDF; se a linha do próprio boleto também citar uma loja, ela tem
+      // prioridade (pode estar dentro de um bloco misto).
+      const loja = lojaNaLinha || lojaCorrente || currentStore || "9175";
+      const lojaAutoDetectada = !!(lojaNaLinha || lojaCorrente);
 
       boletosExtraidos.push({
         id: uid(),
         documento,
         loja,
+        lojaAutoDetectada,
         descricao,
         vencimento,
         valor,
@@ -6389,29 +6461,88 @@ window.carregarAuditoriaBoletos = function() {
     }
 
     if (nfe && bg) {
-      const diff = Math.abs(valorNfe - valorBoletos);
-      
       const nfeStore = nfe.info.targetStore || "9175";
       const boletoStores = Array.from(bg.lojas);
       const storeMismatch = !boletoStores.includes(nfeStore);
+      const duplicatas = nfe.info.duplicatas || [];
 
-      if (diff > 0.05) {
-        isDivergent = true;
-        divergenciasCount++;
-        statusText = `Divergência de Valor`;
-        descDivergencia = `Diferença de ${formatBRL(diff)}`;
-        statusClass = "bg-red-950 text-red-400 border border-red-900/40";
-        notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
-      } else if (storeMismatch) {
+      if (storeMismatch) {
         isDivergent = true;
         divergenciasCount++;
         statusText = "Loja Divergente";
         descDivergencia = `NF-e na loja ${nfeStore}, Títulos na loja ${boletoStores.join(', ')}`;
         statusClass = "bg-orange-950 text-orange-400 border border-orange-900/40";
         notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+      } else if (duplicatas.length > 0) {
+        // Cruzamento por parcela: cada duplicata da NF-e (Nº de Ordem / Vencimento /
+        // Valor) é pareada com um boleto do grupo. Cobre parcelamento (2+ duplicatas
+        // com vencimentos e valores diferentes para a mesma NF-e) comparando cada
+        // parcela individualmente, em vez de só bater o total.
+        const boletosDisponiveis = bg.boletosRef.slice();
+        const problemas = [];
+
+        duplicatas.forEach(dup => {
+          // 1ª tentativa: casar pelo sufixo do documento (Nº de Ordem / nDup)
+          let idx = boletosDisponiveis.findIndex(b => {
+            const sufixo = (b.documento.split("-")[1] || "").replace(/^0+/, "");
+            const nDupLimpo = (dup.nDup || "").replace(/^0+/, "");
+            return sufixo && nDupLimpo && sufixo === nDupLimpo;
+          });
+
+          // 2ª tentativa: casar pelo boleto de valor mais próximo ainda disponível
+          if (idx === -1 && boletosDisponiveis.length > 0) {
+            idx = boletosDisponiveis.reduce((melhorIdx, b, i) => {
+              const diffAtual = Math.abs(b.valor - dup.valor);
+              const diffMelhor = melhorIdx === -1 ? Infinity : Math.abs(boletosDisponiveis[melhorIdx].valor - dup.valor);
+              return diffAtual < diffMelhor ? i : melhorIdx;
+            }, -1);
+          }
+
+          if (idx === -1) {
+            problemas.push(`Parcela ${dup.nDup || '—'} (Venc. ${dup.vencimento || '—'}, ${formatBRL(dup.valor)}): sem boleto correspondente`);
+            return;
+          }
+
+          const boletoPareado = boletosDisponiveis[idx];
+          boletosDisponiveis.splice(idx, 1);
+
+          const valorDivergente = Math.abs(boletoPareado.valor - dup.valor) > 0.05;
+          const vencDivergente = !!dup.vencimento && boletoPareado.vencimento !== dup.vencimento;
+
+          if (valorDivergente || vencDivergente) {
+            const partes = [];
+            if (vencDivergente) partes.push(`vencimento NF-e ${dup.vencimento} ≠ boleto ${boletoPareado.vencimento}`);
+            if (valorDivergente) partes.push(`valor NF-e ${formatBRL(dup.valor)} ≠ boleto ${formatBRL(boletoPareado.valor)}`);
+            problemas.push(`Doc. ${boletoPareado.documento}: ${partes.join(' e ')}`);
+          }
+        });
+
+        if (problemas.length > 0) {
+          isDivergent = true;
+          divergenciasCount++;
+          statusText = duplicatas.length > 1 ? "Divergência de Parcela" : "Divergência de Valor";
+          descDivergencia = problemas.join(' | ');
+          statusClass = "bg-red-950 text-red-400 border border-red-900/40";
+          notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+        } else {
+          statusText = "Conciliado";
+          statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+        }
       } else {
-        statusText = "Conciliado";
-        statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+        // Sem detalhe de duplicatas na NF-e (XML antigo ou importado via Excel):
+        // volta à comparação por total, como antes.
+        const diff = Math.abs(valorNfe - valorBoletos);
+        if (diff > 0.05) {
+          isDivergent = true;
+          divergenciasCount++;
+          statusText = "Divergência de Valor";
+          descDivergencia = `Diferença de ${formatBRL(diff)}`;
+          statusClass = "bg-red-950 text-red-400 border border-red-900/40";
+          notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
+        } else {
+          statusText = "Conciliado";
+          statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+        }
       }
     } else if (bg && !nfe) {
       isDivergent = true;
