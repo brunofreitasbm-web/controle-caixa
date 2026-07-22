@@ -14,6 +14,7 @@ const THEME_KEY = "cacaushow_theme";
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
 
 const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
+const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
 
 // --- CONFIGURAÇÃO MANUAL DOS GRUPOS DE WHATSAPP ---
 // Cole aqui o link de convite do grupo do WhatsApp de cada loja.
@@ -981,18 +982,21 @@ document.getElementById("fab-novo-registro").addEventListener("click", () => {
 });
 
 // Navegação por teclado nas tabs (seta esquerda/direita)
-document.querySelector(".tabs").addEventListener("keydown", e => {
-  const visibleTabs = [...document.querySelectorAll(".tab-btn:not(.hidden)")];
-  const currentIndex = visibleTabs.indexOf(document.activeElement);
-  if (currentIndex === -1) return;
-  let newIndex = currentIndex;
-  if (e.key === "ArrowRight") newIndex = (currentIndex + 1) % visibleTabs.length;
-  else if (e.key === "ArrowLeft") newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
-  else return;
-  e.preventDefault();
-  visibleTabs[newIndex].focus();
-  ativarTab(visibleTabs[newIndex].dataset.tab);
-});
+const tabsContainer = document.querySelector(".tabs") || document.querySelector(".sidebar-nav");
+if (tabsContainer) {
+  tabsContainer.addEventListener("keydown", e => {
+    const visibleTabs = [...document.querySelectorAll(".tab-btn:not(.hidden)")];
+    const currentIndex = visibleTabs.indexOf(document.activeElement);
+    if (currentIndex === -1) return;
+    let newIndex = currentIndex;
+    if (e.key === "ArrowRight") newIndex = (currentIndex + 1) % visibleTabs.length;
+    else if (e.key === "ArrowLeft") newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+    else return;
+    e.preventDefault();
+    visibleTabs[newIndex].focus();
+    ativarTab(visibleTabs[newIndex].dataset.tab);
+  });
+}
 
 // --- Form: tipo operação (Cacau Show) ---
 document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
@@ -1603,7 +1607,7 @@ function mostrarFaGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS RENDER FUNCTIONS ====================
 
-const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
+// LOJAS_FA moved to top of file (near LOJAS) to avoid temporal dead zone
 
 function renderFaDashboard() {
   const filtroLoja = document.getElementById("fa-filtro-loja-pendentes").value;
