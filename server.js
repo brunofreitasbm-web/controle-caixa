@@ -115,6 +115,18 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
 }
 
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
+  // Notificações PUSH de divergência temporariamente desativadas para todos os usuários
+  const textCheck = `${title || ''} ${body || ''}`.toLowerCase();
+  if (
+    notificationType === 'divergencia' ||
+    notificationType === 'divergencia_caixa' ||
+    textCheck.includes('divergênc') ||
+    textCheck.includes('divergenc')
+  ) {
+    console.log(`Push notification (${title}) ignorada: notificações PUSH de divergência estão desativadas.`);
+    return;
+  }
+
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
   
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
@@ -1173,8 +1185,15 @@ app.post('/api/nfs', (req, res) => {
 });
 
 app.put('/api/nfs/:numero', (req, res) => {
-  const { numero } = req.params;
+  let { numero } = req.params;
   const { info, products } = req.body;
+
+  let targetStoreFromKey = '';
+  if (numero.includes('_')) {
+    const parts = numero.split('_');
+    numero = parts[0];
+    targetStoreFromKey = parts[1];
+  }
 
   db.all('SELECT * FROM nfs WHERE numero = ?', [numero], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -1183,7 +1202,7 @@ app.put('/api/nfs/:numero', (req, res) => {
     }
 
     // Find the row that matches the store
-    const incomingStore = info && info.targetStore ? info.targetStore.toString().trim() : '';
+    const incomingStore = (info && info.targetStore ? info.targetStore : targetStoreFromKey).toString().trim();
     let targetRow = null;
     
     for (const r of rows) {
@@ -1236,6 +1255,22 @@ app.put('/api/nfs/:numero', (req, res) => {
         res.json({ success: true });
       });
     }
+  });
+});
+
+app.delete('/api/nfs', (req, res) => {
+  db.run('DELETE FROM nfs', [], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: 'Todos os registros de NF-e foram removidos.' });
+  });
+});
+
+app.delete('/api/nfs/:id', (req, res) => {
+  const { id } = req.params;
+  const cleanId = id.includes('_') ? id.split('_')[0] : id;
+  db.run('DELETE FROM nfs WHERE id = ? OR numero = ?', [id, cleanId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
   });
 });
 

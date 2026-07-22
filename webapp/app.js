@@ -592,24 +592,30 @@ async function inicializarDados() {
       // Carregar lista de colaboradores cadastrados
       await carregarColaboradores();
 
-      // Carregar NF-es do servidor
+      // Carregar NF-es do servidor — merge com dados locais
       try {
         const resNfs = await fetch(`${API_BASE}/nfs`);
         if (resNfs.ok) {
           const dataNfs = await resNfs.json();
           const serverNfs = {};
           dataNfs.forEach(nf => {
-            if (nf.info && nf.info.rawEmissaoDate) {
+            if (!nf || !nf.numero) return;
+            if (!nf.info) nf.info = {};
+            if (nf.info.rawEmissaoDate) {
               nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
             }
-            if (nf.products) {
+            if (Array.isArray(nf.products)) {
               nf.products.forEach(p => {
                 if (p.validade) p.validade = new Date(p.validade);
               });
             }
-            serverNfs[nf.numero + '_' + (nf.info.targetStore || currentStore)] = { info: nf.info, products: nf.products };
+            const store = nf.info.targetStore ? nf.info.targetStore.toString() : '9175';
+            nf.info.targetStore = store;
+            const key = `${nf.numero.toString().trim()}_${store}`;
+            serverNfs[key] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
           });
-          importedNfs = serverNfs;
+          // Merge: server wins over stale local data
+          importedNfs = Object.assign({}, importedNfs, serverNfs);
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
         }
       } catch (nfErr) {
@@ -625,6 +631,11 @@ async function inicializarDados() {
   }
 
   renderApp();
+  // Sinaliza que os dados do servidor foram carregados — DOMContentLoaded vai renderizar
+  window._nfsServerLoaded = true;
+  if (typeof renderNfCardsGallery === 'function') {
+    try { renderNfCardsGallery(); } catch(e) { /* DOM pode não estar pronto ainda */ }
+  }
 }
 
 const STORAGE_KEY_FA = "cacaushow_controle_caixa_fa_v1";
@@ -1489,6 +1500,7 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
+  if (tabName === "conferencia-nfe") renderNfCardsGallery();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -4251,36 +4263,42 @@ const today = new Date();
 const formattedTodayStr = today.toLocaleDateString('pt-BR');
 
 function inicializarImportedNfs() {
+  // Carrega dados locais como ponto de partida
   const salvas = carregarJSON("cacaushow_imported_nfs", {});
-  const agora = new Date().getTime();
   const limpas = {};
   
   for (const numNF in salvas) {
     const nf = salvas[numNF];
-    if (nf.info && nf.info.concluidaEm) {
-      const tempoConclusao = new Date(nf.info.concluidaEm).getTime();
-      if (agora - tempoConclusao > 24 * 60 * 60 * 1000) {
-        continue;
-      }
+    if (!nf || !nf.info) continue;
+    
+    if (!nf.info.targetStore) {
+      nf.info.targetStore = '9175';
     }
     if (nf.products) {
       nf.products.forEach(p => {
-        if (p.validade) p.validade = new Date(p.validade);
+        if (p.validade && !(p.validade instanceof Date)) p.validade = new Date(p.validade);
       });
     }
-    if (nf.info && nf.info.rawEmissaoDate) {
+    if (nf.info && nf.info.rawEmissaoDate && !(nf.info.rawEmissaoDate instanceof Date)) {
       nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
     }
     limpas[numNF] = nf;
   }
   
-  importedNfs = limpas;
-  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+  // NÃO sobrescreve se o servidor já carregou dados mais recentes
+  if (!window._nfsServerLoaded) {
+    importedNfs = limpas;
+  } else {
+    // Merge: server data tem prioridade, mas mantém locais não presentes no servidor
+    importedNfs = Object.assign({}, limpas, importedNfs);
+  }
   
   const keys = Object.keys(importedNfs);
   if (keys.length > 0 && !activeNfNumber) {
     activeNfNumber = keys[0];
   }
+  
+  nfGalleryStoreFilter = 'todas';
 }
 
 function verificarBoletosVesperaNotificacao() {
@@ -4393,7 +4411,10 @@ function getNotificationChannel(notificationType, userRole) {
 function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
   if (!destinatarios || destinatarios.length === 0) return;
 
-  if (canal === "push") {
+  const textCheck = `${assunto || ''} ${mensagem || ''}`.toLowerCase();
+  const isDivergencia = textCheck.includes('divergênc') || textCheck.includes('divergenc');
+
+  if (canal === "push" && !isDivergencia) {
     // Enviar Push Notification
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker.getRegistration().then(registration => {
@@ -4418,7 +4439,7 @@ function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
       destinatarios: destinatarios,
       assunto: assunto,
       mensagem: mensagem,
-      canal: canal
+      canal: isDivergencia && canal === "push" ? "email" : canal
     })
   }).catch(err => console.error('Erro ao enviar notificação:', err));
 }
@@ -4439,8 +4460,12 @@ function initializeNotificationPrefs() {
 }
 
 function renderNotifRoleCell(notifType, role, isOwner) {
+  const isPushDisabledForType = notifType === "divergencia";
   const dis = !isOwner ? "disabled" : "";
   const fade = !isOwner ? "opacity: 0.5;" : "";
+  const disPush = (!isOwner || isPushDisabledForType) ? "disabled" : "";
+  const fadePush = (!isOwner || isPushDisabledForType) ? "opacity: 0.4;" : "";
+
   return `
     <div class="flex flex-col gap-1.5">
       <label class="flex items-center gap-2">
@@ -4452,9 +4477,9 @@ function renderNotifRoleCell(notifType, role, isOwner) {
           <input type="radio" name="notif-${notifType}-${role}-channel" value="email" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
           <span style="font-size: 0.68rem;">Email</span>
         </label>
-        <label class="flex items-center gap-1">
-          <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
-          <span style="font-size: 0.68rem;">Push</span>
+        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Push desativado temporariamente para divergências' : ''}">
+          <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${disPush} style="${fadePush}" />
+          <span style="font-size: 0.68rem; ${isPushDisabledForType ? 'text-decoration: line-through; opacity: 0.5;' : ''}">Push</span>
         </label>
       </div>
     </div>
@@ -4474,7 +4499,7 @@ function renderNotificationTable() {
     "inv-inicio": { title: "Início de Inventário", desc: "Aviso de abertura do inventário mensal cego" },
     "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
-    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura" }
+    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" }
   };
 
   const prefs = loadNotificationPrefs();
@@ -4504,7 +4529,10 @@ function renderNotificationTable() {
       const checkbox = document.getElementById(`notif-${notifType}-${role}`);
       if (checkbox) checkbox.checked = !!prefs[notifType][role];
 
-      const channel = prefs[notifType][`${role}_ch`] || "email";
+      let channel = prefs[notifType][`${role}_ch`] || "email";
+      if (notifType === "divergencia" && channel === "push") {
+        channel = "email";
+      }
       const radio = document.querySelector(`input.notif-channel[name="notif-${notifType}-${role}-channel"][value="${channel}"]`);
       if (radio) radio.checked = true;
     });
@@ -4595,6 +4623,15 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarBoletos();
   renderNotificationTable();
   setupNotificationEvents();
+  
+  // Aguarda o servidor retornar e re-renderiza a galeria de NF-es
+  const tentarRenderGaleria = () => {
+    if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
+  };
+  // Renderiza imediatamente com dados locais, e novamente após servidor responder
+  tentarRenderGaleria();
+  setTimeout(tentarRenderGaleria, 1500);
+  setTimeout(tentarRenderGaleria, 4000);
   
   const nfFileEl = document.getElementById('nf-file');
   if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
@@ -4828,8 +4865,10 @@ function handleNfFiles(files) {
     if (progressLabel) progressLabel.textContent = `Processando... ${percent}% (${processedCount}/${files.length})`;
 
     if (processedCount === files.length) {
-      if (activeNfNumber && importedNfs[activeNfNumber]) {
-        nfGalleryStoreFilter = importedNfs[activeNfNumber].info.targetStore || currentStore;
+      if (activeNfNumber && importedNfs[activeNfNumber] && importedNfs[activeNfNumber].info && importedNfs[activeNfNumber].info.targetStore) {
+        nfGalleryStoreFilter = importedNfs[activeNfNumber].info.targetStore;
+      } else {
+        nfGalleryStoreFilter = 'todas';
       }
       renderNfCardsGallery();
       
@@ -5055,8 +5094,11 @@ function parseXmlNfe(file, callback) {
       })
       .then(res => {
         if (res.status === 409) {
+          importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = nNF + '_' + targetStore;
           if (callback) callback('duplicate');
-          else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
+          else showToast(`A NF-e Nº ${nNF} já consta no sistema e foi carregada na galeria.`, 'info');
           return null;
         }
         if (!res.ok) throw new Error('Erro ao salvar no servidor');
@@ -5082,14 +5124,14 @@ function parseXmlNfe(file, callback) {
         else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
-      if (isDuplicate) {
-        if (callback) callback('duplicate');
-        else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi ignorada.`, 'erro');
-        return;
-      }
       importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
       activeNfNumber = nNF + '_' + targetStore;
+      if (isDuplicate) {
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi recarregada.`, 'info');
+        return;
+      }
       if (callback) callback('success');
       else showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
     }
@@ -5177,8 +5219,11 @@ function parseExcelNfe(file, callback) {
       })
       .then(res => {
         if (res.status === 409) {
+          importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = numNfStr + '_' + currentStore;
           if (callback) callback('duplicate');
-          else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
+          else showToast(`A NF-e Nº ${numNfStr} já consta no sistema e foi carregada na galeria.`, 'info');
           return null;
         }
         if (!res.ok) throw new Error('Erro ao salvar no servidor');
@@ -5199,14 +5244,14 @@ function parseExcelNfe(file, callback) {
         else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
       });
     } else {
-      if (isDuplicate) {
-        if (callback) callback('duplicate');
-        else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi ignorada.`, 'erro');
-        return;
-      }
       importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
       localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
       activeNfNumber = numNfStr + '_' + currentStore;
+      if (isDuplicate) {
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi recarregada.`, 'info');
+        return;
+      }
       if (callback) callback('success');
       else showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
     }
@@ -5226,20 +5271,23 @@ function renderNfCardsGallery() {
   document.getElementById('nf-cards-gallery-section').classList.remove('hidden');
 
   // Contagem de notas pendentes por loja, para os badges das abas
-  const contagemPorLoja = { '9175': 0, '4304': 0, '9201': 0 };
+  const contagemPorLoja = { 'todas': nfKeys.length, '9175': 0, '4304': 0, '9201': 0 };
   nfKeys.forEach(numNF => {
     const nf = importedNfs[numNF];
-    const loja = nf.info.targetStore || currentStore;
+    const loja = (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
     if (contagemPorLoja[loja] !== undefined) contagemPorLoja[loja]++;
+    else contagemPorLoja[loja] = 1;
   });
 
-  if (!nfGalleryStoreFilter) nfGalleryStoreFilter = currentStore;
+  if (!nfGalleryStoreFilter) {
+    nfGalleryStoreFilter = 'todas';
+  }
 
   // Estiliza e sincroniza as abas de loja (separação física entre equipes)
   document.querySelectorAll('.nf-store-tab').forEach(tab => {
     const store = tab.dataset.store;
     const countEl = tab.querySelector('.nf-store-tab-count');
-    if (countEl) countEl.textContent = `(${contagemPorLoja[store] || 0})`;
+    if (countEl) countEl.textContent = `(${contagemPorLoja[store] !== undefined ? contagemPorLoja[store] : 0})`;
 
     if (store === nfGalleryStoreFilter) {
       tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-brand-700 text-white border-brand-600 shadow-md';
@@ -5259,13 +5307,18 @@ function renderNfCardsGallery() {
   const grid = document.getElementById('nf-cards-grid');
   grid.innerHTML = '';
 
-  const nfKeysDaLoja = nfKeys.filter(numNF => (importedNfs[numNF].info.targetStore || currentStore) === nfGalleryStoreFilter);
+  const nfKeysDaLoja = nfKeys.filter(numNF => {
+    if (nfGalleryStoreFilter === 'todas') return true;
+    const storeOfNf = (importedNfs[numNF] && importedNfs[numNF].info && importedNfs[numNF].info.targetStore) ? importedNfs[numNF].info.targetStore : currentStore;
+    return storeOfNf === nfGalleryStoreFilter;
+  });
 
   if (nfKeysDaLoja.length === 0) {
+    const msgLoja = nfGalleryStoreFilter === 'todas' ? 'qualquer loja' : getLojaNomePorCodigo(nfGalleryStoreFilter);
     grid.innerHTML = `
       <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
         <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
-        Nenhuma Nota Fiscal pendente para ${getLojaNomePorCodigo(nfGalleryStoreFilter)}.
+        Nenhuma Nota Fiscal pendente para ${msgLoja}.
       </div>
     `;
     return;
@@ -5273,15 +5326,17 @@ function renderNfCardsGallery() {
 
   nfKeysDaLoja.forEach(numNF => {
     const nfData = importedNfs[numNF];
-    const totalItens = nfData.products.length;
+    const totalItens = nfData.products ? nfData.products.length : 0;
     let conferidosCount = 0;
     let faltasCount = 0;
 
-    nfData.products.forEach(p => {
-      if (p.countedQty !== '') conferidosCount++;
-      const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
-      if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
-    });
+    if (nfData.products) {
+      nfData.products.forEach(p => {
+        if (p.countedQty !== '') conferidosCount++;
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+      });
+    }
 
     let statusText = 'Pendente';
     let cardBgClass = 'border-brand-800/40 bg-brand-950/40';
@@ -5297,12 +5352,10 @@ function renderNfCardsGallery() {
       statusBadgeClass = 'bg-orange-600 text-white font-extrabold shadow-md animate-pulse';
     }
 
-    const lojaCodigo = nfData.info.targetStore || currentStore;
+    const lojaCodigo = (nfData.info && nfData.info.targetStore) ? nfData.info.targetStore : currentStore;
     const lojaNome = getLojaNomePorCodigo(lojaCodigo);
-    const lojaAutoDetectada = nfData.info.storeAutoDetectada !== false;
+    const lojaAutoDetectada = (nfData.info && nfData.info.storeAutoDetectada !== false);
 
-    // A aba já separa por loja — o selo só aparece quando a detecção falhou,
-    // como alerta de que essa nota pode estar na aba errada.
     const lojaAlertaHtml = lojaAutoDetectada ? '' : `
       <div class="mb-4">
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-orange-950/50 text-orange-400 border border-orange-800/50 animate-pulse" title="Loja não identificada na NF-e — confira antes de conferir">
@@ -5316,10 +5369,15 @@ function renderNfCardsGallery() {
     card.innerHTML = `
       <div class="flex justify-between items-start mb-3">
         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
-        <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info.volumes} CX</span>
+        <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
       </div>
-      <div class="${lojaAutoDetectada ? 'mb-4' : 'mb-3'}">
-        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info.numero}</span></div>
+      <div class="${lojaAutoDetectada ? 'mb-3' : 'mb-2'}">
+        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
+        <div class="mt-1">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800/80">
+            <i class="fa-solid fa-store text-brand-500"></i> ${lojaNome} (${lojaCodigo})
+          </span>
+        </div>
       </div>
       ${lojaAlertaHtml}
       <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
