@@ -7635,13 +7635,12 @@ function renderRhDashboard() {
   let sumD = 0, sumI = 0, sumS = 0, sumC = 0, total = 0;
 
   colabs.forEach(c => {
-    const prof = profiles[c.nome];
+    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25 };
     if (prof && prof.excludedFromRh) return; // Ignorar no Dashboard do RH
 
     const store = getStoreForColab(c.nome);
     if (filterStore !== "all" && store !== "all" && store !== filterStore) return;
 
-    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25 };
     sumD += prof.d || 0;
     sumI += prof.i || 0;
     sumS += prof.s || 0;
