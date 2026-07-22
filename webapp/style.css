@@ -3030,3 +3030,49 @@ body.tema-fa .topbar {
   transform: translateY(0) scale(0.98) !important;
   box-shadow: 0 2px 8px rgba(22, 28, 33, 0.4) !important;
 }
+
+/* --- Módulo RH & Perfil DISC Styles --- */
+.card-rh {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+.card-rh:hover {
+  border-color: #6366f1 !important;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.25) !important;
+}
+
+.disc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.disc-badge-d {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.disc-badge-i {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.disc-badge-s {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.disc-badge-c {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}

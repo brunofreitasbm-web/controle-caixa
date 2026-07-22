@@ -136,6 +136,12 @@
         <h3>Faça Amigos (Financeiro)</h3>
         <p>Controle de caixa FaçaAmigos</p>
       </button>
+
+      <button id="btn-mod-rh" class="module-card card-rh">
+        <span class="mod-icon"><i class="fa-solid fa-users-gear" style="color: #6366f1;"></i></span>
+        <h3>Módulo RH</h3>
+        <p>Gestão de Pessoas e Perfil DISC</p>
+      </button>
     </div>
   </div>
 </div>
@@ -232,6 +238,10 @@
       <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
         <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
         <span class="tab-text">Colaboradores</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo">
+        <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
+        <span class="tab-text">Módulo RH (DISC)</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
         <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
@@ -1517,6 +1527,163 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ===================== MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC ===================== -->
+    <section id="tab-rh-modulo" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-rh-modulo">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-indigo-950 via-slate-900 to-brand-950 border border-indigo-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-users-viewfinder text-indigo-400"></i> Módulo RH & Gestão de Pessoas (DISC)
+          </h2>
+          <p class="text-xs text-brand-200 mt-1">Análise de perfis comportamentais DISC, upload de laudos em PDF, dashboards e insights de formação de equipe.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-950 border border-indigo-700 text-indigo-300 uppercase tracking-widest">Acesso Exclusivo Owner</span>
+        </div>
+      </div>
+
+      <!-- Filtro Geral de Unidade / Loja -->
+      <div class="glass-card p-4 rounded-xl border border-brand-900 bg-brand-950/60 shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+          <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+            <i class="fa-solid fa-store text-indigo-400"></i> Unidade / Loja:
+          </span>
+          <select id="rh-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto">
+            <option value="all" selected>Todas as Lojas / Unidades</option>
+            <optgroup label="Cacau Show">
+              <option value="9175">Loja 9175 - Marambaia</option>
+              <option value="9201">Loja 9201 - Mário Covas</option>
+              <option value="4304">Loja 4304 - Icoaraci</option>
+            </optgroup>
+            <optgroup label="Faça Amigos">
+              <option value="fa-parque">Faça Amigos - Parque Circuito</option>
+              <option value="fa-playground">Faça Amigos - Playground</option>
+              <option value="fa-grao-para">Faça Amigos - Grão-Pará</option>
+            </optgroup>
+          </select>
+        </div>
+        
+        <!-- Navegação de Sub-abas do RH -->
+        <div class="flex items-center gap-2 bg-brand-950 p-1 rounded-xl border border-brand-800 w-full sm:w-auto justify-center">
+          <button id="rh-subtab-btn-perfis" class="rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow">
+            <i class="fa-solid fa-id-card"></i> Perfis & Upload
+          </button>
+          <button id="rh-subtab-btn-dashboard" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard Gerencial
+          </button>
+          <button id="rh-subtab-btn-insights" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white">
+            <i class="fa-solid fa-brain"></i> Formação de Equipe
+          </button>
+        </div>
+      </div>
+
+      <!-- SUB-ABA 1: PERFIS & UPLOAD DISC -->
+      <div id="rh-subtab-perfis" class="rh-subtab-panel space-y-6">
+        <!-- Card de Upload de PDF DISC -->
+        <div class="glass-card p-6 rounded-2xl bg-brand-950 border border-indigo-900/60 text-center shadow-xl">
+          <div class="max-w-xl mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-indigo-950 flex items-center justify-center text-indigo-400 text-2xl mx-auto border border-indigo-800">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Upload de Relatório DISC em PDF</h3>
+              <p class="text-xs text-brand-400 mt-1">Selecione o colaborador e anexe o laudo PDF para analisar e calcular o perfil comportamental automaticamente.</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <select id="disc-upload-user-select" class="bg-brand-900 text-brand-100 border border-brand-700 rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto">
+                <option value="">Selecione o(a) colaborador(a)...</option>
+              </select>
+
+              <label class="btn-upload-highlight cursor-pointer inline-flex items-center gap-2">
+                <i class="fa-solid fa-file-arrow-up"></i> Anexar PDF DISC
+                <input type="file" id="disc-pdf-file" accept=".pdf" class="hidden">
+              </label>
+            </div>
+            <div id="disc-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
+              <div id="disc-progress-label" class="text-center mb-1 text-brand-200">Lendo PDF DISC...</div>
+              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
+                <div id="disc-progress-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela / Lista de Colaboradores e Perfis DISC -->
+        <div class="card space-y-4">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <h3 class="font-bold text-sm text-brand-200 flex items-center gap-2">
+              <i class="fa-solid fa-users"></i> Matriz de Perfis Comportamentais
+            </h3>
+            <span id="rh-colab-count-badge" class="text-xs text-brand-400 font-mono">0 colaboradores</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-brand-800 text-brand-400 font-bold uppercase tracking-wider">
+                  <th class="py-3 px-4">Colaborador(a)</th>
+                  <th class="py-3 px-4">Unidade / Loja</th>
+                  <th class="py-3 px-4 text-center">Perfil Predominante</th>
+                  <th class="py-3 px-4 text-center">Dominância (D)</th>
+                  <th class="py-3 px-4 text-center">Influência (I)</th>
+                  <th class="py-3 px-4 text-center">Estabilidade (S)</th>
+                  <th class="py-3 px-4 text-center">Conformidade (C)</th>
+                  <th class="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="rh-disc-table-body" class="divide-y divide-brand-900/60">
+                <!-- Inserido dinamicamente pelo JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-ABA 2: DASHBOARD GERENCIAL -->
+      <div id="rh-subtab-dashboard" class="rh-subtab-panel hidden space-y-6">
+        <!-- Cards de Visão Geral DISC -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="glass-card p-4 rounded-xl border border-red-900/40 bg-red-950/20 text-center">
+            <div class="text-2xl font-bold text-red-400" id="stat-disc-d">0</div>
+            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Dominância (D)</div>
+            <div class="text-[9px] text-brand-400 mt-0.5">Execução & Liderança</div>
+          </div>
+          <div class="glass-card p-4 rounded-xl border border-amber-900/40 bg-amber-950/20 text-center">
+            <div class="text-2xl font-bold text-amber-400" id="stat-disc-i">0</div>
+            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Influência (I)</div>
+            <div class="text-[9px] text-brand-400 mt-0.5">Comunicação & Vendas</div>
+          </div>
+          <div class="glass-card p-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-center">
+            <div class="text-2xl font-bold text-emerald-400" id="stat-disc-s">0</div>
+            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Estabilidade (S)</div>
+            <div class="text-[9px] text-brand-400 mt-0.5">Planejamento & Suporte</div>
+          </div>
+          <div class="glass-card p-4 rounded-xl border border-indigo-900/40 bg-indigo-950/20 text-center">
+            <div class="text-2xl font-bold text-indigo-400" id="stat-disc-c">0</div>
+            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Conformidade (C)</div>
+            <div class="text-[9px] text-brand-400 mt-0.5">Processos & Detalhes</div>
+          </div>
+        </div>
+
+        <!-- Distribuição Visual por Unidade -->
+        <div class="card space-y-4">
+          <h3 class="font-bold text-sm text-brand-200 flex items-center gap-2">
+            <i class="fa-solid fa-chart-bar text-indigo-400"></i> Distribuição Comportamental da Equipe
+          </h3>
+          <div id="rh-dashboard-bars-container" class="space-y-4">
+            <!-- Barras de progresso por traço -->
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-ABA 3: FORMAÇÃO DE EQUIPE & INSIGHTS -->
+      <div id="rh-subtab-insights" class="rh-subtab-panel hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="rh-insights-container">
+          <!-- Gerado dinamicamente no JS -->
+        </div>
       </div>
     </section>
 

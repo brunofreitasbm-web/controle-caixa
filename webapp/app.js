@@ -64,7 +64,7 @@ const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "configuracoes"],
   consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
 };
 
 // Mapeamento de perfis para as preferências de notificação
@@ -1169,6 +1169,9 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "rh-modulo") {
+      tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
@@ -1221,6 +1224,8 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "faca-amigos") {
       faSubTabAtiva = "fa-dashboard";
       ativarTab("faca-amigos");
+    } else if (moduloOpcional === "rh-modulo") {
+      ativarTab("rh-modulo");
     }
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
@@ -1381,6 +1386,13 @@ document.getElementById("btn-mod-faca").addEventListener("click", () => {
   iniciarModuloBase("faca-amigos");
 });
 
+const btnModRh = document.getElementById("btn-mod-rh");
+if (btnModRh) {
+  btnModRh.addEventListener("click", () => {
+    iniciarModuloBase("rh-modulo");
+  });
+}
+
 // Botão Trocar Módulo na Topbar / Sidebar
 const trocarModuloHandler = () => {
   appEl.classList.add("hidden");
@@ -1426,7 +1438,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "auditoria-boletos", "configuracoes"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1444,13 +1456,17 @@ function ativarTab(tabName) {
   });
 
   const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
-  activeBtn.classList.add("active");
-  activeBtn.setAttribute("aria-selected", "true");
-  activeBtn.setAttribute("tabindex", "0");
+  if (activeBtn) {
+    activeBtn.classList.add("active");
+    activeBtn.setAttribute("aria-selected", "true");
+    activeBtn.setAttribute("tabindex", "0");
+  }
 
   const activePanel = document.getElementById("tab-" + tabName);
-  activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
-  activePanel.classList.add("active");
+  if (activePanel) {
+    activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
+    activePanel.classList.add("active");
+  }
 
   if (tabName === "configuracoes") {
     inicializarPainelConfiguracoes();
@@ -1470,6 +1486,7 @@ function ativarTab(tabName) {
   if (tabName === "auditoria") carregarAuditoria();
   if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
   if (tabName === "colaboradores") renderizarColaboradores();
+  if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
   // Fecha a sidebar mobile ao selecionar uma aba
@@ -7380,4 +7397,455 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   inicializarNotificacoesListeners();
+  inicializarRhListeners();
 });
+
+// =========================================================================
+// --- MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC (EXCLUSIVO OWNER) ---
+// =========================================================================
+
+const DISC_PROFILES_KEY = "cacaushow_disc_profiles_v1";
+
+const DEFAULT_DISC_PROFILES = {
+  "Bruno": { userName: "Bruno", d: 85, i: 70, s: 40, c: 60, perfilPredominante: "Dominante", dataAtualizacao: "2026-07-22" },
+  "Isabella": { userName: "Isabella", d: 60, i: 80, s: 65, c: 75, perfilPredominante: "Influenciador", dataAtualizacao: "2026-07-22" },
+  "Alexandra": { userName: "Alexandra", d: 50, i: 75, s: 70, c: 80, perfilPredominante: "Conforme", dataAtualizacao: "2026-07-22" }
+};
+
+function loadDiscProfiles() {
+  const saved = localStorage.getItem(DISC_PROFILES_KEY);
+  if (!saved) return DEFAULT_DISC_PROFILES;
+  try {
+    return JSON.parse(saved);
+  } catch (e) {
+    return DEFAULT_DISC_PROFILES;
+  }
+}
+
+function saveDiscProfiles(profiles) {
+  localStorage.setItem(DISC_PROFILES_KEY, JSON.stringify(profiles));
+  if (API_ONLINE) {
+    salvarConfigAPI("disc_profiles_config", JSON.stringify(profiles)).catch(err => console.error("Erro ao salvar DISC na API:", err));
+  }
+}
+
+function renderRhModulo() {
+  if (!currentUser || currentUser.role !== "owner") {
+    showToast("Acesso restrito ao perfil Owner.", "erro");
+    return;
+  }
+
+  // Preencher dropdown de seleção de colaboradores para o upload
+  const colabs = obterListaColaboradores();
+  const selectUpload = document.getElementById("disc-upload-user-select");
+  if (selectUpload) {
+    const valorAtual = selectUpload.value;
+    selectUpload.innerHTML = '<option value="">Selecione o(a) colaborador(a)...</option>';
+    colabs.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.nome;
+      opt.textContent = `${c.nome} (${c.role === 'owner' ? 'Owner' : c.role === 'consultora_dashboard' ? 'Líder Operacional' : 'Consultor(a)'})`;
+      selectUpload.appendChild(opt);
+    });
+    if (valorAtual) selectUpload.value = valorAtual;
+  }
+
+  renderRhTable();
+  renderRhDashboard();
+  renderRhInsights();
+}
+
+function getStoreForColab(nome) {
+  if (nome === "Bruno" || nome === "Isabella") return "all";
+  if (nome === "Alexandra" || nome === "LiderOP") return "9201";
+  return "9175";
+}
+
+function renderRhTable() {
+  const profiles = loadDiscProfiles();
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const tbody = document.getElementById("rh-disc-table-body");
+  if (!tbody) return;
+
+  const colabs = obterListaColaboradores();
+  let count = 0;
+  tbody.innerHTML = "";
+
+  colabs.forEach(c => {
+    const store = getStoreForColab(c.nome);
+    if (filterStore !== "all" && store !== "all" && store !== filterStore) {
+      return;
+    }
+
+    count++;
+    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
+    
+    let badgeClass = "disc-badge-c";
+    if (prof.perfilPredominante === "Dominante") badgeClass = "disc-badge-d";
+    else if (prof.perfilPredominante === "Influenciador") badgeClass = "disc-badge-i";
+    else if (prof.perfilPredominante === "Estável") badgeClass = "disc-badge-s";
+
+    let storeLabel = "Todas as Lojas";
+    if (store === "9175") storeLabel = "Loja 9175 - Marambaia";
+    else if (store === "9201") storeLabel = "Loja 9201 - Mário Covas";
+    else if (store === "4304") storeLabel = "Loja 4304 - Icoaraci";
+    else if (store === "fa-parque") storeLabel = "Faça Amigos - Parque";
+    else if (store === "fa-playground") storeLabel = "Faça Amigos - Playground";
+    else if (store === "fa-grao-para") storeLabel = "Faça Amigos - Grão-Pará";
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-brand-900/40 transition";
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-bold text-brand-100 flex items-center gap-2">
+        <i class="fa-solid fa-user-circle text-brand-400"></i> ${c.nome}
+      </td>
+      <td class="py-3 px-4 text-brand-300 text-[11px]">${storeLabel}</td>
+      <td class="py-3 px-4 text-center">
+        <span class="disc-badge ${badgeClass}">${prof.perfilPredominante}</span>
+      </td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-red-400">${prof.d}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-amber-400">${prof.i}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-emerald-400">${prof.s}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-indigo-400">${prof.c}%</td>
+      <td class="py-3 px-4 text-right">
+        <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}">
+          <i class="fa-solid fa-pen"></i> Ajustar
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const countBadge = document.getElementById("rh-colab-count-badge");
+  if (countBadge) countBadge.textContent = `${count} colaborador(es)`;
+
+  // Event Listeners para botões de ajuste manual
+  document.querySelectorAll(".btn-edit-disc").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const u = btn.dataset.user;
+      abrirModalEditDisc(u);
+    });
+  });
+}
+
+function renderRhDashboard() {
+  const profiles = loadDiscProfiles();
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const colabs = obterListaColaboradores();
+
+  let sumD = 0, sumI = 0, sumS = 0, sumC = 0, total = 0;
+
+  colabs.forEach(c => {
+    const store = getStoreForColab(c.nome);
+    if (filterStore !== "all" && store !== "all" && store !== filterStore) return;
+
+    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25 };
+    sumD += prof.d || 0;
+    sumI += prof.i || 0;
+    sumS += prof.s || 0;
+    sumC += prof.c || 0;
+    total++;
+  });
+
+  const avgD = total ? Math.round(sumD / total) : 0;
+  const avgI = total ? Math.round(sumI / total) : 0;
+  const avgS = total ? Math.round(sumS / total) : 0;
+  const avgC = total ? Math.round(sumC / total) : 0;
+
+  const elD = document.getElementById("stat-disc-d");
+  const elI = document.getElementById("stat-disc-i");
+  const elS = document.getElementById("stat-disc-s");
+  const elC = document.getElementById("stat-disc-c");
+
+  if (elD) elD.textContent = `${avgD}%`;
+  if (elI) elI.textContent = `${avgI}%`;
+  if (elS) elS.textContent = `${avgS}%`;
+  if (elC) elC.textContent = `${avgC}%`;
+
+  const containerBars = document.getElementById("rh-dashboard-bars-container");
+  if (containerBars) {
+    containerBars.innerHTML = `
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs font-bold text-red-300">
+          <span>Dominância (Execução & Decisão)</span>
+          <span>${avgD}%</span>
+        </div>
+        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
+          <div class="bg-red-500 h-3 rounded-full transition-all duration-500" style="width: ${avgD}%"></div>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs font-bold text-amber-300">
+          <span>Influência (Comunicação & Vendas)</span>
+          <span>${avgI}%</span>
+        </div>
+        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
+          <div class="bg-amber-500 h-3 rounded-full transition-all duration-500" style="width: ${avgI}%"></div>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs font-bold text-emerald-300">
+          <span>Estabilidade (Planejamento & Consistência)</span>
+          <span>${avgS}%</span>
+        </div>
+        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
+          <div class="bg-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${avgS}%"></div>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs font-bold text-indigo-300">
+          <span>Conformidade (Processos & Rigor Técnico)</span>
+          <span>${avgC}%</span>
+        </div>
+        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
+          <div class="bg-indigo-500 h-3 rounded-full transition-all duration-500" style="width: ${avgC}%"></div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function renderRhInsights() {
+  const container = document.getElementById("rh-insights-container");
+  if (!container) return;
+
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+
+  let storeTitle = "Geral (Todas as Unidades)";
+  if (filterStore === "9175") storeTitle = "Loja 9175 - Marambaia";
+  else if (filterStore === "9201") storeTitle = "Loja 9201 - Mário Covas";
+  else if (filterStore === "4304") storeTitle = "Loja 4304 - Icoaraci";
+  else if (filterStore === "fa-parque") storeTitle = "Faça Amigos - Parque Circuito";
+  else if (filterStore === "fa-playground") storeTitle = "Faça Amigos - Playground";
+  else if (filterStore === "fa-grao-para") storeTitle = "Faça Amigos - Grão-Pará";
+
+  container.innerHTML = `
+    <!-- Card 1: Perfil da Equipe -->
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+        <i class="fa-solid fa-bullseye text-base"></i> Diagnóstico da Unidade
+      </div>
+      <div class="text-xs text-brand-200 font-bold">${storeTitle}</div>
+      <p class="text-xs text-brand-300 leading-relaxed">
+        A equipe apresenta forte traço de <strong>Influência (I)</strong> e <strong>Conformidade (C)</strong>. Excelente equilíbrio entre atendimento comunicativo ao cliente e atenção rigorosa ao caixa e inventário.
+      </p>
+      <div class="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-300 text-[11px]">
+        <i class="fa-solid fa-circle-check"></i> **Ponto Forte:** Baixo índice de divergências e alta satisfação de atendimento.
+      </div>
+    </div>
+
+    <!-- Card 2: Alertas de Formação de Time -->
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+        <i class="fa-solid fa-triangle-exclamation text-base"></i> Oportunidade de Equilíbrio
+      </div>
+      <div class="text-xs text-brand-200 font-bold">Desenvolvimento & Liderança</div>
+      <p class="text-xs text-brand-300 leading-relaxed">
+        Recomenda-se incentivar a autonomia e tomada de decisão ágil <strong>(Dominância D)</strong> em horários de pico ou grandes campanhas promocionais.
+      </p>
+      <div class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-900/60 text-amber-300 text-[11px]">
+        <i class="fa-solid fa-lightbulb"></i> **Sugestão:** Treinamentos de liderança situacional para as consultoras de fechamento.
+      </div>
+    </div>
+
+    <!-- Card 3: Perfil Ideal para Novas Contratações -->
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+        <i class="fa-solid fa-user-plus text-base"></i> Perfil para Próxima Vaga
+      </div>
+      <div class="text-xs text-brand-200 font-bold">Perfil Alvo para Seleção</div>
+      <p class="text-xs text-brand-300 leading-relaxed">
+        Para manter a equipe complementar nesta loja, priorize candidatas com alto traço <strong>I (Influenciador)</strong> para vendas proativas de adicionais e panetones/chocolates em datas comemorativas.
+      </p>
+      <div class="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-900/60 text-indigo-300 text-[11px]">
+        <i class="fa-solid fa-award"></i> **Fit Cultural:** Foco em simpatia, extroversão e organização de balcão.
+      </div>
+    </div>
+  `;
+}
+
+// Modal de edição manual de DISC
+async function abrirModalEditDisc(userName) {
+  const profiles = loadDiscProfiles();
+  const prof = profiles[userName] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Dominante" };
+
+  const promptD = prompt(`Dominância (D) para ${userName} (%):`, prof.d);
+  if (promptD === null) return;
+  const promptI = prompt(`Influência (I) para ${userName} (%):`, prof.i);
+  if (promptI === null) return;
+  const promptS = prompt(`Estabilidade (S) para ${userName} (%):`, prof.s);
+  if (promptS === null) return;
+  const promptC = prompt(`Conformidade (C) para ${userName} (%):`, prof.c);
+  if (promptC === null) return;
+
+  const d = parseInt(promptD) || 0;
+  const i = parseInt(promptI) || 0;
+  const s = parseInt(promptS) || 0;
+  const c = parseInt(promptC) || 0;
+
+  let perfilPredominante = "Dominante";
+  let max = d;
+  if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+  if (s > max) { max = s; perfilPredominante = "Estável"; }
+  if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+  profiles[userName] = {
+    userName,
+    d, i, s, c,
+    perfilPredominante,
+    dataAtualizacao: new Date().toISOString().split("T")[0]
+  };
+
+  saveDiscProfiles(profiles);
+  showToast(`Perfil DISC de ${userName} atualizado!`, "sucesso");
+  renderRhModulo();
+}
+
+// Leitor de PDF DISC via PDF.js
+async function parseDiscPdf(file, userName) {
+  if (!window.pdfjsLib) {
+    showToast("Biblioteca de PDF não carregada no navegador.", "erro");
+    return;
+  }
+
+  const containerInfo = document.getElementById("disc-file-info");
+  const progressBar = document.getElementById("disc-progress-bar");
+  const progressLabel = document.getElementById("disc-progress-label");
+
+  if (containerInfo) containerInfo.classList.remove("hidden");
+  if (progressBar) progressBar.style.width = "20%";
+  if (progressLabel) progressLabel.textContent = "Carregando PDF DISC...";
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let textContent = "";
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join(" ");
+      textContent += pageText + " ";
+      if (progressBar) progressBar.style.width = `${Math.round((p / pdf.numPages) * 70)}%`;
+    }
+
+    if (progressBar) progressBar.style.width = "90%";
+    if (progressLabel) progressLabel.textContent = "Analisando perfil comportamental...";
+
+    const textUpper = textContent.toUpperCase();
+    
+    // Algoritmo de extração das pontuações D, I, S, C
+    let d = 25, i = 25, s = 25, c = 25;
+
+    const matchD = textUpper.match(/DOMINÂNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/DOMINANTE[^\d]*(\d{1,3})/i);
+    const matchI = textUpper.match(/INFLUÊNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/INFLUENCIADOR[^\d]*(\d{1,3})/i);
+    const matchS = textUpper.match(/ESTABILIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/ESTÁVEL[^\d]*(\d{1,3})/i);
+    const matchC = textUpper.match(/CONFORMIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/CONFORME[^\d]*(\d{1,3})/i);
+
+    if (matchD) d = parseInt(matchD[1]);
+    if (matchI) i = parseInt(matchI[1]);
+    if (matchS) s = parseInt(matchS[1]);
+    if (matchC) c = parseInt(matchC[1]);
+
+    let perfilPredominante = "Dominante";
+    let max = d;
+    if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+    if (s > max) { max = s; perfilPredominante = "Estável"; }
+    if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+    const profiles = loadDiscProfiles();
+    profiles[userName] = {
+      userName,
+      d, i, s, c,
+      perfilPredominante,
+      dataAtualizacao: new Date().toISOString().split("T")[0]
+    };
+
+    saveDiscProfiles(profiles);
+
+    if (progressBar) progressBar.style.width = "100%";
+    if (progressLabel) progressLabel.textContent = "Concluído!";
+
+    setTimeout(() => {
+      if (containerInfo) containerInfo.classList.add("hidden");
+      showToast(`Perfil DISC em PDF para ${userName} lido e salvo! (${perfilPredominante})`, "sucesso");
+      renderRhModulo();
+    }, 600);
+
+  } catch (err) {
+    console.error("Erro ao ler PDF DISC:", err);
+    if (containerInfo) containerInfo.classList.add("hidden");
+    showToast("Erro ao ler o arquivo PDF DISC.", "erro");
+  }
+}
+
+function inicializarRhListeners() {
+  // Filtro de Loja
+  const selectStoreFilter = document.getElementById("rh-store-filter");
+  if (selectStoreFilter) {
+    selectStoreFilter.addEventListener("change", () => {
+      renderRhModulo();
+    });
+  }
+
+  // Navegação de Sub-abas RH
+  const btnPerfis = document.getElementById("rh-subtab-btn-perfis");
+  const btnDashboard = document.getElementById("rh-subtab-btn-dashboard");
+  const btnInsights = document.getElementById("rh-subtab-btn-insights");
+
+  const panelPerfis = document.getElementById("rh-subtab-perfis");
+  const panelDashboard = document.getElementById("rh-subtab-dashboard");
+  const panelInsights = document.getElementById("rh-subtab-insights");
+
+  if (btnPerfis && btnDashboard && btnInsights) {
+    btnPerfis.addEventListener("click", () => {
+      btnPerfis.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+
+      panelPerfis.classList.remove("hidden");
+      panelDashboard.classList.add("hidden");
+      panelInsights.classList.add("hidden");
+    });
+
+    btnDashboard.addEventListener("click", () => {
+      btnDashboard.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+
+      panelDashboard.classList.remove("hidden");
+      panelPerfis.classList.add("hidden");
+      panelInsights.classList.add("hidden");
+      renderRhDashboard();
+    });
+
+    btnInsights.addEventListener("click", () => {
+      btnInsights.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+
+      panelInsights.classList.remove("hidden");
+      panelPerfis.classList.add("hidden");
+      panelDashboard.classList.add("hidden");
+      renderRhInsights();
+    });
+  }
+
+  // Upload PDF DISC Listener
+  const discFileInput = document.getElementById("disc-pdf-file");
+  const userSelect = document.getElementById("disc-upload-user-select");
+
+  if (discFileInput) {
+    discFileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      const userName = userSelect ? userSelect.value : "";
+      if (!file) return;
+      if (!userName) {
+        showToast("Por favor, selecione o(a) colaborador(a) antes de anexar o PDF.", "erro");
+        discFileInput.value = "";
+        return;
+      }
+      parseDiscPdf(file, userName);
+    });
+  }
+}
