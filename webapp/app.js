@@ -5107,30 +5107,8 @@ function exportExcel() {
    MÓDULO DE GESTÃO DE BOLETOS
    ========================================================================== */
 
-let boletos = carregarJSON("cacaushow_boletos_v1", []);
+let boletos = [];
 
-// Remover duplicados existentes nos registros locais
-(function removerDuplicadosIniciais() {
-  const antes = boletos.length;
-  const cleanBoletos = [];
-  boletos.forEach(b => {
-    const isDuplicate = cleanBoletos.some(cb =>
-      cb.loja === b.loja &&
-      cb.descricao === b.descricao &&
-      cb.vencimento === b.vencimento &&
-      cb.valor === b.valor
-    );
-    if (!isDuplicate) {
-      cleanBoletos.push(b);
-    }
-  });
-  if (cleanBoletos.length < antes) {
-    const removidos = antes - cleanBoletos.length;
-    boletos = cleanBoletos;
-    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
-    console.log(`[Boleto Cleanup] Removidos ${removidos} registros duplicados de boletos.`);
-  }
-})();
 
 function inicializarBoletosTab() {
   const fileInput = document.getElementById("boleto-pdf-file");
@@ -5241,54 +5219,43 @@ async function parseBoletoPdf(file) {
 
       const boletosExtraidos = extrairBoletosDoTexto(textContent);
       if (boletosExtraidos.length > 0) {
-        const boletosInseridosNesteLote = [];
-        let duplicadosCount = 0;
-        let novosCount = 0;
-        boletosExtraidos.forEach(novoB => {
-          const existeNoBanco = boletos.some(b =>
-            b.loja === novoB.loja &&
-            b.descricao === novoB.descricao &&
-            b.vencimento === novoB.vencimento &&
-            b.valor === novoB.valor
-          );
-          const existeNoLote = boletosInseridosNesteLote.some(b =>
-            b.loja === novoB.loja &&
-            b.descricao === novoB.descricao &&
-            b.vencimento === novoB.vencimento &&
-            b.valor === novoB.valor
-          );
-          if (!existeNoBanco && !existeNoLote) {
-            boletos.push(novoB);
-            boletosInseridosNesteLote.push(novoB);
-            novosCount++;
+        try {
+          const res = await fetch("/api/boletos/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ boletos: boletosExtraidos })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const novosCount = data.insertedCount;
+            const duplicadosCount = data.ignoredCount;
+
+            await carregarBoletosServidor();
+
+            if (novosCount > 0 && duplicadosCount > 0) {
+              showToast(`${novosCount} boletos importados. ${duplicadosCount} duplicado(s) ignorado(s).`, "info");
+              if (fileInfo) {
+                fileInfo.textContent = `Importados: ${novosCount}. Duplicados ignorados: ${duplicadosCount}.`;
+              }
+            } else if (novosCount === 0 && duplicadosCount > 0) {
+              showToast(`Nenhum boleto importado. Todos os ${duplicadosCount} boletos já foram importados anteriormente.`, "erro");
+              if (fileInfo) {
+                fileInfo.textContent = `Aviso: Todos os ${duplicadosCount} boletos já constavam no sistema.`;
+              }
+            } else {
+              showToast(`${novosCount} boletos carregados!`, "sucesso");
+              if (fileInfo) {
+                fileInfo.textContent = `Sucesso: ${novosCount} boletos carregados.`;
+              }
+            }
           } else {
-            duplicadosCount++;
+            showToast("Erro ao importar boletos no servidor.", "erro");
+            if (fileInfo) fileInfo.textContent = "Erro na resposta do servidor.";
           }
-        });
-
-        localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
-        renderBoletos();
-        setTimeout(() => {
-          if (window.carregarAuditoriaBoletos) {
-            window.carregarAuditoriaBoletos();
-          }
-        }, 800);
-
-        if (novosCount > 0 && duplicadosCount > 0) {
-          showToast(`${novosCount} boletos importados. ${duplicadosCount} duplicado(s) ignorado(s).`, "info");
-          if (fileInfo) {
-            fileInfo.textContent = `Importados: ${novosCount}. Duplicados ignorados: ${duplicadosCount}.`;
-          }
-        } else if (novosCount === 0 && duplicadosCount > 0) {
-          showToast(`Nenhum boleto importado. Todos os ${duplicadosCount} boletos já foram importados anteriormente.`, "erro");
-          if (fileInfo) {
-            fileInfo.textContent = `Aviso: Todos os ${duplicadosCount} boletos já constavam no sistema.`;
-          }
-        } else {
-          showToast(`${novosCount} boletos carregados!`, "sucesso");
-          if (fileInfo) {
-            fileInfo.textContent = `Sucesso: ${novosCount} boletos carregados.`;
-          }
+        } catch (e) {
+          console.error("Erro ao enviar boletos:", e);
+          showToast("Erro de rede ao salvar boletos.", "erro");
+          if (fileInfo) fileInfo.textContent = "Erro de conexão.";
         }
       } else {
         showToast("Não foi possível identificar boletos no formato do arquivo.", "erro");
@@ -5482,26 +5449,44 @@ function renderBoletos(statusFilter = "all") {
   });
 }
 
-window.marcarBoletoComoPago = function(id) {
-  const boleto = boletos.find(b => b.id === id);
-  if (boleto) {
-    boleto.status = "Pago";
-    boleto.pagoEm = new Date().toISOString();
-    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
-    renderBoletos();
-    showToast("Boleto marcado como pago!", "sucesso");
+window.marcarBoletoComoPago = async function(id) {
+  try {
+    const res = await fetch("/api/boletos/pago", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    });
+    if (res.ok) {
+      await carregarBoletosServidor();
+      showToast("Boleto marcado como pago!", "sucesso");
+    } else {
+      showToast("Erro ao marcar boleto como pago.", "erro");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Erro de rede ao marcar boleto.", "erro");
   }
 };
 
 window.excluirBoleto = async function(id) {
   const boleto = boletos.find(b => b.id === id);
-  const info = boleto ? `do fornecedor "${boleto.fornecedor}" no valor de R$ ${boleto.valor.toFixed(2).replace('.', ',')} (Doc: ${boleto.documento})` : "este boleto";
+  const info = boleto ? `do fornecedor "${boleto.descricao}" no valor de R$ ${boleto.valor.toFixed(2).replace('.', ',')} (Doc: ${boleto.documento})` : "este boleto";
   const confirm = await showConfirm(`Deseja realmente excluir o boleto ${info}? Esta ação não pode ser desfeita.`);
   if (confirm) {
-    boletos = boletos.filter(b => b.id !== id);
-    localStorage.setItem("cacaushow_boletos_v1", JSON.stringify(boletos));
-    renderBoletos();
-    showToast("Boleto excluído com sucesso.", "sucesso");
+    try {
+      const res = await fetch(`/api/boletos/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        await carregarBoletosServidor();
+        showToast("Boleto excluído com sucesso.", "sucesso");
+      } else {
+        showToast("Erro ao excluir boleto.", "erro");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Erro de rede ao excluir boleto.", "erro");
+    }
   }
 };
 
