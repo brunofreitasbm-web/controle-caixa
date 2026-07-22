@@ -315,6 +315,7 @@ async function inicializarDados() {
       const resReg = await fetch(`${API_BASE}/registros`);
       const dataReg = await resReg.json();
       registros = Array.isArray(dataReg) ? dataReg : [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
 
       // Carregar registros FA
       const resRegFA = await fetch(`${API_BASE}/registros-fa`);
@@ -3027,6 +3028,20 @@ async function carregarColaboradores() {
       if (Array.isArray(data) && data.length > 0) {
         USERS = data.map(c => ({ nome: c.nome, role: c.role }));
         localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
+        
+        // FORÇAR ATUALIZAÇÃO DO ROLE SE MUDOU NO BANCO
+        if (currentUser) {
+          const userDb = USERS.find(u => u.nome === currentUser.nome);
+          if (userDb && userDb.role !== currentUser.role) {
+            currentUser.role = userDb.role;
+            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            console.log(`Permissão de ${currentUser.nome} atualizada para ${currentUser.role}`);
+            // Recarrega permissões na interface
+            if (typeof iniciarModuloBase === "function") {
+              iniciarModuloBase();
+            }
+          }
+        }
       }
     } catch (e) {
       console.error("Erro ao carregar colaboradores:", e);
