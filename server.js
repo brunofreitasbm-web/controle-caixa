@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 const caixaRoutes = require('./routes/caixa');
 const financeiroRoutes = require('./routes/financeiro');
 const pontoRoutes = require('./routes/ponto');
+const metasRoutes = require('./routes/metas');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.use(express.static(path.join(__dirname, 'webapp')));
 app.use('/api', authRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', financeiroRoutes);
+app.use('/api', metasRoutes);
 app.use('/api/ponto', pontoRoutes);
 
 // ==========================================================================

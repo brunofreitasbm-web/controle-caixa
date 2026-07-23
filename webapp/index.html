@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#3d4a54">
+<meta name="theme-color" content="#1C2435">
 <meta name="description" content="HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
 <title>HUB de Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
@@ -222,11 +222,26 @@
         </div>
       </div>
 
-      <!-- Módulo Logística: Conferência e Inventário -->
-      <div class="sidebar-group collapsed" id="group-logistica">
+      <!-- Módulo Metas: acompanhamento de meta de vendas -->
+      <div class="sidebar-group collapsed" id="group-metas">
         <button class="sidebar-group-header" aria-expanded="false">
-          <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
-          <span class="group-title">Logística</span>
+          <span class="group-icon"><i class="fa-solid fa-bullseye"></i></span>
+          <span class="group-title">Metas</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn" id="tab-btn-meta-hora-hora" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora">
+            <span class="tab-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="tab-text">Meta Hora a Hora</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Módulo Importações: NF-e/XML e Meta do Ano -->
+      <div class="sidebar-group collapsed" id="group-importacoes">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-file-import"></i></span>
+          <span class="group-title">Importações</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
@@ -234,6 +249,21 @@
             <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
             <span class="tab-text">Conferência de NF-e</span>
           </button>
+          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta">
+            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="tab-text">Meta do Ano</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Módulo Logística: Inventário -->
+      <div class="sidebar-group collapsed" id="group-logistica">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
+          <span class="group-title">Logística</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
           <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventário de Estoque</span>
@@ -1175,6 +1205,141 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ===================== ABA: IMPORTAR META DO ANO (IMPORTAÇÕES) ===================== -->
+    <section id="tab-importar-meta" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-brand-300"></i> Importação da Meta do Ano
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Importe a meta anual/mensal da operação para alimentar o acompanhamento de metas, incluindo a Meta Hora a Hora.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Importações</span>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <!-- Aviso: modelo de importação a definir -->
+        <div class="card p-5 rounded-2xl flex items-start gap-3" style="border-color: var(--amber); background: var(--amber-light);">
+          <i class="fa-solid fa-circle-info text-lg mt-1" style="color: var(--amber);"></i>
+          <div>
+            <h3 class="text-sm font-bold text-ink">Modelo de importação a definir</h3>
+            <p class="text-xs text-muted mt-1">A estrutura para receber a meta do ano já está pronta (loja, ano, meta anual e meta mensal). O formato do arquivo de importação (planilha/relatório) ainda será definido — assim que estiver pronto, o upload abaixo passa a processá-lo automaticamente.</p>
+          </div>
+        </div>
+
+        <!-- Zona de upload (placeholder) -->
+        <div id="meta-drop-zone" class="glass-card p-6 rounded-2xl text-center shadow-xl">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-2xl mx-auto border border-brand-200">
+              <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Importar Meta do Ano</h3>
+              <p class="text-xs text-muted mt-1">Selecione o arquivo com a meta da loja para o ano (formato a ser definido).</p>
+            </div>
+            <label class="btn-upload-highlight mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo
+              <input type="file" id="meta-file" class="hidden" disabled>
+            </label>
+          </div>
+        </div>
+
+        <!-- Metas já importadas -->
+        <div class="card rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-border flex justify-between items-center">
+            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-bullseye text-brand-500 mr-1"></i> Metas Importadas</h3>
+          </div>
+          <div id="metas-importadas-lista" class="p-4 text-xs text-muted">Nenhuma meta importada ainda.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABA: META HORA A HORA ===================== -->
+    <section id="tab-meta-hora-hora" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-gauge-high text-brand-300"></i> Meta Hora a Hora
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Acompanhe a meta parcial de vendas a cada hora do expediente e motive a equipe a bater a meta do dia.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Metas</span>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <!-- Filtros: loja e data -->
+        <div class="card p-4 rounded-2xl flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="field">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-muted">Loja</label>
+              <select id="mhh-loja" class="text-xs font-bold"></select>
+            </div>
+            <div class="field">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-muted">Data</label>
+              <input type="date" id="mhh-data" class="text-xs font-bold">
+            </div>
+          </div>
+          <button type="button" id="btn-mhh-config-horario" class="btn-mini-outline">
+            <i class="fa-solid fa-clock mr-1"></i> Horário da Loja
+          </button>
+        </div>
+
+        <!-- Configuração de horário (colapsável) -->
+        <div id="mhh-config-horario-painel" class="card p-4 rounded-2xl hidden">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted mb-3">Horário de Funcionamento — <span id="mhh-config-horario-loja-nome">-</span></h3>
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="field">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-muted">Abertura</label>
+              <input type="time" id="mhh-horario-abertura" value="10:00">
+            </div>
+            <div class="field">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-muted">Fechamento</label>
+              <input type="time" id="mhh-horario-fechamento" value="22:00">
+            </div>
+            <button type="button" id="btn-mhh-salvar-horario" class="btn-primary" style="min-height:44px;">Salvar Horário</button>
+          </div>
+        </div>
+
+        <!-- Meta do dia (enquanto não há meta anual importada) -->
+        <div class="card p-4 rounded-2xl flex flex-wrap items-center gap-3">
+          <div class="field">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-muted">Meta de Vendas do Dia (R$)</label>
+            <input type="number" id="mhh-meta-dia" min="0" step="0.01" placeholder="0,00">
+          </div>
+          <button type="button" id="btn-mhh-salvar-meta-dia" class="btn-mini-outline">Salvar Meta do Dia</button>
+          <span class="text-[11px] text-muted">Enquanto a Meta do Ano não é importada, defina aqui a meta operacional do dia.</span>
+        </div>
+
+        <!-- Resumo motivacional -->
+        <div class="card p-6 rounded-2xl">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-fire mr-1" style="color: var(--amber);"></i> Progresso do Dia</h3>
+            <span id="mhh-resumo-percentual" class="text-2xl font-extrabold text-brand-600">0%</span>
+          </div>
+          <div class="w-full bg-cream rounded-full h-4 overflow-hidden border border-border">
+            <div id="mhh-resumo-barra" class="bg-brand-500 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-xs font-bold text-muted mt-2">
+            <span id="mhh-resumo-vendido">Vendido: R$ 0,00</span>
+            <span id="mhh-resumo-meta">Meta do dia: R$ 0,00</span>
+          </div>
+          <p id="mhh-resumo-mensagem" class="text-sm font-bold text-brand-600 mt-4 text-center"></p>
+        </div>
+
+        <!-- Faixas horárias -->
+        <div class="card rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-border">
+            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-clock-rotate-left text-brand-500 mr-1"></i> Vendas Hora a Hora</h3>
+          </div>
+          <div id="mhh-horas-lista" class="divide-y divide-border"></div>
+        </div>
       </div>
     </section>
 
@@ -2433,6 +2598,7 @@
 <!-- Bottom Navigation (Mobile PWA — #7) -->
 <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile">
   <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon"><i class="fa-solid fa-file-signature"></i></span>Registro</button>
+  <button class="bottom-nav-btn" data-tab="meta-hora-hora"><span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>Meta</button>
   <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>Dashboard</button>
   <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>Histórico</button>
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Mensal</button>

@@ -16,7 +16,12 @@ const camelCaseMap = {
   mensagemgerada: 'mensagemGerada',
   criadoem: 'criadoEm',
   deletadoem: 'deletadoEm',
-  registroid: 'registroId'
+  registroid: 'registroId',
+  metaanual: 'metaAnual',
+  metamensal: 'metaMensal',
+  importadoem: 'importadoEm',
+  vendaacumulada: 'vendaAcumulada',
+  registradopor: 'registradoPor'
 };
 
 function normalizeRow(row) {
@@ -258,6 +263,30 @@ function initDb(onSuccess) {
           comprovante TEXT,
           status TEXT,
           criadoEm TEXT
+        )`,
+        // Meta do ano da operação — estrutura pronta para receber o modelo de
+        // importação (a definir). metaMensal guarda um JSON livre (ex.: {1: valor, 2: valor, ...}).
+        `CREATE TABLE IF NOT EXISTS metas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ano INTEGER NOT NULL,
+          loja TEXT NOT NULL,
+          metaAnual REAL,
+          metaMensal TEXT,
+          origem TEXT,
+          criadoEm TEXT,
+          importadoEm TEXT
+        )`,
+        // Meta Hora a Hora — venda acumulada informada pelo(a) colaborador(a) a
+        // cada hora do expediente, para acompanhamento parcial da meta do dia.
+        `CREATE TABLE IF NOT EXISTS vendas_horarias (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          loja TEXT NOT NULL,
+          data TEXT NOT NULL,
+          hora INTEGER NOT NULL,
+          vendaAcumulada REAL,
+          registradoPor TEXT,
+          criadoEm TEXT,
+          UNIQUE(loja, data, hora)
         )`
       ];
 

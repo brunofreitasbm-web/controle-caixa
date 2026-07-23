@@ -41,6 +41,120 @@
   --sidebar-hover-bg: #263145;
 }
 
+/* ==========================================================================
+   COMPATIBILIDADE: Paleta de marca (brand-*) e tokens nomeados (cream/paper/
+   ink/muted/border/wine/gold) usados como classes utilitárias no HTML mas
+   nunca compilados no tailwind-compiled.css estático (extensão de tema não
+   incluída no build). Sem isto, dezenas de painéis (Registro, Dashboard,
+   Histórico, Mensal, Colaboradores, Ponto, RH...) renderizavam com fundo
+   transparente e texto invisível. Este bloco define, uma única vez e para
+   todo o app, exatamente as classes usadas — ancoradas nos tokens de design
+   já existentes em :root, garantindo um único sistema visual coerente.
+   ========================================================================== */
+
+.bg-brand-100 { background-color: #E8F0FC !important; }
+.text-brand-100 { color: #E8F0FC !important; }
+.border-brand-100 { border-color: #E8F0FC !important; }
+.bg-brand-200 { background-color: #C9DAF5 !important; }
+.text-brand-200 { color: #C9DAF5 !important; }
+.border-brand-200 { border-color: #C9DAF5 !important; }
+.bg-brand-300 { background-color: #A8C2ED !important; }
+.text-brand-300 { color: #A8C2ED !important; }
+.border-brand-300 { border-color: #A8C2ED !important; }
+.bg-brand-400 { background-color: #7FA3E0 !important; }
+.text-brand-400 { color: #7FA3E0 !important; }
+.border-brand-400 { border-color: #7FA3E0 !important; }
+.bg-brand-500 { background-color: #4A7FD3 !important; }
+.text-brand-500 { color: #4A7FD3 !important; }
+.border-brand-500 { border-color: #4A7FD3 !important; }
+.bg-brand-550 { background-color: #3F70BE !important; }
+.text-brand-550 { color: #3F70BE !important; }
+.border-brand-550 { border-color: #3F70BE !important; }
+.bg-brand-600 { background-color: #2D538E !important; }
+.text-brand-600 { color: #2D538E !important; }
+.border-brand-600 { border-color: #2D538E !important; }
+.bg-brand-650 { background-color: #28497D !important; }
+.text-brand-650 { color: #28497D !important; }
+.border-brand-650 { border-color: #28497D !important; }
+.bg-brand-700 { background-color: #24406C !important; }
+.text-brand-700 { color: #24406C !important; }
+.border-brand-700 { border-color: #24406C !important; }
+.bg-brand-800 { background-color: #1F2A3D !important; }
+.text-brand-800 { color: #1F2A3D !important; }
+.border-brand-800 { border-color: #1F2A3D !important; }
+.bg-brand-850 { background-color: #1A2333 !important; }
+.text-brand-850 { color: #1A2333 !important; }
+.border-brand-850 { border-color: #1A2333 !important; }
+.bg-brand-900 { background-color: #1C2435 !important; }
+.text-brand-900 { color: #1C2435 !important; }
+.border-brand-900 { border-color: #1C2435 !important; }
+.bg-brand-950 { background-color: #0F1420 !important; }
+.text-brand-950 { color: #0F1420 !important; }
+.border-brand-950 { border-color: #0F1420 !important; }
+
+.bg-brand-800\/30 { background-color: #1F2A3D4c !important; }
+.bg-brand-800\/40 { background-color: #1F2A3D66 !important; }
+.bg-brand-800\/60 { background-color: #1F2A3D99 !important; }
+.bg-brand-800\/80 { background-color: #1F2A3Dcc !important; }
+.bg-brand-900\/30 { background-color: #1C24354c !important; }
+.bg-brand-900\/40 { background-color: #1C243566 !important; }
+.bg-brand-900\/60 { background-color: #1C243599 !important; }
+.bg-brand-900\/80 { background-color: #1C2435cc !important; }
+.bg-brand-950\/40 { background-color: #0F142066 !important; }
+.bg-brand-950\/60 { background-color: #0F142099 !important; }
+.bg-brand-950\/80 { background-color: #0F1420cc !important; }
+.bg-brand-950\/90 { background-color: #0F1420e6 !important; }
+.border-brand-500\/30 { border-color: #4A7FD34c !important; }
+.border-brand-500\/80 { border-color: #4A7FD3cc !important; }
+.border-brand-600\/80 { border-color: #2D538Ecc !important; }
+.border-brand-700\/40 { border-color: #24406C66 !important; }
+.border-brand-700\/50 { border-color: #24406C80 !important; }
+.border-brand-700\/60 { border-color: #24406C99 !important; }
+.border-brand-700\/80 { border-color: #24406Ccc !important; }
+.border-brand-800\/60 { border-color: #1F2A3D99 !important; }
+.border-brand-800\/80 { border-color: #1F2A3Dcc !important; }
+.border-brand-900\/50 { border-color: #1C243580 !important; }
+.border-brand-900\/60 { border-color: #1C243599 !important; }
+.text-brand-200\/80 { color: #C9DAF5cc !important; }
+.text-brand-200\/85 { color: #C9DAF5d9 !important; }
+.text-brand-500\/50 { color: #4A7FD380 !important; }
+.divide-brand-900\/40 > :not([hidden]) ~ :not([hidden]) { border-color: #1C243566 !important; }
+.divide-brand-900\/60 > :not([hidden]) ~ :not([hidden]) { border-color: #1C243599 !important; }
+
+.hover\:bg-brand-500:hover { background-color: #4A7FD3 !important; }
+.hover\:bg-brand-550:hover { background-color: #3F70BE !important; }
+.hover\:bg-brand-600:hover { background-color: #2D538E !important; }
+.hover\:bg-brand-650:hover { background-color: #28497D !important; }
+.hover\:bg-brand-700:hover { background-color: #24406C !important; }
+.hover\:bg-brand-800:hover { background-color: #1F2A3D !important; }
+.hover\:bg-brand-850:hover { background-color: #1A2333 !important; }
+.hover\:bg-cream:hover { background-color: var(--cream) !important; }
+.hover\:border-brand-500:hover { border-color: #4A7FD3 !important; }
+.hover\:border-brand-600\/80:hover { border-color: #2D538Ecc !important; }
+.hover\:border-brand-700\/80:hover { border-color: #24406Ccc !important; }
+.focus\:border-brand-500:focus { border-color: #4A7FD3 !important; }
+.focus\:border-gold:focus { border-color: var(--gold) !important; }
+.group:hover .group-hover\:bg-brand-700 { background-color: #24406C !important; }
+
+.bg-cream { background-color: var(--cream) !important; }
+.bg-paper { background-color: var(--paper) !important; }
+.border-border { border-color: var(--border) !important; }
+.divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
+.text-ink { color: var(--ink) !important; }
+.text-muted { color: var(--muted) !important; }
+
+/* !important nas custom properties: tailwind-compiled.css é carregado DEPOIS
+   de style.css no <head>, então classes nativas (ex.: .via-slate-900) do
+   compilado, com a mesma especificidade, venceriam pela ordem do documento e
+   apagariam --tw-gradient-to definido aqui. O !important garante que estes
+   estojos (from/via/to de marca) sempre prevaleçam, independente da ordem. */
+.from-brand-900 { --tw-gradient-from: #1C2435 var(--tw-gradient-from-position) !important; --tw-gradient-to: #1C243500 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.from-brand-950 { --tw-gradient-from: #0F1420 var(--tw-gradient-from-position) !important; --tw-gradient-to: #0F142000 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.from-cream { --tw-gradient-from: #F2F6F9 var(--tw-gradient-from-position) !important; --tw-gradient-to: #F2F6F900 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.via-brand-900 { --tw-gradient-to: #1C243500 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), #1C2435 var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+.to-brand-950 { --tw-gradient-to: #0F1420 var(--tw-gradient-to-position) !important; }
+.to-paper { --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important; }
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2586,11 +2700,15 @@ body.tema-fa .topbar {
   color: var(--red) !important;
 }
 
-/* Visual Unification of Logistics & Boletos Tabs with the Main Theme */
+/* Visual Unification of Logistics & Boletos Tabs with the Main Theme
+   (estendido também a Ponto e RH — mesmo idioma "glass" escuro que antes
+   ficava incoerente com o resto do app, agora unificado ao tema claro). */
 #tab-conferencia-nfe .glass-card,
 #tab-inventario-estoque .glass-card,
 #tab-boletos .glass-card,
-#tab-auditoria-boletos .glass-card {
+#tab-auditoria-boletos .glass-card,
+#tab-controle-ponto .glass-card,
+#tab-rh-modulo .glass-card {
   background: var(--paper) !important;
   border: 1px solid var(--border) !important;
   color: var(--ink) !important;
@@ -2609,12 +2727,18 @@ body.tema-fa .topbar {
 #tab-boletos h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
 #tab-auditoria-boletos h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
 #tab-auditoria-boletos h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-auditoria-boletos h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400) {
+#tab-auditoria-boletos h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-controle-ponto h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-controle-ponto h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-controle-ponto h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-rh-modulo h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
+#tab-rh-modulo h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
+#tab-rh-modulo h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400) {
   color: var(--wine) !important;
   font-family: 'Outfit', sans-serif !important;
 }
 
-/* Inputs, selects, and text targets in Logistics */
+/* Inputs, selects, and text targets em Logística, Ponto e RH */
 #tab-conferencia-nfe select,
 #tab-conferencia-nfe input,
 #tab-inventario-estoque select,
@@ -2622,7 +2746,11 @@ body.tema-fa .topbar {
 #tab-boletos select,
 #tab-boletos input,
 #tab-auditoria-boletos select,
-#tab-auditoria-boletos input {
+#tab-auditoria-boletos input,
+#tab-controle-ponto select,
+#tab-controle-ponto input,
+#tab-rh-modulo select,
+#tab-rh-modulo input {
   background-color: var(--cream) !important;
   color: var(--ink) !important;
   border: 1px solid var(--border) !important;
@@ -2641,17 +2769,25 @@ body.tema-fa .topbar {
 #tab-boletos .text-\[11px\],
 #tab-auditoria-boletos .text-xs,
 #tab-auditoria-boletos .text-\[11px\],
+#tab-controle-ponto .text-xs,
+#tab-controle-ponto .text-\[11px\],
+#tab-rh-modulo .text-xs,
+#tab-rh-modulo .text-\[11px\],
 #tab-conferencia-nfe .text-brand-400,
 #tab-inventario-estoque .text-brand-400,
 #tab-boletos .text-brand-400,
-#tab-auditoria-boletos .text-brand-400 {
+#tab-auditoria-boletos .text-brand-400,
+#tab-controle-ponto .text-brand-400,
+#tab-rh-modulo .text-brand-400 {
   font-size: 0.875rem !important; /* ~14px instead of 11/12px */
 }
 
 #tab-conferencia-nfe .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
 #tab-inventario-estoque .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
 #tab-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-auditoria-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *) {
+#tab-auditoria-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
+#tab-controle-ponto .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
+#tab-rh-modulo .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *) {
   color: var(--muted) !important;
 }
 
@@ -2660,7 +2796,9 @@ body.tema-fa .topbar {
 #tab-conferencia-nfe label.cursor-pointer,
 #tab-inventario-estoque button,
 #tab-boletos button,
-#tab-auditoria-boletos button {
+#tab-auditoria-boletos button,
+#tab-controle-ponto button,
+#tab-rh-modulo button {
   min-height: 44px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2673,7 +2811,9 @@ body.tema-fa .topbar {
 #tab-conferencia-nfe .text-brand-200,
 #tab-inventario-estoque .text-brand-200,
 #tab-boletos .text-brand-200,
-#tab-auditoria-boletos .text-brand-200 {
+#tab-auditoria-boletos .text-brand-200,
+#tab-controle-ponto .text-brand-200:not(.bg-gradient-to-r *),
+#tab-rh-modulo .text-brand-200:not(.bg-gradient-to-r *) {
   color: var(--ink) !important;
 }
 
@@ -2694,7 +2834,21 @@ body.tema-fa .topbar {
 #tab-auditoria-boletos .bg-brand-900,
 #tab-auditoria-boletos .bg-brand-950\/60,
 #tab-auditoria-boletos .bg-brand-950\/80,
-#tab-auditoria-boletos .bg-brand-900\/30 {
+#tab-auditoria-boletos .bg-brand-900\/30,
+#tab-controle-ponto .bg-brand-950,
+#tab-controle-ponto .bg-brand-900,
+#tab-controle-ponto .bg-brand-950\/40,
+#tab-controle-ponto .bg-brand-950\/60,
+#tab-controle-ponto .bg-brand-950\/80,
+#tab-controle-ponto .bg-brand-900\/30,
+#tab-controle-ponto .bg-brand-900\/40,
+#tab-rh-modulo .bg-brand-950,
+#tab-rh-modulo .bg-brand-900,
+#tab-rh-modulo .bg-brand-950\/40,
+#tab-rh-modulo .bg-brand-950\/60,
+#tab-rh-modulo .bg-brand-950\/80,
+#tab-rh-modulo .bg-brand-900\/30,
+#tab-rh-modulo .bg-brand-900\/40 {
   background: var(--cream) !important;
   color: var(--ink) !important;
 }
@@ -2718,7 +2872,11 @@ body.tema-fa .topbar {
 #tab-boletos .text-brand-400,
 #tab-auditoria-boletos .text-brand-100,
 #tab-auditoria-boletos .text-brand-300,
-#tab-auditoria-boletos .text-brand-400 {
+#tab-auditoria-boletos .text-brand-400,
+#tab-controle-ponto .text-brand-100:not(.bg-gradient-to-r *),
+#tab-controle-ponto .text-brand-300:not(.bg-gradient-to-r *),
+#tab-rh-modulo .text-brand-100:not(.bg-gradient-to-r *),
+#tab-rh-modulo .text-brand-300:not(.bg-gradient-to-r *) {
   color: var(--muted) !important;
 }
 
