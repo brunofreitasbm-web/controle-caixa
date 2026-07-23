@@ -2741,6 +2741,95 @@ body.tema-fa .topbar {
   color: var(--paper) !important;
 }
 
+/* ------------------------------------------------------------------
+   Aba Importações: herda o mesmo tratamento de tema claro das abas de
+   Logística/Boletos, já que os cards foram movidos de lá.
+   ------------------------------------------------------------------ */
+#tab-importacoes .glass-card {
+  background: var(--paper) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--ink) !important;
+  box-shadow: var(--shadow-md) !important;
+  border-radius: var(--radius) !important;
+}
+
+#tab-importacoes h2:not(.text-white),
+#tab-importacoes h3:not(.text-white) {
+  color: var(--wine) !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+#tab-importacoes select {
+  background-color: var(--cream) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  min-height: 44px !important;
+}
+
+#tab-importacoes .bg-brand-950,
+#tab-importacoes .bg-brand-900,
+#tab-importacoes .bg-brand-950\/60,
+#tab-importacoes .bg-brand-950\/80,
+#tab-importacoes .bg-brand-900\/30 {
+  background: var(--cream) !important;
+  color: var(--ink) !important;
+}
+
+#tab-importacoes .bg-gradient-to-r {
+  background: var(--wine-gradient) !important;
+  border-color: var(--border) !important;
+}
+
+#tab-importacoes .bg-gradient-to-r h2,
+#tab-importacoes .bg-gradient-to-r p {
+  color: #ffffff !important;
+}
+
+#tab-importacoes .text-brand-200 { color: var(--ink) !important; }
+#tab-importacoes .text-brand-400 { color: var(--muted) !important; }
+#tab-importacoes .bg-brand-800 {
+  background: var(--wine) !important;
+  color: var(--paper) !important;
+}
+
+/* Passo a passo retrátil (<details>) */
+.passo-a-passo > .passo-a-passo-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.passo-a-passo > .passo-a-passo-summary::-webkit-details-marker { display: none; }
+.passo-a-passo > .passo-a-passo-summary:hover { opacity: 0.85; }
+.passo-a-passo-chevron {
+  transition: transform 0.2s ease;
+  font-size: 0.7rem;
+}
+.passo-a-passo[open] > .passo-a-passo-summary .passo-a-passo-chevron {
+  transform: rotate(180deg);
+}
+
+/* ------------------------------------------------------------------
+   Contraste das pílulas do Leitor de Código de Barras: as regras de tema
+   claro cobriam só as classes sem opacidade (.bg-brand-800/.bg-brand-900),
+   deixando as variantes /60 com o fundo escuro do Tailwind e texto claro.
+   ------------------------------------------------------------------ */
+#tab-inventario-estoque .bg-brand-800\/60,
+#tab-inventario-estoque .bg-brand-900\/60,
+#tab-conferencia-nfe .bg-brand-900\/60,
+#tab-conferencia-nfe .bg-brand-900\/80,
+#tab-importacoes .bg-brand-900\/60 {
+  background: var(--cream) !important;
+  border-color: var(--border) !important;
+  color: var(--ink) !important;
+}
+
+#tab-inventario-estoque .text-brand-300,
+#tab-conferencia-nfe .text-brand-300,
+#tab-importacoes .text-brand-300 {
+  color: var(--wine) !important;
+}
+
 /* Badges de acesso restrito: mantêm fundo escuro do acento com texto claro legível */
 #tab-boletos .rounded-full.bg-red-950,
 #tab-auditoria-boletos .rounded-full.bg-red-950 {
@@ -2989,20 +3078,22 @@ body.tema-fa .topbar {
   --color-brand-danger: var(--red);
 }
 
-/* Botões de Destaque Prominentes para Importação (XML / PDF) */
+/* Botões de Destaque Prominentes para Importação (XML / PDF).
+   Fundo claro: o texto escuro sobre papel tem contraste bem melhor que o
+   gradiente escuro anterior, que quase sumia contra os cards do tema claro. */
 .btn-upload-highlight {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 0.6rem !important;
-  background: linear-gradient(135deg, #3c4d58 0%, #161c21 100%) !important;
-  color: #ffffff !important;
+  background: var(--paper) !important;
+  color: var(--wine) !important;
   font-weight: 800 !important;
   font-size: 0.85rem !important;
   padding: 0.8rem 1.8rem !important;
   border-radius: 0.85rem !important;
-  box-shadow: 0 6px 18px rgba(22, 28, 33, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 12px rgba(28, 36, 53, 0.10), 0 1px 3px rgba(28, 36, 53, 0.08) !important;
+  border: 1.5px solid var(--wine) !important;
   cursor: pointer !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   text-transform: uppercase !important;
@@ -3011,20 +3102,20 @@ body.tema-fa .topbar {
 
 .btn-upload-highlight i {
   font-size: 1rem !important;
-  color: #ffffff !important;
+  color: var(--wine) !important;
 }
 
 .btn-upload-highlight:hover {
-  background: linear-gradient(135deg, #4d616e 0%, #27323b 100%) !important;
+  background: var(--cream) !important;
   transform: translateY(-2px) scale(1.03) !important;
-  box-shadow: 0 10px 25px rgba(22, 28, 33, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
-  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(28, 36, 53, 0.16), 0 3px 8px rgba(28, 36, 53, 0.10) !important;
+  border-color: var(--wine) !important;
+  color: var(--wine) !important;
 }
 
 .btn-upload-highlight:active {
   transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 2px 8px rgba(22, 28, 33, 0.4) !important;
+  box-shadow: 0 2px 6px rgba(28, 36, 53, 0.12) !important;
 }
 
 /* --- Módulo RH & Perfil DISC Styles --- */
@@ -3147,6 +3238,8 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   font-size: 11px;
   font-weight: 500;
   width: 100%;
+  text-align: center;
+  line-height: 1.25;
 }
 
 .quick-action-item i {

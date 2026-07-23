@@ -175,23 +175,24 @@
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
-    <!-- Quick Actions (Grade 2x2) -->
+    <!-- Quick Actions: Meta e Registrar Envelope se adaptam ao módulo ativo
+         (Cacau Show ou Faça Amigos) — ver atalhoMeta/atalhoRegistrarEnvelope. -->
     <div class="quick-actions-grid">
-      <button class="quick-action-item" onclick="document.getElementById('tab-btn-controle-ponto').click();" aria-label="Registrar Ponto">
+      <button class="quick-action-item" onclick="document.getElementById('tab-btn-controle-ponto').click();" aria-label="Registro de Ponto">
         <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>Ponto</span>
+        <span>Registro de Ponto</span>
       </button>
       <button class="quick-action-item" onclick="document.getElementById('tab-btn-conferencia-nfe')?.click();" aria-label="Inventário/Conferência">
         <i class="fa-solid fa-truck"></i>
         <span>Conferência</span>
       </button>
-      <button class="quick-action-item" onclick="document.getElementById('tab-btn-boletos')?.click() || document.getElementById('tab-btn-auditoria-boletos')?.click();" aria-label="Gestão de Boletos">
-        <i class="fa-solid fa-file-invoice-dollar"></i>
-        <span>Boletos</span>
+      <button class="quick-action-item" onclick="atalhoMeta();" aria-label="Meta">
+        <i class="fa-solid fa-bullseye"></i>
+        <span>Meta</span>
       </button>
-      <button class="quick-action-item" onclick="document.getElementById('tab-btn-configuracoes')?.click();" aria-label="Configurações">
-        <i class="fa-solid fa-sliders"></i>
-        <span>Settings</span>
+      <button class="quick-action-item" onclick="atalhoRegistrarEnvelope();" aria-label="Registrar Envelope (Fechamento)">
+        <i class="fa-solid fa-file-signature"></i>
+        <span>Registrar Envelope</span>
       </button>
     </div>
 
@@ -260,14 +261,59 @@
         </div>
       </div>
 
+      <!-- Importações (uploads centralizados: XML de NF-e e PDF de Títulos) -->
+      <div class="sidebar-group collapsed" id="group-importacoes">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-file-import"></i></span>
+          <span class="group-title">Importações</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes">
+            <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
+            <span class="tab-text">Importações</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Meta Hora a Hora (vendas Cacau Show, independente do Controle de Caixa) -->
+      <div class="sidebar-group collapsed" id="group-meta-hora-hora">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-bullseye"></i></span>
+          <span class="group-title">Meta Hora a Hora</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-meta-hora-hora" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora">
+            <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
+            <span class="tab-text">Meta Hora a Hora</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Meta do Faça Amigos: abre a aba FA já na sub-aba de bonificação -->
+      <div class="sidebar-group collapsed" id="group-fa-meta">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
+          <span class="group-title">Meta</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-fa-meta" data-tab="faca-amigos" data-fa-subtab="fa-meta" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+            <span class="tab-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Meta &amp; Bonificação</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-fa-regras" data-tab="faca-amigos" data-fa-subtab="fa-regras-bonificacao" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+            <span class="tab-icon"><i class="fa-solid fa-scale-balanced" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Regras de Bonificação</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Outras opções do sistema -->
       <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
         <span class="tab-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
         <span class="tab-text">Faça Amigos (Financeiro)</span>
-      </button>
-      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
-        <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
-        <span class="tab-text">Colaboradores</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo">
         <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
@@ -277,10 +323,25 @@
         <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
         <span class="tab-text">Controle de Ponto</span>
       </button>
-      <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
-        <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
-        <span class="tab-text">Configurações</span>
-      </button>
+
+      <!-- Configurações (com Colaboradores dentro) -->
+      <div class="sidebar-group collapsed" id="group-configuracoes">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-sliders"></i></span>
+          <span class="group-title">Configurações</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
+            <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
+            <span class="tab-text">Colaboradores</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
+            <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
+            <span class="tab-text">Configurações</span>
+          </button>
+        </div>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -664,12 +725,14 @@
         </div>
       </div>
 
-      <!-- Sub-navegação interna do FA (owners vêem tudo, consultoras_fa vêem só registro) -->
+      <!-- Sub-navegação interna do FA (owners vêem tudo, consultoras_fa vêem registro + minha meta) -->
       <nav class="fa-subnav" id="fa-subnav" role="tablist" aria-label="Navegação FaçaAmigos">
         <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro">Registrar Envelope</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-dashboard" id="fa-tablink-dashboard">Dashboard</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-historico" id="fa-tablink-historico">Histórico</button>
         <button class="fa-sub-btn hidden" data-fa-tab="fa-mensal" id="fa-tablink-mensal">Mensal</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-meta" id="fa-tablink-meta">Minha Meta 🎯</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-regras-bonificacao" id="fa-tablink-regras-bonificacao">Regras de Bonificação</button>
       </nav>
 
       <!-- SUB-TAB: REGISTRO FA -->
@@ -888,6 +951,310 @@
         </div>
       </div>
 
+      <!-- SUB-TAB: MINHA META (BONIFICAÇÃO) FA -->
+      <div id="fa-tab-fa-meta" class="fa-tab-panel hidden">
+        <div class="dash-header">
+          <h2>Meta 🎯 <span class="fa-title-accent">FaçaAmigos</span></h2>
+          <div class="dash-total" id="fa-meta-competencia-label">—</div>
+        </div>
+
+        <!-- Quem está trabalhando hoje, em qual unidade -->
+        <div class="card">
+          <h3>Quem está no ponto hoje?</h3>
+          <div class="grid-2">
+            <div class="field">
+              <label for="fa-meta-unidade">Unidade</label>
+              <select id="fa-meta-unidade">
+                <option value="ParqueShopping">ParqueShopping (Playground)</option>
+                <option value="Grão Pará">Grão Pará</option>
+                <option value="Parque Circuito">Parque Circuito (Carrinhos)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fa-meta-colaboradora">Colaboradora do dia</label>
+              <select id="fa-meta-colaboradora"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ METODOLOGIA CONVERSÃO (ParqueShopping / Grão Pará) ============ -->
+        <div id="fa-meta-conversao">
+          <!-- Lançamento do dia -->
+          <div class="card">
+            <h3>Lançar Vendas de Hoje (<span id="fa-meta-hoje-label">—</span>)</h3>
+            <div class="grid-3" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+              <div class="field">
+                <label for="fa-meta-vendas30">Vendas 30min (Qtd)</label>
+                <input type="number" id="fa-meta-vendas30" min="0" value="0">
+              </div>
+              <div class="field">
+                <label for="fa-meta-vendas1h">Vendas 1h (Qtd)</label>
+                <input type="number" id="fa-meta-vendas1h" min="0" value="0">
+              </div>
+              <div class="field">
+                <label for="fa-meta-vendas2h">Vendas 2h (Qtd)</label>
+                <input type="number" id="fa-meta-vendas2h" min="0" value="0">
+              </div>
+            </div>
+            <p style="margin: 10px 0; font-size: 0.85rem; color: var(--muted);">
+              Total de atendimentos hoje: <strong id="fa-meta-total-hoje">0</strong> &middot;
+              % Conversão hoje: <strong id="fa-meta-conversao-hoje">0%</strong>
+            </p>
+            <button type="button" id="fa-btn-meta-salvar" class="btn-primary fa-btn-primary">Salvar Vendas de Hoje</button>
+          </div>
+
+          <!-- Gauge de conversão mensal -->
+          <div class="card">
+            <h3>Progresso da Meta Mensal</h3>
+            <div style="display:flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 6px;">
+              <span>Conversão de Planos Longos (1h + 2h)</span>
+              <span id="fa-meta-conversao-mensal-label">0%</span>
+            </div>
+            <div style="position: relative; width: 100%; height: 18px; background: var(--cream); border-radius: 999px; border: 1px solid var(--border); overflow: hidden;">
+              <div id="fa-meta-gauge-bar" style="height: 100%; width: 0%; background: #cbd5e1; transition: width 0.5s ease, background 0.5s ease;"></div>
+              <div style="position:absolute; left:50%; top:0; bottom:0; width:2px; background: #b8860b;" title="Meta Ouro (50%)"></div>
+              <div style="position:absolute; left:60%; top:0; bottom:0; width:2px; background: #2563eb;" title="Meta Diamante (60%)"></div>
+            </div>
+            <p id="fa-meta-mensagem-motivacional" style="margin-top: 12px; font-size: 0.95rem; font-weight: 700; text-align: center;">Lance suas vendas para começar a acompanhar sua meta!</p>
+          </div>
+
+          <!-- Cards de resumo do mês -->
+          <div id="fa-meta-cards-resumo" class="cards-lojas"></div>
+
+          <!-- Rastreador de fim de semana -->
+          <div class="card">
+            <h3>Pix Guardião — Fins de Semana do Mês</h3>
+            <div id="fa-meta-fds-tracker" style="display:flex; flex-wrap: wrap; gap: 8px;"></div>
+          </div>
+
+          <!-- Tabela dia a dia -->
+          <div class="card">
+            <h3>Lançamentos do Mês</h3>
+            <div class="table-wrap">
+              <table aria-label="Lançamentos de bonificação do mês">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Dia da Semana</th>
+                    <th>30min</th>
+                    <th>1h</th>
+                    <th>2h</th>
+                    <th>Total</th>
+                    <th>% Conversão</th>
+                    <th>Pix</th>
+                  </tr>
+                </thead>
+                <tbody id="fa-meta-tabela-mes-tbody"></tbody>
+              </table>
+              <div id="fa-meta-tabela-vazia" class="empty-state hidden">Nenhum lançamento este mês ainda.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ METODOLOGIA LOCAÇÕES (Parque Circuito — carrinhos) ============ -->
+        <div id="fa-meta-locacoes" class="hidden">
+          <!-- Lançamento de locações do dia -->
+          <div class="card">
+            <h3>Registrar Locações de Hoje (<span id="fa-loc-hoje-label">—</span>)</h3>
+            <div class="grid-2">
+              <div class="field">
+                <label for="fa-loc-locacoes">Total de locações no dia</label>
+                <input type="number" id="fa-loc-locacoes" min="0" value="0">
+              </div>
+              <div class="field">
+                <label>Meta de hoje</label>
+                <input type="text" id="fa-loc-meta-dia" value="—" disabled>
+              </div>
+            </div>
+            <p id="fa-loc-farol-hoje" style="margin: 10px 0; font-size: 0.9rem; font-weight: 700;"></p>
+            <button type="button" id="fa-btn-loc-salvar" class="btn-primary fa-btn-primary">Salvar Locações de Hoje</button>
+          </div>
+
+          <!-- Progresso do mês -->
+          <div class="card">
+            <h3>Progresso do Mês (Locações)</h3>
+            <div style="display:flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 6px;">
+              <span>Locações acumuladas</span>
+              <span id="fa-loc-mes-label">0 / 0</span>
+            </div>
+            <div style="position: relative; width: 100%; height: 18px; background: var(--cream); border-radius: 999px; border: 1px solid var(--border); overflow: hidden;">
+              <div id="fa-loc-gauge-bar" style="height: 100%; width: 0%; background: #cbd5e1; transition: width 0.5s ease, background 0.5s ease;"></div>
+              <div id="fa-loc-marca-piso" style="position:absolute; top:0; bottom:0; width:2px; background:#dc2626;" title="Piso"></div>
+              <div id="fa-loc-marca-super" style="position:absolute; top:0; bottom:0; width:2px; background:#16a34a;" title="Super-meta"></div>
+            </div>
+            <p id="fa-loc-mensagem-motivacional" style="margin-top: 12px; font-size: 0.95rem; font-weight: 700; text-align: center;">Registre as locações para acompanhar a meta do mês!</p>
+          </div>
+
+          <!-- Cards de resumo -->
+          <div id="fa-loc-cards-resumo" class="cards-lojas"></div>
+
+          <!-- Tabela dia a dia -->
+          <div class="card">
+            <h3>Locações do Mês</h3>
+            <div class="table-wrap">
+              <table aria-label="Locações do mês">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Dia da Semana</th>
+                    <th>Meta</th>
+                    <th>Realizado</th>
+                    <th>% Meta</th>
+                    <th>Farol</th>
+                  </tr>
+                </thead>
+                <tbody id="fa-loc-tabela-mes-tbody"></tbody>
+              </table>
+              <div id="fa-loc-tabela-vazia" class="empty-state hidden">Nenhuma locação registrada este mês ainda.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: REGRAS DE BONIFICAÇÃO (SÓ BRUNO/ISABELLA) -->
+      <div id="fa-tab-fa-regras-bonificacao" class="fa-tab-panel hidden">
+        <div class="dash-header">
+          <h2>Regras de Bonificação <span class="fa-title-accent">FaçaAmigos</span></h2>
+          <div class="field mes-picker">
+            <input type="month" id="fa-regras-competencia-selector" aria-label="Selecionar competência">
+          </div>
+        </div>
+
+        <div id="fa-regras-origem-aviso" class="card alerta-card hidden" role="status"></div>
+
+        <!-- Seletor de metodologia -->
+        <div class="card">
+          <h3>Metodologia</h3>
+          <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 10px;">
+            ParqueShopping (Playground) e Grão Pará usam <strong>bonificação por conversão</strong>.
+            O Parque Circuito (Carrinhos) usa <strong>meta por locações</strong>.
+          </p>
+          <div class="field">
+            <label for="fa-regras-metodologia">Editar regras de</label>
+            <select id="fa-regras-metodologia">
+              <option value="conversao">Conversão — ParqueShopping &amp; Grão Pará</option>
+              <option value="locacoes">Locações — Parque Circuito</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ======= REGRAS DE CONVERSÃO (ParqueShopping / Grão Pará) ======= -->
+        <div id="fa-regras-bloco-conversao">
+        <div class="card">
+          <h3>Bônus por Faixa de Conversão Mensal</h3>
+          <div class="grid-2">
+            <div class="field">
+              <label for="fa-regras-ouro-percent">% mínimo — Bônus Ouro</label>
+              <input type="number" id="fa-regras-ouro-percent" min="0" max="100" step="0.1">
+            </div>
+            <div class="field">
+              <label for="fa-regras-ouro-valor">R$ — Bônus Ouro</label>
+              <input type="number" id="fa-regras-ouro-valor" min="0" step="0.01">
+            </div>
+            <div class="field">
+              <label for="fa-regras-diamante-percent">% mínimo — Bônus Diamante</label>
+              <input type="number" id="fa-regras-diamante-percent" min="0" max="100" step="0.1">
+            </div>
+            <div class="field">
+              <label for="fa-regras-diamante-valor">R$ — Bônus Diamante</label>
+              <input type="number" id="fa-regras-diamante-valor" min="0" step="0.01">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Pix Guardião de Fim de Semana</h3>
+          <div class="grid-2">
+            <div class="field">
+              <label for="fa-regras-pix-min-2h">Qtd. mínima de vendas 2h no dia</label>
+              <input type="number" id="fa-regras-pix-min-2h" min="0" step="1">
+            </div>
+            <div class="field">
+              <label for="fa-regras-pix-valor">R$ do Pix por dia qualificado</label>
+              <input type="number" id="fa-regras-pix-valor" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="field">
+            <label>Dias da semana considerados "Fim de Semana"</label>
+            <div id="fa-regras-dias-semana" style="display:flex; flex-wrap:wrap; gap: 10px; margin-top: 6px;">
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Segunda-feira" class="fa-regras-dia-checkbox"> Segunda</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Terça-feira" class="fa-regras-dia-checkbox"> Terça</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Quarta-feira" class="fa-regras-dia-checkbox"> Quarta</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Quinta-feira" class="fa-regras-dia-checkbox"> Quinta</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Sexta-feira" class="fa-regras-dia-checkbox"> Sexta</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Sábado" class="fa-regras-dia-checkbox"> Sábado</label>
+              <label style="display:flex; align-items:center; gap:4px; font-weight:400;"><input type="checkbox" value="Domingo" class="fa-regras-dia-checkbox"> Domingo</label>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- /fa-regras-bloco-conversao -->
+
+        <!-- ======= REGRAS DE LOCAÇÕES (Parque Circuito) ======= -->
+        <div id="fa-regras-bloco-locacoes" class="hidden">
+          <div class="card">
+            <h3>Meta de Locações por Dia da Semana</h3>
+            <div class="grid-2">
+              <div class="field">
+                <label for="fa-loc-regras-segqui">Segunda a Quinta</label>
+                <input type="number" id="fa-loc-regras-segqui" min="0" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-sexta">Sexta-feira</label>
+                <input type="number" id="fa-loc-regras-sexta" min="0" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-sabado">Sábado</label>
+                <input type="number" id="fa-loc-regras-sabado" min="0" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-domingo">Domingo</label>
+                <input type="number" id="fa-loc-regras-domingo" min="0" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Metas do Mês e Ticket</h3>
+            <div class="grid-2">
+              <div class="field">
+                <label for="fa-loc-regras-ticket">Ticket médio (R$)</label>
+                <input type="number" id="fa-loc-regras-ticket" min="0" step="0.01">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-piso">Piso do mês (locações)</label>
+                <input type="number" id="fa-loc-regras-piso" min="0" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-meta">Meta do mês (locações)</label>
+                <input type="number" id="fa-loc-regras-meta" min="0" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-super">Super-meta do mês (locações)</label>
+                <input type="number" id="fa-loc-regras-super" min="0" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Farol (percentual da meta do dia)</h3>
+            <div class="grid-2">
+              <div class="field">
+                <label for="fa-loc-regras-verde">🟢 Verde a partir de (%)</label>
+                <input type="number" id="fa-loc-regras-verde" min="0" max="200" step="1">
+              </div>
+              <div class="field">
+                <label for="fa-loc-regras-amarelo">🟡 Amarelo a partir de (%)</label>
+                <input type="number" id="fa-loc-regras-amarelo" min="0" max="200" step="1">
+              </div>
+            </div>
+          </div>
+        </div><!-- /fa-regras-bloco-locacoes -->
+
+        <button type="button" id="fa-btn-regras-salvar" class="btn-primary fa-btn-primary">Salvar Regras deste Mês</button>
+        <p style="margin-top: 10px; font-size: 0.8rem; color: var(--muted);">Esta regra vale a partir da competência selecionada. Meses já fechados não são recalculados.</p>
+      </div>
+
     </section>
 
     <!-- ===================== TAB: COLABORADORES (só Bruno/Isabella) ===================== -->
@@ -957,6 +1324,211 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: IMPORTAÇÕES (UPLOADS CENTRALIZADOS) ===================== -->
+    <section id="tab-importacoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-importacoes">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-file-import text-brand-300"></i> Importações
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Central de carga de arquivos: XMLs de Notas Fiscais e o relatório PDF de Títulos do Cacau Digital.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Entrada de Dados</span>
+        </div>
+      </div>
+
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+
+        <!-- ---------- Importação de NF-e (XML) ---------- -->
+        <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-brand-500 transition-all duration-300">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+              <i class="fa-solid fa-file-code text-brand-500"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Notas Fiscais XML</h3>
+              <p class="text-xs text-brand-400 mt-1">Selecione ou arraste os arquivos XML das Notas Fiscais extraídos do Cacau Digital (de 1 a múltiplos arquivos)</p>
+            </div>
+            <label class="btn-upload-highlight mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
+              <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
+            </label>
+            <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
+              <div id="nf-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
+              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
+                <div id="nf-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
+            <div class="inline-flex items-center gap-2">
+              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-store"></i> Loja Ativa:
+              </span>
+              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                <option value="9175" selected>Loja 9175 - Marambaia</option>
+                <option value="4304">Loja 4304 - Icoaraci</option>
+                <option value="9201">Loja 9201 - Mário Covas</option>
+              </select>
+            </div>
+            <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+              <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
+            </button>
+          </div>
+        </div>
+
+        <!-- Passo a passo: extração e importação de XMLs (visível ao Líder de Operações) -->
+        <details id="passo-a-passo-xml" class="passo-a-passo glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg hidden">
+          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-brand-300 tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-route text-brand-500"></i>
+            <span class="flex-1 text-left">Passo a Passo (Extração &amp; Importação de XMLs)</span>
+            <span class="passo-a-passo-chevron">▼</span>
+          </summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center text-xs font-medium mt-4">
+            <!-- Passo 1 -->
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="flex flex-col items-center w-full">
+                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">1</span>
+                <strong class="text-brand-200 text-sm">Cacau Digital</strong>
+                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Acesse o portal da Cacau Show.</p>
+              </div>
+              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+            </div>
+
+            <!-- Passo 2 -->
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="flex flex-col items-center w-full">
+                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">2</span>
+                <strong class="text-brand-200 text-sm">Pedidos &gt; Notas Fiscais</strong>
+                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Navegue pelo menu de Pedidos e selecione Notas Fiscais.</p>
+              </div>
+              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+            </div>
+
+            <!-- Passo 3 -->
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="flex flex-col items-center w-full">
+                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">3</span>
+                <strong class="text-brand-200 text-sm">Loja &amp; Período</strong>
+                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione a loja correspondente e filtre pelo período desejado.</p>
+              </div>
+              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+            </div>
+
+            <!-- Passo 4 -->
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="flex flex-col items-center w-full">
+                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">4</span>
+                <strong class="text-brand-200 text-sm">Seleciona &amp; Baixar XMLs</strong>
+                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione as notas desejadas e clique em Baixar XMLs.</p>
+              </div>
+              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+            </div>
+
+            <!-- Passo 5 -->
+            <div class="p-3 bg-brand-800/40 border border-brand-700/50 hover:border-brand-600/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+              <div class="flex flex-col items-center w-full">
+                <span class="w-7 h-7 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
+                <strong class="text-brand-300 text-sm">Extrair &amp; Importar</strong>
+                <p class="text-[11px] text-brand-200/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
+              </div>
+              <div class="mt-2 text-brand-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
+            </div>
+          </div>
+        </details>
+
+        <!-- ---------- Importação de Títulos (PDF) ---------- -->
+        <div id="boleto-import-card" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Relatório de Títulos PDF</h3>
+              <p class="text-xs text-brand-400 mt-1">Selecione o PDF exportado do portal Consulta de Títulos da Cacau Show</p>
+            </div>
+            <label class="btn-upload-highlight mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
+              <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
+            </label>
+            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
+              <div id="boleto-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
+              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
+                <div id="boleto-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Passo a passo: importação de títulos (visível ao Líder de Operações) -->
+        <details id="passo-a-passo-titulos" class="passo-a-passo glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg hidden">
+          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-brand-300 tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info"></i>
+            <span class="flex-1 text-left">Passo a Passo (Importação de Títulos)</span>
+            <span class="passo-a-passo-chevron">▼</span>
+          </summary>
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center text-xs font-medium mt-4">
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">1</span>
+              <strong class="text-brand-200">Cacau Digital</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Acesse a extranet da Cacau Show</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">2</span>
+              <strong class="text-brand-200">Financeiro &gt; Título</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Navegue até a consulta de títulos</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">3</span>
+              <strong class="text-brand-200">Filtrar por Loja</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Filtre os boletos em aberto</span>
+            </div>
+            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">4</span>
+              <strong class="text-brand-200">Imprimir em PDF</strong>
+              <span class="text-[10px] text-brand-400 mt-1">Gere o arquivo PDF do relatório</span>
+            </div>
+            <div class="p-3 bg-brand-800/40 border border-brand-700/50 rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
+              <strong class="text-brand-300">Importar no Sistema</strong>
+              <span class="text-[10px] text-brand-200/80 mt-1">Arraste ou selecione o PDF acima</span>
+            </div>
+          </div>
+        </details>
+
+        <!-- ---------- Importação de Metas Diárias (XLSX) ---------- -->
+        <div id="metas-import-card" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+              <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Metas Diárias (XLSX)</h3>
+              <p class="text-xs text-brand-400 mt-1">Selecione a planilha de exportação de metas da loja (coluna "$ Meta Total"). Usado no Meta Hora a Hora.</p>
+            </div>
+            <div class="inline-flex items-center gap-2 bg-brand-950/80 px-3 py-2 rounded-xl border border-brand-900/60">
+              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-store"></i> Loja:
+              </span>
+              <select id="metas-loja-selector" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                <option value="9175">Loja 9175 - Marambaia</option>
+                <option value="4304">Loja 4304 - Icoaraci</option>
+                <option value="9201">Loja 9201 - Mário Covas</option>
+              </select>
+            </div>
+            <label class="btn-upload-highlight mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo XLSX
+              <input type="file" id="metas-xlsx-file" accept=".xlsx, .xls" class="hidden">
+            </label>
+            <div id="metas-import-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3 text-left"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <!-- ===================== ABA: CONFERÊNCIA DE NF-E (LOGÍSTICA) ===================== -->
     <section id="tab-conferencia-nfe" class="tab-panel hidden" role="tabpanel">
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
@@ -964,7 +1536,7 @@
           <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-receipt text-brand-300"></i> Recepção & Conferência de NF-e
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Importe arquivos XML das Notas Fiscais e faça a validação física utilizando a câmera do dispositivo.</p>
+          <p class="text-xs text-brand-100 mt-1">Faça a validação física das Notas Fiscais utilizando a câmera do dispositivo. Os arquivos XML são carregados na aba <strong>Importações</strong>.</p>
         </div>
         <div class="flex items-center gap-2">
           <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Logística</span>
@@ -974,102 +1546,6 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         <!-- Galeria de Cards NF-e Importadas -->
         <div id="nf-cards-gallery-section" class="space-y-6">
-          <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-brand-500 transition-all duration-300">
-            <div class="max-w-md mx-auto space-y-4">
-              <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
-                <i class="fa-solid fa-file-code text-brand-500"></i>
-              </div>
-              <div>
-                <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Notas Fiscais XML</h3>
-                <p class="text-xs text-brand-400 mt-1">Selecione ou arraste os arquivos XML das Notas Fiscais extraídos do Cacau Digital (de 1 a múltiplos arquivos)</p>
-              </div>
-              <label class="btn-upload-highlight mx-auto">
-                <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
-                <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
-              </label>
-              <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
-                <div id="nf-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
-                <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
-                  <div id="nf-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
-              <div class="inline-flex items-center gap-2">
-                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <i class="fa-solid fa-store"></i> Loja Ativa:
-                </span>
-                <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
-                  <option value="9175" selected>Loja 9175 - Marambaia</option>
-                  <option value="4304">Loja 4304 - Icoaraci</option>
-                  <option value="9201">Loja 9201 - Mário Covas</option>
-                </select>
-              </div>
-              <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
-                <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
-              </button>
-            </div>
-          </div>
-
-          <!-- FLUXO VISUAL PARA ALEXANDRA (DOWNLOAD E IMPORTAÇÃO DE XMLs) -->
-          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg">
-            <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-4 flex items-center gap-1.5 justify-center md:justify-start">
-              <i class="fa-solid fa-route text-brand-500"></i> Passo a Passo para Alexandra (Extração & Importação de XMLs)
-            </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center text-xs font-medium">
-              <!-- Passo 1 -->
-              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
-                <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">1</span>
-                  <strong class="text-brand-200 text-sm">Cacau Digital</strong>
-                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Acesse o portal da Cacau Show.</p>
-                </div>
-                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
-              </div>
-              
-              <!-- Passo 2 -->
-              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
-                <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">2</span>
-                  <strong class="text-brand-200 text-sm">Pedidos > Notas Fiscais</strong>
-                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Navegue pelo menu de Pedidos e selecione Notas Fiscais.</p>
-                </div>
-                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
-              </div>
-
-              <!-- Passo 3 -->
-              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
-                <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">3</span>
-                  <strong class="text-brand-200 text-sm">Loja & Período</strong>
-                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione a loja correspondente e filtre pelo período desejado.</p>
-                </div>
-                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
-              </div>
-
-              <!-- Passo 4 -->
-              <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
-                <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">4</span>
-                  <strong class="text-brand-200 text-sm">Seleciona & Baixar XMLs</strong>
-                  <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione as notas desejadas e clique em Baixar XMLs.</p>
-                </div>
-                <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
-              </div>
-
-              <!-- Passo 5 -->
-              <div class="p-3 bg-brand-800/40 border border-brand-700/50 hover:border-brand-600/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
-                <div class="flex flex-col items-center w-full">
-                  <span class="w-7 h-7 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
-                  <strong class="text-brand-300 text-sm">Extrair & Importar</strong>
-                  <p class="text-[11px] text-brand-200/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
-                </div>
-                <div class="mt-2 text-brand-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
-              </div>
-            </div>
-          </div>
-
           <!-- Abas por Loja: cada loja é fisicamente separada, com equipes diferentes -->
           <div class="flex flex-wrap gap-2" id="nf-store-tabs" role="tablist" aria-label="Filtrar Notas Fiscais por loja">
             <button type="button" class="nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border" data-store="todas">
@@ -1089,7 +1565,7 @@
           <!-- Barra de ação para seleção de múltiplas NF-es -->
           <div id="nf-selection-action-bar" class="hidden glass-card p-4 rounded-2xl bg-brand-950/90 border border-brand-500/80 shadow-xl flex justify-between items-center animate-pulse mb-4">
             <span class="text-xs text-brand-200 font-bold">
-              <i class="fa-solid fa-square-check text-brand-400 mr-1.5"></i> <span id="nf-selected-count">0</span> Nota(s) selecionada(s)
+              <i class="fa-solid fa-square-check text-brand-400 mr-1.5"></i> <span id="nf-selected-count">0</span> Nota(s) selecionada(s)<span id="nf-selected-store" class="text-brand-300 font-extrabold"></span>
             </span>
             <button id="btn-conferir-selecionadas" class="px-4 py-2 bg-brand-650 hover:bg-brand-550 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
               <i class="fa-solid fa-barcode"></i> Iniciar Conferência Conjunta
@@ -1352,44 +1828,10 @@
             <h2 class="font-display text-xl font-bold text-brand-200 flex items-center gap-2">
               <i class="fa-solid fa-file-invoice-dollar text-brand-500"></i> Gestão de Boletos e Títulos
             </h2>
-            <p class="text-xs text-brand-400 mt-1">Módulo financeiro exclusivo para controle, importação e notificação de vencimentos de boletos.</p>
+            <p class="text-xs text-brand-400 mt-1">Módulo financeiro exclusivo para controle e notificação de vencimentos de boletos. O PDF de títulos é carregado na aba <strong>Importações</strong>.</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest animate-pulse">Acesso Restrito</span>
-          </div>
-        </div>
-
-        <!-- FLUXO VISUAL PARA ALEXANDRA -->
-        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60">
-          <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3 flex items-center gap-1.5">
-            <i class="fa-solid fa-circle-info"></i> Passo a Passo para Alexandra (Importação de Títulos)
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center text-xs font-medium">
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">1</span>
-              <strong class="text-brand-200">Cacau Digital</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Acesse a extranet da Cacau Show</span>
-            </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">2</span>
-              <strong class="text-brand-200">Financeiro > Título</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Navegue até a consulta de títulos</span>
-            </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">3</span>
-              <strong class="text-brand-200">Filtrar por Loja</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Filtre os boletos em aberto</span>
-            </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">4</span>
-              <strong class="text-brand-200">Imprimir em PDF</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Gere o arquivo PDF do relatório</span>
-            </div>
-            <div class="p-3 bg-brand-800/40 border border-brand-700/50 rounded-xl flex flex-col items-center animate-pulse">
-              <span class="w-6 h-6 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
-              <strong class="text-brand-300">Importar no Sistema</strong>
-              <span class="text-[10px] text-brand-200/80 mt-1">Arraste ou selecione o PDF abaixo</span>
-            </div>
           </div>
         </div>
 
@@ -1426,29 +1868,6 @@
             <div>
               <div class="text-2xl font-bold text-emerald-400" id="stat-boletos-pagos">R$ 0,00</div>
               <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Pago</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Seção de Importação de PDF -->
-        <div class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
-          <div class="max-w-md mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
-              <i class="fa-solid fa-file-pdf"></i>
-            </div>
-            <div>
-              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Relatório de Títulos PDF</h3>
-              <p class="text-xs text-brand-400 mt-1">Selecione o PDF exportado do portal Consulta de Títulos da Cacau Show</p>
-            </div>
-            <label class="btn-upload-highlight mx-auto">
-              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
-              <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
-            </label>
-            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
-              <div id="boleto-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
-              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
-                <div id="boleto-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-              </div>
             </div>
           </div>
         </div>
@@ -1592,16 +2011,31 @@
               <h3 class="text-sm font-extrabold uppercase text-brand-500 tracking-wider">Resultados da Análise</h3>
               <span class="text-[10px] text-muted font-bold">Dados cruzados em tempo real</span>
             </div>
+
+            <!-- Legenda dos grupos: a tabela vem agrupada por situação, das
+                 pendências reais no topo até o que já está conciliado. -->
+            <div class="flex flex-wrap gap-2 text-[10px] font-bold">
+              <span class="px-2.5 py-1 rounded-full bg-red-950 text-red-400 border border-red-900/40">Divergências</span>
+              <span class="px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-900/40">Conciliado por Valor (revisar)</span>
+              <span class="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-900/50">Conciliado</span>
+            </div>
+
             <div class="table-wrap">
-              <table class="w-full text-left border-collapse text-xs">
+              <table class="w-full text-left border-collapse text-xs auditoria-tabela">
                 <thead>
                   <tr class="border-b border-border uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Loja</th>
-                    <th class="py-3 px-4">Nº NF-e</th>
-                    <th class="py-3 px-4 text-right">Valor NF-e</th>
-                    <th class="py-3 px-4">Doc. Faturamento</th>
-                    <th class="py-3 px-4 text-right">Valor Boletos</th>
-                    <th class="py-3 px-4 text-center">Status / Divergência</th>
+                    <th class="py-3 px-3 text-center" colspan="2">Nota Fiscal</th>
+                    <th class="py-3 px-3 text-center" colspan="2">Boleto / Título</th>
+                    <th class="py-3 px-4 text-center">Situação</th>
+                  </tr>
+                  <tr class="border-b border-border uppercase tracking-wider text-[10px] text-muted">
+                    <th class="py-2 px-4"></th>
+                    <th class="py-2 px-3">Nº NF-e</th>
+                    <th class="py-2 px-3 text-right">Valor</th>
+                    <th class="py-2 px-3">Doc. Faturamento</th>
+                    <th class="py-2 px-3 text-right">Valor</th>
+                    <th class="py-2 px-4 text-center">Diferença</th>
                   </tr>
                 </thead>
                 <tbody id="auditoria-tbody" class="divide-y divide-brand-900/40">
@@ -1803,7 +2237,25 @@
         <div class="lg:col-span-1 space-y-6">
           <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col items-center">
             <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-4 self-start"><i class="fa-solid fa-video mr-1"></i> Identificação Facial</h3>
-            
+
+            <!-- Operação Ativa: seletor próprio do Ponto (não usa .store-selector, que
+                 é compartilhado com NF-e/Inventário e recarregaria essas telas à toa). -->
+            <div class="w-full mb-4">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-brand-400 mb-1">Operação Ativa</label>
+              <select id="ponto-operacao-selector" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                <optgroup label="Cacau Show">
+                  <option value="Marambaia">Marambaia (9175)</option>
+                  <option value="Icoaraci">Icoaraci (4304)</option>
+                  <option value="Mário Covas">Mário Covas (9201)</option>
+                </optgroup>
+                <optgroup label="Faça Amigos">
+                  <option value="Grão Pará">Grão Pará</option>
+                  <option value="ParqueShopping">ParqueShopping</option>
+                  <option value="Parque Circuito">Parque Circuito</option>
+                </optgroup>
+              </select>
+            </div>
+
             <!-- Camera / Photo Viewport -->
             <div class="w-full aspect-[4/3] bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center">
               <video id="ponto-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
@@ -1834,8 +2286,10 @@
               </button>
             </div>
             
-            <!-- GPS details -->
-            <div class="w-full mt-4 bg-brand-900/30 p-3 rounded-xl border border-brand-900 text-left space-y-2">
+            <!-- GPS details: mantido no DOM (ativarGPSPonto/registrarMarcacaoPonto dependem
+                 destes elementos e das variáveis pontoGpsCoords/pontoGpsAccuracy), só oculto
+                 da tela — a validação de cerca virtual continua ativa nos bastidores. -->
+            <div id="ponto-gps-panel" class="hidden w-full mt-4 bg-brand-900/30 p-3 rounded-xl border border-brand-900 text-left space-y-2">
               <div class="flex justify-between items-center text-[10px] font-bold uppercase text-brand-400">
                 <span>Localização GPS</span>
                 <span id="ponto-gps-status" class="text-rose-500 font-black"><i class="fa-solid fa-circle-xmark"></i> Pendente</span>
@@ -1848,9 +2302,10 @@
             </div>
           </div>
         </div>
-        
-        <!-- Dashboard & Balance Engine -->
-        <div class="lg:col-span-2 space-y-6">
+
+        <!-- Painel administrativo: Resumo/Atestado/Histórico + Relatório por Operação.
+             Visível só a Líder de Operações e Owner (aplicarPermissoes alterna o hidden). -->
+        <div id="ponto-painel-admin" class="hidden lg:col-span-2 space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Balance Card -->
             <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
@@ -1950,6 +2405,153 @@
               </table>
             </div>
           </div>
+
+          <!-- Relatório por Operação: agrega o ponto de todas as colaboradoras, filtrável
+               por loja/operação (só Líder de Operações e Owner enxergam este painel). -->
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
+            <div class="p-4 bg-brand-950 border-b border-brand-900">
+              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-users-rectangle mr-1"></i> Relatório de Ponto por Operação</h3>
+              <div class="flex flex-wrap gap-2" id="ponto-relatorio-tabs" role="tablist" aria-label="Filtrar relatório de ponto por operação">
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="todas">Todas</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Marambaia">Marambaia</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Icoaraci">Icoaraci</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Mário Covas">Mário Covas</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Grão Pará">Grão Pará</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="ParqueShopping">ParqueShopping</button>
+                <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Parque Circuito">Parque Circuito</button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Colaboradora</th>
+                    <th class="py-3 px-4">Operação</th>
+                    <th class="py-3 px-4">Data</th>
+                    <th class="py-3 px-4 text-center">Entrada</th>
+                    <th class="py-3 px-4 text-center">Almoço</th>
+                    <th class="py-3 px-4 text-center">Retorno</th>
+                    <th class="py-3 px-4 text-center">Saída</th>
+                  </tr>
+                </thead>
+                <tbody id="ponto-relatorio-tbody" class="divide-y divide-brand-900/40">
+                  <tr class="text-brand-400 text-center">
+                    <td colspan="7" class="py-8">Selecione uma operação para carregar o relatório.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ABA: META HORA A HORA (VENDAS CACAU SHOW) ===================== -->
+    <section id="tab-meta-hora-hora" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-brand-300"></i> Meta Hora a Hora
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Lance suas vendas ao longo do turno e acompanhe o progresso da meta diária, hora a hora. Não usa dados do Controle de Caixa/envelopes — é um lançamento independente.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Engajamento de Vendas</span>
+        </div>
+      </div>
+
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+
+        <!-- Operação -->
+        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
+          <div class="inline-flex items-center gap-2">
+            <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-store"></i> Operação:
+            </span>
+            <select id="meta-operacao-selector" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+              <option value="Marambaia">Marambaia (9175)</option>
+              <option value="Icoaraci">Icoaraci (4304)</option>
+              <option value="Mário Covas">Mário Covas (9201)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Aviso: sem meta diária cadastrada para hoje -->
+        <div id="meta-sem-dados-aviso" class="hidden glass-card p-6 rounded-2xl border border-amber-800/50 bg-amber-950/20 text-center">
+          <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mb-2 block"></i>
+          <p class="text-sm font-bold text-amber-400">Meta não cadastrada para hoje — aguardando nova planilha</p>
+          <p class="text-xs text-brand-400 mt-1">Importe a planilha de metas desta loja na aba <strong>Importações</strong>.</p>
+
+          <!-- Preenchimento manual: só Líder de Operações/Owner, para os dias
+               em que a planilha ainda não tem meta diária detalhada. -->
+          <div id="meta-manual-box" class="hidden mt-5 pt-5 border-t border-amber-800/40">
+            <p class="text-xs font-bold text-brand-200 mb-2">Definir a meta de hoje manualmente</p>
+            <div class="flex flex-col sm:flex-row gap-2 justify-center items-center">
+              <input type="number" id="meta-manual-valor" step="0.01" min="0" placeholder="Meta do dia (R$)" class="bg-brand-900 border border-brand-800 text-white rounded-xl p-2.5 text-sm w-full sm:w-56 focus:outline-none focus:border-brand-500">
+              <button type="button" id="btn-meta-manual-salvar" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Meta de Hoje
+              </button>
+            </div>
+            <p class="text-[11px] text-brand-400 mt-2">Vale só para hoje nesta loja. Quando a planilha oficial for importada, ela substitui este valor.</p>
+          </div>
+        </div>
+
+        <!-- Conteúdo (só quando há meta diária real para hoje) -->
+        <div id="meta-conteudo-dia" class="hidden space-y-6">
+
+          <!-- Prepare-se para Amanhã -->
+          <div id="meta-amanha-card" class="hidden glass-card p-4 rounded-2xl border border-brand-700/50 bg-brand-900/30 flex items-center gap-3">
+            <i class="fa-solid fa-calendar-day text-brand-400 text-xl"></i>
+            <p class="text-xs text-brand-200"><strong>Prepare-se para amanhã:</strong> meta de <strong id="meta-amanha-valor">R$ 0,00</strong></p>
+          </div>
+
+          <!-- Progresso do Dia -->
+          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
+            <div class="flex justify-between text-xs font-bold text-brand-200 mb-2">
+              <span>Progresso de Hoje</span>
+              <span id="meta-progresso-label">R$ 0,00 / R$ 0,00</span>
+            </div>
+            <div class="w-full bg-brand-900 rounded-full h-4 overflow-hidden border border-brand-850">
+              <div id="meta-progresso-bar" class="bg-brand-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <p id="meta-mensagem-motivacional" class="mt-3 text-sm font-bold text-center"></p>
+            <div class="grid grid-cols-2 gap-2 pt-4 text-center text-xs">
+              <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
+                <span class="block text-[10px] text-brand-400 font-bold uppercase">Esperado até agora</span>
+                <strong id="meta-esperado-ate-agora" class="text-sm text-brand-100 mt-1 block">R$ 0,00</strong>
+              </div>
+              <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
+                <span class="block text-[10px] text-brand-400 font-bold uppercase">Meta por Hora</span>
+                <strong id="meta-por-hora" class="text-sm text-brand-200 mt-1 block">R$ 0,00</strong>
+              </div>
+            </div>
+            <p id="meta-streak-label" class="hidden mt-3 text-xs font-bold text-center text-orange-400"></p>
+          </div>
+
+          <!-- Grade Hora a Hora: check-in por intervalo, liberado só até 30min após o horário -->
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
+            <div class="p-4 bg-brand-950 border-b border-brand-900">
+              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Hora a Hora</h3>
+              <p class="text-[11px] text-brand-400 mt-1">O primeiro intervalo do dia começa 1h após a abertura. Cada intervalo só pode ser confirmado até 30 minutos depois do horário.</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Intervalo</th>
+                    <th class="py-3 px-4 text-right">Meta</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="meta-hora-a-hora-tbody" class="divide-y divide-brand-900/40">
+                  <!-- Gerado dinamicamente no JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1975,28 +2577,6 @@
         <!-- Grid de Configurações -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          <!-- Card: Aparência e Tema -->
-          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
-            <div>
-              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-palette text-brand-500"></i> Aparência & Personalização
-              </h3>
-              <p class="text-xs text-muted mb-4">Ajuste o visual do aplicativo para se adaptar ao seu estilo de trabalho.</p>
-              
-              <div class="space-y-4">
-                <div class="field">
-                  <label class="block text-xs font-bold uppercase mb-2">Cor de Destaque (Accent)</label>
-                  <div class="flex items-center gap-3">
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#56707f" style="background-color: #56707f;" title="Ardósia (Padrão)"></button>
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#ff7a00" style="background-color: #ff7a00;" title="Faça Amigos"></button>
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#10b981" style="background-color: #10b981;" title="Esmeralda"></button>
-                    <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#3b82f6" style="background-color: #3b82f6;" title="Azul Moderno"></button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Card: Segurança & Sessão -->
           <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
             <div>
@@ -2057,6 +2637,38 @@
             <div class="flex justify-end gap-3 mt-4">
               <button type="button" id="config-btn-save-whatsapp" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Links do WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- Card: Localização, Horário e Meta das Operações (Líder de Operações / Owner) -->
+          <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-map-location-dot text-brand-500"></i> Localização, Horário e Meta das Operações
+            </h3>
+            <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora. <strong>A coluna "Meta Diária" abaixo não tem mais efeito nenhum no Meta Hora a Hora</strong> — a meta do dia agora vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX). Dias sem planilha importada mostram "meta não cadastrada", sem usar este valor manual.</p>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th class="py-2 px-2">Operação</th>
+                    <th class="py-2 px-2">Latitude</th>
+                    <th class="py-2 px-2">Longitude</th>
+                    <th class="py-2 px-2">Abertura</th>
+                    <th class="py-2 px-2">Fechamento</th>
+                    <th class="py-2 px-2">Meta Diária (R$)</th>
+                  </tr>
+                </thead>
+                <tbody id="config-operacoes-tbody" class="divide-y divide-border">
+                  <!-- Gerado dinamicamente no JS (uma linha por operação) -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-4">
+              <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Localização, Horários e Metas
               </button>
             </div>
           </div>

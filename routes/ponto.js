@@ -24,18 +24,19 @@ router.post('/sync', (req, res) => {
     const deviationMinutes = deviationMs / (1000 * 60);
 
     db.run(
-      `INSERT INTO ponto_registros (id, usuario, timestamp, tipo, gps, accuracy, photo, hash, audit_deviation, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO ponto_registros (id, usuario, timestamp, tipo, operacao, gps, accuracy, photo, hash, audit_deviation, criadoEm)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          usuario = excluded.usuario,
          timestamp = excluded.timestamp,
          tipo = excluded.tipo,
+         operacao = excluded.operacao,
          gps = excluded.gps,
          accuracy = excluded.accuracy,
          photo = excluded.photo,
          hash = excluded.hash,
          audit_deviation = excluded.audit_deviation`,
-      [r.id, r.usuario, r.timestamp, r.tipo, r.gps, r.accuracy, r.photo, r.hash, deviationMinutes, serverTimeIso],
+      [r.id, r.usuario, r.timestamp, r.tipo, r.operacao || null, r.gps, r.accuracy, r.photo, r.hash, deviationMinutes, serverTimeIso],
       function(err) {
         completed++;
         if (err) {
@@ -82,6 +83,23 @@ router.get('/historico', (req, res) => {
       if (err2) return res.status(500).json({ error: err2.message });
       res.json({ registros: rows || [], ajustes: rows2 || [] });
     });
+  });
+});
+
+// Relatório administrativo: todas as colaboradoras, filtrável por operação.
+// Sem exigir `usuario` — a UI que chama isso já restringe o acesso a
+// Líder de Operações/Owner (aplicarPermissoes no frontend).
+router.get('/relatorio', (req, res) => {
+  const { operacao } = req.query;
+
+  const sql = operacao && operacao !== 'todas'
+    ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC'
+    : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC';
+  const params = operacao && operacao !== 'todas' ? [operacao] : [];
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ registros: rows || [] });
   });
 });
 

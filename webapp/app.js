@@ -38,6 +38,36 @@ let WHATSAPP_GRUPOS_FA = {
   "Parque Circuito": ""  // TODO: cole o link do grupo Parque Circuito aqui
 };
 
+// Localização (GPS) de cada operação — usada no geofencing do Ponto Eletrônico.
+// Declarado aqui (e não perto do resto do módulo de Ponto, mais abaixo no arquivo)
+// porque carregarConfiguracoes() mescla os valores salvos nele logo no carregamento
+// da página, antes de qualquer outro código do módulo de Ponto rodar.
+const LOJAS_GEOLOC = {
+  "Marambaia": { lat: -1.4116, lng: -48.4418 },
+  "Icoaraci": { lat: -1.3039, lng: -48.4878 },
+  "Mário Covas": { lat: -1.3815, lng: -48.4115 },
+  // Unidades do Faça Amigos — coordenadas reais preenchidas pelo Líder de
+  // Operações/Owner em Configurações.
+  "Grão Pará": { lat: 0, lng: 0 },
+  "ParqueShopping": { lat: 0, lng: 0 },
+  "Parque Circuito": { lat: 0, lng: 0 }
+};
+
+// Horário de funcionamento e meta diária de vendas por operação. Preenchido/editado
+// em Configurações (Líder de Operações/Owner); usado no geofencing do Ponto e no
+// cálculo do Meta Hora a Hora.
+const OPERACOES_CONFIG = {
+  "Marambaia": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
+  "Icoaraci": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
+  "Mário Covas": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
+  "Grão Pará": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 },
+  "ParqueShopping": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 },
+  "Parque Circuito": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 }
+};
+
+// Unidades do Faça Amigos (mesmos rótulos de LOJAS_FA / seletor #fa-loja).
+const UNIDADES_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
+
 // Perfis de acesso:
 // consultora            -> só "Novo Registro"
 // consultora_dashboard   -> "Novo Registro" + "Dashboard de Envelopes"
@@ -61,10 +91,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
 };
 
 // Mapeamento de perfis para as preferências de notificação
@@ -875,43 +905,28 @@ function aplicarTema() {
   document.documentElement.setAttribute("data-theme", "light");
 }
 
-function aplicarCorDestaque(color) {
-  if (!color) return;
-  document.documentElement.style.setProperty('--wine', color);
-  document.documentElement.style.setProperty('--wine-light', color + 'ee');
-  // Destacar botão ativo no painel
-  document.querySelectorAll(".config-accent-btn").forEach(btn => {
-    if (btn.dataset.accent === color) {
-      btn.style.outline = "2px solid #ffffff";
-      btn.style.transform = "scale(1.15)";
-    } else {
-      btn.style.outline = "none";
-      btn.style.transform = "scale(1)";
-    }
-  });
-}
-
 function carregarConfiguracoes() {
   config = carregarJSON(CONFIG_KEY, {
     linkGrupo: "",
-    accentColor: "#56707f",
     sessionTimeout: 1800,
     whatsappGrupos: {},
-    whatsappGruposFa: {}
+    whatsappGruposFa: {},
+    operacoesGeoloc: {},
+    operacoesConfig: {}
   });
 
-  // Migração: navegadores com a antiga cor de marca (marrom cacau) salva localmente
-  // passam a usar o novo acento neutro padrão automaticamente.
-  if (config.accentColor === "#5c3a21") {
-    config.accentColor = "#56707f";
+  // Personalização de cor de destaque removida: o app usa a paleta fixa da
+  // marca definida em style.css. Limpa a preferência antiga salva localmente
+  // para que navegadores já usados não fiquem com um acento sobrescrito.
+  if (config.accentColor !== undefined) {
+    delete config.accentColor;
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
   }
+  document.documentElement.style.removeProperty('--wine');
+  document.documentElement.style.removeProperty('--wine-light');
 
   // Aplicar Tema (sempre claro)
   aplicarTema();
-
-  // Aplicar Cor
-  aplicarCorDestaque(config.accentColor || "#56707f");
 
   // Configurar timeout da sessão
   const timeoutVal = parseInt(config.sessionTimeout !== undefined ? config.sessionTimeout : 1800);
@@ -927,6 +942,14 @@ function carregarConfiguracoes() {
   }
   if (config.whatsappGruposFa) {
     Object.assign(WHATSAPP_GRUPOS_FA, config.whatsappGruposFa);
+  }
+
+  // Sobrescrever localização/horário/meta das operações com os valores salvos
+  if (config.operacoesGeoloc) {
+    Object.assign(LOJAS_GEOLOC, config.operacoesGeoloc);
+  }
+  if (config.operacoesConfig) {
+    Object.assign(OPERACOES_CONFIG, config.operacoesConfig);
   }
 }
 
@@ -1212,27 +1235,36 @@ function iniciarModuloBase(moduloOpcional) {
     tabsPermitidas = tabsPermitidas.filter(tab => tab !== "auditoria-boletos");
   }
 
+  // Os passo a passo de importação são material de apoio de quem opera a
+  // extração no Cacau Digital: Líder de Operações (consultora_dashboard) e
+  // owner, que administra o sistema. Para os demais perfis só ocupam espaço.
+  const mostrarPassoAPasso = currentUser.role === "consultora_dashboard" || currentUser.role === "owner";
+  ["passo-a-passo-xml", "passo-a-passo-titulos"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !mostrarPassoAPasso);
+  });
+
+  // Painel admin do Ponto (Resumo/Atestado/Histórico/Relatório por Operação):
+  // colaboradoras comuns só batem ponto — Resumo, Atestado e Histórico saem
+  // por completo da tela delas (não é uma seção recolhida, some mesmo).
+  const mostrarPontoAdmin = currentUser.role === "consultora_dashboard" || currentUser.role === "owner";
+  const pontoPainelAdmin = document.getElementById("ponto-painel-admin");
+  if (pontoPainelAdmin) pontoPainelAdmin.classList.toggle("hidden", !mostrarPontoAdmin);
+
   document.querySelectorAll(".tab-btn").forEach(btn => {
     const permitido = tabsPermitidas.includes(btn.dataset.tab);
     btn.classList.toggle("hidden", !permitido);
   });
 
-  // Atualizar visibilidade dos grupos do menu lateral
-  const groupCaixa = document.getElementById("group-controle-caixa");
-  if (groupCaixa) {
-    const temTabCaixa = Array.from(groupCaixa.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
-    groupCaixa.classList.toggle("hidden", !temTabCaixa);
-  }
-  const groupLogistica = document.getElementById("group-logistica");
-  if (groupLogistica) {
-    const temTabLogistica = Array.from(groupLogistica.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
-    groupLogistica.classList.toggle("hidden", !temTabLogistica);
-  }
-  const groupBoletos = document.getElementById("group-boletos");
-  if (groupBoletos) {
-    const temTabBoletos = Array.from(groupBoletos.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
-    groupBoletos.classList.toggle("hidden", !temTabBoletos);
-  }
+  // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
+  // nenhuma de suas abas estiver liberada para o perfil atual.
+  ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
+   "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    group.classList.toggle("hidden", !temTabVisivel);
+  });
 
   // Sync bottom nav visibility (#7)
   document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
@@ -1284,12 +1316,13 @@ function iniciarModuloBase(moduloOpcional) {
   if (isFAConsultora) {
     faConsultorSelect.value = currentUser.nome;
     faConsultorSelect.disabled = true;
-    // Sub-abas FA: consultora_fa só vê Registro
+    // Sub-abas FA: consultora_fa vê Registro e Minha Meta (bonificação própria)
     document.querySelectorAll(".fa-sub-btn").forEach(btn => {
       btn.classList.add("hidden");
     });
     document.getElementById("fa-tablink-registro").classList.remove("hidden");
-    document.getElementById("fa-subnav").classList.add("fa-subnav-single");
+    document.getElementById("fa-tablink-meta").classList.remove("hidden");
+    document.getElementById("fa-subnav").classList.remove("fa-subnav-single");
     faSubTabAtiva = "fa-registro";
     ativarFaSubTab("fa-registro");
   } else if (isOwner) {
@@ -1300,6 +1333,16 @@ function iniciarModuloBase(moduloOpcional) {
     });
     document.getElementById("fa-subnav").classList.remove("fa-subnav-single");
   }
+
+  // Regras de Bonificação FA: só Bruno e Isabella administram os valores da
+  // premiação (mesmo padrão de nomes explícitos usado para Boletos/Auditoria).
+  // Vale tanto para a sub-aba interna quanto para o atalho na sidebar.
+  const nomesPermitidosRegrasBonificacaoFa = ["Bruno", "Isabella"];
+  const podeVerRegrasFa = nomesPermitidosRegrasBonificacaoFa.includes(currentUser.nome);
+  ["fa-tablink-regras-bonificacao", "tab-btn-fa-regras"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !podeVerRegrasFa);
+  });
 
   const isBruno = currentUser && currentUser.nome === "Bruno";
   document.querySelectorAll(".col-bruno").forEach(el => {
@@ -1471,7 +1514,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes", "controle-ponto"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1522,8 +1565,12 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
+  // A importação de títulos precisa da lista atual em memória para detectar
+  // duplicados antes de gravar.
+  if (tabName === "importacoes") carregarBoletosServidor();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
+  if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -1599,7 +1646,9 @@ document.querySelectorAll(".sidebar-group-header").forEach(header => {
 let faSubTabAtiva = "fa-registro";
 
 function ativarFaSubTab(subTabName) {
-  if (currentUser && currentUser.role === "consultora_fa") {
+  // consultora_fa só tem acesso a Registro e Minha Meta (bonificação própria) —
+  // qualquer outra sub-aba cai de volta para Registro.
+  if (currentUser && currentUser.role === "consultora_fa" && subTabName !== "fa-registro" && subTabName !== "fa-meta") {
     subTabName = "fa-registro";
   }
   faSubTabAtiva = subTabName;
@@ -1613,6 +1662,8 @@ function ativarFaSubTab(subTabName) {
   if (subTabName === "fa-dashboard") renderFaDashboard();
   if (subTabName === "fa-historico") renderFaHistorico();
   if (subTabName === "fa-mensal") renderFaMensal();
+  if (subTabName === "fa-meta") inicializarFaMeta();
+  if (subTabName === "fa-regras-bonificacao") inicializarFaRegrasBonificacao();
 }
 
 // Listeners para sub-abas FA
@@ -1621,8 +1672,35 @@ document.querySelectorAll(".fa-sub-btn").forEach(btn => {
 });
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => ativarTab(btn.dataset.tab));
+  btn.addEventListener("click", () => {
+    // Alguns botões da sidebar abrem a aba Faça Amigos já numa sub-aba
+    // específica (ex.: "Meta" e "Regras de Bonificação").
+    if (btn.dataset.faSubtab) faSubTabAtiva = btn.dataset.faSubtab;
+    ativarTab(btn.dataset.tab);
+  });
 });
+
+// --- Atalhos da sidebar que se adaptam ao módulo ativo ---
+// Cacau Show e Faça Amigos têm telas distintas de Meta e de Registro de
+// Envelope; o atalho escolhe a que estiver disponível para o perfil/módulo.
+function atalhoMeta() {
+  const btnFaMeta = document.getElementById("tab-btn-fa-meta");
+  const btnCacauMeta = document.getElementById("tab-btn-meta-hora-hora");
+  if (btnFaMeta && !btnFaMeta.classList.contains("hidden")) return btnFaMeta.click();
+  if (btnCacauMeta && !btnCacauMeta.classList.contains("hidden")) return btnCacauMeta.click();
+  showToast("Nenhuma tela de Meta disponível para o seu perfil.", "erro");
+}
+
+function atalhoRegistrarEnvelope() {
+  const btnFa = document.getElementById("tab-btn-faca-amigos");
+  const btnCacau = document.getElementById("tablink-registro");
+  if (btnFa && !btnFa.classList.contains("hidden")) {
+    faSubTabAtiva = "fa-registro";
+    return btnFa.click();
+  }
+  if (btnCacau && !btnCacau.classList.contains("hidden")) return btnCacau.click();
+  showToast("Nenhuma tela de Registro de Envelope disponível para o seu perfil.", "erro");
+}
 
 // Bottom nav click handlers (#7)
 document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
@@ -2724,6 +2802,612 @@ const faMensalMesInput = document.getElementById("fa-mensal-mes-filtro");
   faMensalMesInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 })();
 faMensalMesInput.addEventListener("change", renderFaMensal);
+
+// ==========================================================================
+// MÓDULO BONIFICAÇÃO FAÇA AMIGOS — "Minha Meta" (colaboradoras) e
+// "Regras de Bonificação" (Bruno/Isabella). Replica as fórmulas da planilha
+// original de acompanhamento de bonificação (ParqueShopping).
+// ==========================================================================
+const DIAS_SEMANA_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+function competenciaAtual() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dataHojeStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function nomeDiaSemanaPorData(dataStr) {
+  // "YYYY-MM-DD" interpretado como data local (evita o desvio de fuso do
+  // construtor `new Date("YYYY-MM-DD")`, que assume UTC).
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  return DIAS_SEMANA_PT[new Date(ano, mes - 1, dia).getDay()];
+}
+
+function parseRegraFaBonificacao(regra) {
+  return {
+    ...regra,
+    pixDiasSemana: typeof regra.pixDiasSemana === "string" ? JSON.parse(regra.pixDiasSemana) : (regra.pixDiasSemana || [])
+  };
+}
+
+async function buscarRegraFaBonificacao(competencia) {
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras?competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    return parseRegraFaBonificacao(data.regra);
+  } catch (err) {
+    console.error("Erro ao buscar regras de bonificação FA:", err);
+    // Fallback local, idêntico ao padrão do backend, para não travar a tela offline.
+    return { ouroPercentMin: 0.5, ouroValor: 100, diamantePercentMin: 0.6, diamanteValor: 150, pixMinVendas2h: 5, pixValor: 20, pixDiasSemana: ["Sexta-feira", "Sábado", "Domingo"] };
+  }
+}
+
+function calcularBonificacaoFa(lancamentos, regra) {
+  let totalV30 = 0, totalV1h = 0, totalV2h = 0, totalPix = 0;
+
+  const linhas = lancamentos.map(l => {
+    totalV30 += l.vendas30 || 0;
+    totalV1h += l.vendas1h || 0;
+    totalV2h += l.vendas2h || 0;
+
+    const total = (l.vendas30 || 0) + (l.vendas1h || 0) + (l.vendas2h || 0);
+    const pctConversao = total > 0 ? ((l.vendas1h || 0) + (l.vendas2h || 0)) / total : 0;
+    const diaSemana = nomeDiaSemanaPorData(l.data);
+    const pixHoje = (regra.pixDiasSemana.includes(diaSemana) && (l.vendas2h || 0) >= regra.pixMinVendas2h) ? regra.pixValor : 0;
+    totalPix += pixHoje;
+
+    return { ...l, diaSemana, total, pctConversao, pixHoje };
+  });
+
+  const totalAtend = totalV30 + totalV1h + totalV2h;
+  const pctConversaoMensal = totalAtend > 0 ? (totalV1h + totalV2h) / totalAtend : 0;
+
+  let bonusTier = 0;
+  let tierNome = null;
+  if (pctConversaoMensal >= regra.diamantePercentMin) {
+    bonusTier = regra.diamanteValor;
+    tierNome = "diamante";
+  } else if (pctConversaoMensal >= regra.ouroPercentMin) {
+    bonusTier = regra.ouroValor;
+    tierNome = "ouro";
+  }
+
+  return {
+    linhas, totalV30, totalV1h, totalV2h, totalAtend, pctConversaoMensal,
+    totalPix, bonusTier, tierNome, totalEstimado: bonusTier + totalPix
+  };
+}
+
+// Unidades do FA que usam a metodologia de conversão (bonificação). O Parque
+// Circuito (carrinhos) usa locações e é tratado à parte.
+const UNIDADES_FA_CONVERSAO = ["ParqueShopping", "Grão Pará"];
+
+async function inicializarFaMeta() {
+  const competencia = competenciaAtual();
+  document.getElementById("fa-meta-competencia-label").textContent = `Competência ${competencia}`;
+
+  // Popula o seletor de colaboradora com as consultoras do Faça Amigos.
+  const selColab = document.getElementById("fa-meta-colaboradora");
+  if (selColab && !selColab.dataset.populado) {
+    const colaboradorasFa = USERS.filter(u => u.role === "consultora_fa").map(u => u.nome);
+    selColab.innerHTML = colaboradorasFa.map(n => `<option value="${n}">${n}</option>`).join("");
+    // Se a própria usuária logada é consultora_fa, começa nela.
+    if (colaboradorasFa.includes(currentUser.nome)) selColab.value = currentUser.nome;
+    selColab.dataset.populado = "true";
+  }
+
+  const selUnidade = document.getElementById("fa-meta-unidade");
+  if (selUnidade && !selUnidade.dataset.wired) {
+    selUnidade.onchange = renderFaMetaPorUnidade;
+    selColab.onchange = renderFaMetaPorUnidade;
+    selUnidade.dataset.wired = "true";
+  }
+
+  await renderFaMetaPorUnidade();
+}
+
+// Alterna entre metodologia de conversão e de locações conforme a unidade.
+async function renderFaMetaPorUnidade() {
+  const unidade = document.getElementById("fa-meta-unidade").value;
+  const blocoConversao = document.getElementById("fa-meta-conversao");
+  const blocoLocacoes = document.getElementById("fa-meta-locacoes");
+
+  const ehConversao = UNIDADES_FA_CONVERSAO.includes(unidade);
+  blocoConversao.classList.toggle("hidden", !ehConversao);
+  blocoLocacoes.classList.toggle("hidden", ehConversao);
+
+  if (ehConversao) await carregarFaMetaConversao(unidade);
+  else await carregarFaMetaLocacoes(unidade);
+}
+
+async function carregarFaMetaConversao(unidade) {
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  const usuarioAlvo = document.getElementById("fa-meta-colaboradora").value || currentUser.nome;
+
+  document.getElementById("fa-meta-hoje-label").textContent = `${nomeDiaSemanaPorData(hoje)}, ${hoje.split("-").reverse().join("/")}`;
+
+  const regra = await buscarRegraFaBonificacao(competencia);
+
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuarioAlvo)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar lançamentos de bonificação FA:", err);
+  }
+
+  // Pré-preencher os campos de hoje, se já houver lançamento salvo
+  const lancamentoHoje = lancamentos.find(l => l.data === hoje);
+  const inputV30 = document.getElementById("fa-meta-vendas30");
+  const inputV1h = document.getElementById("fa-meta-vendas1h");
+  const inputV2h = document.getElementById("fa-meta-vendas2h");
+  inputV30.value = lancamentoHoje ? lancamentoHoje.vendas30 : 0;
+  inputV1h.value = lancamentoHoje ? lancamentoHoje.vendas1h : 0;
+  inputV2h.value = lancamentoHoje ? lancamentoHoje.vendas2h : 0;
+
+  const atualizarPreviaHoje = () => {
+    const v30 = parseInt(inputV30.value) || 0;
+    const v1h = parseInt(inputV1h.value) || 0;
+    const v2h = parseInt(inputV2h.value) || 0;
+    const total = v30 + v1h + v2h;
+    const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+    document.getElementById("fa-meta-total-hoje").textContent = total;
+    document.getElementById("fa-meta-conversao-hoje").textContent = `${pct.toFixed(1)}%`;
+  };
+  [inputV30, inputV1h, inputV2h].forEach(el => { el.oninput = atualizarPreviaHoje; });
+  atualizarPreviaHoje();
+
+  document.getElementById("fa-btn-meta-salvar").onclick = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/fa-bonificacao/diaria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usuario: usuarioAlvo,
+          unidade,
+          data: hoje,
+          vendas30: parseInt(inputV30.value) || 0,
+          vendas1h: parseInt(inputV1h.value) || 0,
+          vendas2h: parseInt(inputV2h.value) || 0
+        })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      showToast("Vendas de hoje salvas!", "sucesso");
+      carregarFaMetaConversao(unidade);
+    } catch (err) {
+      console.error("Erro ao salvar vendas do dia (FA):", err);
+      showToast("Erro ao salvar. Tente novamente.", "erro");
+    }
+  };
+
+  const resultado = calcularBonificacaoFa(lancamentos, regra);
+  renderFaMetaDashboard(resultado, regra);
+}
+
+function renderFaMetaDashboard(resultado, regra) {
+  const pctExibicao = resultado.pctConversaoMensal * 100;
+
+  // Gauge
+  const gaugeBar = document.getElementById("fa-meta-gauge-bar");
+  gaugeBar.style.width = `${Math.min(100, pctExibicao)}%`;
+  gaugeBar.style.background = resultado.tierNome === "diamante" ? "#2563eb" : (resultado.tierNome === "ouro" ? "#d4af37" : "#94a3b8");
+  document.getElementById("fa-meta-conversao-mensal-label").textContent = `${pctExibicao.toFixed(1)}%`;
+
+  // Mensagem motivacional
+  const msgEl = document.getElementById("fa-meta-mensagem-motivacional");
+  if (resultado.tierNome === "diamante") {
+    msgEl.textContent = "💎 Bônus Diamante conquistado! Você é fera!";
+    msgEl.style.color = "#2563eb";
+  } else if (resultado.tierNome === "ouro") {
+    const faltaDiamante = ((regra.diamantePercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
+    msgEl.textContent = `🥇 Bônus Ouro garantido! Faltam ${faltaDiamante} pontos percentuais para o Diamante 💎`;
+    msgEl.style.color = "#b8860b";
+  } else {
+    const faltaOuro = ((regra.ouroPercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
+    msgEl.textContent = `Continue vendendo planos de 1h e 2h! Faltam ${faltaOuro} pontos percentuais para o Bônus Ouro 🥉`;
+    msgEl.style.color = "var(--muted)";
+  }
+
+  // Cards de resumo do mês
+  const cardsWrap = document.getElementById("fa-meta-cards-resumo");
+  cardsWrap.innerHTML = "";
+  const cardsInfo = [
+    { titulo: "Total de Atendimentos", valor: resultado.totalAtend, meta: "no mês" },
+    { titulo: "Vendas 30min", valor: resultado.totalV30, meta: "no mês" },
+    { titulo: "Vendas 1h", valor: resultado.totalV1h, meta: "no mês" },
+    { titulo: "Vendas 2h", valor: resultado.totalV2h, meta: "no mês" },
+    { titulo: "Pix Guardião Acumulado", valor: formatBRL(resultado.totalPix), meta: "fins de semana qualificados" },
+    { titulo: "TOTAL ESTIMADO NO MÊS", valor: formatBRL(resultado.totalEstimado), meta: "bônus + pix", destaque: true }
+  ];
+  cardsInfo.forEach(info => {
+    const card = document.createElement("div");
+    card.className = "loja-card fa-loja-card";
+    if (info.destaque) card.style.borderTopColor = "#d4af37";
+    card.innerHTML = `
+      <h4>${info.titulo}</h4>
+      <div class="valor">${info.valor}</div>
+      <div class="meta"><span>${info.meta}</span></div>
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  // Rastreador de fim de semana: dias do mês corrente que caem nos dias
+  // configurados como "fim de semana" na regra, já passados ou não.
+  const fdsWrap = document.getElementById("fa-meta-fds-tracker");
+  fdsWrap.innerHTML = "";
+  const hoje = dataHojeStr();
+  const now = new Date();
+  const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const linhasPorData = {};
+  resultado.linhas.forEach(l => { linhasPorData[l.data] = l; });
+
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    const diaSemana = nomeDiaSemanaPorData(dataStr);
+    if (!regra.pixDiasSemana.includes(diaSemana)) continue;
+
+    const chip = document.createElement("span");
+    chip.style.cssText = "padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; border:1px solid var(--border);";
+    if (dataStr > hoje) {
+      chip.textContent = `${dia}/${String(now.getMonth() + 1).padStart(2, "0")} — ainda não chegou`;
+      chip.style.background = "var(--cream)";
+      chip.style.color = "var(--muted)";
+    } else {
+      const linha = linhasPorData[dataStr];
+      const bateu = linha && linha.pixHoje > 0;
+      chip.textContent = `${dia}/${String(now.getMonth() + 1).padStart(2, "0")} ${bateu ? "✅" : "❌"}`;
+      chip.style.background = bateu ? "#dcfce7" : "#fee2e2";
+      chip.style.color = bateu ? "#166534" : "#991b1b";
+    }
+    fdsWrap.appendChild(chip);
+  }
+
+  // Tabela dia a dia
+  const tbody = document.getElementById("fa-meta-tabela-mes-tbody");
+  const tabelaVazia = document.getElementById("fa-meta-tabela-vazia");
+  tbody.innerHTML = "";
+  const linhasOrdenadas = resultado.linhas.slice().sort((a, b) => b.data.localeCompare(a.data));
+  tabelaVazia.classList.toggle("hidden", linhasOrdenadas.length > 0);
+  linhasOrdenadas.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${l.data.split("-").reverse().join("/")}</td>
+      <td>${l.diaSemana}</td>
+      <td>${l.vendas30 || 0}</td>
+      <td>${l.vendas1h || 0}</td>
+      <td>${l.vendas2h || 0}</td>
+      <td>${l.total}</td>
+      <td>${(l.pctConversao * 100).toFixed(1)}%</td>
+      <td>${l.pixHoje > 0 ? formatBRL(l.pixHoje) : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ==========================================================================
+// METODOLOGIA DE LOCAÇÕES — Parque Circuito (quiosque de carrinhos)
+// ==========================================================================
+const REGRA_LOCACOES_FALLBACK = {
+  metaSegQui: 20, metaSexta: 38, metaSabado: 45, metaDomingo: 40,
+  ticketMedio: 48, pisoMes: 455, metaMes: 840, superMetaMes: 1110,
+  farolVerde: 1.0, farolAmarelo: 0.8
+};
+
+async function buscarRegraLocacoes(competencia) {
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes?competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    return data.regra;
+  } catch (err) {
+    console.error("Erro ao buscar regras de locações:", err);
+    return { competencia, ...REGRA_LOCACOES_FALLBACK };
+  }
+}
+
+// Meta de locações do dia conforme o dia da semana (0=Dom .. 6=Sáb).
+function metaLocacoesDoDia(dataStr, regra) {
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  const dow = new Date(ano, mes - 1, dia).getDay();
+  if (dow === 5) return regra.metaSexta;      // Sexta
+  if (dow === 6) return regra.metaSabado;     // Sábado
+  if (dow === 0) return regra.metaDomingo;    // Domingo
+  return regra.metaSegQui;                    // Seg–Qui
+}
+
+function farolLocacoes(realizado, meta, regra) {
+  const pct = meta > 0 ? realizado / meta : 0;
+  if (pct >= regra.farolVerde) return { emoji: "🟢", texto: "Bateu a meta", cor: "#16a34a" };
+  if (pct >= regra.farolAmarelo) return { emoji: "🟡", texto: "Quase lá", cor: "#d97706" };
+  return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
+}
+
+async function carregarFaMetaLocacoes(unidade) {
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  const usuarioAlvo = document.getElementById("fa-meta-colaboradora").value || currentUser.nome;
+
+  document.getElementById("fa-loc-hoje-label").textContent = `${nomeDiaSemanaPorData(hoje)}, ${hoje.split("-").reverse().join("/")}`;
+
+  const regra = await buscarRegraLocacoes(competencia);
+
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuarioAlvo)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar locações FA:", err);
+  }
+
+  const lancamentoHoje = lancamentos.find(l => l.data === hoje);
+  const inputLoc = document.getElementById("fa-loc-locacoes");
+  inputLoc.value = lancamentoHoje ? (lancamentoHoje.locacoes || 0) : 0;
+
+  const metaHoje = metaLocacoesDoDia(hoje, regra);
+  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações`;
+
+  const atualizarFarolHoje = () => {
+    const loc = parseInt(inputLoc.value) || 0;
+    const f = farolLocacoes(loc, metaHoje, regra);
+    const el = document.getElementById("fa-loc-farol-hoje");
+    el.textContent = `${f.emoji} ${loc} de ${metaHoje} locações — ${f.texto}`;
+    el.style.color = f.cor;
+  };
+  inputLoc.oninput = atualizarFarolHoje;
+  atualizarFarolHoje();
+
+  document.getElementById("fa-btn-loc-salvar").onclick = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/fa-bonificacao/diaria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: usuarioAlvo, unidade, data: hoje, locacoes: parseInt(inputLoc.value) || 0 })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      showToast("Locações de hoje salvas!", "sucesso");
+      carregarFaMetaLocacoes(unidade);
+    } catch (err) {
+      console.error("Erro ao salvar locações do dia:", err);
+      showToast("Erro ao salvar. Tente novamente.", "erro");
+    }
+  };
+
+  renderFaLocacoesDashboard(lancamentos, regra);
+}
+
+function renderFaLocacoesDashboard(lancamentos, regra) {
+  const totalMes = lancamentos.reduce((s, l) => s + (l.locacoes || 0), 0);
+  const receitaMes = totalMes * regra.ticketMedio;
+
+  // Progresso do mês contra a meta
+  const pct = regra.metaMes > 0 ? Math.min(100, (totalMes / regra.metaMes) * 100) : 0;
+  const bar = document.getElementById("fa-loc-gauge-bar");
+  bar.style.width = `${pct}%`;
+  bar.style.background = totalMes >= regra.metaMes ? "#16a34a" : (totalMes >= regra.pisoMes ? "#d4af37" : "#dc2626");
+  document.getElementById("fa-loc-mes-label").textContent = `${totalMes} / ${regra.metaMes} locações`;
+
+  // Marcas de piso e super-meta na barra (relativas à meta = 100%)
+  const marcaPiso = document.getElementById("fa-loc-marca-piso");
+  const marcaSuper = document.getElementById("fa-loc-marca-super");
+  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, (regra.pisoMes / regra.metaMes) * 100)}%`;
+  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, (regra.superMetaMes / regra.metaMes) * 100)}%`;
+
+  // Mensagem motivacional por faixa
+  const msg = document.getElementById("fa-loc-mensagem-motivacional");
+  if (totalMes >= regra.superMetaMes) {
+    msg.textContent = "🏆 Super-meta batida! Bônus da equipe garantido!";
+    msg.style.color = "#16a34a";
+  } else if (totalMes >= regra.metaMes) {
+    msg.textContent = `🎉 Meta do mês batida! Faltam ${regra.superMetaMes - totalMes} locações para a super-meta 🏆`;
+    msg.style.color = "#16a34a";
+  } else if (totalMes >= regra.pisoMes) {
+    msg.textContent = `💪 Piso garantido! Faltam ${regra.metaMes - totalMes} locações para a meta 🎯`;
+    msg.style.color = "#d97706";
+  } else {
+    msg.textContent = `Faltam ${regra.pisoMes - totalMes} locações para garantir o piso do mês. Bora empurrar a pelúcia! 🧸`;
+    msg.style.color = "var(--muted)";
+  }
+
+  // Cards de resumo
+  const cardsWrap = document.getElementById("fa-loc-cards-resumo");
+  cardsWrap.innerHTML = "";
+  const cards = [
+    { titulo: "Locações no Mês", valor: totalMes, meta: `meta ${regra.metaMes}` },
+    { titulo: "Receita Estimada", valor: formatBRL(receitaMes), meta: `ticket ${formatBRL(regra.ticketMedio)}` },
+    { titulo: "Piso do Mês", valor: regra.pisoMes, meta: totalMes >= regra.pisoMes ? "✅ atingido" : "pendente" },
+    { titulo: "Super-Meta", valor: regra.superMetaMes, meta: totalMes >= regra.superMetaMes ? "🏆 batida" : "bônus da equipe", destaque: true }
+  ];
+  cards.forEach(info => {
+    const card = document.createElement("div");
+    card.className = "loja-card fa-loja-card";
+    if (info.destaque) card.style.borderTopColor = "#16a34a";
+    card.innerHTML = `<h4>${info.titulo}</h4><div class="valor">${info.valor}</div><div class="meta"><span>${info.meta}</span></div>`;
+    cardsWrap.appendChild(card);
+  });
+
+  // Tabela dia a dia
+  const tbody = document.getElementById("fa-loc-tabela-mes-tbody");
+  const vazia = document.getElementById("fa-loc-tabela-vazia");
+  tbody.innerHTML = "";
+  const ordenados = lancamentos.slice().sort((a, b) => b.data.localeCompare(a.data));
+  vazia.classList.toggle("hidden", ordenados.length > 0);
+  ordenados.forEach(l => {
+    const meta = metaLocacoesDoDia(l.data, regra);
+    const realizado = l.locacoes || 0;
+    const f = farolLocacoes(realizado, meta, regra);
+    const pctDia = meta > 0 ? (realizado / meta) * 100 : 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${l.data.split("-").reverse().join("/")}</td>
+      <td>${nomeDiaSemanaPorData(l.data)}</td>
+      <td>${meta}</td>
+      <td>${realizado}</td>
+      <td>${pctDia.toFixed(0)}%</td>
+      <td>${f.emoji} ${f.texto}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Regras de Bonificação (Bruno/Isabella) ---
+async function inicializarFaRegrasBonificacao() {
+  const seletor = document.getElementById("fa-regras-competencia-selector");
+  if (!seletor.value) seletor.value = competenciaAtual();
+  seletor.onchange = () => carregarRegrasFaConformeModo();
+
+  const selMetodologia = document.getElementById("fa-regras-metodologia");
+  if (selMetodologia) selMetodologia.onchange = alternarModoRegrasFa;
+
+  document.getElementById("fa-btn-regras-salvar").onclick = salvarRegrasFaConformeModo;
+
+  alternarModoRegrasFa();
+  await carregarRegrasFaConformeModo();
+}
+
+function alternarModoRegrasFa() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  document.getElementById("fa-regras-bloco-conversao").classList.toggle("hidden", modo !== "conversao");
+  document.getElementById("fa-regras-bloco-locacoes").classList.toggle("hidden", modo !== "locacoes");
+  carregarRegrasFaConformeModo();
+}
+
+function carregarRegrasFaConformeModo() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (modo === "locacoes") return carregarRegraLocacoesNoFormulario(competencia);
+  return carregarRegraNoFormulario(competencia);
+}
+
+function salvarRegrasFaConformeModo() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  if (modo === "locacoes") return salvarRegraLocacoes();
+  return salvarRegraFaBonificacao();
+}
+
+async function carregarRegraLocacoesNoFormulario(competencia) {
+  const data = await (await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes?competencia=${encodeURIComponent(competencia)}`)).json();
+  const r = data.regra;
+
+  document.getElementById("fa-loc-regras-segqui").value = r.metaSegQui;
+  document.getElementById("fa-loc-regras-sexta").value = r.metaSexta;
+  document.getElementById("fa-loc-regras-sabado").value = r.metaSabado;
+  document.getElementById("fa-loc-regras-domingo").value = r.metaDomingo;
+  document.getElementById("fa-loc-regras-ticket").value = r.ticketMedio;
+  document.getElementById("fa-loc-regras-piso").value = r.pisoMes;
+  document.getElementById("fa-loc-regras-meta").value = r.metaMes;
+  document.getElementById("fa-loc-regras-super").value = r.superMetaMes;
+  document.getElementById("fa-loc-regras-verde").value = Math.round(r.farolVerde * 100);
+  document.getElementById("fa-loc-regras-amarelo").value = Math.round(r.farolAmarelo * 100);
+
+  const aviso = document.getElementById("fa-regras-origem-aviso");
+  if (data.origem === "herdada") {
+    aviso.textContent = `Nenhuma regra de locações para ${competencia} ainda — mostrando a do mês mais recente (${r.competencia}). Salve para criar uma regra própria.`;
+    aviso.classList.remove("hidden");
+  } else if (data.origem === "padrao") {
+    aviso.textContent = `Nenhuma regra de locações cadastrada ainda — mostrando os valores padrão do Parque Circuito (META.pdf). Salve para criar a primeira.`;
+    aviso.classList.remove("hidden");
+  } else {
+    aviso.classList.add("hidden");
+  }
+}
+
+async function salvarRegraLocacoes() {
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (!competencia) { showToast("Selecione uma competência.", "erro"); return; }
+
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        competencia,
+        metaSegQui: parseInt(document.getElementById("fa-loc-regras-segqui").value) || 0,
+        metaSexta: parseInt(document.getElementById("fa-loc-regras-sexta").value) || 0,
+        metaSabado: parseInt(document.getElementById("fa-loc-regras-sabado").value) || 0,
+        metaDomingo: parseInt(document.getElementById("fa-loc-regras-domingo").value) || 0,
+        ticketMedio: parseFloat(document.getElementById("fa-loc-regras-ticket").value) || 0,
+        pisoMes: parseInt(document.getElementById("fa-loc-regras-piso").value) || 0,
+        metaMes: parseInt(document.getElementById("fa-loc-regras-meta").value) || 0,
+        superMetaMes: parseInt(document.getElementById("fa-loc-regras-super").value) || 0,
+        farolVerde: (parseFloat(document.getElementById("fa-loc-regras-verde").value) || 0) / 100,
+        farolAmarelo: (parseFloat(document.getElementById("fa-loc-regras-amarelo").value) || 0) / 100
+      })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar");
+    showToast(`Regras de locações de ${competencia} salvas!`, "sucesso");
+    carregarRegraLocacoesNoFormulario(competencia);
+  } catch (err) {
+    console.error("Erro ao salvar regras de locações:", err);
+    showToast("Erro ao salvar regras. Tente novamente.", "erro");
+  }
+}
+
+async function carregarRegraNoFormulario(competencia) {
+  const res = await fetch(`${API_BASE}/fa-bonificacao/regras?competencia=${encodeURIComponent(competencia)}`);
+  const data = await res.json();
+  const regra = parseRegraFaBonificacao(data.regra);
+
+  document.getElementById("fa-regras-ouro-percent").value = (regra.ouroPercentMin * 100).toFixed(1);
+  document.getElementById("fa-regras-ouro-valor").value = regra.ouroValor;
+  document.getElementById("fa-regras-diamante-percent").value = (regra.diamantePercentMin * 100).toFixed(1);
+  document.getElementById("fa-regras-diamante-valor").value = regra.diamanteValor;
+  document.getElementById("fa-regras-pix-min-2h").value = regra.pixMinVendas2h;
+  document.getElementById("fa-regras-pix-valor").value = regra.pixValor;
+
+  document.querySelectorAll(".fa-regras-dia-checkbox").forEach(cb => {
+    cb.checked = regra.pixDiasSemana.includes(cb.value);
+  });
+
+  const aviso = document.getElementById("fa-regras-origem-aviso");
+  if (data.origem === "herdada") {
+    aviso.textContent = `Nenhuma regra cadastrada para ${competencia} ainda — mostrando a regra do mês mais recente configurado (${regra.competencia}). Salve para criar uma regra própria deste mês.`;
+    aviso.classList.remove("hidden");
+  } else if (data.origem === "padrao") {
+    aviso.textContent = `Nenhuma regra cadastrada ainda — mostrando os valores padrão (idênticos à planilha original). Salve para criar a primeira regra.`;
+    aviso.classList.remove("hidden");
+  } else {
+    aviso.classList.add("hidden");
+  }
+}
+
+async function salvarRegraFaBonificacao() {
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (!competencia) {
+    showToast("Selecione uma competência.", "erro");
+    return;
+  }
+
+  const diasSelecionados = Array.from(document.querySelectorAll(".fa-regras-dia-checkbox:checked")).map(cb => cb.value);
+
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        competencia,
+        ouroPercentMin: (parseFloat(document.getElementById("fa-regras-ouro-percent").value) || 0) / 100,
+        ouroValor: parseFloat(document.getElementById("fa-regras-ouro-valor").value) || 0,
+        diamantePercentMin: (parseFloat(document.getElementById("fa-regras-diamante-percent").value) || 0) / 100,
+        diamanteValor: parseFloat(document.getElementById("fa-regras-diamante-valor").value) || 0,
+        pixMinVendas2h: parseInt(document.getElementById("fa-regras-pix-min-2h").value) || 0,
+        pixValor: parseFloat(document.getElementById("fa-regras-pix-valor").value) || 0,
+        pixDiasSemana: diasSelecionados
+      })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar regra");
+    showToast(`Regras de ${competencia} salvas com sucesso!`, "sucesso");
+    carregarRegraNoFormulario(competencia);
+  } catch (err) {
+    console.error("Erro ao salvar regras de bonificação FA:", err);
+    showToast("Erro ao salvar regras. Tente novamente.", "erro");
+  }
+}
 
 // ==================== FACADE: Modal confirmar retirada FA ====================
 // Intercept the existing modal-confirmar for FA mode
@@ -4968,6 +5652,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   checkMonthlyInventoryAlert();
   inicializarBoletosTab();
+  inicializarMetasImportTab();
 });
 
 
@@ -5853,24 +6538,43 @@ function renderNfCardsGallery() {
   updateNfSelectionUI();
 }
 
+function nomeLoja(codigo) {
+  if (codigo === "9175") return "Marambaia (9175)";
+  if (codigo === "4304") return "Icoaraci (4304)";
+  if (codigo === "9201") return "Mário Covas (9201)";
+  return `Loja ${codigo}`;
+}
+
+// Loja de uma NF-e importada; cai em currentStore quando o XML não trouxe a loja.
+function lojaDaNf(numNF) {
+  const nf = importedNfs[numNF];
+  return (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+}
+
 function toggleNfSelection(numNF) {
   const index = selectedNfNumbers.indexOf(numNF);
   if (index > -1) {
     selectedNfNumbers.splice(index, 1);
   } else {
+    // As lojas são fisicamente separadas, com equipes diferentes: uma conferência
+    // em lote misturando lojas não corresponde a nenhuma carga real.
+    const lojaSelecao = selectedNfNumbers.length > 0 ? lojaDaNf(selectedNfNumbers[0]) : null;
+    if (lojaSelecao && lojaDaNf(numNF) !== lojaSelecao) {
+      showToast(`Só é possível conferir em lote notas da mesma loja (${nomeLoja(lojaSelecao)}).`, "erro");
+      return;
+    }
     selectedNfNumbers.push(numNF);
   }
   updateNfSelectionUI();
-  
+
   // Re-render gallery cards to show selected checkmarks
   const nfKeys = Object.keys(importedNfs);
   const grid = document.getElementById('nf-cards-grid');
   const cards = grid.children;
-  
+
   const nfKeysDaLoja = nfKeys.filter(n => {
     if (nfGalleryStoreFilter === 'todas') return true;
-    const storeOfNf = (importedNfs[n] && importedNfs[n].info && importedNfs[n].info.targetStore) ? importedNfs[n].info.targetStore : currentStore;
-    return storeOfNf === nfGalleryStoreFilter;
+    return lojaDaNf(n) === nfGalleryStoreFilter;
   });
 
   nfKeysDaLoja.forEach((nKey, idx) => {
@@ -5912,10 +6616,14 @@ function updateNfSelectionUI() {
   const countEl = document.getElementById('nf-selected-count');
   if (!bar || !countEl) return;
 
+  const storeEl = document.getElementById('nf-selected-store');
+
   if (selectedNfNumbers.length > 0) {
     countEl.textContent = selectedNfNumbers.length;
+    if (storeEl) storeEl.textContent = ` — ${nomeLoja(lojaDaNf(selectedNfNumbers[0]))}`;
     bar.classList.remove('hidden');
   } else {
+    if (storeEl) storeEl.textContent = '';
     bar.classList.add('hidden');
   }
 }
@@ -7038,6 +7746,141 @@ function inicializarBoletosTab() {
   renderBoletos();
 }
 
+// ==========================================================================
+// IMPORTAÇÃO DE METAS DIÁRIAS (XLSX) — alimenta o Meta Hora a Hora com os
+// valores reais da coluna "$ Meta Total" das planilhas de exportação por loja.
+// ==========================================================================
+function inicializarMetasImportTab() {
+  const fileInput = document.getElementById("metas-xlsx-file");
+  if (!fileInput) return;
+
+  fileInput.addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      parseMetasXlsx(file);
+      fileInput.value = "";
+    }
+  });
+}
+
+// A célula de data da planilha de metas costuma vir como serial do Excel
+// (ex.: 46024 = 02/01/2026) mesmo com `cellDates: true`, porque o export não
+// marca a coluna com formato de data. Aceita serial, Date e string dd/mm/aaaa.
+function normalizarDataPlanilha(cell) {
+  if (cell === undefined || cell === null || cell === '') return null;
+
+  const fmt = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  if (cell instanceof Date) {
+    return fmt(cell.getFullYear(), cell.getMonth() + 1, cell.getDate());
+  }
+
+  if (typeof cell === 'number' && cell > 0) {
+    const partes = XLSX.SSF.parse_date_code(cell);
+    if (!partes || !partes.y) return null;
+    return fmt(partes.y, partes.m, partes.d);
+  }
+
+  const texto = cell.toString().trim();
+  const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (br) return fmt(Number(br[3]), Number(br[2]), Number(br[1]));
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return fmt(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+
+  return null;
+}
+
+function parseMetasXlsx(file) {
+  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
+    showToast("Apenas o Líder de Operações ou Owner podem importar Metas Diárias.", "erro");
+    return;
+  }
+
+  const loja = document.getElementById("metas-loja-selector").value;
+  const infoEl = document.getElementById("metas-import-info");
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // Localiza a linha de cabeçalho pelo texto exato das colunas que
+      // precisamos — resiliente a reordenação de colunas no export.
+      let headerRowIndex = -1;
+      let colData = -1, colMetaTotal = -1;
+      for (let r = 0; r < Math.min(10, rawRows.length); r++) {
+        const row = rawRows[r] || [];
+        const idxData = row.findIndex(v => (v || '').toString().trim() === 'Data');
+        const idxMeta = row.findIndex(v => (v || '').toString().trim() === '$ Meta Total');
+        if (idxData !== -1 && idxMeta !== -1) {
+          headerRowIndex = r;
+          colData = idxData;
+          colMetaTotal = idxMeta;
+          break;
+        }
+      }
+
+      if (headerRowIndex === -1) {
+        showToast('Não foi possível localizar as colunas "Data" e "$ Meta Total" na planilha.', "erro");
+        return;
+      }
+
+      // Extrai (data, valor), ignorando linhas sem uma das duas informações
+      // (ex.: a linha de rodapé "Total" ou dias sem meta cadastrada).
+      const brutos = [];
+      for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+        const row = rawRows[r] || [];
+        const dataStr = normalizarDataPlanilha(row[colData]);
+        const valorCell = row[colMetaTotal];
+        if (!dataStr || valorCell === undefined || valorCell === null || valorCell === '') continue;
+        const valor = parseFloat(valorCell);
+        if (Number.isNaN(valor)) continue;
+
+        brutos.push({ data: dataStr, valor, competencia: dataStr.slice(0, 7) });
+      }
+
+      if (brutos.length === 0) {
+        showToast("Nenhuma linha com Data e Meta Total válidas foi encontrada.", "erro");
+        return;
+      }
+
+      // Um mês com só 1 linha representa o total do mês inteiro, não um valor
+      // diário — marcado como 'mensal' para o Meta Hora a Hora ignorar.
+      const contagemPorMes = {};
+      brutos.forEach(l => { contagemPorMes[l.competencia] = (contagemPorMes[l.competencia] || 0) + 1; });
+      const linhas = brutos.map(l => ({
+        data: l.data,
+        valor: l.valor,
+        origem: contagemPorMes[l.competencia] > 1 ? 'diaria' : 'mensal'
+      }));
+
+      const diasDiarios = linhas.filter(l => l.origem === 'diaria').length;
+      const mesesSoTotal = new Set(linhas.filter(l => l.origem === 'mensal').map(l => l.data.slice(0, 7))).size;
+
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loja: getLojaNomePorCodigo(loja), linhas })
+      });
+      if (!res.ok) throw new Error("Falha ao importar");
+
+      if (infoEl) {
+        infoEl.classList.remove("hidden");
+        infoEl.innerHTML = `${diasDiarios} dia(s) importado(s) como meta diária.` +
+          (mesesSoTotal > 0 ? `<br>${mesesSoTotal} mês(es) só com total mensal (sem detalhamento diário).` : '');
+      }
+      showToast(`Metas de ${getLojaNomePorCodigo(loja)} importadas com sucesso!`, "sucesso");
+    } catch (err) {
+      console.error("Erro ao importar metas diárias:", err);
+      showToast("Erro ao importar a planilha de metas. Confira o arquivo.", "erro");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 async function parseBoletoPdf(file) {
   if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
     showToast("Apenas o Líder de Operações ou Owner podem fazer importação de Boletos.", "erro");
@@ -7576,6 +8419,41 @@ window.excluirBoleto = async function(id) {
   }
 };
 
+// Segunda passada da auditoria: o cruzamento principal só casa por número de
+// documento, então quando o "Doc. Faturamento" do relatório de títulos não bate
+// com o nNF do XML, o mesmo faturamento aparece duas vezes — uma linha "Sem
+// NF-e" e outra "Sem Boleto". Aqui essas sobras são pareadas por valor dentro da
+// MESMA loja e viradas numa linha só, marcada para revisão (o documento continua
+// não conferindo, então não é uma conciliação definitiva).
+function conciliarOrfaosPorValor(auditList) {
+  const TOLERANCIA = 0.05;
+  const boletosOrfaos = auditList.filter(i => i.statusText === "Sem NF-e");
+  const nfesOrfas = auditList.filter(i => i.statusText === "Sem Boleto");
+  const pareadas = new Set();
+
+  boletosOrfaos.forEach(boleto => {
+    const nfe = nfesOrfas.find(n =>
+      !pareadas.has(n) &&
+      n.loja === boleto.loja &&
+      Math.abs(n.valorNfe - boleto.valorBoletos) <= TOLERANCIA
+    );
+    if (!nfe) return;
+    pareadas.add(nfe);
+
+    boleto.nfeNumber = nfe.nfeNumber;
+    boleto.valorNfe = nfe.valorNfe;
+    boleto.statusText = "Conciliado por Valor";
+    boleto.statusClass = "bg-amber-950 text-amber-400 border border-amber-900/40";
+    boleto.descDivergencia = "Pareado por valor (documento não confere) — revisar";
+    boleto.isDivergent = false;
+  });
+
+  pareadas.forEach(nfe => {
+    const idx = auditList.indexOf(nfe);
+    if (idx > -1) auditList.splice(idx, 1);
+  });
+}
+
 window.carregarAuditoriaBoletos = function() {
   const storeFilter = document.getElementById("auditoria-store-filter")?.value || "all";
   const tbody = document.getElementById("auditoria-tbody");
@@ -7699,11 +8577,9 @@ window.carregarAuditoriaBoletos = function() {
 
       if (storeMismatch) {
         isDivergent = true;
-        divergenciasCount++;
         statusText = "Loja Divergente";
         descDivergencia = `NF-e na loja ${nfeStore}, Títulos na loja ${boletoStores.join(', ')}`;
         statusClass = "bg-orange-950 text-orange-400 border border-orange-900/40";
-        notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
       } else if (duplicatas.length > 0) {
         // Cruzamento por parcela: cada duplicata da NF-e (Nº de Ordem / Vencimento /
         // Valor) é pareada com um boleto do grupo. Cobre parcelamento (2+ duplicatas
@@ -7750,11 +8626,9 @@ window.carregarAuditoriaBoletos = function() {
 
         if (problemas.length > 0) {
           isDivergent = true;
-          divergenciasCount++;
           statusText = duplicatas.length > 1 ? "Divergência de Parcela" : "Divergência de Valor";
           descDivergencia = problemas.join(' | ');
           statusClass = "bg-red-950 text-red-400 border border-red-900/40";
-          notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
         } else {
           statusText = "Conciliado";
           statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
@@ -7765,11 +8639,9 @@ window.carregarAuditoriaBoletos = function() {
         const diff = Math.abs(valorNfe - valorBoletos);
         if (diff > 0.05) {
           isDivergent = true;
-          divergenciasCount++;
           statusText = "Divergência de Valor";
           descDivergencia = `Diferença de ${formatBRL(diff)}`;
           statusClass = "bg-red-950 text-red-400 border border-red-900/40";
-          notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
         } else {
           statusText = "Conciliado";
           statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
@@ -7777,18 +8649,14 @@ window.carregarAuditoriaBoletos = function() {
       }
     } else if (bg && !nfe) {
       isDivergent = true;
-      divergenciasCount++;
       statusText = "Sem NF-e";
       descDivergencia = "Nenhuma NF-e importada correspondente a este título";
       statusClass = "bg-amber-950 text-amber-400 border border-amber-900/40";
-      notificarDivergenciaAuditoria(item.loja, "Não Importada", 0, bg.documentosOriginais.join(", "), valorBoletos, descDivergencia);
     } else if (nfe && !bg) {
       isDivergent = true;
-      divergenciasCount++;
       statusText = "Sem Boleto";
       descDivergencia = "Nenhum boleto registrado para esta NF-e";
       statusClass = "bg-blue-950 text-blue-400 border border-blue-900/40";
-      notificarDivergenciaAuditoria(item.loja, nfe.info.numero, valorNfe, "Não Encontrado", 0, descDivergencia);
     }
 
     auditList.push({
@@ -7802,6 +8670,23 @@ window.carregarAuditoriaBoletos = function() {
       descDivergencia: descDivergencia,
       isDivergent: isDivergent
     });
+  });
+
+  conciliarOrfaosPorValor(auditList);
+
+  divergenciasCount = auditList.filter(i => i.isDivergent).length;
+
+  // Notificar só o que sobrou divergente depois da conciliação — antes disso um
+  // par que a segunda passada iria unir já teria disparado dois e-mails.
+  auditList.filter(i => i.isDivergent).forEach(i => {
+    notificarDivergenciaAuditoria(
+      i.loja,
+      i.nfeNumber === "—" ? "Não Importada" : i.nfeNumber,
+      i.valorNfe,
+      i.documentoBoleto === "—" ? "Não Encontrado" : i.documentoBoleto,
+      i.valorBoletos,
+      i.descDivergencia
+    );
   });
 
   const statNfe = document.getElementById("stat-audit-nfe-total");
@@ -7839,19 +8724,56 @@ window.carregarAuditoriaBoletos = function() {
     return;
   }
 
-  auditList.sort((a, b) => b.isDivergent - a.isDivergent);
+  // Divergências primeiro, depois os pares conciliados por valor (que ainda
+  // pedem revisão), e por fim o que já está conciliado por documento.
+  const prioridade = item => item.isDivergent ? 0 : (item.statusText === "Conciliado por Valor" ? 1 : 2);
+  auditList.sort((a, b) => prioridade(a) - prioridade(b) || a.loja.localeCompare(b.loja));
 
+  // Cada faixa de prioridade ganha uma linha-título, para separar o que exige
+  // ação do que já está resolvido.
+  const GRUPOS = [
+    { chave: 0, titulo: "Divergências — exigem ação", classe: "bg-red-950/40 text-red-300" },
+    { chave: 1, titulo: "Conciliado por valor — revisar (documento não confere)", classe: "bg-amber-950/40 text-amber-300" },
+    { chave: 2, titulo: "Conciliado", classe: "bg-emerald-950/40 text-emerald-300" }
+  ];
+
+  let grupoAtual = null;
   auditList.forEach(item => {
+    const p = prioridade(item);
+    if (p !== grupoAtual) {
+      grupoAtual = p;
+      const grupo = GRUPOS.find(g => g.chave === p);
+      const qtd = auditList.filter(i => prioridade(i) === p).length;
+      const trGrupo = document.createElement("tr");
+      trGrupo.innerHTML = `
+        <td colspan="6" class="py-2 px-4 text-[10px] font-extrabold uppercase tracking-widest ${grupo.classe}">
+          ${grupo.titulo} <span class="opacity-70">(${qtd})</span>
+        </td>
+      `;
+      tbody.appendChild(trGrupo);
+    }
+
     const tr = document.createElement("tr");
-    const storeLabel = item.loja === "9175" ? "Marambaia (9175)" : (item.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
-    
+    const storeLabel = nomeLoja(item.loja);
+
+    // Diferença NF-e × Boleto só faz sentido quando existem os dois lados.
+    const temAmbos = item.valorNfe > 0 && item.valorBoletos > 0;
+    const diff = item.valorNfe - item.valorBoletos;
+    let diffHtml = '<span class="text-muted">—</span>';
+    if (temAmbos) {
+      diffHtml = Math.abs(diff) <= 0.05
+        ? '<span class="text-emerald-400 font-bold">R$ 0,00</span>'
+        : `<span class="text-red-400 font-bold">${diff > 0 ? "+" : "−"}${formatBRL(Math.abs(diff))}</span>`;
+    }
+
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold">${storeLabel}</td>
-      <td class="py-3 px-4 font-mono font-bold">${item.nfeNumber}</td>
-      <td class="py-3 px-4 text-right font-mono font-bold">${item.valorNfe > 0 ? formatBRL(item.valorNfe) : "—"}</td>
-      <td class="py-3 px-4 font-mono">${item.documentoBoleto}</td>
-      <td class="py-3 px-4 text-right font-mono font-bold">${item.valorBoletos > 0 ? formatBRL(item.valorBoletos) : "—"}</td>
+      <td class="py-3 px-3 font-mono font-bold">${item.nfeNumber}</td>
+      <td class="py-3 px-3 text-right font-mono font-bold">${item.valorNfe > 0 ? formatBRL(item.valorNfe) : "—"}</td>
+      <td class="py-3 px-3 font-mono">${item.documentoBoleto}</td>
+      <td class="py-3 px-3 text-right font-mono font-bold">${item.valorBoletos > 0 ? formatBRL(item.valorBoletos) : "—"}</td>
       <td class="py-3 px-4 text-center">
+        <div class="font-mono text-xs mb-1">${diffHtml}</div>
         <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${item.statusClass}">${item.statusText}</span>
         ${item.descDivergencia ? `<div class="text-[10px] text-muted font-medium mt-1">${item.descDivergencia}</div>` : ""}
       </td>
@@ -7955,23 +8877,35 @@ function inicializarPainelConfiguracoes() {
     if (cardWa) cardWa.classList.add("hidden");
   }
 
-  // Cor de destaque ativa
-  aplicarCorDestaque(config.accentColor || "#56707f");
+  // Mostrar card de Localização/Horário/Meta das Operações para Líder de Operações/Owner
+  const cardOperacoes = document.getElementById("config-card-operacoes");
+  const mostrarOperacoes = currentUser.role === "owner" || currentUser.role === "consultora_dashboard";
+  if (cardOperacoes) cardOperacoes.classList.toggle("hidden", !mostrarOperacoes);
+  if (mostrarOperacoes) {
+    const tbody = document.getElementById("config-operacoes-tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      Object.keys(LOJAS_GEOLOC).forEach(operacao => {
+        const geo = LOJAS_GEOLOC[operacao] || { lat: 0, lng: 0 };
+        const cfg = OPERACOES_CONFIG[operacao] || { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 };
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="py-2 px-2 font-bold">${operacao}</td>
+          <td class="py-2 px-2"><input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lat" data-operacao="${operacao}" value="${geo.lat}"></td>
+          <td class="py-2 px-2"><input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lng" data-operacao="${operacao}" value="${geo.lng}"></td>
+          <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-abertura" data-operacao="${operacao}" value="${cfg.abertura}"></td>
+          <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-fechamento" data-operacao="${operacao}" value="${cfg.fechamento}"></td>
+          <td class="py-2 px-2"><input type="number" step="0.01" min="0" class="w-28 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-meta" data-operacao="${operacao}" value="${cfg.metaDiaria}" ${UNIDADES_FA.includes(operacao) ? "disabled title=\"Meta Hora a Hora não se aplica às unidades do Faça Amigos\"" : ""}></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
 }
 
 // Configurações: Ouvir eventos após o carregamento da página
 document.addEventListener("DOMContentLoaded", () => {
-  // Alteração de Cor de Destaque
-  document.querySelectorAll(".config-accent-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const color = btn.dataset.accent;
-      aplicarCorDestaque(color);
-      config.accentColor = color;
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      showToast("Cor de destaque atualizada!", "sucesso");
-    });
-  });
-
   // Alteração do Timeout
   const timeoutSelect = document.getElementById("config-timeout-select");
   if (timeoutSelect) {
@@ -8030,6 +8964,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
       showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
+    });
+  }
+
+  const btnSaveOperacoes = document.getElementById("config-btn-save-operacoes");
+  if (btnSaveOperacoes) {
+    btnSaveOperacoes.addEventListener("click", () => {
+      config.operacoesGeoloc = config.operacoesGeoloc || {};
+      config.operacoesConfig = config.operacoesConfig || {};
+
+      document.querySelectorAll(".config-op-lat").forEach(input => {
+        const operacao = input.dataset.operacao;
+        const lat = parseFloat(input.value) || 0;
+        const lngInput = document.querySelector(`.config-op-lng[data-operacao="${operacao}"]`);
+        const lng = lngInput ? (parseFloat(lngInput.value) || 0) : 0;
+        config.operacoesGeoloc[operacao] = { lat, lng };
+        LOJAS_GEOLOC[operacao] = { lat, lng };
+      });
+
+      document.querySelectorAll(".config-op-abertura").forEach(input => {
+        const operacao = input.dataset.operacao;
+        const abertura = input.value || "09:00";
+        const fechamentoInput = document.querySelector(`.config-op-fechamento[data-operacao="${operacao}"]`);
+        const metaInput = document.querySelector(`.config-op-meta[data-operacao="${operacao}"]`);
+        const fechamento = fechamentoInput ? (fechamentoInput.value || "22:00") : "22:00";
+        const metaDiaria = metaInput ? (parseFloat(metaInput.value) || 0) : 0;
+        config.operacoesConfig[operacao] = { abertura, fechamento, metaDiaria };
+        OPERACOES_CONFIG[operacao] = { abertura, fechamento, metaDiaria };
+      });
+
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      showToast("Localização, horários e metas das operações salvos com sucesso!", "sucesso");
     });
   }
 
@@ -8703,11 +9668,12 @@ let pontoDb = null;
 let pontoStream = null;
 let pontoGpsCoords = null;
 let pontoGpsAccuracy = null;
-const LOJAS_GEOLOC = {
-  "Marambaia": { lat: -1.4116, lng: -48.4418 },
-  "Icoaraci": { lat: -1.3039, lng: -48.4878 },
-  "Mário Covas": { lat: -1.3815, lng: -48.4115 }
-};
+// Operação ativa no Ponto — independente de currentStore (compartilhado com
+// NF-e/Inventário) para não recarregar essas telas ao trocar de operação aqui.
+let pontoOperacaoAtiva = null;
+let pontoGpsWatchId = null;
+// LOJAS_GEOLOC e OPERACOES_CONFIG estão declarados no topo do arquivo (perto de
+// WHATSAPP_GRUPOS), pois carregarConfiguracoes() precisa deles antes deste ponto.
 
 function inicializarPontoDb() {
   if (pontoDb) return;
@@ -8721,7 +9687,22 @@ function inicializarPontoDb() {
 
 function inicializarAbaPonto() {
   inicializarPontoDb();
-  
+
+  // Seletor de operação: 1ª unidade do Faça Amigos por padrão para
+  // consultora_fa, senão a loja Cacau Show ativa. Trocar reinicia o rastreio
+  // de GPS para a nova operação.
+  const operacaoSelector = document.getElementById("ponto-operacao-selector");
+  if (operacaoSelector) {
+    pontoOperacaoAtiva = currentUser && currentUser.role === "consultora_fa"
+      ? UNIDADES_FA[0]
+      : getLojaNomePorCodigo(currentStore);
+    operacaoSelector.value = pontoOperacaoAtiva;
+    operacaoSelector.onchange = (e) => {
+      pontoOperacaoAtiva = e.target.value;
+      ativarGPSPonto();
+    };
+  }
+
   // Setup listeners
   document.getElementById("btn-ponto-ativar-cam").onclick = ativarCameraPonto;
   document.getElementById("btn-ponto-entrada").onclick = () => registrarMarcacaoPonto("ENTRADA");
@@ -8746,6 +9727,18 @@ function inicializarAbaPonto() {
 
   // PDF report listener
   document.getElementById("btn-ponto-pdf").onclick = exportarEspelhoPontoPDF;
+
+  // Relatório por Operação (Líder de Operações/Owner)
+  const relatorioTabs = document.querySelectorAll(".ponto-relatorio-tab");
+  if (relatorioTabs.length > 0) {
+    relatorioTabs.forEach(tab => {
+      tab.onclick = () => {
+        relatorioTabs.forEach(t => t.classList.remove("bg-brand-700", "text-white", "border-brand-600"));
+        tab.classList.add("bg-brand-700", "text-white", "border-brand-600");
+        carregarRelatorioPontoOperacao(tab.dataset.operacao);
+      };
+    });
+  }
 
   // Start continuous GPS tracking
   ativarGPSPonto();
@@ -8798,7 +9791,12 @@ function ativarGPSPonto() {
     return;
   }
 
-  navigator.geolocation.watchPosition(
+  // Reinicia o rastreio ao trocar de operação, em vez de acumular watchers.
+  if (pontoGpsWatchId !== null) {
+    navigator.geolocation.clearWatch(pontoGpsWatchId);
+  }
+
+  pontoGpsWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       pontoGpsCoords = pos.coords;
       pontoGpsAccuracy = pos.coords.accuracy;
@@ -8806,8 +9804,8 @@ function ativarGPSPonto() {
       gpsCoords.textContent = `Coordenadas: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
       gpsAcc.textContent = `Precisão: ${pos.coords.accuracy.toFixed(1)}m`;
 
-      // Check distance to active store
-      const storeName = getLojaNomePorCodigo(currentStore);
+      // Check distance to active operation
+      const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
       const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
       const dist = calcularDistanciaHaversine(pos.coords.latitude, pos.coords.longitude, storeLoc.lat, storeLoc.lng);
       
@@ -8854,7 +9852,7 @@ async function registrarMarcacaoPonto(tipo) {
   }
 
   // Geofencing Check
-  const storeName = getLojaNomePorCodigo(currentStore);
+  const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
   const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
   const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
   
@@ -8897,6 +9895,7 @@ async function registrarMarcacaoPonto(tipo) {
     usuario: currentUser.nome,
     timestamp,
     tipo,
+    operacao: storeName,
     gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
     accuracy: pontoGpsAccuracy,
     photo: photoBase64,
@@ -9152,6 +10151,346 @@ function renderizarTabelaPonto(records) {
 
 function formatTime(date) {
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ==========================================================================
+// MÓDULO META HORA A HORA — meta diária real vem das planilhas importadas
+// (Importações > Metas Diárias). Colaboradora confirma, por check-in, o
+// valor vendido em cada intervalo de hora, só até 30min depois do horário.
+// Não usa dados do Controle de Caixa/envelopes.
+// ==========================================================================
+let metaOperacaoAtiva = null;
+const META_JANELA_CONFIRMACAO_MIN = 30;
+
+function minutosDoDiaPorHora(horaStr) {
+  const [h, m] = (horaStr || "09:00").split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function horaStrPorMinutos(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function amanhaStr(hojeStr) {
+  const [y, m, d] = hojeStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+async function buscarMetaDiaLoja(loja, data) {
+  try {
+    const res = await fetch(`${API_BASE}/metas-lojas/dia?loja=${encodeURIComponent(loja)}&data=${encodeURIComponent(data)}`);
+    const json = await res.json();
+    return json.meta || null;
+  } catch (err) {
+    console.error("Erro ao buscar meta diária da loja:", err);
+    return null;
+  }
+}
+
+function inicializarMetaHoraHora() {
+  const selector = document.getElementById("meta-operacao-selector");
+  if (selector) {
+    metaOperacaoAtiva = getLojaNomePorCodigo(currentStore);
+    selector.value = metaOperacaoAtiva;
+    selector.onchange = (e) => {
+      metaOperacaoAtiva = e.target.value;
+      carregarMetaHoraHora();
+    };
+  }
+
+  carregarMetaHoraHora();
+}
+
+async function confirmarIntervaloMeta(horaSlot, valor) {
+  try {
+    const res = await fetch(`${API_BASE}/vendas/registrar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operacao: metaOperacaoAtiva,
+        usuario: currentUser.nome,
+        data: dataHojeStr(),
+        horaSlot,
+        valor
+      })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao confirmar intervalo");
+
+    showToast(`Intervalo ${horaSlot} confirmado!`, "sucesso");
+    carregarMetaHoraHora();
+  } catch (err) {
+    console.error("Erro ao confirmar intervalo do Meta Hora a Hora:", err);
+    showToast(err.message || "Erro ao confirmar. Tente novamente.", "erro");
+  }
+}
+
+// Quando não há meta importada para o dia, o Líder de Operações (ou owner)
+// pode digitar a meta manualmente — as colaboradoras não veem esse campo.
+function prepararMetaManual(data) {
+  const box = document.getElementById("meta-manual-box");
+  if (!box) return;
+
+  const podeDefinir = currentUser &&
+    (currentUser.role === "owner" || currentUser.role === "consultora_dashboard");
+  box.classList.toggle("hidden", !podeDefinir);
+  if (!podeDefinir) return;
+
+  const btn = document.getElementById("btn-meta-manual-salvar");
+  const input = document.getElementById("meta-manual-valor");
+  if (!btn || !input) return;
+
+  btn.onclick = async () => {
+    const valor = parseFloat(input.value);
+    if (Number.isNaN(valor) || valor <= 0) {
+      showToast("Informe um valor de meta válido.", "erro");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loja: metaOperacaoAtiva,
+          linhas: [{ data, valor, origem: "manual" }]
+        })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar meta");
+      input.value = "";
+      showToast("Meta de hoje definida!", "sucesso");
+      carregarMetaHoraHora();
+    } catch (err) {
+      console.error("Erro ao salvar meta manual:", err);
+      showToast("Erro ao salvar a meta. Tente novamente.", "erro");
+    }
+  };
+}
+
+async function carregarMetaHoraHora() {
+  if (!metaOperacaoAtiva) return;
+
+  const hoje = dataHojeStr();
+  const avisoEl = document.getElementById("meta-sem-dados-aviso");
+  const conteudoEl = document.getElementById("meta-conteudo-dia");
+
+  const metaHoje = await buscarMetaDiaLoja(metaOperacaoAtiva, hoje);
+
+  // Só valem metas do próprio dia: 'diaria' vem da planilha e 'manual' foi
+  // digitada pelo Líder de Operações. 'mensal' (total do mês inteiro, sem
+  // detalhamento por dia) ou ausência de dado não alimentam a tela.
+  const METAS_VALIDAS = ["diaria", "manual"];
+  if (!metaHoje || !METAS_VALIDAS.includes(metaHoje.origem)) {
+    if (avisoEl) avisoEl.classList.remove("hidden");
+    if (conteudoEl) conteudoEl.classList.add("hidden");
+    prepararMetaManual(hoje);
+    return;
+  }
+  if (avisoEl) avisoEl.classList.add("hidden");
+  if (conteudoEl) conteudoEl.classList.remove("hidden");
+
+  const metaDiaria = metaHoje.valor || 0;
+  const cfg = OPERACOES_CONFIG[metaOperacaoAtiva] || { abertura: "09:00", fechamento: "22:00" };
+  const aberturaMin = minutosDoDiaPorHora(cfg.abertura);
+  const fechamentoMin = minutosDoDiaPorHora(cfg.fechamento);
+
+  // Checkpoints: o primeiro sempre 1h depois da abertura, um por hora até o fechamento.
+  const checkpoints = [];
+  for (let slot = aberturaMin + 60; slot <= fechamentoMin; slot += 60) {
+    checkpoints.push(slot);
+  }
+  const metaPorHora = checkpoints.length > 0 ? metaDiaria / checkpoints.length : 0;
+
+  // Meta de amanhã, para preparação
+  const metaAmanha = await buscarMetaDiaLoja(metaOperacaoAtiva, amanhaStr(hoje));
+  const amanhaCard = document.getElementById("meta-amanha-card");
+  if (amanhaCard) {
+    if (metaAmanha && METAS_VALIDAS.includes(metaAmanha.origem)) {
+      amanhaCard.classList.remove("hidden");
+      document.getElementById("meta-amanha-valor").textContent = formatBRL(metaAmanha.valor);
+    } else {
+      amanhaCard.classList.add("hidden");
+    }
+  }
+
+  let vendas = [];
+  try {
+    const res = await fetch(`${API_BASE}/vendas/hoje?operacao=${encodeURIComponent(metaOperacaoAtiva)}&data=${encodeURIComponent(hoje)}`);
+    const data = await res.json();
+    vendas = (data && data.vendas) || [];
+  } catch (err) {
+    console.error("Erro ao carregar check-ins do dia:", err);
+  }
+  const vendasPorSlot = {};
+  vendas.forEach(v => { vendasPorSlot[v.horaSlot] = v; });
+
+  const totalHoje = vendas.reduce((soma, v) => soma + (v.valor || 0), 0);
+  const now = new Date();
+  const agoraMin = now.getHours() * 60 + now.getMinutes();
+  const horasDecorridas = Math.min(Math.max((agoraMin - aberturaMin) / 60, 0), checkpoints.length);
+  const esperadoAteAgora = horasDecorridas * metaPorHora;
+
+  // Progresso do dia
+  const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
+  const bar = document.getElementById("meta-progresso-bar");
+  if (bar) {
+    bar.style.width = `${pct}%`;
+    bar.className = totalHoje >= esperadoAteAgora
+      ? "bg-emerald-500 h-4 rounded-full transition-all duration-500"
+      : "bg-amber-500 h-4 rounded-full transition-all duration-500";
+  }
+  const label = document.getElementById("meta-progresso-label");
+  if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
+
+  const esperadoEl = document.getElementById("meta-esperado-ate-agora");
+  if (esperadoEl) esperadoEl.textContent = formatBRL(esperadoAteAgora);
+  const porHoraEl = document.getElementById("meta-por-hora");
+  if (porHoraEl) porHoraEl.textContent = formatBRL(metaPorHora);
+
+  // Mensagem motivacional
+  const msgEl = document.getElementById("meta-mensagem-motivacional");
+  if (msgEl) {
+    if (totalHoje >= metaDiaria && metaDiaria > 0) {
+      msgEl.textContent = "🎉 Meta do dia batida! Você é incrível!";
+      msgEl.style.color = "#10b981";
+    } else if (totalHoje >= esperadoAteAgora) {
+      msgEl.textContent = "💪 No ritmo certo! Continue assim!";
+      msgEl.style.color = "#f59e0b";
+    } else {
+      msgEl.textContent = "⏰ Um pouco atrás do esperado — vamos acelerar!";
+      msgEl.style.color = "#f87171";
+    }
+  }
+
+  // Streak: intervalos consecutivos (já encerrados) que bateram a meta por hora,
+  // contando a partir do mais recente para trás.
+  const streakEl = document.getElementById("meta-streak-label");
+  if (streakEl) {
+    const encerrados = checkpoints.filter(slot => agoraMin >= slot);
+    let streak = 0;
+    for (let i = encerrados.length - 1; i >= 0; i--) {
+      const venda = vendasPorSlot[horaStrPorMinutos(encerrados[i])];
+      if (venda && venda.valor >= metaPorHora) streak++;
+      else break;
+    }
+    if (streak >= 2) {
+      streakEl.textContent = `🔥 ${streak} intervalos seguidos batendo a meta hoje!`;
+      streakEl.classList.remove("hidden");
+    } else {
+      streakEl.classList.add("hidden");
+    }
+  }
+
+  // Grade hora a hora: check-in por intervalo, com trava de 30min
+  const tbody = document.getElementById("meta-hora-a-hora-tbody");
+  if (tbody) {
+    tbody.innerHTML = "";
+    checkpoints.forEach(slotMin => {
+      const slotStr = horaStrPorMinutos(slotMin);
+      const inicioIntervalo = horaStrPorMinutos(slotMin - 60);
+      const venda = vendasPorSlot[slotStr];
+
+      let statusHtml, acaoHtml;
+      if (venda) {
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900/50">✅ Confirmado: ${formatBRL(venda.valor)}</span>`;
+        acaoHtml = "—";
+      } else if (agoraMin < slotMin) {
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800">🔒 Aguardando o horário</span>`;
+        acaoHtml = "—";
+      } else if (agoraMin <= slotMin + META_JANELA_CONFIRMACAO_MIN) {
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-900/40">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_CONFIRMACAO_MIN)}</span>`;
+        const inputId = `meta-slot-input-${slotMin}`;
+        acaoHtml = `
+          <div class="flex items-center justify-end gap-1.5">
+            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="R$" class="w-20 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
+            <button type="button" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition" data-confirmar-slot="${slotStr}">Confirmar</button>
+          </div>
+        `;
+      } else {
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-900/40">⛔ Intervalo perdido</span>`;
+        acaoHtml = "—";
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="py-2 px-4 font-mono font-bold">${inicioIntervalo}–${slotStr}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatBRL(metaPorHora)}</td>
+        <td class="py-2 px-4 text-center">${statusHtml}</td>
+        <td class="py-2 px-4 text-right">${acaoHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("[data-confirmar-slot]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const slotStr = btn.dataset.confirmarSlot;
+        const input = document.getElementById(`meta-slot-input-${minutosDoDiaPorHora(slotStr)}`);
+        const valor = parseFloat(input ? input.value : "");
+        if (Number.isNaN(valor) || valor < 0) {
+          showToast("Informe um valor válido para o intervalo.", "erro");
+          return;
+        }
+        confirmarIntervaloMeta(slotStr, valor);
+      });
+    });
+  }
+}
+
+// Relatório de Ponto por Operação (Líder de Operações/Owner): agrega os
+// registros de todas as colaboradoras, agrupados por colaboradora + dia.
+async function carregarRelatorioPontoOperacao(operacao) {
+  const tbody = document.getElementById("ponto-relatorio-tbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr class="text-brand-400 text-center"><td colspan="7" class="py-8">Carregando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/ponto/relatorio?operacao=${encodeURIComponent(operacao)}`);
+    const data = await res.json();
+    const registros = (data && data.registros) || [];
+
+    if (registros.length === 0) {
+      tbody.innerHTML = `<tr class="text-brand-400 text-center"><td colspan="7" class="py-8">Nenhum registro encontrado para esta operação.</td></tr>`;
+      return;
+    }
+
+    // Agrupar por colaboradora + dia (YYYY-MM-DD)
+    const grouped = {};
+    registros.forEach(r => {
+      const dStr = r.timestamp.split("T")[0];
+      const key = `${r.usuario}_${dStr}`;
+      if (!grouped[key]) grouped[key] = { usuario: r.usuario, operacao: r.operacao, data: dStr };
+      grouped[key][r.tipo] = r.timestamp;
+    });
+
+    const linhas = Object.values(grouped).sort((a, b) => b.data.localeCompare(a.data) || a.usuario.localeCompare(b.usuario));
+
+    tbody.innerHTML = "";
+    linhas.forEach(linha => {
+      const ent = linha["ENTRADA"] ? new Date(linha["ENTRADA"]) : null;
+      const sInt = linha["SAIDA_INTERVALO"] ? new Date(linha["SAIDA_INTERVALO"]) : null;
+      const rInt = linha["RETORNO_INTERVALO"] ? new Date(linha["RETORNO_INTERVALO"]) : null;
+      const sai = linha["SAIDA"] ? new Date(linha["SAIDA"]) : null;
+
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-brand-900/30 transition-all border-b border-brand-900/20";
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-bold">${linha.usuario}</td>
+        <td class="py-3 px-4">${linha.operacao || "—"}</td>
+        <td class="py-3 px-4 font-mono">${formatDate(linha.data)}</td>
+        <td class="py-3 px-4 text-center">${ent ? formatTime(ent) : "-"}</td>
+        <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
+        <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
+        <td class="py-3 px-4 text-center">${sai ? formatTime(sai) : "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar relatório de ponto por operação:", err);
+    tbody.innerHTML = `<tr class="text-red-400 text-center"><td colspan="7" class="py-8">Erro ao carregar o relatório.</td></tr>`;
+  }
 }
 
 async function exportarEspelhoPontoPDF() {

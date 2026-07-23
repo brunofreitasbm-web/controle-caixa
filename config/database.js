@@ -258,6 +258,67 @@ function initDb(onSuccess) {
           comprovante TEXT,
           status TEXT,
           criadoEm TEXT
+        )`,
+        // DOUBLE PRECISION (não REAL): no Postgres, REAL é float4 e arredonda
+        // valores monetários acima de ~7 dígitos (264634,67 viraria 264635).
+        // No SQLite o nome mapeia para afinidade REAL (double de 8 bytes).
+        `CREATE TABLE IF NOT EXISTS metas_vendas (
+          id TEXT PRIMARY KEY,
+          operacao TEXT NOT NULL,
+          usuario TEXT NOT NULL,
+          valor DOUBLE PRECISION NOT NULL,
+          timestamp TEXT NOT NULL,
+          criadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS fa_bonificacao_diaria (
+          id TEXT PRIMARY KEY,
+          usuario TEXT NOT NULL,
+          unidade TEXT,
+          data TEXT NOT NULL,
+          vendas30 INTEGER NOT NULL DEFAULT 0,
+          vendas1h INTEGER NOT NULL DEFAULT 0,
+          vendas2h INTEGER NOT NULL DEFAULT 0,
+          locacoes INTEGER NOT NULL DEFAULT 0,
+          criadoEm TEXT,
+          UNIQUE(usuario, unidade, data)
+        )`,
+        `CREATE TABLE IF NOT EXISTS fa_bonificacao_regras (
+          competencia TEXT PRIMARY KEY,
+          ouroPercentMin DOUBLE PRECISION NOT NULL,
+          ouroValor DOUBLE PRECISION NOT NULL,
+          diamantePercentMin DOUBLE PRECISION NOT NULL,
+          diamanteValor DOUBLE PRECISION NOT NULL,
+          pixMinVendas2h INTEGER NOT NULL,
+          pixValor DOUBLE PRECISION NOT NULL,
+          pixDiasSemana TEXT NOT NULL,
+          criadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS metas_diarias_lojas (
+          id TEXT PRIMARY KEY,
+          loja TEXT NOT NULL,
+          data TEXT NOT NULL,
+          valor DOUBLE PRECISION NOT NULL,
+          origem TEXT NOT NULL,
+          criadoEm TEXT,
+          UNIQUE(loja, data)
+        )`,
+        // Parque Circuito (quiosque de carrinhos) usa uma metodologia própria:
+        // a meta é contagem de LOCAÇÕES por dia da semana, não % de conversão.
+        // Por isso vive numa tabela separada de fa_bonificacao_regras, que
+        // atende ParqueShopping e Grão Pará.
+        `CREATE TABLE IF NOT EXISTS fa_regras_locacoes (
+          competencia TEXT PRIMARY KEY,
+          metaSegQui INTEGER NOT NULL,
+          metaSexta INTEGER NOT NULL,
+          metaSabado INTEGER NOT NULL,
+          metaDomingo INTEGER NOT NULL,
+          ticketMedio DOUBLE PRECISION NOT NULL,
+          pisoMes INTEGER NOT NULL,
+          metaMes INTEGER NOT NULL,
+          superMetaMes INTEGER NOT NULL,
+          farolVerde DOUBLE PRECISION NOT NULL,
+          farolAmarelo DOUBLE PRECISION NOT NULL,
+          criadoEm TEXT
         )`
       ];
 
@@ -306,6 +367,88 @@ function initDb(onSuccess) {
           db.run('ALTER TABLE boletos ADD COLUMN parcela TEXT', [], () => resolve());
         });
       });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE ponto_registros ADD COLUMN operacao TEXT', [], () => resolve());
+        });
+      });
+
+      // metas_vendas: passa de "lista de vendas soltas" para "um valor
+      // confirmado por intervalo de hora" (check-in com trava de 30min).
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE metas_vendas ADD COLUMN data TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE metas_vendas ADD COLUMN horaSlot TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_metas_vendas_slot ON metas_vendas(operacao, data, horaSlot)', [], (err) => {
+            if (err) console.error('Erro ao criar índice único metas_vendas:', err.message);
+            resolve();
+          });
+        });
+      });
+
+      // fa_bonificacao_diaria: passa a registrar por (colaboradora, unidade,
+      // dia) e a suportar contagem de locações (metodologia do Parque Circuito).
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE fa_bonificacao_diaria ADD COLUMN unidade TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE fa_bonificacao_diaria ADD COLUMN locacoes INTEGER DEFAULT 0', [], () => resolve());
+        });
+      });
+
+      // O UNIQUE(usuario, data) antigo impediria a mesma colaboradora de lançar
+      // em duas unidades no mesmo dia — troca pela chave que inclui a unidade.
+      // A tabela está vazia em produção, então dropar a constraint é seguro.
+      if (isPostgres) {
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run('ALTER TABLE fa_bonificacao_diaria DROP CONSTRAINT IF EXISTS fa_bonificacao_diaria_usuario_data_key', [], () => resolve());
+          });
+        });
+      }
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_fa_bonif_diaria ON fa_bonificacao_diaria(usuario, unidade, data)', [], () => resolve());
+        });
+      });
+
+      // Corrige colunas monetárias criadas como REAL (float4) no Postgres, que
+      // arredondam centavos em valores grandes. No SQLite REAL já é double de
+      // 8 bytes e ALTER COLUMN TYPE não existe, então só roda no Postgres.
+      if (isPostgres) {
+        const colunasParaDouble = [
+          ['metas_diarias_lojas', 'valor'],
+          ['metas_vendas', 'valor'],
+          ['fa_bonificacao_regras', 'ouropercentmin'],
+          ['fa_bonificacao_regras', 'ourovalor'],
+          ['fa_bonificacao_regras', 'diamantepercentmin'],
+          ['fa_bonificacao_regras', 'diamantevalor'],
+          ['fa_bonificacao_regras', 'pixvalor']
+        ];
+        colunasParaDouble.forEach(([tabela, coluna]) => {
+          promise = promise.then(() => {
+            return new Promise(resolve => {
+              db.run(`ALTER TABLE ${tabela} ALTER COLUMN ${coluna} TYPE DOUBLE PRECISION`, [], () => resolve());
+            });
+          });
+        });
+      }
 
       promise = promise.then(() => {
         return new Promise(resolve => {
