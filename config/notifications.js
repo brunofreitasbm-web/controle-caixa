@@ -2,6 +2,18 @@ const nodemailer = require('nodemailer');
 const webPush = require('web-push');
 const { db } = require('./database');
 
+// Chave mestra de notificações de eventos (e-mail + push).
+// Enquanto não estiver explicitamente ativada em Configurações, nenhum alerta é enviado.
+const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
+
+function notificacoesEventosAtivas(callback) {
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', [CHAVE_NOTIF_ATIVAS], (err, row) => {
+    if (err || !row || !row.valor) return callback(false);
+    const valor = String(row.valor).trim().toLowerCase();
+    callback(valor === '1' || valor === 'true');
+  });
+}
+
 function obterEmailsDestinatarios(notificationType, callback) {
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
     let rules = {
@@ -53,6 +65,16 @@ function obterEmailsDestinatarios(notificationType, callback) {
 }
 
 function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) {
+      console.log('Notificação de envelopes acumulados ignorada: notificações de eventos estão desativadas em Configurações.');
+      return;
+    }
+    enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor);
+  });
+}
+
+function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor) {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT) || 465;
   const secure = process.env.SMTP_SECURE === 'true';
@@ -106,6 +128,16 @@ function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
 }
 
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) {
+      console.log(`Push notification (${title}) ignorada: notificações de eventos estão desativadas em Configurações.`);
+      return;
+    }
+    enviarNotificacaoPushInterno(title, body, targetUsers, notificationType);
+  });
+}
+
+function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificationType = null) {
   const textCheck = `${title || ''} ${body || ''}`.toLowerCase();
   if (
     notificationType === 'divergencia' ||
@@ -185,6 +217,7 @@ function enviarNotificacaoPush(title, body, targetUsers = null, notificationType
 }
 
 module.exports = {
+  notificacoesEventosAtivas,
   obterEmailsDestinatarios,
   enviarEmailNotificacao,
   enviarNotificacaoPush

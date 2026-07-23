@@ -84,6 +84,17 @@ const DEFAULT_NOTIF_PREFS = {
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
+// Chave mestra de notificações de eventos (email + push). Default: desativada.
+const NOTIF_MASTER_KEY = "cacaushow_notif_master_v1";
+
+function notifMasterFromValue(valor) {
+  const v = String(valor == null ? "" : valor).trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+function loadNotifMasterEnabled() {
+  return notifMasterFromValue(localStorage.getItem(NOTIF_MASTER_KEY));
+}
 
 // ==========================================================================
 // UI Helpers (Toast, Loading, Modal, Session)
@@ -588,6 +599,10 @@ async function inicializarDados() {
           console.error("Erro ao sincronizar notificacoes_config do servidor:", e);
         }
       }
+
+      // Chave mestra de notificações de eventos (default: desativada)
+      localStorage.setItem(NOTIF_MASTER_KEY, notifMasterFromValue(config.notificacoes_eventos_ativas) ? "1" : "0");
+      renderNotificationTable();
 
       // Carregar lista de colaboradores cadastrados
       await carregarColaboradores();
@@ -4538,10 +4553,20 @@ function loadNotificationPrefs() {
   return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS));
 }
 
-async function saveNotificationPrefs(prefs) {
+async function saveNotificationPrefs(prefs, masterEnabled) {
   localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs));
   await salvarConfigAPI("notificacoes_config", JSON.stringify(prefs));
-  showToast("Preferências de notificações salvas com sucesso!", "sucesso");
+
+  localStorage.setItem(NOTIF_MASTER_KEY, masterEnabled ? "1" : "0");
+  await salvarConfigAPI("notificacoes_eventos_ativas", masterEnabled ? "1" : "0");
+
+  renderNotificationTable();
+  showToast(
+    masterEnabled
+      ? "Preferências salvas. Notificações de eventos ATIVADAS."
+      : "Preferências salvas. Notificações de eventos DESATIVADAS (nenhum alerta será enviado).",
+    "sucesso"
+  );
 }
 
 function shouldNotifyUser(notificationType, userRole) {
@@ -4696,6 +4721,32 @@ function renderNotificationTable() {
       if (radio) radio.checked = true;
     });
   });
+
+  renderNotifMasterSwitch(isOwner);
+}
+
+// Chave mestra: reflete o estado atual e suspende visualmente as regras quando desligada
+function renderNotifMasterSwitch(isOwner) {
+  const toggle = document.getElementById("config-toggle-notificacoes-ativas");
+  if (!toggle) return;
+
+  const ativo = loadNotifMasterEnabled();
+  toggle.checked = ativo;
+  toggle.disabled = !isOwner;
+  toggle.style.opacity = isOwner ? "" : "0.5";
+
+  const statusEl = document.getElementById("notif-master-status");
+  if (statusEl) {
+    statusEl.textContent = ativo ? "Ativado" : "Desativado";
+    statusEl.classList.toggle("text-brand-700", ativo);
+    statusEl.classList.toggle("text-muted", !ativo);
+  }
+
+  const tbody = document.getElementById("notif-table-body");
+  if (tbody) {
+    tbody.style.opacity = ativo ? "" : "0.45";
+    tbody.title = ativo ? "" : "Ative a chave mestra acima para que estas regras entrem em vigor.";
+  }
 }
 
 function setupNotificationEvents() {
@@ -4730,8 +4781,21 @@ function setupNotificationEvents() {
       };
     });
 
-    saveNotificationPrefs(prefs);
+    const masterToggle = document.getElementById("config-toggle-notificacoes-ativas");
+    saveNotificationPrefs(prefs, masterToggle ? masterToggle.checked : false);
   });
+
+  const masterToggle = document.getElementById("config-toggle-notificacoes-ativas");
+  if (masterToggle) {
+    masterToggle.addEventListener("change", () => {
+      const isOwner = currentUser && currentUser.role === "owner";
+      const statusEl = document.getElementById("notif-master-status");
+      if (statusEl) statusEl.textContent = masterToggle.checked ? "Ativado (não salvo)" : "Desativado (não salvo)";
+      const tbody = document.getElementById("notif-table-body");
+      if (tbody) tbody.style.opacity = masterToggle.checked ? "" : "0.45";
+      if (!isOwner) masterToggle.checked = loadNotifMasterEnabled();
+    });
+  }
 }
 
 function updatePinDots(inputEl, dotsContainerId) {

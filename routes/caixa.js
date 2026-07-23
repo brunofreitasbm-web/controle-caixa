@@ -3,12 +3,12 @@ const router = express.Router();
 const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush } = require('../config/notifications');
 
 // Notificação de divergência de fundo de caixa (#8 Reconciliação)
 router.post('/divergencia', (req, res) => {
   const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body;
-  
+
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
@@ -16,7 +16,13 @@ router.post('/divergencia', (req, res) => {
     return res.json({ sent: false, reason: 'SMTP não configurado' });
   }
 
-  obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
+  notificacoesEventosAtivas((ativas) => {
+   if (!ativas) {
+     console.log('Notificação de divergência ignorada: notificações de eventos estão desativadas em Configurações.');
+     return res.json({ sent: false, reason: 'Notificações desativadas' });
+   }
+
+   obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
     if (targetEmails.length === 0) {
       console.log('Notificação de divergência por e-mail ignorada (nenhum destinatário configurado).');
       return res.json({ sent: false, reason: 'Nenhum destinatário configurado' });
@@ -51,6 +57,7 @@ router.post('/divergencia', (req, res) => {
       }
       res.json({ sent: true });
     });
+   });
   });
 });
 

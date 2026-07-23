@@ -2075,8 +2075,20 @@
               </div>
             </div>
 
-            <div class="mb-6 p-4 rounded-lg bg-blue-950/20 border border-blue-800/40 text-xs text-blue-200">
+            <div class="mb-4 p-4 rounded-lg bg-blue-950/20 border border-blue-800/40 text-xs text-blue-200">
               <strong>💡 Tip:</strong> Apenas Owners (Bruno e Isabella) podem editar essas preferências. Colaboradores e Líderes veem em leitura.
+            </div>
+
+            <!-- Chave mestra: enquanto desligada, nenhum alerta de evento é enviado (email nem push) -->
+            <div id="notif-master-switch-box" class="mb-6 p-4 rounded-lg border border-border flex items-center justify-between gap-4">
+              <label for="config-toggle-notificacoes-ativas" class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="config-toggle-notificacoes-ativas" />
+                <span>
+                  <span class="block text-xs font-bold">Ativar notificações de eventos (email e push)</span>
+                  <span class="block text-[10px] text-muted mt-0.5">Enquanto estiver desligada, nenhum alerta de evento é enviado — as regras abaixo ficam suspensas.</span>
+                </span>
+              </label>
+              <span id="notif-master-status" class="px-3 py-1 rounded-full text-[10px] font-bold border border-border whitespace-nowrap">Desativado</span>
             </div>
 
             <div class="overflow-x-auto">
@@ -2435,6 +2447,6 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

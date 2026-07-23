@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { db, normalizeRow } = require('../config/database');
-const { enviarNotificacaoPush } = require('../config/notifications');
+const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -189,7 +189,14 @@ router.post('/notificar-gestao', (req, res) => {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   
-  if (host && user && pass) {
+  // A chave mestra de notificações de eventos precisa estar ativada em Configurações
+  notificacoesEventosAtivas((ativas) => {
+   if (!ativas) {
+     console.log(`E-mail de notificação de gestão (${assunto}) ignorado: notificações de eventos estão desativadas em Configurações.`);
+     return;
+   }
+
+   if (host && user && pass) {
     const EMAIL_MAP = {
       'bruno': 'brunofreitasbm@gmail.com',
       'isabella': 'isabella.vgoncalves@gmail.com',
@@ -226,7 +233,8 @@ router.post('/notificar-gestao', (req, res) => {
         }
       });
     }
-  }
+   }
+  });
 
   res.json({ success: true });
 });
