@@ -92,9 +92,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
 };
 
 // Mapeamento de perfis para as preferências de notificação
@@ -1259,7 +1259,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
   ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
-   "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
+   "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1514,7 +1514,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1568,6 +1568,7 @@ function ativarTab(tabName) {
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();
+  if (tabName === "importar-meta") renderImportarMeta();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
@@ -10608,4 +10609,47 @@ async function exportarEspelhoPontoPDF() {
   doc.text("Assinatura Cacau Show / Gestor", 135, y);
 
   doc.save(`Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`);
+}
+
+
+// ==========================================================================
+// IMPORTAÇÃO DA META DO ANO
+// Estrutura pronta para receber a importação — o modelo de arquivo ainda
+// será definido; por ora o painel lista as metas já importadas via API.
+// ==========================================================================
+async function renderImportarMeta() {
+  const lista = document.getElementById("metas-importadas-lista");
+  if (!lista) return;
+  lista.innerHTML = '<span class="text-muted">Carregando…</span>';
+  try {
+    const res = await fetch(`${API_BASE}/metas`);
+    const metas = await res.json();
+    if (!Array.isArray(metas) || metas.length === 0) {
+      lista.innerHTML = '<span class="text-muted">Nenhuma meta importada ainda.</span>';
+      return;
+    }
+    lista.innerHTML = metas.map(m => `
+      <div class="flex justify-between items-center py-2.5 border-b border-border last:border-0">
+        <div>
+          <strong class="text-sm text-ink">${m.loja} — ${m.ano}</strong>
+          <div class="text-[11px] text-muted">Meta anual: ${m.metaAnual != null ? formatBRL(m.metaAnual) : "—"} · Importado em ${formatDataHora(m.importadoEm)}</div>
+        </div>
+        <button type="button" class="btn-mini-outline" onclick="excluirMetaImportada(${m.id})" aria-label="Excluir meta"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    `).join("");
+  } catch (e) {
+    lista.innerHTML = '<span class="text-muted">Não foi possível carregar as metas importadas.</span>';
+  }
+}
+
+async function excluirMetaImportada(id) {
+  const ok = await showConfirm("Excluir esta meta importada?", { confirmText: "Excluir", confirmClass: "btn-danger" });
+  if (!ok) return;
+  try {
+    await fetch(`${API_BASE}/metas/${id}`, { method: "DELETE" });
+    showToast("Meta removida.", "sucesso");
+    renderImportarMeta();
+  } catch (e) {
+    showToast("Erro ao remover meta.", "erro");
+  }
 }

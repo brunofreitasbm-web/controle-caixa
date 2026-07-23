@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#3d4a54">
+<meta name="theme-color" content="#1C2435">
 <meta name="description" content="HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)">
 <title>HUB de Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
@@ -261,7 +261,8 @@
         </div>
       </div>
 
-      <!-- Importações (uploads centralizados: XML de NF-e e PDF de Títulos) -->
+      <!-- Importações (uploads centralizados: XML de NF-e, PDF de Títulos,
+           Metas Diárias) + Meta do Ano (placeholder da PR #1, granularidade anual) -->
       <div class="sidebar-group collapsed" id="group-importacoes">
         <button class="sidebar-group-header" aria-expanded="false">
           <span class="group-icon"><i class="fa-solid fa-file-import"></i></span>
@@ -272,6 +273,10 @@
           <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes">
             <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
             <span class="tab-text">Importações</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta">
+            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="tab-text">Meta do Ano</span>
           </button>
         </div>
       </div>
@@ -1651,6 +1656,57 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ===================== ABA: IMPORTAR META DO ANO (IMPORTAÇÕES) ===================== -->
+    <section id="tab-importar-meta" class="tab-panel hidden" role="tabpanel">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-brand-300"></i> Importação da Meta do Ano
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Importe a meta anual/mensal da operação para alimentar o acompanhamento de metas, incluindo a Meta Hora a Hora.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Importações</span>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <!-- Aviso: modelo de importação a definir -->
+        <div class="card p-5 rounded-2xl flex items-start gap-3" style="border-color: var(--amber); background: var(--amber-light);">
+          <i class="fa-solid fa-circle-info text-lg mt-1" style="color: var(--amber);"></i>
+          <div>
+            <h3 class="text-sm font-bold text-ink">Modelo de importação a definir</h3>
+            <p class="text-xs text-muted mt-1">A estrutura para receber a meta do ano já está pronta (loja, ano, meta anual e meta mensal). O formato do arquivo de importação (planilha/relatório) ainda será definido — assim que estiver pronto, o upload abaixo passa a processá-lo automaticamente.</p>
+          </div>
+        </div>
+
+        <!-- Zona de upload (placeholder) -->
+        <div id="meta-drop-zone" class="glass-card p-6 rounded-2xl text-center shadow-xl">
+          <div class="max-w-md mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-2xl mx-auto border border-brand-200">
+              <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            <div>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Importar Meta do Ano</h3>
+              <p class="text-xs text-muted mt-1">Selecione o arquivo com a meta da loja para o ano (formato a ser definido).</p>
+            </div>
+            <label class="btn-upload-highlight mx-auto">
+              <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo
+              <input type="file" id="meta-file" class="hidden" disabled>
+            </label>
+          </div>
+        </div>
+
+        <!-- Metas já importadas -->
+        <div class="card rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-border flex justify-between items-center">
+            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-bullseye text-brand-500 mr-1"></i> Metas Importadas</h3>
+          </div>
+          <div id="metas-importadas-lista" class="p-4 text-xs text-muted">Nenhuma meta importada ainda.</div>
+        </div>
       </div>
     </section>
 
@@ -3045,6 +3101,7 @@
 <!-- Bottom Navigation (Mobile PWA — #7) -->
 <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile">
   <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon"><i class="fa-solid fa-file-signature"></i></span>Registro</button>
+  <button class="bottom-nav-btn" data-tab="meta-hora-hora"><span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>Meta</button>
   <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>Dashboard</button>
   <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>Histórico</button>
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Mensal</button>

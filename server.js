@@ -18,6 +18,7 @@ const pontoRoutes = require('./routes/ponto');
 const vendasRoutes = require('./routes/vendas');
 const faBonificacaoRoutes = require('./routes/fa-bonificacao');
 const metasLojasRoutes = require('./routes/metas-lojas');
+const metasRoutes = require('./routes/metas');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +33,7 @@ app.use(express.static(path.join(__dirname, 'webapp')));
 app.use('/api', authRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', financeiroRoutes);
+app.use('/api', metasRoutes);
 app.use('/api/ponto', pontoRoutes);
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/fa-bonificacao', faBonificacaoRoutes);
