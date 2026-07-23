@@ -5,6 +5,7 @@ dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const webPush = require('web-push');
@@ -1452,6 +1453,20 @@ async function enviarBackupMensalSilencioso() {
   console.log(`[Backup Mensal] Enviado com sucesso para ${BACKUP_EMAIL_DESTINO} (referência ${referencia}).`);
   return { enviado: true, referencia };
 }
+
+// Endpoint para servir a tabela de consulta de códigos de barras (Codbarra_Consulta.csv)
+// Utilizado pelo app.js para montar os mapas de lookup CodBarra<->CodProduto
+app.get('/api/codbarra-consulta', (req, res) => {
+  const csvPath = path.join(__dirname, 'Codbarra_Consulta.csv');
+  fs.readFile(csvPath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('[Codbarra] Erro ao ler Codbarra_Consulta.csv:', err.message);
+      return res.status(500).json({ error: 'Arquivo de consulta não encontrado.' });
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.send(data);
+  });
+});
 
 // Endpoint manual/opcional para forçar o backup mensal fora do agendamento
 // (ex.: teste manual). O Render roda esse servidor como processo persistente,

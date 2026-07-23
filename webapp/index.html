@@ -1171,14 +1171,44 @@
           </div>
         </div>
 
-        <!-- Seção Oculta de suporte ao JS para upload Excel e leitor -->
-        <div id="upload-section" class="hidden">
-          <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
-          <button id="btn-toggle-scanner" class="hidden"><span id="scanner-btn-text"></span></button>
-          <button id="btn-switch-camera" class="hidden"></button>
-          <div id="file-info" class="hidden"></div>
-          <div id="scanner-container" class="hidden"><div id="reader"></div></div>
+        <!-- Leitor de Código de Barras — Inventário de Estoque -->
+        <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 text-center shadow-xl">
+          <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-barcode"></i> Leitor de Código de Barras (Inventário)
+              </span>
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-brand-800/60 text-brand-300 border border-brand-700/50 uppercase tracking-wider">
+                CodBarra → CodProduto
+              </span>
+            </div>
+            <button id="btn-toggle-scanner" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-camera"></i> <span id="scanner-btn-text">Ativar Câmera</span>
+            </button>
+          </div>
+          <!-- Regra de prioridade visível ao operador -->
+          <div class="mb-3 flex flex-wrap justify-center gap-2 text-[10px]">
+            <span class="inline-flex items-center gap-1 bg-brand-900/60 border border-brand-700/50 text-brand-300 px-2.5 py-1 rounded-full font-semibold">
+              <i class="fa-solid fa-circle-1 text-brand-400"></i> 1º Lê o <strong>CodBarra</strong> (EAN do produto)
+            </span>
+            <span class="inline-flex items-center gap-1 text-brand-500 font-bold">→</span>
+            <span class="inline-flex items-center gap-1 bg-brand-900/60 border border-brand-700/50 text-brand-300 px-2.5 py-1 rounded-full font-semibold">
+              <i class="fa-solid fa-circle-2 text-brand-400"></i> 2º Fallback: <strong>CodProduto</strong> (etiqueta da caixa)
+            </span>
+          </div>
+          <!-- Área do scanner (oculta até ativar) -->
+          <div id="scanner-container" class="hidden w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden border border-brand-800 relative">
+            <div id="reader" class="w-full"></div>
+          </div>
         </div>
+
+        <!-- Suporte oculto para funcionalidades legadas -->
+        <div class="hidden">
+          <input type="file" id="excel-file" accept=".xlsx, .xls">
+          <button id="btn-switch-camera"></button>
+          <div id="file-info"></div>
+        </div>
+
 
         <!-- Dashboard Stat Cards Inventário -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">

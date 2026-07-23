@@ -4262,6 +4262,155 @@ let nfGalleryStoreFilter = null; // aba ativa da galeria de NF-e (separação f�
 const today = new Date();
 const formattedTodayStr = today.toLocaleDateString('pt-BR');
 
+// ==========================================================================
+// CODBARRA_CONSULTA — Biblioteca de Consulta de Códigos de Barras
+// Regra de prioridade na leitura:
+//   1º) CodBarra (EAN/barras do produto) — campo "barras" no XML da NF-e
+//   2º) CodProduto (código da etiqueta da caixa) — fallback via CSV
+// Os dois mapas abaixo permitem converter em ambas as direções:
+//   codBarraParaCodProd["7896986207013"] → "1000001"
+//   codProdParaCodBarra["1000001"]       → "7896986207013"
+// ==========================================================================
+let codBarraParaCodProd = {}; // CodBarra (EAN) → CodProd
+let codProdParaCodBarra = {}; // CodProd → CodBarra (EAN)
+let codBarraParaDesc    = {}; // CodBarra → Descrição do produto
+let codProdParaDesc     = {}; // CodProd  → Descrição do produto
+
+// Parser CSV que respeita campos entre aspas (ex: "BOMBOM 13,5G" tem vírgula interna)
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+async function carregarCodBarraConsulta() {
+  try {
+    const url = window.location.protocol === 'file:'
+      ? 'http://localhost:5000/api/codbarra-consulta'
+      : '/api/codbarra-consulta';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const csvText = await res.text();
+    const linhas = csvText.split(/\r?\n/);
+    // Header: CodProd,Desc. Prod.,CodBarra
+    // O CodBarra é sempre a última coluna; a descrição pode conter vírgulas (campos entre aspas)
+    for (let i = 1; i < linhas.length; i++) {
+      const linha = linhas[i].trim();
+      if (!linha) continue;
+      const partes = parseCSVLine(linha);
+      if (partes.length < 2) continue;
+      const codProd  = partes[0].trim();
+      const codBarra = partes[partes.length - 1].trim();
+      const desc     = partes.slice(1, partes.length - 1).join(',').trim();
+      if (codProd) {
+        codProdParaDesc[codProd] = desc;
+        if (codBarra) {
+          codBarraParaCodProd[codBarra]  = codProd;
+          codProdParaCodBarra[codProd]   = codBarra;
+          codBarraParaDesc[codBarra]     = desc;
+        }
+      }
+    }
+    console.log(`[CodBarra] Biblioteca carregada: ${Object.keys(codBarraParaCodProd).length} registros com EAN, ${Object.keys(codProdParaDesc).length} produtos no total.`);
+    // Enriquece produtos sem EAN no inventário e nas NF-es importadas
+    enrichirProdutosComBarras();
+  } catch (err) {
+    console.warn('[CodBarra] Falha ao carregar Codbarra_Consulta.csv:', err.message);
+  }
+}
+
+// Popula o campo barras (EAN) em produtos de NF-e e itens de inventário que chegaram sem EAN.
+// Usa o CSV como ponte: CodProd → CodBarra. Isso garante que a leitura pelo scanner
+// seja sempre resolvida na 1ª tentativa (CodBarra direto), evitando depender do fallback.
+function enrichirProdutosComBarras() {
+  // Enriquece NF-es importadas
+  let nfsAlteradas = false;
+  for (const key of Object.keys(importedNfs)) {
+    const nf = importedNfs[key];
+    if (!Array.isArray(nf.products)) continue;
+    for (const p of nf.products) {
+      if (!p.barras && p.code) {
+        const ean = codProdParaCodBarra[p.code.toString()];
+        if (ean) { p.barras = ean; nfsAlteradas = true; }
+      }
+    }
+  }
+  if (nfsAlteradas) {
+    try { localStorage.setItem('cacaushow_imported_nfs', JSON.stringify(importedNfs)); } catch (e) {}
+  }
+
+  // Enriquece itens de inventário em localStorage
+  const lojas = ['9175', '4304', '9201'];
+  for (const lojaId of lojas) {
+    const items = dbBridge.getInventarioLoja(lojaId);
+    for (const item of items) {
+      if (!item.barras && item.code) {
+        const ean = codProdParaCodBarra[item.code.toString()];
+        if (ean) { item.barras = ean; dbBridge.saveInventoryItem(lojaId, item); }
+      }
+    }
+  }
+
+  // Atualiza o array products em memória (inventário aberto)
+  if (Array.isArray(products)) {
+    for (const p of products) {
+      if (!p.barras && p.code) {
+        const ean = codProdParaCodBarra[p.code.toString()];
+        if (ean) p.barras = ean;
+      }
+    }
+  }
+}
+
+/**
+ * Resolve um código lido pela câmera para um produto da NF-e ou do inventário.
+ * Prioridade:
+ *   1) Busca direta pelo CodBarra (campo "barras") — leitura do código EAN do produto.
+ *   2) Fallback: se o código lido for um CodBarra no CSV, converte para CodProd e busca pelo code.
+ *   3) Fallback: se o código lido for diretamente um CodProduto (etiqueta da caixa), busca pelo code.
+ *
+ * @param {Array} produtosList - Array de produtos para buscar
+ * @param {string} cleanCode   - Código limpo lido pela câmera
+ * @returns {{ produto: object|null, metodo: string }}
+ */
+function resolverCodigoBipado(produtosList, cleanCode) {
+  // 1º — CodBarra direto (EAN lido da câmera)
+  let p = produtosList.find(prod => prod.barras && prod.barras.trim() === cleanCode);
+  if (p) return { produto: p, metodo: 'CodBarra' };
+
+  // 2º — Fallback via CSV: CodBarra → CodProd
+  const codProdViaBarras = codBarraParaCodProd[cleanCode];
+  if (codProdViaBarras) {
+    p = produtosList.find(prod => prod.code && prod.code.toString() === codProdViaBarras.toString());
+    if (p) return { produto: p, metodo: 'CodBarra→CodProd (CSV)' };
+  }
+
+  // 3º — Fallback: o operador leu o CodProduto da etiqueta da caixa
+  p = produtosList.find(prod => prod.code && prod.code.toString() === cleanCode.toString());
+  if (p) {
+    // Se o produto ainda não tem EAN, enriquece a partir do CSV
+    if (!p.barras && codProdParaCodBarra[cleanCode]) {
+      p.barras = codProdParaCodBarra[cleanCode];
+    }
+    return { produto: p, metodo: 'CodProduto' };
+  }
+
+  return { produto: null, metodo: 'não encontrado' };
+}
+
 function inicializarImportedNfs() {
   // Carrega dados locais como ponto de partida
   const salvas = carregarJSON("cacaushow_imported_nfs", {});
@@ -4623,6 +4772,10 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarBoletos();
   renderNotificationTable();
   setupNotificationEvents();
+
+  // Carrega a biblioteca de consulta de códigos de barras (Codbarra_Consulta.csv)
+  // para permitir o fallback CodBarra → CodProduto na conferência e no inventário
+  carregarCodBarraConsulta();
   
   // Aguarda o servidor retornar e re-renderiza a galeria de NF-es
   const tentarRenderGaleria = () => {
@@ -4725,9 +4878,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnBackGallery = document.getElementById('btn-back-to-gallery');
   if (btnBackGallery) btnBackGallery.addEventListener('click', backToNfGallery);
 
+  // --- Scanner do Inventário de Estoque ---
+  // Usa a mesma regra de prioridade: CodBarra → CSV → CodProduto
+  inicializarScannerInventario();
+
   checkMonthlyInventoryAlert();
   inicializarBoletosTab();
 });
+
 
 function loadInventoryForCurrentStore() {
   const savedItems = dbBridge.getInventarioLoja(currentStore);
@@ -4753,6 +4911,199 @@ function loadInventoryForCurrentStore() {
     };
   });
 }
+
+// ==========================================================================
+// SCANNER DO INVENTÁRIO DE ESTOQUE
+// Usa a mesma regra de prioridade do resolverCodigoBipado:
+//   1º) CodBarra (EAN lido da câmera)
+//   2º) Fallback CSV: CodBarra → CodProd
+//   3º) Fallback: CodProduto direto (etiqueta da caixa)
+// ==========================================================================
+function inicializarScannerInventario() {
+  const btnToggle = document.getElementById('btn-toggle-scanner');
+  const scannerContainer = document.getElementById('scanner-container');
+  const scannerBtnText = document.getElementById('scanner-btn-text');
+
+  if (!btnToggle || !scannerContainer) return;
+
+  btnToggle.addEventListener('click', () => {
+    if (scannerContainer.classList.contains('hidden')) {
+      // Ativar câmera do inventário
+      scannerContainer.classList.remove('hidden');
+      if (scannerBtnText) scannerBtnText.textContent = 'Desativar Câmera';
+      iniciarScannerInventario();
+    } else {
+      // Desativar câmera do inventário
+      scannerContainer.classList.add('hidden');
+      if (scannerBtnText) scannerBtnText.textContent = 'Ativar Câmera';
+      pararScannerInventario();
+    }
+  });
+}
+
+function iniciarScannerInventario(cameraId = null) {
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('Biblioteca de leitura não carregada.', 'erro');
+    return;
+  }
+  if (!window.isSecureContext) {
+    showToast('Câmera requer conexão segura (HTTPS).', 'erro');
+    return;
+  }
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode('reader');
+  }
+
+  const config = { fps: 15, qrbox: { width: 300, height: 180 } };
+
+  const startWith = cameraId
+    ? html5QrCode.start({ deviceId: { exact: cameraId } }, config, onInventarioScanSuccess, () => {})
+    : html5QrCode.start({ facingMode: 'environment' }, config, onInventarioScanSuccess, () => {});
+
+  startWith.catch(err => {
+    console.warn('[Inventário Scanner] Erro ao iniciar câmera:', err);
+    // Fallback: lista câmeras e tenta a traseira
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras || cameras.length === 0) {
+        showToast('Nenhuma câmera encontrada.', 'erro');
+        return;
+      }
+      const traseira = cameras.find(c => {
+        const l = c.label.toLowerCase();
+        return l.includes('back') || l.includes('traseira') || l.includes('rear') || l.includes('environment');
+      });
+      const cam = traseira || cameras[cameras.length - 1];
+      html5QrCode.start({ deviceId: { exact: cam.id } }, config, onInventarioScanSuccess, () => {})
+        .catch(e => {
+          console.error('[Inventário Scanner] Falha total:', e);
+          showToast('Não foi possível acessar a câmera. Verifique as permissões.', 'erro');
+        });
+    }).catch(() => {
+      showToast('Erro ao listar câmeras.', 'erro');
+    });
+  });
+}
+
+function pararScannerInventario() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop().catch(err => console.error('[Inventário Scanner] Erro ao parar:', err));
+  }
+}
+
+/**
+ * Callback chamado quando o scanner do Inventário lê um código com sucesso.
+ * Prioridade de resolução:
+ *   1º CodBarra (EAN) → 2º CSV CodBarra→CodProd → 3º CodProduto direto (etiqueta da caixa)
+ * Se o produto não estiver no inventário atual, é adicionado automaticamente via CSV.
+ */
+function onInventarioScanSuccess(decodedText) {
+  const cleanCode = decodedText.trim();
+
+  const { produto: p, metodo } = resolverCodigoBipado(products, cleanCode);
+
+  if (p) {
+    if (navigator.vibrate) navigator.vibrate(150);
+    playBeep('success');
+
+    const atual = p.countedQty === '' ? 0 : Number(p.countedQty);
+    p.countedQty = (atual + 1).toString();
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+
+    setTimeout(() => {
+      const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`);
+      if (rowInput) {
+        rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        rowInput.focus();
+        rowInput.select();
+      }
+    }, 100);
+
+    const metodoLabel = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
+    showToast(`✅ ${p.description}${metodoLabel} — Qtd: ${p.countedQty}`, 'sucesso');
+  } else {
+    // Produto não está no inventário: tenta adicionar automaticamente via CSV
+    adicionarProdutoAoInventarioPorScan(cleanCode);
+  }
+}
+
+/**
+ * Adiciona um produto ao inventário mensal a partir de um código bipado não encontrado.
+ * Resolve o produto pelo CSV (CodBarra→CodProd ou CodProd direto) e cria a entrada,
+ * deixando validade e quantidade em branco para o operador preencher.
+ */
+function adicionarProdutoAoInventarioPorScan(cleanCode) {
+  let codProd = null;
+  let ean     = '';
+  let desc    = null;
+
+  // Tenta resolver como EAN (CodBarra → CodProd)
+  if (codBarraParaCodProd[cleanCode]) {
+    codProd = codBarraParaCodProd[cleanCode];
+    ean     = cleanCode;
+    desc    = codBarraParaDesc[cleanCode] || codProdParaDesc[codProd] || null;
+  }
+  // Tenta resolver como CodProduto direto (etiqueta da caixa)
+  else if (codProdParaDesc[cleanCode]) {
+    codProd = cleanCode;
+    ean     = codProdParaCodBarra[cleanCode] || '';
+    desc    = codProdParaDesc[cleanCode];
+  }
+
+  if (!codProd || !desc) {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    playBeep('error');
+    showToast(`Código não cadastrado no sistema: ${cleanCode}`, 'erro');
+    return;
+  }
+
+  // Previne duplicata por bipagem rápida (produto foi adicionado entre dois scans)
+  const jaExiste = products.find(prod => prod.code === codProd);
+  if (jaExiste) {
+    const atual = jaExiste.countedQty === '' ? 0 : Number(jaExiste.countedQty);
+    jaExiste.countedQty = (atual + 1).toString();
+    dbBridge.saveInventoryItem(currentStore, jaExiste);
+    renderTable();
+    showToast(`✅ ${desc} — Qtd: ${jaExiste.countedQty}`, 'sucesso');
+    return;
+  }
+
+  const novoProduto = {
+    code: codProd,
+    barras: ean,
+    description: desc,
+    validade: null,
+    daysRemaining: null,
+    countedQty: '',
+    dataEntrada: '',
+    qtdEntradaUnidades: 0
+  };
+
+  products.push(novoProduto);
+  dbBridge.saveInventoryItem(currentStore, novoProduto);
+  triggerInventoryStartedNotification();
+  renderTable();
+
+  if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+  playBeep('success');
+  showToast(`➕ ${desc} adicionado ao inventário. Preencha a validade e a quantidade.`, 'sucesso');
+
+  // Rola até a linha recém-adicionada e foca o campo de validade
+  setTimeout(() => {
+    const qtyInput = document.querySelector(`input.qty-input[data-code="${codProd}"]`);
+    if (qtyInput) {
+      const row = qtyInput.closest('tr');
+      const validadeInput = row ? row.querySelector('.validade-input') : null;
+      const target = validadeInput || qtyInput;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus();
+    }
+  }, 150);
+}
+
+
 
 function formatDate(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return '';
@@ -5715,18 +6066,29 @@ function stopNfScanner() {
 
 function onNfScanSuccess(decodedText) {
   const cleanCode = decodedText.trim();
-  let targetNfNumber = activeNfNumber;
-  let currentNf = importedNfs[targetNfNumber];
-  let p = currentNf ? currentNf.products.find(prod => prod.barras === cleanCode || prod.code === cleanCode) : null;
+  let p = null;
 
+  // --- Etapa 1: Buscar na NF-e ativa ---
+  const currentNf = importedNfs[activeNfNumber];
+  if (currentNf) {
+    const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
+    p = resultado.produto;
+    if (p && resultado.metodo !== 'CodBarra') {
+      // Informar ao operador qual método foi utilizado (apenas nos fallbacks)
+      console.info(`[Bipagem NF] Produto encontrado via "${resultado.metodo}": código lido="${cleanCode}"`);
+    }
+  }
+
+  // --- Etapa 2: Buscar em outras NF-es importadas (carga misturada) ---
   if (!p) {
     for (const numNF of Object.keys(importedNfs)) {
       if (numNF !== activeNfNumber) {
-        const found = importedNfs[numNF].products.find(prod => prod.barras === cleanCode || prod.code === cleanCode);
-        if (found) {
-          p = found;
+        const { produto, metodo } = resolverCodigoBipado(importedNfs[numNF].products, cleanCode);
+        if (produto) {
+          p = produto;
           activeNfNumber = numNF;
-          showToast(`⚡ Carga Misturada: NF Nº ${numNF}`, "info");
+          const metodoInfo = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
+          showToast(`⚡ Carga Misturada: NF Nº ${numNF}${metodoInfo}`, "info");
           break;
         }
       }
@@ -5752,8 +6114,14 @@ function onNfScanSuccess(decodedText) {
   } else {
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     playBeep('error');
+    const nomeCSVNf = codBarraParaDesc[cleanCode] || codProdParaDesc[cleanCode] || null;
+    const msgErroNf = nomeCSVNf
+      ? `"${nomeCSVNf}" não está nas NF-es importadas. Tente o CodProduto da etiqueta da caixa.`
+      : `Código não localizado nas NF-es: ${cleanCode}. Tente bipar o CodProduto da etiqueta da caixa.`;
+    showToast(msgErroNf, 'erro');
   }
 }
+
 
 // Monta a mensagem curta de status da conferência para o grupo da loja.
 // Sem divergência: aviso simples de conclusão. Com divergência: resumo dos
