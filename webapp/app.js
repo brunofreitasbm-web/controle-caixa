@@ -61,10 +61,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "conferencia-nfe", "inventario-estoque", "boletos", "configuracoes"],
+  consultora: ["registro", "meta-hora-hora", "conferencia-nfe", "inventario-estoque", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "meta-hora-hora", "conferencia-nfe", "importar-meta", "inventario-estoque", "boletos", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "meta-hora-hora", "conferencia-nfe", "importar-meta", "inventario-estoque", "boletos", "auditoria-boletos", "configuracoes"],
 };
 
 // Mapeamento de perfis para as preferências de notificação
@@ -1223,6 +1223,16 @@ function iniciarModuloBase(moduloOpcional) {
     const temTabCaixa = Array.from(groupCaixa.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     groupCaixa.classList.toggle("hidden", !temTabCaixa);
   }
+  const groupMetas = document.getElementById("group-metas");
+  if (groupMetas) {
+    const temTabMetas = Array.from(groupMetas.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    groupMetas.classList.toggle("hidden", !temTabMetas);
+  }
+  const groupImportacoes = document.getElementById("group-importacoes");
+  if (groupImportacoes) {
+    const temTabImportacoes = Array.from(groupImportacoes.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    groupImportacoes.classList.toggle("hidden", !temTabImportacoes);
+  }
   const groupLogistica = document.getElementById("group-logistica");
   if (groupLogistica) {
     const temTabLogistica = Array.from(groupLogistica.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1471,7 +1481,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes", "controle-ponto"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes", "controle-ponto", "importar-meta", "meta-hora-hora"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1524,6 +1534,8 @@ function ativarTab(tabName) {
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
+  if (tabName === "importar-meta") renderImportarMeta();
+  if (tabName === "meta-hora-hora") renderMetaHoraHora();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -9270,3 +9282,287 @@ async function exportarEspelhoPontoPDF() {
 
   doc.save(`Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`);
 }
+
+
+// ==========================================================================
+// IMPORTAÇÃO DA META DO ANO
+// Estrutura pronta para receber a importação — o modelo de arquivo ainda
+// será definido; por ora o painel lista as metas já importadas via API.
+// ==========================================================================
+async function renderImportarMeta() {
+  const lista = document.getElementById("metas-importadas-lista");
+  if (!lista) return;
+  lista.innerHTML = '<span class="text-muted">Carregando…</span>';
+  try {
+    const res = await fetch(`${API_BASE}/metas`);
+    const metas = await res.json();
+    if (!Array.isArray(metas) || metas.length === 0) {
+      lista.innerHTML = '<span class="text-muted">Nenhuma meta importada ainda.</span>';
+      return;
+    }
+    lista.innerHTML = metas.map(m => `
+      <div class="flex justify-between items-center py-2.5 border-b border-border last:border-0">
+        <div>
+          <strong class="text-sm text-ink">${m.loja} — ${m.ano}</strong>
+          <div class="text-[11px] text-muted">Meta anual: ${m.metaAnual != null ? formatBRL(m.metaAnual) : "—"} · Importado em ${formatDataHora(m.importadoEm)}</div>
+        </div>
+        <button type="button" class="btn-mini-outline" onclick="excluirMetaImportada(${m.id})" aria-label="Excluir meta"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    `).join("");
+  } catch (e) {
+    lista.innerHTML = '<span class="text-muted">Não foi possível carregar as metas importadas.</span>';
+  }
+}
+
+async function excluirMetaImportada(id) {
+  const ok = await showConfirm("Excluir esta meta importada?", { confirmText: "Excluir", confirmClass: "btn-danger" });
+  if (!ok) return;
+  try {
+    await fetch(`${API_BASE}/metas/${id}`, { method: "DELETE" });
+    showToast("Meta removida.", "sucesso");
+    renderImportarMeta();
+  } catch (e) {
+    showToast("Erro ao remover meta.", "erro");
+  }
+}
+
+// ==========================================================================
+// META HORA A HORA
+// Acompanhamento parcial da meta de vendas a cada hora do expediente,
+// alimentado pela venda acumulada que o(a) colaborador(a) informa a cada
+// hora. Enquanto a Meta do Ano não é importada, usa a "meta do dia" definida
+// manualmente neste painel.
+// ==========================================================================
+const LOJAS_MHH = LOJAS.filter(l => l !== "Venda Direta");
+const MHH_HORARIO_PADRAO = { abertura: "10:00", fechamento: "22:00" };
+
+function mhhDataHojeStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function mhhObterHorariosLojas() {
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    const config = await res.json();
+    if (config && config.horarios_lojas) {
+      return JSON.parse(config.horarios_lojas);
+    }
+  } catch (e) { /* usa padrão */ }
+  return {};
+}
+
+async function mhhSalvarHorarioLoja(loja, abertura, fechamento) {
+  const horarios = await mhhObterHorariosLojas();
+  horarios[loja] = { abertura, fechamento };
+  await fetch(`${API_BASE}/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chave: "horarios_lojas", valor: JSON.stringify(horarios) })
+  });
+}
+
+async function mhhObterMetaDia(loja, data) {
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    const config = await res.json();
+    const chave = `metaDia_${loja}_${data}`;
+    return config && config[chave] ? Number(config[chave]) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+async function mhhSalvarMetaDia(loja, data, valor) {
+  const chave = `metaDia_${loja}_${data}`;
+  await fetch(`${API_BASE}/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chave, valor: String(valor) })
+  });
+}
+
+// Gera as faixas horárias inteiras entre abertura e fechamento (ex.: 10:00 às
+// 22:00 -> horas 10, 11, ..., 21 — cada uma representando a hora que se
+// encerra em hora+1).
+function mhhGerarFaixas(abertura, fechamento) {
+  const horaAbertura = parseInt((abertura || MHH_HORARIO_PADRAO.abertura).split(":")[0], 10);
+  const horaFechamento = parseInt((fechamento || MHH_HORARIO_PADRAO.fechamento).split(":")[0], 10);
+  const faixas = [];
+  for (let h = horaAbertura; h < horaFechamento; h++) {
+    faixas.push(h);
+  }
+  return faixas;
+}
+
+function mhhStatusClasse(percentual) {
+  if (percentual >= 100) return { cor: "var(--green)", bg: "var(--green-light)", label: "Meta batida" };
+  if (percentual >= 70) return { cor: "var(--amber)", bg: "var(--amber-light)", label: "Quase lá" };
+  return { cor: "var(--red)", bg: "var(--red-light)", label: "Abaixo da meta" };
+}
+
+let _mhhCarregando = false;
+
+async function renderMetaHoraHora() {
+  if (_mhhCarregando) return;
+  _mhhCarregando = true;
+  try {
+    const seletorLoja = document.getElementById("mhh-loja");
+    const inputData = document.getElementById("mhh-data");
+    if (!seletorLoja || !inputData) return;
+
+    // Popular seletor de loja uma única vez
+    if (!seletorLoja.dataset.populado) {
+      seletorLoja.innerHTML = LOJAS_MHH.map(l => `<option value="${l}">${l}</option>`).join("");
+      seletorLoja.dataset.populado = "1";
+    }
+    if (!inputData.value) inputData.value = mhhDataHojeStr();
+
+    const loja = seletorLoja.value;
+    const data = inputData.value;
+
+    // Horário da loja
+    const horarios = await mhhObterHorariosLojas();
+    const horarioLoja = horarios[loja] || MHH_HORARIO_PADRAO;
+    document.getElementById("mhh-config-horario-loja-nome").textContent = loja;
+    document.getElementById("mhh-horario-abertura").value = horarioLoja.abertura;
+    document.getElementById("mhh-horario-fechamento").value = horarioLoja.fechamento;
+
+    // Meta do dia
+    const metaDia = await mhhObterMetaDia(loja, data);
+    const inputMetaDia = document.getElementById("mhh-meta-dia");
+    if (document.activeElement !== inputMetaDia) {
+      inputMetaDia.value = metaDia > 0 ? metaDia : "";
+    }
+
+    // Vendas horárias já lançadas
+    const resVendas = await fetch(`${API_BASE}/vendas-horarias?loja=${encodeURIComponent(loja)}&data=${encodeURIComponent(data)}`);
+    const vendas = await resVendas.json();
+    const vendasPorHora = {};
+    (vendas || []).forEach(v => { vendasPorHora[v.hora] = v.vendaAcumulada; });
+
+    // Faixas horárias e meta parcial acumulada (distribuição linear)
+    const faixas = mhhGerarFaixas(horarioLoja.abertura, horarioLoja.fechamento);
+    const totalHoras = faixas.length || 1;
+    const metaPorHora = metaDia / totalHoras;
+
+    const listaEl = document.getElementById("mhh-horas-lista");
+    if (faixas.length === 0) {
+      listaEl.innerHTML = '<div class="p-4 text-xs text-muted">Configure o horário da loja para gerar as faixas horárias.</div>';
+    } else {
+      listaEl.innerHTML = faixas.map((h, idx) => {
+        const metaAcumuladaAteAqui = metaPorHora * (idx + 1);
+        const vendaInformada = vendasPorHora[h];
+        const percentual = metaAcumuladaAteAqui > 0 && vendaInformada != null
+          ? Math.round((vendaInformada / metaAcumuladaAteAqui) * 100)
+          : null;
+        const status = percentual != null ? mhhStatusClasse(percentual) : null;
+        const horaFmt = `${String(h).padStart(2, "0")}:00 – ${String(h + 1).padStart(2, "0")}:00`;
+        return `
+          <div class="p-3 flex flex-wrap items-center gap-3 justify-between">
+            <div class="min-w-[110px]">
+              <strong class="text-sm text-ink">${horaFmt}</strong>
+              <div class="text-[11px] text-muted">Meta até aqui: ${formatBRL(metaAcumuladaAteAqui)}</div>
+            </div>
+            <div class="flex items-center gap-2 flex-1 justify-end">
+              <div class="field" style="gap:2px;">
+                <input type="number" min="0" step="0.01" placeholder="Venda acumulada"
+                  class="mhh-venda-input" data-hora="${h}"
+                  value="${vendaInformada != null ? vendaInformada : ""}"
+                  style="width:150px; padding:8px 10px; font-size:0.85rem;">
+              </div>
+              ${status ? `<span class="text-[11px] font-extrabold px-2.5 py-1 rounded-full" style="color:${status.cor}; background:${status.bg};">${percentual}% · ${status.label}</span>` : `<span class="text-[11px] text-muted">Sem lançamento</span>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      listaEl.querySelectorAll(".mhh-venda-input").forEach(input => {
+        input.addEventListener("change", async () => {
+          const hora = parseInt(input.dataset.hora, 10);
+          const valor = input.value === "" ? null : Number(input.value);
+          if (valor === null) return;
+          try {
+            await fetch(`${API_BASE}/vendas-horarias`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ loja, data, hora, vendaAcumulada: valor, registradoPor: currentUser ? currentUser.nome : null })
+            });
+            showToast("Venda da hora registrada!", "sucesso");
+            renderMetaHoraHora();
+          } catch (e) {
+            showToast("Erro ao salvar venda da hora.", "erro");
+          }
+        });
+      });
+    }
+
+    // Resumo do dia: usa o maior valor de venda acumulada lançado (é
+    // cumulativo — o último lançamento reflete o total vendido até agora).
+    const horasComVenda = Object.keys(vendasPorHora).map(Number);
+    const totalVendido = horasComVenda.length > 0
+      ? Math.max(...horasComVenda.map(h => Number(vendasPorHora[h]) || 0))
+      : 0;
+    const percentualDia = metaDia > 0 ? Math.min(999, Math.round((totalVendido / metaDia) * 100)) : 0;
+
+    document.getElementById("mhh-resumo-percentual").textContent = `${percentualDia}%`;
+    document.getElementById("mhh-resumo-barra").style.width = `${Math.min(100, percentualDia)}%`;
+    document.getElementById("mhh-resumo-vendido").textContent = `Vendido: ${formatBRL(totalVendido)}`;
+    document.getElementById("mhh-resumo-meta").textContent = `Meta do dia: ${formatBRL(metaDia)}`;
+
+    const mensagemEl = document.getElementById("mhh-resumo-mensagem");
+    if (metaDia <= 0) {
+      mensagemEl.textContent = "Defina a meta de vendas do dia para começar a acompanhar hora a hora.";
+    } else if (percentualDia >= 100) {
+      mensagemEl.textContent = "🎉 Meta do dia batida! Parabéns, equipe!";
+    } else {
+      const faltam = metaDia - totalVendido;
+      mensagemEl.textContent = `💪 Faltam ${formatBRL(faltam)} para bater a meta de hoje. Vamos com tudo!`;
+    }
+  } finally {
+    _mhhCarregando = false;
+  }
+}
+
+(function inicializarEventosMetaHoraHora() {
+  const seletorLoja = document.getElementById("mhh-loja");
+  const inputData = document.getElementById("mhh-data");
+  const btnConfigHorario = document.getElementById("btn-mhh-config-horario");
+  const btnSalvarHorario = document.getElementById("btn-mhh-salvar-horario");
+  const btnSalvarMetaDia = document.getElementById("btn-mhh-salvar-meta-dia");
+
+  if (seletorLoja) seletorLoja.addEventListener("change", renderMetaHoraHora);
+  if (inputData) inputData.addEventListener("change", renderMetaHoraHora);
+
+  if (btnConfigHorario) {
+    btnConfigHorario.addEventListener("click", () => {
+      document.getElementById("mhh-config-horario-painel").classList.toggle("hidden");
+    });
+  }
+
+  if (btnSalvarHorario) {
+    btnSalvarHorario.addEventListener("click", async () => {
+      const loja = document.getElementById("mhh-loja").value;
+      const abertura = document.getElementById("mhh-horario-abertura").value;
+      const fechamento = document.getElementById("mhh-horario-fechamento").value;
+      if (!abertura || !fechamento) {
+        showToast("Informe abertura e fechamento.", "erro");
+        return;
+      }
+      await mhhSalvarHorarioLoja(loja, abertura, fechamento);
+      showToast("Horário da loja salvo!", "sucesso");
+      document.getElementById("mhh-config-horario-painel").classList.add("hidden");
+      renderMetaHoraHora();
+    });
+  }
+
+  if (btnSalvarMetaDia) {
+    btnSalvarMetaDia.addEventListener("click", async () => {
+      const loja = document.getElementById("mhh-loja").value;
+      const data = document.getElementById("mhh-data").value;
+      const valor = Number(document.getElementById("mhh-meta-dia").value) || 0;
+      await mhhSalvarMetaDia(loja, data, valor);
+      showToast("Meta do dia salva!", "sucesso");
+      renderMetaHoraHora();
+    });
+  }
+})();
