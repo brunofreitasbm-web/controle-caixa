@@ -1,72 +1,76 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  /* Módulo Cacau Show — paleta neutra "slate/sage", suave e de leitura agradável */
-  --wine: #56707f; /* Acento primário: azul-ardósia suave (substitui o marrom cacau) */
-  --wine-light: #8ba4b0;
-  --wine-dark: #33434d;
-  --gold: #7fa895; /* Acento secundário: verde-sálvia suave (substitui o dourado) */
-  --gold-light: #eef4f0;
-  --gold-dark: #4d6b5c;
-  --gold-gradient: linear-gradient(135deg, #eef4f0 0%, #7fa895 100%);
-  --wine-gradient: linear-gradient(135deg, #56707f 0%, #33434d 100%);
-  --cream: #f6f8f9; /* Fundo neutro frio, suave */
-  --paper: #ffffff;
-  --ink: #333c44; /* Cinza-azulado escuro, alto contraste e conforto de leitura */
-  --muted: #7c8992;
-  --border: #e4eaed; /* Borda suave neutra */
-  --green: #3f9e6d;
-  --green-light: #eef8f2;
-  --amber: #c99a3f;
-  --amber-light: #fbf5e9;
-  --red: #cf5b57;
-  --red-light: #fdf1f0;
-  --radius: 16px;
-  --shadow-sm: 0 4px 12px rgba(51, 60, 68, 0.02);
-  --shadow-md: 0 10px 30px rgba(51, 60, 68, 0.04), 0 1px 3px rgba(51, 60, 68, 0.01);
-  --shadow-lg: 0 20px 50px rgba(51, 60, 68, 0.07), 0 2px 8px rgba(51, 60, 68, 0.03);
-  --transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* BlueDox Design System Theme Variables */
+  --wine: #2D538E; /* Primary Blue (Brand) */
+  --wine-light: #4A7FD3;
+  --wine-dark: #1C2435; /* Dark Navy */
+  --gold: #009688; /* Accent Green */
+  --gold-light: #E0F2F1;
+  --gold-dark: #00796B;
+  --gold-gradient: linear-gradient(135deg, #4A7FD3 0%, #2D538E 100%);
+  --wine-gradient: linear-gradient(135deg, #2D538E 0%, #1C2435 100%);
+  --cream: #F2F6F9; /* Neutral Light Background */
+  --paper: #FFFFFF; /* Cards / Header bg */
+  --ink: #1C2435; /* Primary Text Dark Navy */
+  --muted: #4A4A4A; /* Secondary Text */
+  --border: #E2E8F0;
+  --green: #009688; /* Accent Green */
+  --green-light: #E0F2F1;
+  --amber: #F57C00; /* Accent Orange */
+  --amber-light: #FFE0B2;
+  --red: #F44336; /* Badge Red */
+  --red-light: #FFEBEE;
+  --blue: #1E62C9; /* Badge Blue */
+  --blue-light: #EBF5FF;
+  --radius: 12px;
+  --shadow-sm: 0 2px 8px rgba(28, 36, 53, 0.03);
+  --shadow-md: 0 4px 12px rgba(28, 36, 53, 0.05);
+  --shadow-lg: 0 8px 24px rgba(28, 36, 53, 0.08);
+  --transition: all 0.25s ease;
 
-  /* Harmonized Menu Palette (Light Mode - Slate/Sage neutro) */
-  --sidebar-bg: linear-gradient(180deg, #3d4a54 0%, #2b343c 100%);
-  --topbar-bg: rgba(61, 74, 84, 0.96);
-  --topbar-border: rgba(127, 168, 149, 0.2);
-  --sidebar-group-header-color: #eef4f0;
-  --sidebar-active-bg: linear-gradient(135deg, #eef4f0 0%, #7fa895 100%);
-  --sidebar-active-text: #1d2b23;
-  --sidebar-text-muted: rgba(255, 255, 255, 0.75);
-  --sidebar-text-hover: #ffffff;
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.09);
+  /* Harmonized Menu Palette (Light Mode - BlueDox Navy/Blue) */
+  --sidebar-bg: #1C2435;
+  --topbar-bg: #FFFFFF;
+  --topbar-border: #E2E8F0;
+  --sidebar-group-header-color: #90A4AE;
+  --sidebar-active-bg: #2D538E;
+  --sidebar-active-text: #FFFFFF;
+  --sidebar-text-muted: rgba(255, 255, 255, 0.7);
+  --sidebar-text-hover: #FFFFFF;
+  --sidebar-hover-bg: #263145;
 }
 
 :root[data-theme="dark"] {
-  --wine: #9db8c4; /* Realce azul-ardósia suave sobre fundo escuro */
-  --wine-light: #c4d6dd;
-  --wine-dark: #1c272c;
-  --gold: #8fc1a8; /* Realce verde-sálvia suave sobre fundo escuro */
-  --gold-light: #dcece3;
-  --gold-dark: #35503f;
-  --gold-gradient: linear-gradient(135deg, #dcece3 0%, #8fc1a8 50%, #35503f 100%);
-  --wine-gradient: linear-gradient(135deg, #7c96a3 0%, #3a4750 100%);
-  --cream: #181c20; /* Fundo neutro escuro, sem tom marrom */
-  --paper: #21262b; /* Superfície de cartão */
-  --ink: #e9edf0; /* Texto claro cinza-azulado, leitura confortável */
-  --muted: #97a3aa;
-  --border: #2d343a;
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --wine: #5A94E8; /* Lighter primary blue for better dark mode visibility */
+  --wine-light: #7CABF5;
+  --wine-dark: #0A0E17; /* Softer dark background to prevent eye strain */
+  --gold: #00BFA5;
+  --gold-light: rgba(0, 191, 165, 0.1);
+  --gold-dark: #00796B;
+  --gold-gradient: linear-gradient(135deg, #2D538E 0%, #0A0E17 100%);
+  --wine-gradient: linear-gradient(135deg, #1C2435 0%, #0A0E17 100%);
+  --cream: #0A0E17; /* Very dark slate-navy page background */
+  --paper: #151E2E; /* Slate-navy card/surface background */
+  --ink: #F8FAFC; /* Slate-white primary text - very readable */
+  --muted: #A0AEC0; /* Light slate-gray secondary text - clear contrast */
+  --border: #222E45; /* Darker border color */
+  --blue: #5A9DE8; /* Lighter badge blue for dark mode contrast */
+  --blue-light: rgba(90, 157, 232, 0.15);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
 
   /* Harmonized Menu Palette (Dark Mode) */
-  --sidebar-bg: linear-gradient(180deg, #15191c 0%, #0c0f11 100%);
-  --topbar-bg: rgba(21, 25, 28, 0.96);
-  --topbar-border: rgba(143, 193, 168, 0.15);
-  --sidebar-group-header-color: #dcece3;
-  --sidebar-active-bg: linear-gradient(135deg, #dcece3 0%, #8fc1a8 100%);
-  --sidebar-active-text: #0d140f;
-  --sidebar-text-muted: rgba(255, 255, 255, 0.65);
-  --sidebar-text-hover: #ffffff;
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: #070B12;
+  --topbar-bg: #151E2E;
+  --topbar-border: #222E45;
+  --sidebar-group-header-color: #64748B;
+  --sidebar-active-bg: #2D538E;
+  --sidebar-active-text: #FFFFFF;
+  --sidebar-text-muted: rgba(255, 255, 255, 0.6);
+  --sidebar-text-hover: #FFFFFF;
+  --sidebar-hover-bg: #1F293D;
 }
 
 * {
@@ -1002,8 +1006,8 @@ tr:hover td {
   color: var(--amber);
 }
 .status-aguardando_retirada {
-  background: #ebf5ff;
-  color: #1e62c9;
+  background: var(--blue-light);
+  color: var(--blue);
 }
 .status-retirado {
   background: var(--green-light);
@@ -1025,7 +1029,7 @@ tr:hover td {
 .batch-actions-bar span {
   font-weight: 600;
   font-size: 0.92rem;
-  color: var(--text);
+  color: var(--ink);
 }
 .btn-batch {
   padding: 8px 16px;
@@ -2073,28 +2077,40 @@ button:focus-visible,
 
 /* Variáveis FA */
 :root {
-  --fa-verde-escuro: #0d2e2e;
-  --fa-verde-medio: #1a4a4a;
-  --fa-rosa: #e8186d;
-  --fa-rosa-claro: #ff4d94;
-  --fa-amarelo: #b5a020;
-  --fa-amarelo-claro: #d4c03a;
-  --fa-branco: #f0faf9;
-  --fa-texto: #0a2020;
+  --indigo: #002D2F;
+  --indigo-light: #004547;
+  --aqua: #EAFBF4;
+  --sky: #A8F0D6;
+  --coral: #F50469;
+  --coral-dark: #c00352;
+  --sun: #FFE234;
+  --sun-dark: #e6c810;
+  --mint: #3CE9B1;
+  --wa: #25D366;
+  --wa-dark: #1DA851;
+  --white: #FFFFFF;
+  --ink-soft: #416264;
+  --gray-100: #F3F4F6;
+  --fa-shadow-sm: 0 4px 6px -1px rgba(0, 45, 47, 0.1), 0 2px 4px -1px rgba(0, 45, 47, 0.06);
+  --fa-shadow-md: 0 10px 15px -3px rgba(0, 45, 47, 0.1), 0 4px 6px -2px rgba(0, 45, 47, 0.05);
+  --fa-shadow-lg: 0 20px 25px -5px rgba(0, 45, 47, 0.1), 0 10px 10px -5px rgba(0, 45, 47, 0.04);
+  --fa-shadow-float: 0 20px 40px rgba(0, 45, 47, 0.18);
 }
 
 /* Tab button FA — cor de destaque */
 .fa-tab-btn.active,
 .tab-btn.fa-tab-btn.active {
-  background: var(--fa-rosa);
-  color: #fff;
-  border-color: var(--fa-rosa);
-  box-shadow: 0 0 0 3px rgba(232,24,109,0.2);
+  background: var(--coral) !important;
+  color: #fff !important;
+  border-color: var(--coral) !important;
+  box-shadow: 0 0 0 3px rgba(245,4,105,0.2) !important;
+  border-left: 4px solid var(--coral) !important;
 }
 
 .tab-btn.fa-tab-btn:not(.hidden):not(.active):hover {
-  border-color: var(--fa-rosa);
-  color: var(--fa-rosa);
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+  background-color: rgba(245,4,105,0.08) !important;
 }
 
 /* Seção principal FA */
@@ -2104,7 +2120,7 @@ button:focus-visible,
 
 /* Header banner FaçaAmigos */
 .fa-header-banner {
-  background: linear-gradient(135deg, var(--fa-verde-escuro) 0%, var(--fa-verde-medio) 60%, #1a3320 100%);
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-light) 100%);
   border-radius: 16px;
   padding: 24px 28px;
   margin-bottom: 20px;
@@ -2113,7 +2129,7 @@ button:focus-visible,
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
-  box-shadow: 0 8px 32px rgba(13,46,46,0.25);
+  box-shadow: var(--fa-shadow-lg);
   position: relative;
   overflow: hidden;
 }
@@ -2125,7 +2141,7 @@ button:focus-visible,
   top: -40px;
   width: 160px;
   height: 160px;
-  background: var(--fa-rosa);
+  background: var(--coral);
   border-radius: 50%;
   opacity: 0.15;
 }
@@ -2137,7 +2153,7 @@ button:focus-visible,
   bottom: -30px;
   width: 100px;
   height: 100px;
-  background: var(--fa-amarelo);
+  background: var(--sun);
   border-radius: 50%;
   opacity: 0.12;
 }
@@ -2163,7 +2179,7 @@ button:focus-visible,
 }
 
 .fa-title-accent {
-  color: var(--fa-rosa);
+  color: var(--coral);
 }
 
 .fa-subtitle {
@@ -2191,9 +2207,9 @@ button:focus-visible,
 }
 
 .btn-modulo-switch {
-  background: linear-gradient(135deg, #4a1d0d 0%, #2b1107 100%);
-  color: #f7d5a5;
-  border: 1.5px solid rgba(247, 213, 165, 0.4);
+  background: var(--indigo-light);
+  color: var(--sun);
+  border: 1.5px solid rgba(255, 226, 52, 0.4);
   border-radius: 20px;
   padding: 5px 14px;
   font-size: 0.82rem;
@@ -2206,9 +2222,9 @@ button:focus-visible,
   transition: all 0.2s ease;
 }
 .btn-modulo-switch:hover {
-  background: linear-gradient(135deg, #5c2410 0%, #3a1709 100%);
-  color: #fff;
-  border-color: rgba(247, 213, 165, 0.8);
+  background: var(--mint);
+  color: var(--indigo);
+  border-color: rgba(255, 226, 52, 0.8);
   transform: translateY(-1.5px);
   box-shadow: 0 5px 15px rgba(0,0,0,0.35);
 }
@@ -2217,11 +2233,11 @@ button:focus-visible,
 .fa-subnav {
   display: flex;
   gap: 4px;
-  background: var(--card-bg);
+  background: var(--gray-100);
   border-radius: 12px;
   padding: 6px;
   margin-bottom: 20px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gray-100);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
@@ -2231,7 +2247,7 @@ button:focus-visible,
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--ink-soft);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -2240,14 +2256,14 @@ button:focus-visible,
 }
 
 .fa-sub-btn:hover {
-  background: rgba(232,24,109,0.08);
-  color: var(--fa-rosa);
+  background: rgba(245,4,105,0.08);
+  color: var(--coral);
 }
 
 .fa-sub-btn.active {
-  background: var(--fa-rosa);
+  background: var(--coral);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(232,24,109,0.3);
+  box-shadow: 0 2px 8px rgba(245,4,105,0.3);
 }
 
 .fa-subnav-single {
@@ -2262,9 +2278,9 @@ button:focus-visible,
   animation: fadeInUp 0.25s ease;
 }
 
-/* Form FA — card com borda rosa sutil */
+/* Form FA — card com borda coral sutil */
 .fa-form-card {
-  border-top: 4px solid var(--fa-rosa);
+  border-top: 4px solid var(--coral);
 }
 
 .fa-form-title {
@@ -2273,56 +2289,56 @@ button:focus-visible,
 
 /* Segmented FA */
 .fa-segmented .seg-btn.active {
-  background: var(--fa-rosa);
+  background: var(--coral);
   color: #fff;
-  border-color: var(--fa-rosa);
+  border-color: var(--coral);
 }
 
 /* Botão submit FA */
 .fa-btn-primary {
-  background: linear-gradient(135deg, var(--fa-rosa) 0%, var(--fa-rosa-claro) 100%);
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-dark) 100%);
   border-color: transparent;
 }
 
 .fa-btn-primary:hover {
-  background: linear-gradient(135deg, #c8105a 0%, var(--fa-rosa) 100%);
+  background: linear-gradient(135deg, var(--coral-dark) 0%, var(--coral) 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(232,24,109,0.35);
+  box-shadow: 0 6px 20px rgba(245,4,105,0.35);
 }
 
-/* Loja cards FA — accent rosa */
+/* Loja cards FA — accent coral */
 .fa-loja-card {
-  border-left: 4px solid var(--fa-rosa);
+  border-left: 4px solid var(--coral);
 }
 
 .fa-loja-card .valor {
-  color: var(--fa-rosa);
+  color: var(--coral);
 }
 
 /* Barra FA */
 .fa-bar-fill {
-  background: linear-gradient(90deg, var(--fa-rosa) 0%, var(--fa-rosa-claro) 100%);
+  background: linear-gradient(90deg, var(--coral) 0%, var(--coral-dark) 100%);
 }
 
 /* Banner aviso FA */
 .fa-aviso {
-  border-left: 4px solid var(--fa-rosa);
+  border-left: 4px solid var(--coral);
 }
 
 /* WhatsApp FA */
 .fa-btn-whatsapp {
-  background: linear-gradient(135deg, var(--fa-rosa) 0%, #c8105a 100%);
+  background: linear-gradient(135deg, var(--wa) 0%, var(--wa-dark) 100%);
 }
 
 .fa-btn-whatsapp:hover {
-  background: linear-gradient(135deg, #c8105a 0%, #a00040 100%);
+  background: linear-gradient(135deg, var(--wa-dark) 0%, var(--wa) 100%);
   transform: translateY(-1px);
 }
 
 /* Tema escuro — quando body.tema-fa */
 body.tema-fa .topbar {
-  border-bottom-color: var(--fa-rosa);
-  box-shadow: 0 2px 12px rgba(232,24,109,0.12);
+  border-bottom-color: var(--coral);
+  box-shadow: 0 2px 12px rgba(245,4,105,0.12);
 }
 
 /* Responsivo FA */
@@ -2369,7 +2385,7 @@ body.tema-fa .topbar {
 }
 
 .module-card {
-  background: var(--card-bg);
+  background: var(--paper);
   border: 2px solid var(--border);
   border-radius: 16px;
   padding: 24px;
@@ -2396,7 +2412,7 @@ body.tema-fa .topbar {
 .module-card p {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .mod-icon {
@@ -2405,17 +2421,17 @@ body.tema-fa .topbar {
 }
 
 .card-cacau:hover {
-  border-color: var(--primary);
+  border-color: var(--wine);
 }
 .card-cacau h3 {
-  color: var(--primary);
+  color: var(--wine);
 }
 
 .card-faca:hover {
-  border-color: var(--fa-rosa);
+  border-color: var(--coral);
 }
 .card-faca h3 {
-  color: var(--fa-rosa);
+  color: var(--coral);
 }
 
 @media (max-width: 600px) {
@@ -3076,3 +3092,209 @@ body.tema-fa .topbar {
   color: #818cf8;
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
+
+/* Light mode: darker badge text for adequate contrast against the pale background */
+:root:not([data-theme="dark"]) .disc-badge-d {
+  color: #dc2626;
+}
+:root:not([data-theme="dark"]) .disc-badge-i {
+  color: #b45309;
+}
+:root:not([data-theme="dark"]) .disc-badge-s {
+  color: #059669;
+}
+:root:not([data-theme="dark"]) .disc-badge-c {
+  color: #4f46e5;
+}
+
+/* ==========================================================================
+   BLUEDOX DESIGN SYSTEM LAYOUT & DESIGN SYSTEM SPECIFIC ADDITIONS
+   ========================================================================== */
+
+/* Global Typography & Legibility Override to Inter */
+body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .tab-btn {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  color: var(--ink);
+}
+
+/* Contrast enhancement: bind backgrounds and text properties to theme variables */
+.card:not(.fa-section *):not(.fa-tab-panel *), 
+.form-card:not(.fa-section *):not(.fa-tab-panel *), 
+.table-wrap:not(.fa-section *):not(.fa-tab-panel *), 
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *), 
+aside:not(.fa-section *):not(.fa-tab-panel *), 
+header:not(.fa-section *):not(.fa-tab-panel *) {
+  color: var(--ink);
+}
+
+.card:not(.fa-section *):not(.fa-tab-panel *) p, 
+.card:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-300):not(.text-brand-200), 
+.card:not(.fa-section *):not(.fa-tab-panel *) td, 
+.card:not(.fa-section *):not(.fa-tab-panel *) label, 
+.card:not(.fa-section *):not(.fa-tab-panel *) li,
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) p, 
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-200):not(.text-brand-300):not(.text-brand-100):not(.text-amber-400):not(.text-emerald-400):not(.fa-title-accent),
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) label, 
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) td, 
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) li {
+  color: var(--ink) !important;
+}
+
+/* Secondary descriptions, subtitles and statuses contrast adjustment */
+.text-secondary:not(.fa-section *),
+.text-muted:not(.fa-section *),
+.subtitle:not(.fa-section *),
+.modal-sub:not(.fa-section *),
+.widget-description:not(.fa-section *),
+.user-role:not(.fa-section *) {
+  color: var(--muted) !important;
+}
+
+/* Input labels legibility */
+label:not(.fa-section *):not(.fa-tab-panel *) {
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+
+/* Sidebar Quick Actions Grid (2x2) */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 10px;
+}
+
+.quick-action-item {
+  background-color: var(--sidebar-bg);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 500;
+  width: 100%;
+}
+
+.quick-action-item i {
+  font-size: 16px;
+  color: #90A4AE;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.quick-action-item:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: #FFFFFF;
+}
+
+.quick-action-item:hover i {
+  color: #FFFFFF;
+  transform: translateY(-2px);
+}
+
+/* Sidebar Menu Tweaks */
+.sidebar-nav {
+  padding-top: 8px;
+}
+
+/* Active navigation item indicator */
+.tab-btn.active, .sidebar-group-header[aria-expanded="true"] {
+  background: var(--sidebar-active-bg) !important;
+  color: var(--sidebar-active-text) !important;
+  font-weight: 600;
+  border-left: 4px solid #FFFFFF !important;
+}
+
+.tab-btn:hover:not(.active) {
+  background-color: var(--sidebar-hover-bg) !important;
+  color: var(--sidebar-text-hover) !important;
+}
+
+/* Headers of each section (inspired by search banner / BlueDox breadcrumbs) */
+.tab-panel > div:first-child {
+  background: linear-gradient(135deg, #2D538E 0%, #1C2435 100%) !important;
+  border-color: #2D538E !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 15px rgba(28, 36, 53, 0.08) !important;
+}
+
+/* Header/Topbar adjustments */
+.topbar {
+  background-color: var(--topbar-bg) !important;
+  border-bottom: 1px solid var(--topbar-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  height: 70px;
+  padding: 0 24px;
+}
+
+.topbar-title {
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+}
+
+.hamburger-bar {
+  background-color: var(--ink) !important;
+}
+
+.user-box {
+  gap: 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Rounded Buttons CTA styling (Green Accent) */
+.btn-primary, .btn-submit, button[type="submit"] {
+  background-color: var(--gold-dark) !important;
+  color: #FFFFFF !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  padding: 10px 20px !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+}
+
+.btn-primary:hover, .btn-submit:hover, button[type="submit"]:hover {
+  background-color: var(--gold) !important;
+}
+
+/* Card layout formatting: border radius, smooth shadows */
+.card:not(.fa-section *):not(.fa-tab-panel *),
+.form-card:not(.fa-section *):not(.fa-tab-panel *),
+.table-wrap:not(.fa-section *):not(.fa-tab-panel *) {
+  border-radius: 8px !important;
+  box-shadow: 0px 4px 12px rgba(28, 36, 53, 0.04) !important;
+  border: 1px solid var(--border) !important;
+  background-color: var(--paper) !important;
+}
+
+.fa-section .card, .fa-section .form-card, .fa-section .table-wrap,
+.fa-tab-panel .card, .fa-tab-panel .form-card, .fa-tab-panel .table-wrap {
+  border-radius: 8px !important;
+  box-shadow: var(--fa-shadow-sm) !important;
+  border: 1px solid var(--gray-100) !important;
+  background-color: var(--white) !important;
+}
+
+/* Theme badge fixes for sidebar indicators */
+.sync-badge, .notificacao-badge {
+  background-color: var(--red) !important;
+  color: white !important;
+}
+
+/* Device identification and spacing adjustments (Safe areas) */
+body.device-ios .topbar {
+  padding-top: env(safe-area-inset-top);
+  height: calc(70px + env(safe-area-inset-top));
+}
+
+body.device-ios .sidebar {
+  padding-top: env(safe-area-inset-top);
+}
+

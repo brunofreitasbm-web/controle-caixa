@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="BlueDox Administrative Dashboard - Modern UX/UI layout optimized for iOS, Android and Desktop.">
+    <title>BlueDox Dashboard</title>
+    <!-- FontAwesome 6 for line icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- BlueDox Custom Styling -->
+    <link rel="stylesheet" href="bluedox.css">
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <!-- Backdrop drawer shadow overlay for mobile devices -->
+        <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+        <!-- Barra Lateral de Navegação (Sidebar) -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-cubes"></i>
+                </div>
+                <span class="brand-name">BlueDox</span>
+            </div>
+
+            <!-- Seção Superior: Quick Actions (Grade 2x2) -->
+            <div class="quick-actions-grid">
+                <button class="quick-action-item" aria-label="Support">
+                    <i class="fa-solid fa-headset"></i>
+                    <span>Support</span>
+                </button>
+                <button class="quick-action-item" aria-label="Subscribers">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Subscribers</span>
+                </button>
+                <button class="quick-action-item" aria-label="Settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+                <button class="quick-action-item" aria-label="Invoices">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Invoices</span>
+                </button>
+            </div>
+
+            <!-- Seção Inferior: Main Navigation -->
+            <div class="sidebar-menu-wrapper">
+                <span class="menu-section-title">Navegação</span>
+                <ul class="nav-list">
+                    <li>
+                        <a class="nav-item-link" href="#dashboards">
+                            <i class="fa-solid fa-gauge-high"></i>
+                            <span>Dashboards</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#analytics">
+                            <i class="fa-solid fa-chart-pie"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#sales">
+                            <i class="fa-solid fa-wallet"></i>
+                            <span>Sales</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link active" href="#crm">
+                            <i class="fa-solid fa-circle-nodes"></i>
+                            <span>CRM</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#projects">
+                            <i class="fa-solid fa-list-check"></i>
+                            <span>Projects</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#statistics">
+                            <i class="fa-solid fa-chart-line"></i>
+                            <span>Statistics</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#widgets">
+                            <i class="fa-solid fa-shapes"></i>
+                            <span>Widgets</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#ui-elements">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span>UI Elements</span>
+                            <span class="nav-badge badge-red">15</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-item-link" href="#pages">
+                            <i class="fa-solid fa-file-lines"></i>
+                            <span>Pages</span>
+                            <span class="nav-badge badge-blue">8</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-footer-info">
+                <span>V2.1.0</span>
+                <span>BlueDox Admin</span>
+            </div>
+        </aside>
+
+        <!-- Área de Conteúdo Principal -->
+        <main class="main-content">
+            <!-- Header Principal Fixo -->
+            <header class="main-header">
+                <div style="display: flex; align-items: center;">
+                    <button id="menu-toggle" class="menu-toggle-btn" aria-label="Abrir Menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <!-- Global search inside header (Desktop only) -->
+                    <div class="header-search">
+                        <input type="text" placeholder="Search Jobs..." aria-label="Global search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="header-action-btn" aria-label="Notificações">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="btn-badge"></span>
+                    </button>
+                    <button class="header-action-btn" aria-label="Configurações">
+                        <i class="fa-regular fa-sun"></i>
+                    </button>
+                    
+                    <!-- Perfil do Usuário -->
+                    <div class="user-profile">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Michelle White" class="user-avatar">
+                        <div class="user-info">
+                            <span class="user-name">Michelle White</span>
+                            <span class="user-role">Administrator</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Breadcrumbs e Cabeçalho da Página -->
+            <section class="page-subheader">
+                <div>
+                    <div class="breadcrumbs-container">
+                        <i class="fa-solid fa-house"></i>
+                        <span class="breadcrumbs-separator">/</span>
+                        <span>Dashboard</span>
+                        <span class="breadcrumbs-separator">/</span>
+                        <span class="breadcrumbs-active">CRM</span>
+                    </div>
+                    <h1 class="page-title">Welcome back, David</h1>
+                </div>
+            </section>
+
+            <!-- Banner de Pesquisa em Destaque -->
+            <section class="search-banner">
+                <h2 class="banner-title">What are you looking for?</h2>
+                <div class="banner-search-box">
+                    <div class="banner-search-input-wrapper">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input id="banner-search-input" type="text" placeholder="Search for users, devices, settings..." aria-label="Search banner">
+                    </div>
+                    <button id="banner-search-btn" class="banner-search-btn">
+                        <span>Search</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Grade de Acesso Rápido (Dashboard Widgets) -->
+            <section class="widgets-grid">
+                <!-- Card 1: Users -->
+                <div class="widget-card" data-theme="blue">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </div>
+                    <h3 class="widget-title">Users</h3>
+                    <p class="widget-description">Manage admin people</p>
+                </div>
+
+                <!-- Card 2: Groups -->
+                <div class="widget-card" data-theme="blue">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-users-gear"></i>
+                    </div>
+                    <h3 class="widget-title">Groups</h3>
+                    <p class="widget-description">Create grouping lists</p>
+                </div>
+
+                <!-- Card 3: Dashboard -->
+                <div class="widget-card" data-theme="green">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-gauge"></i>
+                    </div>
+                    <h3 class="widget-title">Dashboard</h3>
+                    <p class="widget-description">Insights about company</p>
+                </div>
+
+                <!-- Card 4: Devices -->
+                <div class="widget-card" data-theme="orange">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-laptop-medical"></i>
+                    </div>
+                    <h3 class="widget-title">Devices</h3>
+                    <p class="widget-description">Secure data devices</p>
+                </div>
+
+                <!-- Card 5: Apps -->
+                <div class="widget-card" data-theme="purple">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-circle-nodes"></i>
+                    </div>
+                    <h3 class="widget-title">Apps</h3>
+                    <p class="widget-description">Manage app settings</p>
+                </div>
+
+                <!-- Card 6: Security -->
+                <div class="widget-card" data-theme="orange">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h3 class="widget-title">Security</h3>
+                    <p class="widget-description">Configure security logs</p>
+                </div>
+
+                <!-- Card 7: Billing -->
+                <div class="widget-card" data-theme="blue">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-credit-card"></i>
+                    </div>
+                    <h3 class="widget-title">Billing</h3>
+                    <p class="widget-description">Manage subscribe bills</p>
+                </div>
+
+                <!-- Card 8: Roles -->
+                <div class="widget-card" data-theme="purple">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="widget-title">Roles</h3>
+                    <p class="widget-description">Manage admin roles</p>
+                </div>
+
+                <!-- Card 9: Buildings -->
+                <div class="widget-card" data-theme="green">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-building"></i>
+                    </div>
+                    <h3 class="widget-title">Buildings</h3>
+                    <p class="widget-description">Manage building rooms</p>
+                </div>
+
+                <!-- Card 10: Resources -->
+                <div class="widget-card" data-theme="blue">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-cubes-stacked"></i>
+                    </div>
+                    <h3 class="widget-title">Resources</h3>
+                    <p class="widget-description">Manage our resources</p>
+                </div>
+
+                <!-- Card 11: Domains -->
+                <div class="widget-card" data-theme="green">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-globe"></i>
+                    </div>
+                    <h3 class="widget-title">Domains</h3>
+                    <p class="widget-description">Manage our domains</p>
+                </div>
+
+                <!-- Card 12: Support -->
+                <div class="widget-card" data-theme="orange">
+                    <div class="widget-icon-wrapper">
+                        <i class="fa-solid fa-headset"></i>
+                    </div>
+                    <h3 class="widget-title">Support</h3>
+                    <p class="widget-description">Talk to tech support</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Bottom Navigation Bar (iOS/Android mobile viewports layout fallback) -->
+    <nav class="bottom-nav">
+        <ul class="bottom-nav-list">
+            <li>
+                <a href="#dashboards" class="bottom-nav-item">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    <span>Dashboards</span>
+                </a>
+            </li>
+            <li>
+                <a href="#crm" class="bottom-nav-item active">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>CRM</span>
+                </a>
+            </li>
+            <li>
+                <a href="#ui-elements" class="bottom-nav-item">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>UI</span>
+                </a>
+            </li>
+            <li>
+                <a href="#pages" class="bottom-nav-item">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Pages</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- BlueDox Interaction Scripts -->
+    <script src="bluedox.js"></script>
+</body>
+</html>

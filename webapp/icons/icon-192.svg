@@ -1,21 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fdfaf2"/>
-      <stop offset="50%" stop-color="#f7eedf"/>
-      <stop offset="100%" stop-color="#ecdcc0"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5efe6"/>
     </linearGradient>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5c1a2b"/>
-      <stop offset="50%" stop-color="#4a121a"/>
-      <stop offset="100%" stop-color="#28100a"/>
+      <stop offset="0%" stop-color="#4a121a"/>
+      <stop offset="50%" stop-color="#330b10"/>
+      <stop offset="100%" stop-color="#1f0508"/>
     </linearGradient>
     <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
       <stop offset="100%" stop-color="#fdfbf7"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="3.84" stdDeviation="3.84" flood-color="#5c1a2b" flood-opacity="0.15"/>
+      <feDropShadow dx="0" dy="3.84" stdDeviation="3.84" flood-color="#000000" flood-opacity="0.15"/>
     </filter>
   </defs>
 
@@ -43,6 +42,6 @@
     <text x="96" y="87.36" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="30.72" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
   </g>
 
-  <!-- Rótulo "HUB OPERAÇÕES" -->
-  <text x="96" y="161.28" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="13.056000000000001" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="0.768">HUB OPERAÇÕES</text>
+  <!-- Rótulo "HUB DE OPERAÇÕES" -->
+  <text x="96" y="161.28" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="13.056000000000001" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="0.768">HUB DE OPERAÇÕES</text>
 </svg>

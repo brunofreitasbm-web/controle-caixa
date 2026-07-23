@@ -12,22 +12,20 @@ function generateSvgIcon(size) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5efe6"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#4a121a"/>
       <stop offset="50%" stop-color="#330b10"/>
       <stop offset="100%" stop-color="#1f0508"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f3e5c8"/>
-      <stop offset="35%" stop-color="#dfcba5"/>
-      <stop offset="70%" stop-color="#bd954b"/>
-      <stop offset="100%" stop-color="#8c6a2c"/>
-    </linearGradient>
     <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#5c1a2b"/>
-      <stop offset="100%" stop-color="#330b10"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fdfbf7"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="${size * 0.02}" stdDeviation="${size * 0.02}" flood-color="#000000" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="${size * 0.02}" stdDeviation="${size * 0.02}" flood-color="#000000" flood-opacity="0.15"/>
     </filter>
   </defs>
 
@@ -55,8 +53,8 @@ function generateSvgIcon(size) {
     <text x="${size * 0.5}" y="${size * 0.455}" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="${size * 0.16}" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
   </g>
 
-  <!-- Rótulo "CONTROLE DE CAIXA" -->
-  <text x="${size * 0.5}" y="${size * 0.84}" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="${size * 0.068}" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="${size * 0.004}">CONTROLE DE CAIXA</text>
+  <!-- Rótulo "HUB DE OPERAÇÕES" -->
+  <text x="${size * 0.5}" y="${size * 0.84}" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="${size * 0.068}" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="${size * 0.004}">HUB DE OPERAÇÕES</text>
 </svg>`;
 }
 

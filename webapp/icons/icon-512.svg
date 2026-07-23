@@ -1,21 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fdfaf2"/>
-      <stop offset="50%" stop-color="#f7eedf"/>
-      <stop offset="100%" stop-color="#ecdcc0"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5efe6"/>
     </linearGradient>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5c1a2b"/>
-      <stop offset="50%" stop-color="#4a121a"/>
-      <stop offset="100%" stop-color="#28100a"/>
+      <stop offset="0%" stop-color="#4a121a"/>
+      <stop offset="50%" stop-color="#330b10"/>
+      <stop offset="100%" stop-color="#1f0508"/>
     </linearGradient>
     <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
       <stop offset="100%" stop-color="#fdfbf7"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="10.24" stdDeviation="10.24" flood-color="#5c1a2b" flood-opacity="0.15"/>
+      <feDropShadow dx="0" dy="10.24" stdDeviation="10.24" flood-color="#000000" flood-opacity="0.15"/>
     </filter>
   </defs>
 
@@ -43,6 +42,6 @@
     <text x="256" y="232.96" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="81.92" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
   </g>
 
-  <!-- Rótulo "HUB OPERAÇÕES" -->
-  <text x="256" y="430.08" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="34.816" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="2.048">HUB OPERAÇÕES</text>
+  <!-- Rótulo "HUB DE OPERAÇÕES" -->
+  <text x="256" y="430.08" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="34.816" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="2.048">HUB DE OPERAÇÕES</text>
 </svg>

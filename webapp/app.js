@@ -1138,29 +1138,47 @@ function entrarNoApp() {
   loginOverlay.classList.add("hidden");
   document.getElementById("session-overlay").classList.add("hidden");
 
-  inscreverPushNotificacoes();
-
-  // Interceptar login de owner para mostrar a seleção de módulos
-  if (currentUser.role === "owner") {
-    // Configurar o botão da topbar
-    const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
-    if (btnTopbar) btnTopbar.classList.remove("hidden");
-
-    const ultimoModulo = localStorage.getItem("ultimoModuloOwner");
-    if (ultimoModulo) {
-      iniciarModuloBase(ultimoModulo);
-    } else {
-      document.getElementById("module-selection-overlay").classList.remove("hidden");
-      appEl.classList.add("hidden");
+  // Atualizar dados de Perfil (BlueDox style) na Topbar
+  if (currentUser) {
+    const avatarEl = document.getElementById("topbar-user-avatar");
+    const nameEl = document.getElementById("topbar-user-name");
+    if (avatarEl) {
+      avatarEl.textContent = currentUser.nome ? currentUser.nome.charAt(0).toUpperCase() : "U";
     }
-    return;
-  } else {
-    const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
-    if (btnTopbar) btnTopbar.classList.add("hidden");
+    if (nameEl) {
+      nameEl.textContent = currentUser.nome.split(" ")[0] || "Usuário";
+    }
   }
 
-  // Para outros perfis, prossegue normalmente
-  iniciarModuloBase();
+  inscreverPushNotificacoes();
+
+  // Exibir botão de trocar módulo para todos os perfis permitidos
+  const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
+  if (btnTopbar) btnTopbar.classList.remove("hidden");
+
+  ajustarCardsModulos();
+
+  const ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
+  if (ultimoModulo) {
+    iniciarModuloBase(ultimoModulo);
+  } else {
+    document.getElementById("module-selection-overlay").classList.remove("hidden");
+    appEl.classList.add("hidden");
+  }
+}
+
+function ajustarCardsModulos() {
+  const btnCacau = document.getElementById("btn-mod-cacau");
+  const btnFaca = document.getElementById("btn-mod-faca");
+  const btnRh = document.getElementById("btn-mod-rh");
+  const btnPonto = document.getElementById("btn-mod-ponto");
+
+  const role = currentUser.role;
+
+  if (btnCacau) btnCacau.classList.toggle("hidden", !(role === "owner" || role === "consultora" || role === "consultora_dashboard"));
+  if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
+  if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
+  if (btnPonto) btnPonto.classList.toggle("hidden", false); // Ponto é para todos os colaboradores
 }
 
 function iniciarModuloBase(moduloOpcional) {
@@ -1171,17 +1189,19 @@ function iniciarModuloBase(moduloOpcional) {
 
   let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
 
-  // Se for owner, sobrescrever as abas permitidas de acordo com o módulo escolhido
-  if (currentUser.role === "owner" && moduloOpcional) {
-    localStorage.setItem("ultimoModuloOwner", moduloOpcional);
+  if (moduloOpcional) {
+    localStorage.setItem("ultimoModulo_" + currentUser.nome, moduloOpcional);
     if (moduloOpcional === "cacau-show") {
-      tabsPermitidas = ["registro", "dashboard", "historico", "mensal", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria", "colaboradores", "auditoria-boletos", "configuracoes"];
+      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo" && tab !== "controle-ponto");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "controle-ponto") {
+      tabsPermitidas = ["controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
@@ -1404,6 +1424,14 @@ if (btnModRh) {
   });
 }
 
+const btnModPonto = document.getElementById("btn-mod-ponto");
+if (btnModPonto) {
+  btnModPonto.addEventListener("click", () => {
+    iniciarModuloBase("controle-ponto");
+    ativarTab("controle-ponto");
+  });
+}
+
 // Botão Trocar Módulo na Topbar / Sidebar
 const trocarModuloHandler = () => {
   appEl.classList.add("hidden");
@@ -1449,7 +1477,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "configuracoes", "controle-ponto"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1501,6 +1529,7 @@ function ativarTab(tabName) {
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
+  if (tabName === "controle-ponto") inicializarAbaPonto();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -4255,6 +4284,8 @@ let searchQuery = '';
 let html5QrCode = null;
 let importedNfs = {};
 let activeNfNumber = null;
+let activeNfNumbers = [];
+let selectedNfNumbers = [];
 let nfSearchQuery = '';
 let html5QrCodeNf = null;
 let currentStore = '9175';
@@ -4877,6 +4908,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnBackGallery = document.getElementById('btn-back-to-gallery');
   if (btnBackGallery) btnBackGallery.addEventListener('click', backToNfGallery);
+
+  const btnConferirSel = document.getElementById('btn-conferir-selecionadas');
+  if (btnConferirSel) btnConferirSel.addEventListener('click', () => {
+    if (selectedNfNumbers.length > 0) {
+      openNfConferenceDirectScanner(selectedNfNumbers);
+    }
+  });
+
+  const btnConcluirConf = document.getElementById('btn-concluir-conferencia');
+  if (btnConcluirConf) btnConcluirConf.addEventListener('click', concluirConferenciaAtiva);
 
   // --- Scanner do Inventário de Estoque ---
   // Usa a mesma regra de prioridade: CodBarra → CSV → CodProduto
@@ -5649,6 +5690,8 @@ function renderNfCardsGallery() {
     if (!tab.dataset.listenerAdded) {
       tab.addEventListener('click', () => {
         nfGalleryStoreFilter = store;
+        selectedNfNumbers = []; // Clear selection when switching stores
+        updateNfSelectionUI();
         renderNfCardsGallery();
       });
       tab.dataset.listenerAdded = 'true';
@@ -5672,6 +5715,7 @@ function renderNfCardsGallery() {
         Nenhuma Nota Fiscal pendente para ${msgLoja}.
       </div>
     `;
+    updateNfSelectionUI();
     return;
   }
 
@@ -5715,12 +5759,22 @@ function renderNfCardsGallery() {
       </div>
     `;
 
+    const isSelected = selectedNfNumbers.includes(numNF);
+    if (isSelected) {
+      cardBgClass = 'border-brand-400 bg-brand-900/60 ring-2 ring-brand-500/50 scale-[1.01]';
+    }
+
+    const selectCheckHtml = isSelected
+      ? `<span class="absolute top-4 right-4 text-emerald-400 text-lg"><i class="fa-solid fa-circle-check"></i></span>`
+      : `<span class="absolute top-4 right-4 text-brand-500 opacity-30 text-lg hover:opacity-80"><i class="fa-regular fa-circle"></i></span>`;
+
     const card = document.createElement('div');
     card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
     card.innerHTML = `
+      ${selectCheckHtml}
       <div class="flex justify-between items-start mb-3">
         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
-        <span class="text-xs text-brand-400 font-mono font-bold"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
+        <span class="text-xs text-brand-400 font-mono font-bold mr-6"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
       </div>
       <div class="${lojaAutoDetectada ? 'mb-3' : 'mb-2'}">
         <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
@@ -5731,30 +5785,114 @@ function renderNfCardsGallery() {
         </div>
       </div>
       ${lojaAlertaHtml}
-      <div class="mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
+      <button type="button" class="btn-iniciar-direto mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
         <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
-      </div>
+      </button>
     `;
-    card.addEventListener('click', () => openNfConferenceDirectScanner(numNF));
+
+    card.addEventListener('click', (e) => {
+      // Toggle selection unless start button clicked
+      if (e.target.closest('.btn-iniciar-direto')) return;
+      toggleNfSelection(numNF);
+    });
+
+    const directBtn = card.querySelector('.btn-iniciar-direto');
+    if (directBtn) {
+      directBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openNfConferenceDirectScanner(numNF);
+      });
+    }
+
     grid.appendChild(card);
+  });
+
+  updateNfSelectionUI();
+}
+
+function toggleNfSelection(numNF) {
+  const index = selectedNfNumbers.indexOf(numNF);
+  if (index > -1) {
+    selectedNfNumbers.splice(index, 1);
+  } else {
+    selectedNfNumbers.push(numNF);
+  }
+  updateNfSelectionUI();
+  
+  // Re-render gallery cards to show selected checkmarks
+  const nfKeys = Object.keys(importedNfs);
+  const grid = document.getElementById('nf-cards-grid');
+  const cards = grid.children;
+  
+  const nfKeysDaLoja = nfKeys.filter(n => {
+    if (nfGalleryStoreFilter === 'todas') return true;
+    const storeOfNf = (importedNfs[n] && importedNfs[n].info && importedNfs[n].info.targetStore) ? importedNfs[n].info.targetStore : currentStore;
+    return storeOfNf === nfGalleryStoreFilter;
+  });
+
+  nfKeysDaLoja.forEach((nKey, idx) => {
+    const cardEl = cards[idx];
+    if (!cardEl) return;
+    const isSelected = selectedNfNumbers.includes(nKey);
+    const checkIcon = cardEl.querySelector('.absolute.top-4.right-4');
+    if (checkIcon) {
+      if (isSelected) {
+        checkIcon.className = "absolute top-4 right-4 text-emerald-400 text-lg";
+        checkIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+        cardEl.className = cardEl.className.replace(/border-brand-800\/40 bg-brand-950\/40|border-emerald-600\/60 bg-emerald-950\/30|border-orange-500\/60 bg-orange-950\/30/g, 'border-brand-400 bg-brand-900/60 ring-2 ring-brand-500/50 scale-[1.01]');
+      } else {
+        checkIcon.className = "absolute top-4 right-4 text-brand-500 opacity-30 text-lg hover:opacity-80";
+        checkIcon.innerHTML = `<i class="fa-regular fa-circle"></i>`;
+        // Restore class based on status
+        const nfData = importedNfs[nKey];
+        const total = nfData.products ? nfData.products.length : 0;
+        let conf = 0, faltas = 0;
+        if (nfData.products) {
+          nfData.products.forEach(p => {
+            if (p.countedQty !== '') conf++;
+            const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+            if (counted < p.nfQty) faltas += (p.nfQty - counted);
+          });
+        }
+        let restoreClass = 'border-brand-800/40 bg-brand-950/40';
+        if (conf === total && total > 0 && faltas === 0) restoreClass = 'border-emerald-600/60 bg-emerald-950/30';
+        else if (faltas > 0 && conf > 0) restoreClass = 'border-orange-500/60 bg-orange-950/30';
+        
+        cardEl.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${restoreClass}`;
+      }
+    }
   });
 }
 
+function updateNfSelectionUI() {
+  const bar = document.getElementById('nf-selection-action-bar');
+  const countEl = document.getElementById('nf-selected-count');
+  if (!bar || !countEl) return;
+
+  if (selectedNfNumbers.length > 0) {
+    countEl.textContent = selectedNfNumbers.length;
+    bar.classList.remove('hidden');
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
 function openNfConferenceDirectScanner(numNF) {
-  activeNfNumber = numNF;
+  activeNfNumbers = Array.isArray(numNF) ? numNF : [numNF];
+  activeNfNumber = activeNfNumbers[0];
   document.getElementById('nf-cards-gallery-section').classList.add('hidden');
   document.getElementById('nf-work-area').classList.remove('hidden');
   renderNfDashboard();
 
-  // Notificar Bruno e Isabella (Push + Email) sobre início da conferência
-  notificarGestaoConferencia('inicio', numNF);
+  // Notificar Bruno e Isabella (Push + Email) sobre início da conferência de cada uma
+  activeNfNumbers.forEach(n => notificarGestaoConferencia('inicio', n));
 
-  // Rede de segurança: se essa NF já estava 100% conferida mas o aviso ainda
-  // não tinha sido enviado (ex.: app fechado no meio do popup), reabre o aviso
-  // bloqueante antes de deixar continuar.
-  if (importedNfs[numNF]) {
-    verificarPopupConclusaoNf(importedNfs[numNF], numNF);
-  }
+  // Rede de segurança
+  activeNfNumbers.forEach(n => {
+    if (importedNfs[n]) {
+      verificarPopupConclusaoNf(importedNfs[n], n);
+    }
+  });
 
   const scannerContainer = document.getElementById('nf-scanner-container');
   if (scannerContainer && scannerContainer.classList.contains('hidden')) {
@@ -5768,15 +5906,17 @@ function notificarGestaoConferencia(tipo, numNF) {
   const lojaNome = getLojaNomePorCodigo(nfData.info.targetStore || currentStore);
   const operador = currentUser ? currentUser.nome : 'Colaboradora';
 
-  let totalItens = nfData.products.length;
+  let totalItens = nfData.products ? nfData.products.length : 0;
   let conferidosCount = 0;
   let faltasCount = 0;
 
-  nfData.products.forEach(p => {
-    if (p.countedQty !== '') conferidosCount++;
-    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
-    if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
-  });
+  if (nfData.products) {
+    nfData.products.forEach(p => {
+      if (p.countedQty !== '') conferidosCount++;
+      const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+      if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+    });
+  }
 
   let assunto = '';
   let mensagem = '';
@@ -5790,10 +5930,8 @@ function notificarGestaoConferencia(tipo, numNF) {
     mensagem = `A conferência da NF Nº ${nfData.info.numero} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
   }
 
-  // Notificação via backend API respeitando preferências de canal (Email ou Push)
   const destinatarios = getDestinatariosNotificacao('conferencia_nfe');
   if (destinatarios.length > 0) {
-    // Determinar canal de preferência (pega do primeiro destinatário que é owner)
     const canal = getNotificationChannel('nfe', 'owner');
     sendNotification(destinatarios, assunto, mensagem, canal);
   }
@@ -5808,8 +5946,8 @@ function getLojaNomePorCodigo(codigo) {
 
 function notificarWhatsappGestao() {
   let storeCode = currentStore;
-  if (activeNfNumber && importedNfs[activeNfNumber]) {
-    storeCode = importedNfs[activeNfNumber].info.targetStore || currentStore;
+  if (activeNfNumbers.length > 0 && importedNfs[activeNfNumbers[0]]) {
+    storeCode = importedNfs[activeNfNumbers[0]].info.targetStore || currentStore;
   }
   const storeName = getLojaNomePorCodigo(storeCode);
   const linkGrupo = WHATSAPP_GRUPOS[storeName];
@@ -5820,27 +5958,30 @@ function notificarWhatsappGestao() {
   }
 
   let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
-  if (activeNfNumber && importedNfs[activeNfNumber]) {
-    const nfData = importedNfs[activeNfNumber];
-    textoMsg += `NF Nº: ${nfData.info.numero}\n`;
-    textoMsg += `Fornecedor: ${nfData.info.fornecedor}\n`;
+  if (activeNfNumbers.length > 0) {
+    textoMsg += `Notas Fiscais: ${activeNfNumbers.map(n => n.split('_')[0]).join(', ')}\n`;
     textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n\n`;
-    
-    // Analisar pendências e divergências
+
     let pendentes = [];
     let divergencias = [];
-    
-    nfData.products.forEach(p => {
-      if (p.countedQty === '') {
-        pendentes.push(p);
-      } else {
-        const counted = Number(p.countedQty);
-        if (counted !== p.nfQty) {
-          divergencias.push({
-            p: p,
-            diferenca: counted - p.nfQty
-          });
-        }
+
+    activeNfNumbers.forEach(numNF => {
+      const nfData = importedNfs[numNF];
+      if (nfData && nfData.products) {
+        nfData.products.forEach(p => {
+          if (p.countedQty === '') {
+            pendentes.push({ p, nf: numNF.split('_')[0] });
+          } else {
+            const counted = Number(p.countedQty);
+            if (counted !== p.nfQty) {
+              divergencias.push({
+                p: p,
+                nf: numNF.split('_')[0],
+                diferenca: counted - p.nfQty
+              });
+            }
+          }
+        });
       }
     });
 
@@ -5851,7 +5992,7 @@ function notificarWhatsappGestao() {
       if (pendentes.length > 0) {
         textoMsg += `\n*Itens não conferidos (Pendentes) (${pendentes.length}):*\n`;
         pendentes.forEach(item => {
-          textoMsg += `- Cód ${item.code}: ${item.description} (Qtd Esperada: ${item.nfQty})\n`;
+          textoMsg += `- NF ${item.nf} | Cód ${item.p.code}: ${item.p.description} (Qtd Esperada: ${item.p.nfQty})\n`;
         });
       }
       if (divergencias.length > 0) {
@@ -5859,7 +6000,7 @@ function notificarWhatsappGestao() {
         divergencias.forEach(div => {
           const sinal = div.diferenca > 0 ? '+' : '';
           const tipo = div.diferenca > 0 ? 'Sobra' : 'Falta';
-          textoMsg += `- Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} unidades | Esperado: ${div.p.nfQty}, Contado: ${div.p.countedQty})\n`;
+          textoMsg += `- NF ${div.nf} | Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} un | Esp: ${div.p.nfQty}, Cont: ${div.p.countedQty})\n`;
         });
       }
     }
@@ -5872,20 +6013,23 @@ function notificarWhatsappGestao() {
 }
 
 function renderNfDashboard() {
-  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
-  const currentNf = importedNfs[activeNfNumber];
-  document.getElementById('nf-numero').textContent = currentNf.info.numero;
+  if (activeNfNumbers.length === 0) return;
+  const shortNfs = activeNfNumbers.map(n => n.split('_')[0]);
+  document.getElementById('nf-numero').textContent = shortNfs.join(', ');
   updateNfStats();
   renderNfTable();
 }
 
 function updateNfStats() {
-  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
-  const currentNf = importedNfs[activeNfNumber];
   let faltasCount = 0;
-  currentNf.products.forEach(p => {
-    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
-    if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (currentNf && currentNf.products) {
+      currentNf.products.forEach(p => {
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+      });
+    }
   });
   const el = document.getElementById('nf-faltas-count');
   if (el) el.textContent = faltasCount;
@@ -5971,7 +6115,7 @@ function startNfScanner(selectedCameraId = null) {
 
         // Use back camera if found, otherwise use first camera
         const targetCam = backCamera || cameras[cameras.length - 1] || cameras[0];
-        
+
         html5QrCodeNf.start({ deviceId: { exact: targetCam.id } }, config, onNfScanSuccess, () => { })
           .then(() => {
             setupCameraDropdown(cameras, targetCam.id);
@@ -6050,7 +6194,7 @@ function resetNfScannerUI() {
   const container = document.getElementById('nf-scanner-container');
   const selectContainer = document.getElementById('nf-camera-select-container');
   const btnText = document.getElementById('nf-scanner-btn-text');
-  
+
   if (container) container.classList.add('hidden');
   if (selectContainer) selectContainer.classList.add('hidden');
   if (btnText) btnText.textContent = "Ativar Câmera NF";
@@ -6067,44 +6211,59 @@ function stopNfScanner() {
 function onNfScanSuccess(decodedText) {
   const cleanCode = decodedText.trim();
   let p = null;
+  let matchedNfNumber = null;
 
-  // --- Etapa 1: Buscar na NF-e ativa ---
-  const currentNf = importedNfs[activeNfNumber];
-  if (currentNf) {
-    const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
-    p = resultado.produto;
-    if (p && resultado.metodo !== 'CodBarra') {
-      // Informar ao operador qual método foi utilizado (apenas nos fallbacks)
-      console.info(`[Bipagem NF] Produto encontrado via "${resultado.metodo}": código lido="${cleanCode}"`);
+  // --- Etapa 1: Buscar nas NF-es ativas ---
+  for (const numNF of activeNfNumbers) {
+    const currentNf = importedNfs[numNF];
+    if (currentNf) {
+      const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
+      const tempP = resultado.produto;
+      if (tempP) {
+        // Priorizar item pendente
+        const currentQty = tempP.countedQty === '' ? 0 : Number(tempP.countedQty);
+        if (currentQty < tempP.nfQty) {
+          p = tempP;
+          matchedNfNumber = numNF;
+          break;
+        } else if (!p) {
+          p = tempP;
+          matchedNfNumber = numNF;
+        }
+      }
     }
   }
 
   // --- Etapa 2: Buscar em outras NF-es importadas (carga misturada) ---
   if (!p) {
     for (const numNF of Object.keys(importedNfs)) {
-      if (numNF !== activeNfNumber) {
+      if (!activeNfNumbers.includes(numNF)) {
         const { produto, metodo } = resolverCodigoBipado(importedNfs[numNF].products, cleanCode);
         if (produto) {
           p = produto;
+          matchedNfNumber = numNF;
+          activeNfNumbers = [numNF];
           activeNfNumber = numNF;
+          renderNfDashboard();
           const metodoInfo = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
-          showToast(`⚡ Carga Misturada: NF Nº ${numNF}${metodoInfo}`, "info");
+          showToast(`⚡ Carga Misturada: NF Nº ${numNF.split('_')[0]}${metodoInfo}`, "info");
           break;
         }
       }
     }
   }
 
-  if (p) {
+  if (p && matchedNfNumber) {
     if (navigator.vibrate) navigator.vibrate(150);
     playBeep('success');
     const currentQty = p.countedQty === '' ? 0 : Number(p.countedQty);
     const newQty = currentQty + 1;
-    saveNfQuantity(p.code, newQty.toString());
-    
+    saveNfQuantity(p.code, newQty.toString(), matchedNfNumber);
+
     // Focar no campo de quantidade inventariada do produto bipado
     setTimeout(() => {
-      const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`) || document.querySelector('.qty-input');
+      const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                       || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
       if (rowInput) {
         rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         rowInput.focus();
@@ -6122,10 +6281,6 @@ function onNfScanSuccess(decodedText) {
   }
 }
 
-
-// Monta a mensagem curta de status da conferência para o grupo da loja.
-// Sem divergência: aviso simples de conclusão. Com divergência: resumo dos
-// itens com falta (limitado, para manter a mensagem curta).
 function montarMensagemConclusaoNfe(currentNf) {
   const numero = currentNf.info.numero;
   const itensComFalta = [];
@@ -6149,10 +6304,11 @@ function montarMensagemConclusaoNfe(currentNf) {
   return `⚠️ Conferência da NF-e Nº ${numero} concluída COM DIVERGÊNCIAS:\n${listaResumo}`;
 }
 
-// Abre o popup bloqueante de aviso ao grupo da loja. Como é um .modal-overlay
-// em tela cheia sem botão de fechar/cancelar, a pessoa não consegue voltar à
-// galeria nem abrir outra NF-e sem antes confirmar o envio da mensagem.
 function abrirPopupConclusaoNfe(currentNf, numNF) {
+  abrirPopupConclusaoNfeMulti([numNF]);
+}
+
+function abrirPopupConclusaoNfeMulti(numNFs) {
   const modal = document.getElementById('modal-nf-conclusao');
   const statusTexto = document.getElementById('nf-conclusao-status-texto');
   const textarea = document.getElementById('nf-conclusao-texto');
@@ -6161,18 +6317,79 @@ function abrirPopupConclusaoNfe(currentNf, numNF) {
   const btnEnviado = document.getElementById('btn-nf-conclusao-enviado');
   if (!modal) return;
 
-  const temDivergencia = currentNf.products.some(p => {
-    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
-    return counted < p.nfQty;
+  let temDivergencia = false;
+  let storeName = 'Marambaia';
+
+  numNFs.forEach(n => {
+    const nf = importedNfs[n];
+    if (nf) {
+      storeName = getLojaNomePorCodigo(nf.info.targetStore || currentStore);
+      if (nf.products) {
+        nf.products.forEach(p => {
+          const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+          if (counted < p.nfQty) temDivergencia = true;
+        });
+      }
+    }
   });
+
   statusTexto.textContent = temDivergencia ? 'Conferência concluída com divergências' : 'Conferência concluída';
 
-  const mensagem = montarMensagemConclusaoNfe(currentNf);
-  textarea.value = mensagem;
+  let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
+  textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n`;
+  textoMsg += `Notas Fiscais: ${numNFs.map(n => n.split('_')[0]).join(', ')}\n\n`;
 
-  const storeName = getLojaNomePorCodigo(currentNf.info.targetStore || currentStore);
+  let pendentes = [];
+  let divergencias = [];
+
+  numNFs.forEach(n => {
+    const nf = importedNfs[n];
+    if (nf && nf.products) {
+      nf.products.forEach(p => {
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (p.countedQty === '') {
+          pendentes.push({ p, nf: n.split('_')[0] });
+        } else if (counted !== p.nfQty) {
+          divergencias.push({
+            p: p,
+            nf: n.split('_')[0],
+            diferenca: counted - p.nfQty
+          });
+        }
+      });
+    }
+  });
+
+  if (pendentes.length === 0 && divergencias.length === 0) {
+    textoMsg += `*Status:* Conferência concluída 100% CONFORME (sem divergências ou pendências).\n`;
+  } else {
+    textoMsg += `*Status:* Conferência finalizada com pendências/divergências:\n`;
+    if (pendentes.length > 0) {
+      textoMsg += `\n*Itens não conferidos (Pendentes) (${pendentes.length}):*\n`;
+      pendentes.slice(0, 10).forEach(item => {
+        textoMsg += `- NF ${item.nf} | Cód ${item.p.code}: ${item.p.description} (Qtd Esperada: ${item.p.nfQty})\n`;
+      });
+      if (pendentes.length > 10) {
+        textoMsg += `- ... e mais ${pendentes.length - 10} itens pendentes.\n`;
+      }
+    }
+    if (divergencias.length > 0) {
+      textoMsg += `\n*Divergências encontradas (${divergencias.length}):*\n`;
+      divergencias.slice(0, 10).forEach(div => {
+        const sinal = div.diferenca > 0 ? '+' : '';
+        const tipo = div.diferenca > 0 ? 'Sobra' : 'Falta';
+        textoMsg += `- NF ${div.nf} | Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} un | Esp: ${div.p.nfQty}, Cont: ${div.p.countedQty})\n`;
+      });
+      if (divergencias.length > 10) {
+        textoMsg += `- ... e mais ${divergencias.length - 10} divergências.\n`;
+      }
+    }
+  }
+
+  textarea.value = textoMsg;
+
   const linkGrupo = WHATSAPP_GRUPOS[storeName];
-  btnWhatsapp.href = linkGrupo ? linkGrupo : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  btnWhatsapp.href = linkGrupo ? `${linkGrupo}?text=${encodeURIComponent(textoMsg)}` : `https://wa.me/?text=${encodeURIComponent(textoMsg)}`;
 
   btnCopiar.onclick = async () => {
     try {
@@ -6185,69 +6402,61 @@ function abrirPopupConclusaoNfe(currentNf, numNF) {
   };
 
   btnEnviado.onclick = () => {
-    currentNf._mensagemEnviada = true;
+    numNFs.forEach(n => {
+      const nf = importedNfs[n];
+      if (nf) {
+        nf._mensagemEnviada = true;
+      }
+    });
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-    if (API_ONLINE) {
-      fetch(`${API_BASE}/nfs/${numNF}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
-      }).catch(err => console.error('Erro ao sincronizar confirmação de envio:', err));
-    }
+    
+    // Sync each completed status to the backend
+    numNFs.forEach(numNF => {
+      const currentNf = importedNfs[numNF];
+      if (currentNf && API_ONLINE) {
+        fetch(`${API_BASE}/nfs/${numNF}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
+        }).catch(err => console.error('Erro ao sincronizar confirmação de envio:', err));
+      }
+    });
+
     modal.classList.add('hidden');
-    showToast('Aviso confirmado. Pode seguir para a próxima conferência.', 'sucesso');
+    showToast('Aviso de conclusão enviado. Retornando à galeria.', 'sucesso');
+    backToNfGallery();
   };
 
   modal.classList.remove('hidden');
 }
 
-// Verifica se a NF-e está 100% conferida e ainda não teve o aviso de
-// conclusão enviado — se for o caso, dispara o popup bloqueante.
 function verificarPopupConclusaoNf(currentNf, numNF) {
-  const totalItens = currentNf.products.length;
-  const conferidosCount = currentNf.products.filter(p => p.countedQty !== '').length;
-  const completa = conferidosCount === totalItens && totalItens > 0;
-  if (completa && !currentNf._mensagemEnviada) {
-    abrirPopupConclusaoNfe(currentNf, numNF);
-  }
+  // Manual conclude is now enforced, no automatic modal popup on every save
 }
 
-function saveNfQuantity(code, value) {
-  if (!activeNfNumber || !importedNfs[activeNfNumber]) return;
-  const currentNf = importedNfs[activeNfNumber];
+function saveNfQuantity(code, value, targetNfNumber = null) {
+  const nfNum = targetNfNumber || (activeNfNumbers.length > 0 ? activeNfNumbers[0] : null);
+  if (!nfNum || !importedNfs[nfNum]) return;
+  const currentNf = importedNfs[nfNum];
   const p = currentNf.products.find(prod => prod.code === code);
   if (p) {
     p.countedQty = value;
-    localStorage.setItem(`nfcnt_${currentStore}_${activeNfNumber}_${code}`, value);
-    autoCreditNfProductToInventory(currentNf.info, p);
+    localStorage.setItem(`nfcnt_${currentStore}_${nfNum}_${code}`, value);
+    
+    // Quantity changed, update stats and table (DO NOT credit inventory until concluded)
     updateNfStats();
     renderNfTable();
 
-    // Checar se a conferência desta NF foi totalmente concluída
-    let conferidosCount = 0;
-    let totalItens = currentNf.products.length;
-    currentNf.products.forEach(item => {
-      if (item.countedQty !== '') conferidosCount++;
-    });
-    if (conferidosCount === totalItens && totalItens > 0) {
-      if (!currentNf.info.concluidaEm) {
-        currentNf.info.concluidaEm = new Date().toISOString();
-      }
-      if (!currentNf._notificadoConclusao) {
-        currentNf._notificadoConclusao = true;
-        notificarGestaoConferencia('conclusao', activeNfNumber);
-      }
-      verificarPopupConclusaoNf(currentNf, activeNfNumber);
-    } else {
-      currentNf.info.concluidaEm = null;
-      currentNf._notificadoConclusao = false;
-      currentNf._mensagemEnviada = false;
-    }
+    // Reset status flags since it has modified content
+    currentNf.info.concluidaEm = null;
+    currentNf._notificadoConclusao = false;
+    currentNf._mensagemEnviada = false;
+
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
 
-    // Sincronizar quantidade com o servidor central
+    // Sync quantities in real time with backend
     if (API_ONLINE) {
-      fetch(`${API_BASE}/nfs/${activeNfNumber}`, {
+      fetch(`${API_BASE}/nfs/${nfNum}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6258,6 +6467,56 @@ function saveNfQuantity(code, value) {
       .catch(err => console.error('Erro ao sincronizar quantidade da NF-e no servidor:', err));
     }
   }
+}
+
+function concluirConferenciaAtiva() {
+  if (activeNfNumbers.length === 0) {
+    showToast("Nenhuma conferência ativa.", "erro");
+    return;
+  }
+
+  let totalItens = 0;
+  let conferidosCount = 0;
+  activeNfNumbers.forEach(numNF => {
+    const nf = importedNfs[numNF];
+    if (nf && nf.products) {
+      totalItens += nf.products.length;
+      nf.products.forEach(p => {
+        if (p.countedQty !== '') conferidosCount++;
+      });
+    }
+  });
+
+  const msgConfirm = `Deseja concluir a conferência de ${activeNfNumbers.length} nota(s)? (${conferidosCount}/${totalItens} itens informados)`;
+  if (!confirm(msgConfirm)) return;
+
+  // Process and save each active NF
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (!currentNf) return;
+
+    // 1. Mark completed
+    currentNf.info.concluidaEm = new Date().toISOString();
+    
+    // 2. Feed inventory with checked products
+    if (currentNf.products) {
+      currentNf.products.forEach(p => {
+        autoCreditNfProductToInventory(currentNf.info, p);
+      });
+    }
+
+    // 3. Notify management of completion
+    if (!currentNf._notificadoConclusao) {
+      currentNf._notificadoConclusao = true;
+      notificarGestaoConferencia('conclusao', numNF);
+    }
+  });
+
+  // Save changes locally
+  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+  // Open WhatsApp report modal
+  abrirPopupConclusaoNfeMulti(activeNfNumbers);
 }
 
 function autoCreditNfProductToInventory(nfInfo, p) {
@@ -6290,50 +6549,56 @@ function autoCreditNfProductToInventory(nfInfo, p) {
 
 function renderNfTable() {
   const tbody = document.getElementById('nf-inventory-tbody');
-  if (!tbody || !activeNfNumber || !importedNfs[activeNfNumber]) return;
+  if (!tbody || activeNfNumbers.length === 0) return;
   tbody.innerHTML = '';
 
-  const currentNf = importedNfs[activeNfNumber];
-  currentNf.products.forEach(p => {
-    const counted = p.countedQty === '' ? null : Number(p.countedQty);
-    
-    // Determinar status e estilo
-    let statusText = 'Pendente';
-    let statusColorClass = 'text-orange-500 font-extrabold bg-orange-950/40 px-2 py-1 rounded border border-orange-800'; // Laranja para Pendente (não conferido)
-    let rowBgClass = 'bg-orange-950/10 border-orange-900/20';
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (!currentNf || !currentNf.products) return;
 
-    if (counted !== null) {
-      if (counted === p.nfQty) {
-        statusText = 'Conforme';
-        statusColorClass = 'text-emerald-400 font-extrabold bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800'; // Verde para Conforme
-        rowBgClass = 'bg-emerald-950/5 border-emerald-900/20';
-      } else {
-        statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
-        statusColorClass = 'text-rose-400 font-extrabold bg-rose-950/40 px-2 py-1 rounded border border-rose-800'; // Vermelho para Falta/Sobra (Divergente)
-        rowBgClass = 'bg-rose-950/10 border-rose-900/20';
+    currentNf.products.forEach(p => {
+      const counted = p.countedQty === '' ? null : Number(p.countedQty);
+      
+      let statusText = 'Pendente';
+      let statusColorClass = 'text-orange-500 font-extrabold bg-orange-950/40 px-2 py-1 rounded border border-orange-800';
+      let rowBgClass = 'bg-orange-950/10 border-orange-900/20';
+
+      if (counted !== null) {
+        if (counted === p.nfQty) {
+          statusText = 'Conforme';
+          statusColorClass = 'text-emerald-400 font-extrabold bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800';
+          rowBgClass = 'bg-emerald-950/5 border-emerald-900/20';
+        } else {
+          statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
+          statusColorClass = 'text-rose-400 font-extrabold bg-rose-950/40 px-2 py-1 rounded border border-rose-800';
+          rowBgClass = 'bg-rose-950/10 border-rose-900/20';
+        }
       }
-    }
 
-    const tr = document.createElement('tr');
-    tr.className = `hover:bg-brand-900/30 transition-all border-b ${rowBgClass}`;
-    tr.innerHTML = `
-      <td class="py-3 px-4">
-        <div class="font-semibold text-brand-100 text-xs">${p.description}</div>
-        <div class="text-[10px] text-brand-300 font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''}</div>
-      </td>
-      <td class="py-3 px-4 text-center text-xs text-brand-200">${p.validade ? formatDate(p.validade) : '-'}</td>
-      <td class="py-3 px-4 text-center text-xs text-brand-300">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs text-brand-100">${p.nfQty}</td>
-      <td class="py-3 px-4 text-center">
-        <input type="number" value="${p.countedQty}" placeholder="0" class="nf-qty-input w-16 text-center bg-brand-950 border border-brand-800 text-white rounded py-1 font-bold text-xs" />
-      </td>
-      <td class="py-3 px-4 text-center text-xs">
-        <span class="${statusColorClass}">${statusText}</span>
-      </td>
-    `;
-    const qtyInput = tr.querySelector('.nf-qty-input');
-    qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value));
-    tbody.appendChild(tr);
+      const tr = document.createElement('tr');
+      tr.className = `hover:bg-brand-900/30 transition-all border-b ${rowBgClass}`;
+      
+      const shortNf = numNF.split('_')[0];
+      
+      tr.innerHTML = `
+        <td class="py-3 px-4">
+          <div class="font-semibold text-brand-100 text-xs">${p.description}</div>
+          <div class="text-[10px] text-brand-300 font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''} | <span class="text-brand-200 font-bold bg-brand-900/50 px-1 py-0.5 rounded border border-brand-800">NF: ${shortNf}</span></div>
+        </td>
+        <td class="py-3 px-4 text-center text-xs text-brand-200">${p.validade ? formatDate(p.validade) : '-'}</td>
+        <td class="py-3 px-4 text-center text-xs text-brand-300">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
+        <td class="py-3 px-4 text-center font-bold text-xs text-brand-100">${p.nfQty}</td>
+        <td class="py-3 px-4 text-center">
+          <input type="number" value="${p.countedQty}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-16 text-center bg-brand-950 border border-brand-800 text-white rounded py-1 font-bold text-xs" />
+        </td>
+        <td class="py-3 px-4 text-center text-xs">
+          <span class="${statusColorClass}">${statusText}</span>
+        </td>
+      `;
+      const qtyInput = tr.querySelector('.nf-qty-input');
+      qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
+      tbody.appendChild(tr);
+    });
   });
 }
 
@@ -8400,4 +8665,580 @@ function inicializarRhListeners() {
       discFileInput.value = "";
     });
   }
+}
+
+// ==========================================================================
+// MÓDULO DE CONTROLE DE PONTO PWA - CLT-COMPLIANT
+// ==========================================================================
+
+let pontoDb = null;
+let pontoStream = null;
+let pontoGpsCoords = null;
+let pontoGpsAccuracy = null;
+const LOJAS_GEOLOC = {
+  "Marambaia": { lat: -1.4116, lng: -48.4418 },
+  "Icoaraci": { lat: -1.3039, lng: -48.4878 },
+  "Mário Covas": { lat: -1.3815, lng: -48.4115 }
+};
+
+function inicializarPontoDb() {
+  if (pontoDb) return;
+  pontoDb = new Dexie("PontoEletronicoDB");
+  pontoDb.version(1).stores({
+    time_records: "id, timestamp, tipo, syncStatus",
+    offline_queue: "id, action, timestamp",
+    attachments: "id"
+  });
+}
+
+function inicializarAbaPonto() {
+  inicializarPontoDb();
+  
+  // Setup listeners
+  document.getElementById("btn-ponto-ativar-cam").onclick = ativarCameraPonto;
+  document.getElementById("btn-ponto-entrada").onclick = () => registrarMarcacaoPonto("ENTRADA");
+  document.getElementById("btn-ponto-saida-int").onclick = () => registrarMarcacaoPonto("SAIDA_INTERVALO");
+  document.getElementById("btn-ponto-retorno-int").onclick = () => registrarMarcacaoPonto("RETORNO_INTERVALO");
+  document.getElementById("btn-ponto-saida").onclick = () => registrarMarcacaoPonto("SAIDA");
+  
+  // Adjustment Form
+  document.getElementById("form-ponto-ajuste").onsubmit = enviarSolicitacaoAjuste;
+  
+  // File input compression display
+  const fileInput = document.getElementById("ponto-ajuste-file");
+  if (fileInput) {
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      const filenameLabel = document.getElementById("ponto-ajuste-filename");
+      if (file && filenameLabel) {
+        filenameLabel.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      }
+    };
+  }
+
+  // PDF report listener
+  document.getElementById("btn-ponto-pdf").onclick = exportarEspelhoPontoPDF;
+
+  // Start continuous GPS tracking
+  ativarGPSPonto();
+
+  // Load history from Dexie & Server
+  atualizarHistoricoPonto();
+
+  // Run initial sync worker
+  processarFilaOfflinePonto();
+  window.addEventListener("online", processarFilaOfflinePonto);
+}
+
+function ativarCameraPonto() {
+  const video = document.getElementById("ponto-video");
+  const placeholder = document.getElementById("ponto-camera-placeholder");
+  const btn = document.getElementById("btn-ponto-ativar-cam");
+
+  if (pontoStream) {
+    // Desativar
+    pontoStream.getTracks().forEach(track => track.stop());
+    pontoStream = null;
+    video.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+    btn.innerHTML = `<i class="fa-solid fa-video mr-1"></i> Ativar Câmera`;
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+    .then(stream => {
+      pontoStream = stream;
+      video.srcObject = stream;
+      video.classList.remove("hidden");
+      placeholder.classList.add("hidden");
+      btn.innerHTML = `<i class="fa-solid fa-video-slash mr-1"></i> Desativar Câmera`;
+    })
+    .catch(err => {
+      console.error("Erro ao acessar câmera:", err);
+      showToast("Não foi possível acessar a câmera do dispositivo.", "erro");
+    });
+}
+
+function ativarGPSPonto() {
+  const gpsStatus = document.getElementById("ponto-gps-status");
+  const gpsCoords = document.getElementById("ponto-gps-coords");
+  const gpsAcc = document.getElementById("ponto-gps-accuracy");
+  const gpsDist = document.getElementById("ponto-gps-distance");
+
+  if (!navigator.geolocation) {
+    gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Insuportável`;
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      pontoGpsCoords = pos.coords;
+      pontoGpsAccuracy = pos.coords.accuracy;
+
+      gpsCoords.textContent = `Coordenadas: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      gpsAcc.textContent = `Precisão: ${pos.coords.accuracy.toFixed(1)}m`;
+
+      // Check distance to active store
+      const storeName = getLojaNomePorCodigo(currentStore);
+      const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+      const dist = calcularDistanciaHaversine(pos.coords.latitude, pos.coords.longitude, storeLoc.lat, storeLoc.lng);
+      
+      gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
+
+      if (pos.coords.accuracy > 30) {
+        gpsStatus.className = "text-amber-500 font-black";
+        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
+      } else if (dist > 50) {
+        gpsStatus.className = "text-rose-500 font-black";
+        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fora do Perímetro`;
+      } else {
+        gpsStatus.className = "text-emerald-500 font-black";
+        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
+      }
+    },
+    (err) => {
+      console.warn("Erro ao obter GPS:", err);
+      gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Erro`;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // in meters
+}
+
+async function registrarMarcacaoPonto(tipo) {
+  if (!pontoGpsCoords) {
+    showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
+    return;
+  }
+
+  // Geofencing Check
+  const storeName = getLojaNomePorCodigo(currentStore);
+  const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+  const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
+  
+  if (pontoGpsAccuracy > 30) {
+    showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
+    return;
+  }
+  
+  if (dist > 50) {
+    showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
+    return;
+  }
+
+  // Photo Capture
+  let photoBase64 = null;
+  const video = document.getElementById("ponto-video");
+  const canvas = document.getElementById("ponto-canvas");
+  
+  if (pontoStream && video && canvas) {
+    const ctx = canvas.getContext("2d");
+    canvas.width = Math.min(video.videoWidth, 640);
+    canvas.height = Math.min(video.videoHeight, 480);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Compress client side quality 80% WebP/JPEG
+    photoBase64 = canvas.toDataURL("image/jpeg", 0.8);
+  } else {
+    showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+    return;
+  }
+
+  // Chained Integrity Hash SHA-256
+  const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
+  const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
+  const timestamp = new Date().toISOString();
+  const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+  const currentHash = await calcularHashSha256(rawString);
+
+  const newRecord = {
+    id: `${currentUser.nome}_${Date.now()}`,
+    usuario: currentUser.nome,
+    timestamp,
+    tipo,
+    gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+    accuracy: pontoGpsAccuracy,
+    photo: photoBase64,
+    hash: currentHash,
+    syncStatus: "PENDING"
+  };
+
+  await pontoDb.time_records.put(newRecord);
+  await pontoDb.offline_queue.put({
+    id: newRecord.id,
+    action: "SYNC_PUNCH",
+    timestamp: Date.now()
+  });
+
+  showToast("Ponto registrado localmente com sucesso!", "sucesso");
+  
+  // Recalculate daily worked segments
+  atualizarHistoricoPonto();
+  processarFilaOfflinePonto();
+}
+
+async function calcularHashSha256(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function processarFilaOfflinePonto() {
+  if (!navigator.onLine) {
+    document.getElementById("ponto-offline-badge").classList.remove("hidden");
+    return;
+  }
+
+  inicializarPontoDb();
+  const pendingItems = await pontoDb.time_records.where("syncStatus").equals("PENDING").toArray();
+  if (pendingItems.length === 0) {
+    document.getElementById("ponto-offline-badge").classList.add("hidden");
+    return;
+  }
+
+  document.getElementById("ponto-offline-badge").classList.remove("hidden");
+
+  // Send batch to server
+  fetch(`${API_BASE}/ponto/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records: pendingItems })
+  })
+  .then(res => res.json())
+  .then(async (data) => {
+    if (data.success) {
+      for (const item of pendingItems) {
+        await pontoDb.time_records.update(item.id, { syncStatus: "SYNCED" });
+      }
+      await pontoDb.offline_queue.clear();
+      document.getElementById("ponto-offline-badge").classList.add("hidden");
+      showToast("Fila de pontos offline sincronizada!", "sucesso");
+      atualizarHistoricoPonto();
+    }
+  })
+  .catch(err => {
+    console.error("Erro na sincronização de ponto:", err);
+  });
+}
+
+async function enviarSolicitacaoAjuste(e) {
+  e.preventDefault();
+  
+  const data = document.getElementById("ponto-ajuste-data").value;
+  const tipo = document.getElementById("ponto-ajuste-tipo").value;
+  const motivo = document.getElementById("ponto-ajuste-motivo").value;
+  const fileInput = document.getElementById("ponto-ajuste-file");
+  
+  let comprovanteBase64 = null;
+
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    comprovanteBase64 = await comprimirImagemClientSide(file);
+  }
+
+  const payload = {
+    id: `${currentUser.nome}_ajuste_${Date.now()}`,
+    usuario: currentUser.nome,
+    data,
+    tipo,
+    motivo,
+    comprovante: comprovanteBase64
+  };
+
+  fetch(`${API_BASE}/ponto/ajuste`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("Solicitação de ajuste enviada com sucesso!", "sucesso");
+      document.getElementById("form-ponto-ajuste").reset();
+      document.getElementById("ponto-ajuste-filename").textContent = "Nenhum arquivo selecionado";
+      atualizarHistoricoPonto();
+    } else {
+      showToast("Erro ao enviar solicitação.", "erro");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast("Erro de conexão ao enviar ajuste.", "erro");
+  });
+}
+
+function comprimirImagemClientSide(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const MAX_WIDTH = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compress WebP or JPEG to <300KB
+        const compressed = canvas.toDataURL("image/jpeg", 0.8);
+        resolve(compressed);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function atualizarHistoricoPonto() {
+  if (!currentUser) return;
+  inicializarPontoDb();
+  
+  // Get local records from Dexie
+  const localRecords = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+  
+  // Parse and display
+  renderizarTabelaPonto(localRecords);
+
+  // Fetch server records if online to update Dexie
+  if (navigator.onLine) {
+    fetch(`${API_BASE}/ponto/historico?usuario=${encodeURIComponent(currentUser.nome)}`)
+      .then(res => res.json())
+      .then(async (data) => {
+        if (data && data.registros) {
+          // Merge to Dexie
+          for (const sRec of data.registros) {
+            sRec.syncStatus = "SYNCED";
+            await pontoDb.time_records.put(sRec);
+          }
+          const updatedLocal = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+          renderizarTabelaPonto(updatedLocal);
+        }
+      })
+      .catch(err => console.warn("Erro ao buscar histórico de ponto do servidor:", err));
+  }
+}
+
+function renderizarTabelaPonto(records) {
+  const tbody = document.getElementById("ponto-historico-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  // Group records by date (YYYY-MM-DD)
+  const grouped = {};
+  records.forEach(r => {
+    const dStr = r.timestamp.split("T")[0];
+    if (!grouped[dStr]) grouped[dStr] = {};
+    grouped[dStr][r.tipo] = r.timestamp;
+  });
+
+  const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  
+  let totalWorkedMsToday = 0;
+  const dTodayStr = new Date().toISOString().split("T")[0];
+
+  dates.forEach(d => {
+    const day = grouped[d];
+    const ent = day["ENTRADA"] ? new Date(day["ENTRADA"]) : null;
+    const sInt = day["SAIDA_INTERVALO"] ? new Date(day["SAIDA_INTERVALO"]) : null;
+    const rInt = day["RETORNO_INTERVALO"] ? new Date(day["RETORNO_INTERVALO"]) : null;
+    const sai = day["SAIDA"] ? new Date(day["SAIDA"]) : null;
+
+    let workedMs = 0;
+    if (ent && sInt) workedMs += (sInt - ent);
+    if (rInt && sai) workedMs += (sai - rInt);
+    else if (rInt && !sai && d === dTodayStr) {
+      workedMs += (new Date() - rInt);
+    } else if (ent && !sInt && d === dTodayStr) {
+      workedMs += (new Date() - ent);
+    }
+
+    if (d === dTodayStr) {
+      totalWorkedMsToday = workedMs;
+    }
+
+    const tHours = Math.floor(workedMs / 3600000);
+    const tMins = Math.floor((workedMs % 3600000) / 60000);
+    const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-brand-900/30 transition-all border-b border-brand-900/20";
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-mono font-bold">${formatDate(d)}</td>
+      <td class="py-3 px-4 text-center font-semibold">${ent ? formatTime(ent) : "-"}</td>
+      <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
+      <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
+      <td class="py-3 px-4 text-center font-semibold">${sai ? formatTime(sai) : "-"}</td>
+      <td class="py-3 px-4 text-center font-mono font-bold ${workedMs > 28800000 ? 'text-emerald-400' : 'text-brand-300'}">${saldoText}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Update real time metrics
+  const hToday = Math.floor(totalWorkedMsToday / 3600000);
+  const mToday = Math.floor((totalWorkedMsToday % 3600000) / 60000);
+  document.getElementById("ponto-balance-today").textContent = `${hToday}h ${mToday}m`;
+  
+  const pct = Math.min(100, (totalWorkedMsToday / 28800000) * 100);
+  const bar = document.getElementById("ponto-balance-progress");
+  if (bar) {
+    bar.style.width = `${pct}%`;
+    if (pct >= 100) bar.className = "bg-emerald-500 h-3.5 rounded-full transition-all duration-500";
+    else bar.className = "bg-brand-500 h-3.5 rounded-full transition-all duration-500";
+  }
+
+  // CLT 2h overtime limit check
+  const alertClt = document.getElementById("ponto-clt-alert");
+  if (alertClt) {
+    if (totalWorkedMsToday >= 36000000) { // 10 hours total (8h + 2h extras)
+      alertClt.classList.remove("hidden");
+    } else {
+      alertClt.classList.add("hidden");
+    }
+  }
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function exportarEspelhoPontoPDF() {
+  if (!currentUser) return;
+  const { jsPDF } = window.jspdf;
+  
+  inicializarPontoDb();
+  const records = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+  
+  const doc = new jsPDF();
+  
+  // Colors & Styles
+  doc.setFillColor(74, 18, 26); // Burgundy primary color
+  doc.rect(0, 0, 210, 40, "F");
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("ESPELHO DE PONTO ELETRÔNICO", 15, 18);
+  
+  doc.setFontSize(10);
+  doc.setFont("Helvetica", "normal");
+  doc.text(`Portaria 671/2021 MTP - Identificação e Controle de Jornada`, 15, 28);
+  doc.text(`Emissão: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`, 150, 28);
+
+  // Colaborador Info
+  doc.setTextColor(51, 51, 51);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("DADOS DO TRABALHADOR", 15, 52);
+  
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Nome do Colaborador: ${currentUser.nome}`, 15, 60);
+  doc.text(`Cargo / Função: ${currentUser.role.toUpperCase()}`, 15, 66);
+  doc.text(`Operação / Loja Ativa: Loja ${getLojaNomePorCodigo(currentStore)}`, 15, 72);
+
+  // Table header
+  doc.setFillColor(240, 240, 240);
+  doc.rect(15, 82, 180, 8, "F");
+  doc.setFont("Helvetica", "bold");
+  doc.text("Data", 17, 87);
+  doc.text("Entrada", 52, 87);
+  doc.text("Almoço", 82, 87);
+  doc.text("Retorno", 112, 87);
+  doc.text("Saída", 142, 87);
+  doc.text("Saldo", 172, 87);
+
+  // Group records by date
+  const grouped = {};
+  records.forEach(r => {
+    const dStr = r.timestamp.split("T")[0];
+    if (!grouped[dStr]) grouped[dStr] = {};
+    grouped[dStr][r.tipo] = r.timestamp;
+  });
+
+  const dates = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+  
+  doc.setFont("Helvetica", "normal");
+  let y = 96;
+  
+  dates.forEach(d => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+    const day = grouped[d];
+    const ent = day["ENTRADA"] ? new Date(day["ENTRADA"]) : null;
+    const sInt = day["SAIDA_INTERVALO"] ? new Date(day["SAIDA_INTERVALO"]) : null;
+    const rInt = day["RETORNO_INTERVALO"] ? new Date(day["RETORNO_INTERVALO"]) : null;
+    const sai = day["SAIDA"] ? new Date(day["SAIDA"]) : null;
+
+    let workedMs = 0;
+    if (ent && sInt) workedMs += (sInt - ent);
+    if (rInt && sai) workedMs += (sai - rInt);
+
+    const tHours = Math.floor(workedMs / 3600000);
+    const tMins = Math.floor((workedMs % 3600000) / 60000);
+    const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
+
+    doc.text(formatDate(d), 17, y);
+    doc.text(ent ? formatTime(ent) : "-", 52, y);
+    doc.text(sInt ? formatTime(sInt) : "-", 82, y);
+    doc.text(rInt ? formatTime(rInt) : "-", 112, y);
+    doc.text(sai ? formatTime(sai) : "-", 142, y);
+    doc.text(saldoText, 172, y);
+
+    // separator line
+    doc.setDrawColor(230, 230, 230);
+    doc.line(15, y+2, 195, y+2);
+    y += 8;
+  });
+
+  // Footer & Signature conformidade Portaria 671
+  if (y > 240) {
+    doc.addPage();
+    y = 30;
+  }
+
+  y += 10;
+  doc.setFont("Helvetica", "bold");
+  doc.text("ASSINATURA DO COLABORADOR E CERTIFICAÇÃO DIGITAL", 15, y);
+  
+  y += 8;
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(8);
+  const cryptoHash = await calcularHashSha256(records.map(r => r.hash).join(""));
+  doc.text(`Hash de Integridade (Portaria 671): ${cryptoHash}`, 15, y);
+  
+  y += 20;
+  doc.line(15, y, 100, y);
+  doc.line(110, y, 195, y);
+  y += 4;
+  doc.text("Assinatura do Colaborador(a)", 40, y);
+  doc.text("Assinatura Cacau Show / Gestor", 135, y);
+
+  doc.save(`Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`);
 }

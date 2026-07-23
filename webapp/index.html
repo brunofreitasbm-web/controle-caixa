@@ -37,6 +37,10 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
   }
 </script>
+<!-- Dexie.js (IndexedDB wrapper) -->
+<script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+<!-- jsPDF (PDF generation) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -132,7 +136,7 @@
       </button>
       
       <button id="btn-mod-faca" class="module-card card-faca">
-        <span class="mod-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
+        <span class="mod-icon"><i class="fa-solid fa-heart" style="color: var(--coral);"></i></span>
         <h3>Faça Amigos (Financeiro)</h3>
         <p>Controle de caixa FaçaAmigos</p>
       </button>
@@ -142,6 +146,12 @@
         <h3>Módulo RH</h3>
         <p>Gestão de Pessoas e Perfil DISC</p>
       </button>
+
+      <button id="btn-mod-ponto" class="module-card card-ponto">
+        <span class="mod-icon"><i class="fa-solid fa-clock-rotate-left" style="color: #2563EB;"></i></span>
+        <h3>Controle de Ponto</h3>
+        <p>Marcação de jornada e espelho de ponto</p>
+      </button>
     </div>
   </div>
 </div>
@@ -150,6 +160,7 @@
 
   <!-- Backdrop overlay for mobile drawer -->
   <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
 
   <!-- Left Sidebar -->
   <aside id="sidebar" class="sidebar">
@@ -164,8 +175,27 @@
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
+    <!-- Quick Actions (Grade 2x2) -->
+    <div class="quick-actions-grid">
+      <button class="quick-action-item" onclick="document.getElementById('tab-btn-controle-ponto').click();" aria-label="Registrar Ponto">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>Ponto</span>
+      </button>
+      <button class="quick-action-item" onclick="document.getElementById('tab-btn-conferencia-nfe')?.click();" aria-label="Inventário/Conferência">
+        <i class="fa-solid fa-truck"></i>
+        <span>Conferência</span>
+      </button>
+      <button class="quick-action-item" onclick="document.getElementById('tab-btn-boletos')?.click() || document.getElementById('tab-btn-auditoria-boletos')?.click();" aria-label="Gestão de Boletos">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        <span>Boletos</span>
+      </button>
+      <button class="quick-action-item" onclick="document.getElementById('tab-btn-configuracoes')?.click();" aria-label="Configurações">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Settings</span>
+      </button>
+    </div>
+
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
-      <!-- Módulo Cacau Show: Controle de Caixa -->
       <div class="sidebar-group collapsed" id="group-controle-caixa">
         <button class="sidebar-group-header" aria-expanded="false">
           <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
@@ -243,6 +273,10 @@
         <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
         <span class="tab-text">Módulo RH (DISC)</span>
       </button>
+      <button class="tab-btn" id="tab-btn-controle-ponto" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto">
+        <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+        <span class="tab-text">Controle de Ponto</span>
+      </button>
       <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
         <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
         <span class="tab-text">Configurações</span>
@@ -294,6 +328,11 @@
           </div>
         </div>
         <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro"><i class="fa-solid fa-circle-half-stroke"></i><span id="sync-badge" class="sync-badge hidden"></span></button>
+        <!-- Perfil do Usuário (BlueDox Style) -->
+        <div id="topbar-user-profile" class="user-profile-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
+          <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--wine), var(--wine-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+          <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
+        </div>
       </div>
     </header>
 
@@ -1047,6 +1086,16 @@
             </button>
           </div>
 
+          <!-- Barra de ação para seleção de múltiplas NF-es -->
+          <div id="nf-selection-action-bar" class="hidden glass-card p-4 rounded-2xl bg-brand-950/90 border border-brand-500/80 shadow-xl flex justify-between items-center animate-pulse mb-4">
+            <span class="text-xs text-brand-200 font-bold">
+              <i class="fa-solid fa-square-check text-brand-400 mr-1.5"></i> <span id="nf-selected-count">0</span> Nota(s) selecionada(s)
+            </span>
+            <button id="btn-conferir-selecionadas" class="px-4 py-2 bg-brand-650 hover:bg-brand-550 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+              <i class="fa-solid fa-barcode"></i> Iniciar Conferência Conjunta
+            </button>
+          </div>
+
           <!-- Cards Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="nf-cards-grid">
             <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
@@ -1059,9 +1108,14 @@
         <!-- Área de Trabalho / Bipagem Direct Direct NF -->
         <div id="nf-work-area" class="hidden space-y-6">
           <div class="flex items-center justify-between bg-brand-950/80 p-4 rounded-2xl border border-brand-900 shadow-md">
-            <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-brand-900 text-brand-200 hover:bg-brand-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-800">
-              <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria de Notas
-            </button>
+            <div class="flex items-center gap-2">
+              <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-brand-900 text-brand-200 hover:bg-brand-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-800">
+                <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria de Notas
+              </button>
+              <button id="btn-concluir-conferencia" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-600 shadow-md">
+                <i class="fa-solid fa-check-double"></i> Concluir Conferência
+              </button>
+            </div>
             <div class="flex items-center gap-3">
               <div class="inline-flex items-center gap-2 bg-brand-900/80 px-3 py-1 rounded-xl border border-brand-800">
                 <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -1727,6 +1781,180 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: CONTROLE DE PONTO (CLT-COMPLIANT) ===================== -->
+    <section id="tab-controle-ponto" class="tab-panel hidden" role="tabpanel">
+      <!-- Title Banner -->
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock text-brand-300"></i> Registro de Ponto Eletrônico
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Marcações de jornada em conformidade com a Portaria 671/2021 MTP com geofencing.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="ponto-offline-badge" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-950/60 border border-emerald-800 text-emerald-400 uppercase tracking-widest hidden"><i class="fa-solid fa-cloud-arrow-up animate-bounce"></i> Offline Activo</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">CLT Compliant</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Action / Capture Card -->
+        <div class="lg:col-span-1 space-y-6">
+          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col items-center">
+            <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-4 self-start"><i class="fa-solid fa-video mr-1"></i> Identificação Facial</h3>
+            
+            <!-- Camera / Photo Viewport -->
+            <div class="w-full aspect-[4/3] bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center">
+              <video id="ponto-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+              <canvas id="ponto-canvas" class="w-full h-full object-cover hidden"></canvas>
+              <div id="ponto-camera-placeholder" class="text-center p-4">
+                <i class="fa-solid fa-camera text-3xl text-brand-600 mb-2"></i>
+                <p class="text-[11px] text-brand-400">Ative a câmera para bater ponto</p>
+              </div>
+            </div>
+            
+            <button type="button" id="btn-ponto-ativar-cam" class="w-full py-2 bg-brand-800 hover:bg-brand-700 text-brand-100 font-bold rounded-xl text-xs transition mb-4">
+              <i class="fa-solid fa-video mr-1"></i> Ativar Câmera
+            </button>
+
+            <!-- Punch In/Out Action buttons -->
+            <div class="w-full grid grid-cols-2 gap-2">
+              <button id="btn-ponto-entrada" class="btn-ponto py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+                <i class="fa-solid fa-door-open text-base"></i> Entrada
+              </button>
+              <button id="btn-ponto-saida-int" class="btn-ponto py-3 bg-amber-800 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+                <i class="fa-solid fa-utensils text-base"></i> Almoço
+              </button>
+              <button id="btn-ponto-retorno-int" class="btn-ponto py-3 bg-amber-850 hover:bg-amber-750 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+                <i class="fa-solid fa-rotate-left text-base"></i> Retorno
+              </button>
+              <button id="btn-ponto-saida" class="btn-ponto py-3 bg-rose-800 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+                <i class="fa-solid fa-door-closed text-base"></i> Saída
+              </button>
+            </div>
+            
+            <!-- GPS details -->
+            <div class="w-full mt-4 bg-brand-900/30 p-3 rounded-xl border border-brand-900 text-left space-y-2">
+              <div class="flex justify-between items-center text-[10px] font-bold uppercase text-brand-400">
+                <span>Localização GPS</span>
+                <span id="ponto-gps-status" class="text-rose-500 font-black"><i class="fa-solid fa-circle-xmark"></i> Pendente</span>
+              </div>
+              <div class="text-[11px] text-brand-200 font-mono space-y-1">
+                <p id="ponto-gps-coords">Coordenadas: --</p>
+                <p id="ponto-gps-accuracy">Precisão: --</p>
+                <p id="ponto-gps-distance">Distância da Loja: --</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Dashboard & Balance Engine -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Balance Card -->
+            <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
+              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-chart-pie mr-1"></i> Resumo da Jornada</h3>
+              <div class="space-y-4">
+                <div>
+                  <div class="flex justify-between text-xs font-bold text-brand-200 mb-1">
+                    <span>Trabalhado hoje</span>
+                    <span id="ponto-balance-today">0h 00m</span>
+                  </div>
+                  <div class="w-full bg-brand-900 rounded-full h-3.5 overflow-hidden border border-brand-850">
+                    <div id="ponto-balance-progress" class="bg-brand-500 h-3.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                  </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 pt-2 text-center text-xs">
+                  <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
+                    <span class="block text-[10px] text-brand-400 font-bold uppercase">Meta Diária</span>
+                    <strong class="text-sm text-brand-100 mt-1 block">08:00</strong>
+                  </div>
+                  <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
+                    <span class="block text-[10px] text-brand-400 font-bold uppercase">Saldo Acumulado</span>
+                    <strong id="ponto-balance-accumulated" class="text-sm text-brand-200 mt-1 block">00:00</strong>
+                  </div>
+                </div>
+                
+                <!-- CLT alert -->
+                <div id="ponto-clt-alert" class="hidden p-3 rounded-xl bg-rose-950/40 border border-rose-800/50 text-[11px] text-rose-350 font-semibold animate-pulse">
+                  <i class="fa-solid fa-triangle-exclamation mr-1"></i> Atenção: Você está próximo de exceder o limite de 2h extras diárias (Art. 59 CLT).
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload Atestado / Ajustes Card -->
+            <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
+              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-file-medical mr-1"></i> Atestado ou Ajuste</h3>
+              <form id="form-ponto-ajuste" class="space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="field">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Data</label>
+                    <input type="date" id="ponto-ajuste-data" required class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                  </div>
+                  <div class="field">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Tipo</label>
+                    <select id="ponto-ajuste-tipo" class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                      <option value="ATESTADO">Atestado Médico</option>
+                      <option value="AJUSTE">Esquecimento / Ajuste</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="field">
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Justificativa / Motivo</label>
+                  <input type="text" id="ponto-ajuste-motivo" placeholder="Ex: Atestado de consulta odontológica" required class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                </div>
+
+                <div class="field">
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Comprovante / Atestado</label>
+                  <label class="w-full py-2 bg-brand-900 hover:bg-brand-800 text-brand-200 border border-dashed border-brand-700 rounded-xl text-xs text-center cursor-pointer block transition">
+                    <i class="fa-solid fa-paperclip"></i> Anexar Foto / Arquivo
+                    <input type="file" id="ponto-ajuste-file" accept="image/*" capture="environment" class="hidden">
+                  </label>
+                  <span id="ponto-ajuste-filename" class="text-[10px] text-brand-400 block mt-1 overflow-hidden text-ellipsis whitespace-nowrap">Nenhum arquivo selecionado</span>
+                </div>
+                
+                <button type="submit" class="w-full py-2 bg-brand-600 hover:bg-brand-500 text-white font-extrabold rounded-xl text-xs transition">
+                  <i class="fa-solid fa-paper-plane mr-1"></i> Enviar Solicitação
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- History Table -->
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
+            <div class="p-4 bg-brand-950 border-b border-brand-900 flex justify-between items-center">
+              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-list mr-1"></i> Histórico Mensal</h3>
+              <button type="button" id="btn-ponto-pdf" class="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-pdf"></i> Gerar Espelho de Ponto
+              </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                    <th class="py-3 px-4">Data</th>
+                    <th class="py-3 px-4 text-center">Entrada</th>
+                    <th class="py-3 px-4 text-center">Almoço</th>
+                    <th class="py-3 px-4 text-center">Retorno</th>
+                    <th class="py-3 px-4 text-center">Saída</th>
+                    <th class="py-3 px-4 text-center">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody id="ponto-historico-tbody" class="divide-y divide-brand-900/40">
+                  <!-- Gerado dinamicamente no JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <!-- ===================== ABA: CONFIGURAÇÕES (TODOS OS PERFIS, ADVANCED SECTIONS POR PERFIL) ===================== -->
     <section id="tab-configuracoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-configuracoes">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
@@ -2207,6 +2435,7 @@
   <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Mensal</button>
   <button class="bottom-nav-btn" data-tab="conferencia-nfe"><span class="nav-icon"><i class="fa-solid fa-truck"></i></span>NF-e</button>
   <button class="bottom-nav-btn" data-tab="inventario-estoque"><span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span>Estoque</button>
+  <button class="bottom-nav-btn" id="bottom-nav-controle-ponto" data-tab="controle-ponto"><span class="nav-icon"><i class="fa-solid fa-clock"></i></span>Ponto</button>
   <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>Auditoria</button>
   <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>FA</button>
   <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span>Colab</button>
@@ -2215,6 +2444,6 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

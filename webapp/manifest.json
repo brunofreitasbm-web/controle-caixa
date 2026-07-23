@@ -1,12 +1,13 @@
 {
-  "name": "HUB de Operações",
-  "short_name": "HUB de Operações",
-  "description": "HUB de Operações - Cacau Show (Módulos Financeiro e Logístico) e Faça Amigos (Financeiro)",
+  "name": "Ponto Eletrônico Seguro",
+  "short_name": "PontoPWA",
+  "description": "Controle de Ponto PWA CLT-Compliant com Geolocalização e Anti-Fraude",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
   "orientation": "portrait",
-  "background_color": "#f6f8f9",
-  "theme_color": "#3d4a54",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -23,17 +24,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Novo Registro",
-      "short_name": "Novo Registro",
-      "description": "Registrar nova abertura, fechamento ou sangria",
-      "url": "/#registro",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Dashboard Envelopes",
-      "short_name": "Envelopes",
-      "description": "Ver status dos envelopes e retiradas",
-      "url": "/#dashboard",
+      "name": "Registrar Ponto",
+      "short_name": "Bater Ponto",
+      "description": "Registrar entrada, intervalo ou saída",
+      "url": "/#controle-ponto",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
