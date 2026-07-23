@@ -41,38 +41,6 @@
   --sidebar-hover-bg: #263145;
 }
 
-:root[data-theme="dark"] {
-  --wine: #5A94E8; /* Lighter primary blue for better dark mode visibility */
-  --wine-light: #7CABF5;
-  --wine-dark: #0A0E17; /* Softer dark background to prevent eye strain */
-  --gold: #00BFA5;
-  --gold-light: rgba(0, 191, 165, 0.1);
-  --gold-dark: #00796B;
-  --gold-gradient: linear-gradient(135deg, #2D538E 0%, #0A0E17 100%);
-  --wine-gradient: linear-gradient(135deg, #1C2435 0%, #0A0E17 100%);
-  --cream: #0A0E17; /* Very dark slate-navy page background */
-  --paper: #151E2E; /* Slate-navy card/surface background */
-  --ink: #F8FAFC; /* Slate-white primary text - very readable */
-  --muted: #A0AEC0; /* Light slate-gray secondary text - clear contrast */
-  --border: #222E45; /* Darker border color */
-  --blue: #5A9DE8; /* Lighter badge blue for dark mode contrast */
-  --blue-light: rgba(90, 157, 232, 0.15);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
-
-  /* Harmonized Menu Palette (Dark Mode) */
-  --sidebar-bg: #070B12;
-  --topbar-bg: #151E2E;
-  --topbar-border: #222E45;
-  --sidebar-group-header-color: #64748B;
-  --sidebar-active-bg: #2D538E;
-  --sidebar-active-text: #FFFFFF;
-  --sidebar-text-muted: rgba(255, 255, 255, 0.6);
-  --sidebar-text-hover: #FFFFFF;
-  --sidebar-hover-bg: #1F293D;
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2773,6 +2741,18 @@ body.tema-fa .topbar {
   color: var(--paper) !important;
 }
 
+/* Badges de acesso restrito: mantêm fundo escuro do acento com texto claro legível */
+#tab-boletos .rounded-full.bg-red-950,
+#tab-auditoria-boletos .rounded-full.bg-red-950 {
+  color: #f87171 !important;
+  background: #450a0a !important;
+}
+#tab-boletos .rounded-full.bg-indigo-950,
+#tab-auditoria-boletos .rounded-full.bg-indigo-950 {
+  color: #a5b4fc !important;
+  background: #1e1b4b !important;
+}
+
 /* ============================================================
    NOTIFICATION DROPDOWN & LIST STYLING
    ============================================================ */
@@ -3071,40 +3051,26 @@ body.tema-fa .topbar {
 
 .disc-badge-d {
   background-color: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  color: #dc2626;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .disc-badge-i {
   background-color: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: #b45309;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .disc-badge-s {
   background-color: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  color: #059669;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .disc-badge-c {
   background-color: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-}
-
-/* Light mode: darker badge text for adequate contrast against the pale background */
-:root:not([data-theme="dark"]) .disc-badge-d {
-  color: #dc2626;
-}
-:root:not([data-theme="dark"]) .disc-badge-i {
-  color: #b45309;
-}
-:root:not([data-theme="dark"]) .disc-badge-s {
-  color: #059669;
-}
-:root:not([data-theme="dark"]) .disc-badge-c {
   color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 /* ==========================================================================
@@ -3132,10 +3098,10 @@ header:not(.fa-section *):not(.fa-tab-panel *) {
 .card:not(.fa-section *):not(.fa-tab-panel *) td, 
 .card:not(.fa-section *):not(.fa-tab-panel *) label, 
 .card:not(.fa-section *):not(.fa-tab-panel *) li,
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) p, 
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-200):not(.text-brand-300):not(.text-brand-100):not(.text-amber-400):not(.text-emerald-400):not(.fa-title-accent),
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) label, 
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) td, 
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) p:not(.text-white):not(.text-brand-100):not(.text-brand-200):not(.text-brand-300):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400),
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-200):not(.text-brand-300):not(.text-brand-100):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400):not(.fa-title-accent),
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) label,
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) td,
 .tab-panel:not(.fa-section *):not(.fa-tab-panel *) li {
   color: var(--ink) !important;
 }

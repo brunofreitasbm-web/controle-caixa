@@ -855,14 +855,9 @@ function mesmoDia(isoA, isoB) {
 // ==========================================================================
 // TEMA & CONFIGURAÇÕES GERAIS (HUB de Operações)
 // ==========================================================================
-function aplicarTema(theme) {
-  let temaReal = theme;
-  if (theme === "auto") {
-    temaReal = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  document.documentElement.setAttribute("data-theme", temaReal);
-  const themeSelect = document.getElementById("config-theme-select");
-  if (themeSelect) themeSelect.value = theme;
+function aplicarTema() {
+  // Modo escuro removido: o app opera exclusivamente no tema claro.
+  document.documentElement.setAttribute("data-theme", "light");
 }
 
 function aplicarCorDestaque(color) {
@@ -881,17 +876,9 @@ function aplicarCorDestaque(color) {
   });
 }
 
-// Escutar mudanças de tema do sistema operacional se configurado como auto
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  if (config.theme === "auto" || !config.theme) {
-    aplicarTema("auto");
-  }
-});
-
 function carregarConfiguracoes() {
   config = carregarJSON(CONFIG_KEY, {
     linkGrupo: "",
-    theme: "auto",
     accentColor: "#56707f",
     sessionTimeout: 1800,
     whatsappGrupos: {},
@@ -905,8 +892,8 @@ function carregarConfiguracoes() {
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
   }
 
-  // Aplicar Tema
-  aplicarTema(config.theme || "auto");
+  // Aplicar Tema (sempre claro)
+  aplicarTema();
 
   // Aplicar Cor
   aplicarCorDestaque(config.accentColor || "#56707f");
@@ -933,14 +920,6 @@ function carregarConfiguracoes() {
   carregarConfiguracoes();
 })();
 
-document.getElementById("btn-tema").addEventListener("click", () => {
-  const atual = document.documentElement.getAttribute("data-theme") ||
-    (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  const novo = atual === "dark" ? "light" : "dark";
-  aplicarTema(novo);
-  config.theme = novo;
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-});
 
 // ==========================================================================
 // LOGIN / PERFIS / PIN
@@ -7871,9 +7850,6 @@ function inicializarPainelConfiguracoes() {
   }
 
   // Preencher campos
-  const configThemeSelect = document.getElementById("config-theme-select");
-  if (configThemeSelect) configThemeSelect.value = config.theme || "auto";
-  
   const configTimeoutSelect = document.getElementById("config-timeout-select");
   if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
 
@@ -7921,18 +7897,6 @@ function inicializarPainelConfiguracoes() {
 
 // Configurações: Ouvir eventos após o carregamento da página
 document.addEventListener("DOMContentLoaded", () => {
-  // Alteração de Tema no Painel
-  const themeSelect = document.getElementById("config-theme-select");
-  if (themeSelect) {
-    themeSelect.addEventListener("change", (e) => {
-      const val = e.target.value;
-      aplicarTema(val);
-      config.theme = val;
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      showToast("Tema atualizado com sucesso!", "sucesso");
-    });
-  }
-
   // Alteração de Cor de Destaque
   document.querySelectorAll(".config-accent-btn").forEach(btn => {
     btn.addEventListener("click", () => {

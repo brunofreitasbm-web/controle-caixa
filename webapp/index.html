@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=6">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -327,9 +327,9 @@
             </div>
           </div>
         </div>
-        <button id="btn-tema" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro"><i class="fa-solid fa-circle-half-stroke"></i><span id="sync-badge" class="sync-badge hidden"></span></button>
         <!-- Perfil do Usuário (BlueDox Style) -->
-        <div id="topbar-user-profile" class="user-profile-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
+        <div id="topbar-user-profile" class="user-profile-header" style="position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
+          <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização"></span>
           <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--wine), var(--wine-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
           <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
         </div>
@@ -1985,15 +1985,6 @@
               
               <div class="space-y-4">
                 <div class="field">
-                  <label class="block text-xs font-bold uppercase mb-1">Tema Visual</label>
-                  <select id="config-theme-select" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
-                    <option value="light">Claro</option>
-                    <option value="dark">Escuro</option>
-                    <option value="auto">Automático (Seguir Sistema)</option>
-                  </select>
-                </div>
-                
-                <div class="field">
                   <label class="block text-xs font-bold uppercase mb-2">Cor de Destaque (Accent)</label>
                   <div class="flex items-center gap-3">
                     <button type="button" class="w-8 h-8 rounded-full border-2 border-transparent transition focus:outline-none config-accent-btn" data-accent="#56707f" style="background-color: #56707f;" title="Ardósia (Padrão)"></button>
@@ -2444,6 +2435,6 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
