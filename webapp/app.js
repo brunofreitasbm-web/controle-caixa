@@ -4784,6 +4784,11 @@ checkApiConnection = async function () {
   await _originalCheckApi();
   if (wasOffline && API_ONLINE) {
     processarFilaSync();
+    // Também é aqui que a primeira carga do inventário compartilhado acontece
+    // quando o app abre offline e a conexão só sobe depois.
+    if (typeof iniciarSincronizacaoDoInventario === "function") {
+      iniciarSincronizacaoDoInventario();
+    }
   }
 };
 
@@ -11749,4 +11754,424 @@ async function excluirMetaImportada(id) {
   } catch (e) {
     showToast("Erro ao remover meta.", "erro");
   }
+}
+
+/* ==========================================================================
+   SINCRONIZAÇÃO EM TEMPO REAL
+   ==========================================================================
+   O canal (webapp/realtime.js) entrega aqui tudo que qualquer usuário logado
+   grava. Este bloco decide o que fazer com cada evento.
+
+   Regra que vale para a tela inteira: NUNCA sobrescrever um campo que a pessoa
+   está digitando. Se o valor mudou por causa de outra pessoa e o cursor está
+   naquele campo, avisamos com um toast e aplicamos quando ela sair dali.
+   ========================================================================== */
+
+let _rtTabAtual = null;
+
+// Guarda qual aba está aberta, para só atualizar o que está à vista.
+if (typeof ativarTab === "function") {
+  const _ativarTabOriginal = ativarTab;
+  ativarTab = function (tabName) {
+    _rtTabAtual = tabName;
+    return _ativarTabOriginal.apply(this, arguments);
+  };
+}
+
+function _rtPiscar(el) {
+  if (!el) return;
+  const fundoAnterior = el.style.backgroundColor;
+  el.style.transition = "background-color .35s";
+  el.style.backgroundColor = "#065f46";
+  setTimeout(() => { el.style.backgroundColor = fundoAnterior || ""; }, 1200);
+}
+
+function _rtAlgumCampoEmEdicao(container) {
+  const ativo = document.activeElement;
+  if (!ativo || !container) return false;
+  const editavel = ativo.tagName === "INPUT" || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT";
+  return editavel && container.contains(ativo);
+}
+
+/**
+ * Aplica no input um valor que veio de outra pessoa.
+ * Se o campo está em edição, respeita a digitação em curso: avisa quem alterou
+ * e só aplica o valor quando o campo perde o foco.
+ */
+function _rtAplicarValorNoInput(input, valor, aviso) {
+  if (!input) return;
+
+  if (document.activeElement === input) {
+    input.dataset.valorRemoto = valor;
+    if (aviso) showToast(aviso, "info");
+
+    if (!input.dataset.rtEsperandoSaida) {
+      input.dataset.rtEsperandoSaida = "1";
+
+      // Não dependemos só do evento blur: em celular o campo pode perder o
+      // foco de formas que não disparam blur (teclado fechando, aba trocando,
+      // linha redesenhada). A verificação periódica garante que o valor da
+      // outra pessoa entra assim que a pessoa sai do campo.
+      const aplicar = () => {
+        if (!input.isConnected || input.dataset.valorRemoto === undefined) {
+          delete input.dataset.rtEsperandoSaida;
+          return;
+        }
+        if (document.activeElement === input) {
+          setTimeout(aplicar, 1000);
+          return;
+        }
+        input.value = input.dataset.valorRemoto;
+        delete input.dataset.valorRemoto;
+        delete input.dataset.rtEsperandoSaida;
+        _rtPiscar(input);
+      };
+
+      input.addEventListener("blur", aplicar);
+      setTimeout(aplicar, 1000);
+    }
+    return;
+  }
+
+  input.value = valor;
+  _rtPiscar(input);
+  if (aviso) showToast(aviso, "info");
+}
+
+// Renderiza a tabela inteira só quando ninguém estiver com um campo aberto —
+// um innerHTML no meio da contagem mataria o foco e a posição da rolagem.
+const _rtRendersAguardando = new Set();
+
+function _rtQuandoLivre(idTbody, render) {
+  const tentar = () => {
+    const tbody = document.getElementById(idTbody);
+    if (!tbody) {
+      _rtRendersAguardando.delete(idTbody);
+      return;
+    }
+    if (_rtAlgumCampoEmEdicao(tbody)) {
+      // Um único laço de espera por tabela — vários eventos seguidos não podem
+      // virar vários timers concorrentes.
+      _rtRendersAguardando.add(idTbody);
+      setTimeout(tentar, 1500);
+      return;
+    }
+    _rtRendersAguardando.delete(idTbody);
+    render();
+  };
+
+  if (_rtRendersAguardando.has(idTbody)) return;
+  tentar();
+}
+
+// -------------------------------------------------------------- INVENTÁRIO
+
+async function sincronizarInventarioDaLoja(loja) {
+  const alvo = loja || currentStore;
+  const itens = await dbBridge.carregarDoServidor(alvo);
+  if (!itens) return false;
+  if (String(alvo) !== String(currentStore)) return true;
+
+  loadInventoryForCurrentStore();
+  _rtQuandoLivre("inventory-tbody", () => renderTable());
+  return true;
+}
+
+async function iniciarSincronizacaoDoInventario() {
+  await dbBridge.migrarLocalParaServidor();
+  await sincronizarInventarioDaLoja(currentStore);
+}
+
+function _rtAplicarItemInventario(loja, item, quem) {
+  dbBridge.aplicarItemRemoto(loja, item);
+  if (String(loja) !== String(currentStore)) return;
+
+  const validadeNova = item.validade ? new Date(item.validade) : null;
+  const anterior = products.find(p => String(p.code) === String(item.code));
+  const validadeMudou = !anterior ||
+    String(anterior.validade || "") !== String(validadeNova || "");
+
+  const normalizado = {
+    code: item.code,
+    barras: item.barras || "",
+    description: item.description || (anterior ? anterior.description : "Produto"),
+    validade: validadeNova,
+    daysRemaining: anterior ? anterior.daysRemaining : null,
+    countedQty: item.countedQty === undefined || item.countedQty === null ? "" : item.countedQty,
+    dataEntrada: item.dataEntrada || "",
+    qtdEntradaUnidades: item.qtdEntradaUnidades || 0
+  };
+
+  if (anterior) {
+    Object.assign(anterior, normalizado);
+  } else {
+    products.push(normalizado);
+  }
+
+  const tbody = document.getElementById("inventory-tbody");
+  if (!tbody) return;
+
+  const input = tbody.querySelector(`.qty-input[data-code="${normalizado.code}"]`);
+  if (input && !validadeMudou) {
+    const nome = normalizado.description.length > 28 ? normalizado.description.slice(0, 28) + "…" : normalizado.description;
+    _rtAplicarValorNoInput(input, normalizado.countedQty, `${quem || "Outro usuário"} contou ${normalizado.countedQty || 0} UN — ${nome}`);
+    return;
+  }
+
+  // Produto novo na lista ou validade alterada: precisa redesenhar a linha
+  // inteira (dias restantes, cor do alerta, filtros).
+  _rtQuandoLivre("inventory-tbody", () => renderTable());
+}
+
+// ------------------------------------------------------------- CONFERÊNCIA
+
+function _rtChaveNf(numero, loja) {
+  const direta = `${numero}_${loja}`;
+  if (importedNfs[direta]) return direta;
+  return Object.keys(importedNfs).find(k => k.split("_")[0] === String(numero)) || null;
+}
+
+function _rtAplicarItemNf(payload, quem) {
+  const chave = _rtChaveNf(payload.numero, payload.loja);
+  if (!chave) return; // nota que este aparelho ainda não importou
+
+  const nf = importedNfs[chave];
+  const produto = (nf.products || []).find(p => String(p.code) === String(payload.code));
+  if (!produto) return;
+
+  produto.countedQty = payload.countedQty;
+  produto.conferidoPor = payload.conferidoPor || null;
+  if (nf.info) {
+    nf.info.concluidaEm = null;
+    nf._mensagemEnviada = false;
+    nf._notificadoConclusao = false;
+  }
+  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+  const input = document.querySelector(`.nf-qty-input[data-code="${payload.code}"][data-nf="${chave}"]`);
+  if (input) {
+    const nome = (produto.description || "").length > 28 ? produto.description.slice(0, 28) + "…" : (produto.description || "");
+    _rtAplicarValorNoInput(input, payload.countedQty, `${quem || "Outro usuário"} conferiu ${payload.countedQty || 0} — ${nome}`);
+  }
+
+  if (typeof updateNfStats === "function") updateNfStats();
+  // A coluna de status (Conforme/Falta/Sobra) é recalculada no render.
+  _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+  if (typeof renderNfCardsGallery === "function" && _rtTabAtual === "conferencia-nfe") renderNfCardsGallery();
+}
+
+function _rtNfConcluida(payload, quem) {
+  const chave = _rtChaveNf(payload.numero, payload.loja);
+  if (!chave) return;
+  const nf = importedNfs[chave];
+  if (nf && nf.info) {
+    nf.info.concluidaEm = payload.concluidaEm;
+    nf.info.concluidaPor = payload.concluidaPor || null;
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+  }
+  showToast(`${quem || "Outro usuário"} concluiu a conferência da NF ${payload.numero}.`, "info");
+  if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
+  _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+}
+
+async function _rtRecarregarNfs() {
+  if (!API_ONLINE) return;
+  try {
+    const res = await fetch(`${API_BASE}/nfs`);
+    if (!res.ok) return;
+    const dados = await res.json();
+    const doServidor = {};
+    dados.forEach(nf => {
+      if (!nf || !nf.numero) return;
+      if (!nf.info) nf.info = {};
+      if (nf.info.rawEmissaoDate) nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+      if (Array.isArray(nf.products)) {
+        nf.products.forEach(p => { if (p.validade) p.validade = new Date(p.validade); });
+      }
+      const loja = nf.info.targetStore ? nf.info.targetStore.toString() : "9175";
+      nf.info.targetStore = loja;
+      doServidor[`${nf.numero.toString().trim()}_${loja}`] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
+    });
+    importedNfs = mesclarNfs(importedNfs, doServidor);
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+    if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
+    _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+  } catch (e) {
+    console.error("[RT] Falha ao recarregar NF-es:", e);
+  }
+}
+
+// ---------------------------------------------------------------- REGISTROS
+
+function _rtRenderRegistrosCacau() {
+  try {
+    if (_rtTabAtual === "dashboard") renderDashboard();
+    else if (_rtTabAtual === "historico") renderHistorico();
+    else if (_rtTabAtual === "mensal") renderMensal();
+  } catch (e) {
+    console.error("[RT] Erro ao atualizar a tela de registros:", e);
+  }
+}
+
+function _rtRenderRegistrosFa() {
+  try {
+    if (_rtTabAtual === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
+  } catch (e) {
+    console.error("[RT] Erro ao atualizar a tela do FaçaAmigos:", e);
+  }
+}
+
+// A foto do envelope não trafega no canal (base64 pesado). Quando chega um
+// registro novo que tem foto, buscamos a imagem só daquele registro.
+async function _rtBuscarFoto(rota, registro) {
+  if (!registro || !registro.temFoto || !API_ONLINE) return;
+  try {
+    const res = await fetch(`${API_BASE}/${rota}/${encodeURIComponent(registro.id)}/foto`);
+    if (!res.ok) return;
+    const dados = await res.json();
+    if (dados && dados.fotoEnvelope) {
+      registro.fotoEnvelope = dados.fotoEnvelope;
+      if (rota === "registros") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+        _rtRenderRegistrosCacau();
+      } else {
+        localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+        _rtRenderRegistrosFa();
+      }
+    }
+  } catch (e) { /* foto é acessório: sem ela a linha ainda aparece */ }
+}
+
+function _rtRegistroCriado(lista, chaveStorage, rota, reg, quem, render) {
+  if (!reg || !reg.id) return;
+  if (lista.some(r => r.id === reg.id)) return;
+  lista.unshift(reg);
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+  showToast(`${quem || reg.consultor || "Outro usuário"} registrou ${reg.tipoOperacao || "uma operação"} na loja ${reg.loja || ""}.`, "info");
+  _rtBuscarFoto(rota, reg);
+}
+
+function _rtRegistroAlterado(lista, chaveStorage, rota, payload, render) {
+  const reg = lista.find(r => r.id === payload.id);
+  if (!reg) return;
+  const campos = payload.campos || {};
+  Object.keys(campos).forEach(k => {
+    if (k === "temFoto") return;
+    reg[k] = campos[k];
+  });
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+  if (campos.temFoto && !reg.fotoEnvelope) _rtBuscarFoto(rota, { id: reg.id, temFoto: true });
+}
+
+function _rtRegistroExcluido(lista, chaveStorage, id, render) {
+  const idx = lista.findIndex(r => r.id === id);
+  if (idx === -1) return;
+  lista.splice(idx, 1);
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+}
+
+// ---------------------------------------------------------------- REGISTRO
+
+function _rtRegistrarHandlers() {
+  RT.on("inventario.item", (payload, evento) => {
+    _rtAplicarItemInventario(payload.loja, payload.item, evento.usuario);
+  });
+
+  RT.on("inventario.bulk", (payload, evento) => {
+    (payload.itens || []).forEach(item => _rtAplicarItemInventario(payload.loja, item, evento.usuario));
+  });
+
+  RT.on("inventario.recarregar", (payload) => {
+    sincronizarInventarioDaLoja(payload.loja);
+  });
+
+  RT.on("inventario.excluido", (payload) => {
+    localStorage.removeItem(`cacaushow_db_inventory_${payload.loja}_${payload.code}`);
+    if (String(payload.loja) !== String(currentStore)) return;
+    const idx = products.findIndex(p => String(p.code) === String(payload.code));
+    if (idx > -1) products.splice(idx, 1);
+    _rtQuandoLivre("inventory-tbody", () => renderTable());
+  });
+
+  RT.on("nf.item", (payload, evento) => _rtAplicarItemNf(payload, evento.usuario));
+  RT.on("nf.concluida", (payload, evento) => _rtNfConcluida(payload, evento.usuario));
+  RT.on("nf.importada", (payload, evento) => {
+    showToast(`${evento.usuario || "Outro usuário"} importou a NF ${payload.numero}.`, "info");
+    _rtRecarregarNfs();
+  });
+  RT.on("nf.excluida", () => _rtRecarregarNfs());
+
+  RT.on("registro.criado", (payload, evento) =>
+    _rtRegistroCriado(registros, STORAGE_KEY, "registros", payload, evento.usuario, _rtRenderRegistrosCacau));
+  RT.on("registro.alterado", (payload) =>
+    _rtRegistroAlterado(registros, STORAGE_KEY, "registros", payload, _rtRenderRegistrosCacau));
+  RT.on("registro.excluido", (payload) =>
+    _rtRegistroExcluido(registros, STORAGE_KEY, payload.id, _rtRenderRegistrosCacau));
+
+  RT.on("registroFa.criado", (payload, evento) =>
+    _rtRegistroCriado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, evento.usuario, _rtRenderRegistrosFa));
+  RT.on("registroFa.alterado", (payload) =>
+    _rtRegistroAlterado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, _rtRenderRegistrosFa));
+  RT.on("registroFa.excluido", (payload) =>
+    _rtRegistroExcluido(registrosFA, STORAGE_KEY_FA, payload.id, _rtRenderRegistrosFa));
+
+  const TABS_BOLETOS = ["boletos", "auditoria-boletos", "importacoes"];
+  ["boleto.importados", "boleto.pago", "boleto.excluido"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (TABS_BOLETOS.includes(_rtTabAtual)) carregarBoletosServidor();
+    });
+  });
+
+  ["venda.horaria", "meta.checkin", "metaLoja.importada"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
+    });
+  });
+
+  RT.on("meta.importada", () => {
+    if (_rtTabAtual === "importar-meta" && typeof renderImportarMeta === "function") renderImportarMeta();
+  });
+  RT.on("meta.excluida", () => {
+    if (_rtTabAtual === "importar-meta" && typeof renderImportarMeta === "function") renderImportarMeta();
+  });
+
+  RT.on("fa.bonificacao", () => {
+    if (_rtTabAtual === "faca-amigos") _rtRenderRegistrosFa();
+  });
+
+  ["ponto.registro", "ponto.ajuste"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (_rtTabAtual !== "controle-ponto") return;
+      // A operação em exibição é a aba destacada no filtro do relatório.
+      const abaAtiva = document.querySelector(".ponto-relatorio-tab.bg-brand-700");
+      if (abaAtiva && typeof carregarRelatorioPontoOperacao === "function") {
+        carregarRelatorioPontoOperacao(abaAtiva.dataset.operacao);
+      }
+    });
+  });
+}
+
+// Quando o canal não está disponível (rede que bloqueia conexão longa) ou
+// depois de um período longo em segundo plano, buscamos os dados na mão.
+function _rtRecarregarTudoQueEstaAberto() {
+  sincronizarInventarioDaLoja(currentStore);
+  _rtRecarregarNfs();
+  if (["boletos", "auditoria-boletos", "importacoes"].includes(_rtTabAtual)) carregarBoletosServidor();
+  if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
+}
+
+if (typeof window.RT !== "undefined") {
+  _rtRegistrarHandlers();
+  RT.iniciar({
+    getApiBase: () => API_BASE,
+    getUsuario: () => (currentUser ? currentUser.nome : ""),
+    getLoja: () => currentStore,
+    onFallback: _rtRecarregarTudoQueEstaAberto,
+    onReconectar: _rtRecarregarTudoQueEstaAberto
+  });
+} else {
+  console.warn("[RT] realtime.js não foi carregado — o app continua funcionando, mas sem atualização em tempo real.");
 }
