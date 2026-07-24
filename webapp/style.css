@@ -2988,6 +2988,11 @@ body.tema-fa .topbar {
 #tab-conferencia-nfe .bg-brand-900\/30,
 #tab-inventario-estoque .bg-brand-950,
 #tab-inventario-estoque .bg-brand-900,
+#tab-inventario-estoque .bg-brand-950\/40,
+#tab-inventario-estoque .bg-brand-950\/60,
+#tab-inventario-estoque .bg-brand-950\/80,
+#tab-inventario-estoque .bg-brand-900\/30,
+#tab-inventario-estoque .bg-brand-900\/40,
 #tab-boletos .bg-brand-950,
 #tab-boletos .bg-brand-900,
 #tab-boletos .bg-brand-950\/60,
@@ -3159,16 +3164,38 @@ body.tema-fa .topbar {
   color: var(--wine) !important;
 }
 
-/* Badges de acesso restrito: mantêm fundo escuro do acento com texto claro legível */
+/* Badges e Pílulas de Status: Otimização de contraste para Tema Claro */
+#tab-meta-hora-hora .rounded-full.bg-red-950,
 #tab-boletos .rounded-full.bg-red-950,
 #tab-auditoria-boletos .rounded-full.bg-red-950 {
-  color: #f87171 !important;
-  background: #450a0a !important;
+  background-color: var(--red-light) !important;
+  color: #c5221f !important;
+  border-color: rgba(244, 67, 54, 0.3) !important;
 }
+
+#tab-meta-hora-hora .rounded-full.bg-emerald-950,
+#tab-boletos .rounded-full.bg-emerald-950,
+#tab-auditoria-boletos .rounded-full.bg-emerald-950 {
+  background-color: var(--green-light) !important;
+  color: var(--gold-dark) !important;
+  border-color: rgba(0, 121, 107, 0.3) !important;
+}
+
+#tab-meta-hora-hora .rounded-full.bg-amber-950,
+#tab-boletos .rounded-full.bg-amber-950,
+#tab-auditoria-boletos .rounded-full.bg-amber-950 {
+  background-color: var(--amber-light) !important;
+  color: #b25e00 !important;
+  border-color: rgba(245, 124, 0, 0.3) !important;
+}
+
+#tab-meta-hora-hora .rounded-full.bg-brand-900,
+#tab-meta-hora-hora .rounded-full.bg-indigo-950,
 #tab-boletos .rounded-full.bg-indigo-950,
 #tab-auditoria-boletos .rounded-full.bg-indigo-950 {
-  color: #a5b4fc !important;
-  background: #1e1b4b !important;
+  background-color: var(--blue-light) !important;
+  color: #0a3680 !important;
+  border-color: rgba(30, 98, 201, 0.3) !important;
 }
 
 /* ============================================================

@@ -5915,6 +5915,75 @@ function loadInventoryForCurrentStore() {
   const savedItems = dbBridge.getInventarioLoja(currentStore);
   const now = new Date();
   const dToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Auto-alimentar o inventário com produtos de notas fiscais que estão com ENTRADA OK ou concluídas para esta loja
+  if (typeof importedNfs === 'object' && importedNfs !== null) {
+    Object.keys(importedNfs).forEach(numNF => {
+      const nf = importedNfs[numNF];
+      if (!nf) return;
+      const targetStore = (nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+      if (targetStore !== currentStore) return;
+
+      const totalItens = nf.products ? nf.products.length : 0;
+      let conferidosCount = 0;
+      let faltasCount = 0;
+      if (nf.products) {
+        nf.products.forEach(p => {
+          if (p.countedQty !== '') conferidosCount++;
+          const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+          if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+        });
+      }
+
+      const isOk = (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0);
+      const isConcluded = !!(nf.info && nf.info.concluidaEm);
+
+      if (isOk || isConcluded) {
+        if (nf.products) {
+          nf.products.forEach(p => {
+            const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
+            if (countedBoxes <= 0) return;
+
+            const totalUnits = Math.round(countedBoxes * (p.boxMultiplier || 1));
+            const key = `cacaushow_db_inventory_${currentStore}_${p.code}`;
+            const localData = localStorage.getItem(key);
+            let invProd = null;
+            if (localData) {
+              try { invProd = JSON.parse(localData); } catch (e) {}
+            }
+
+            if (!invProd) {
+              invProd = {
+                code: p.code,
+                barras: p.barras,
+                description: p.description,
+                validade: p.validade,
+                daysRemaining: p.daysRemaining,
+                countedQty: '',
+                dataEntrada: nf.info.emissao,
+                qtdEntradaUnidades: totalUnits
+              };
+              dbBridge.saveInventoryItem(currentStore, invProd);
+              savedItems.push(invProd);
+            } else if (!invProd.qtdEntradaUnidades || !invProd.dataEntrada) {
+              invProd.dataEntrada = nf.info.emissao;
+              invProd.qtdEntradaUnidades = totalUnits;
+              dbBridge.saveInventoryItem(currentStore, invProd);
+              
+              const existing = savedItems.find(item => item.code === p.code);
+              if (existing) {
+                existing.dataEntrada = nf.info.emissao;
+                existing.qtdEntradaUnidades = totalUnits;
+              } else {
+                savedItems.push(invProd);
+              }
+            }
+          });
+        }
+      }
+    });
+  }
+
   products = savedItems.map(item => {
     let daysRemaining = null;
     let validadeDate = item.validade ? new Date(item.validade) : null;
@@ -7531,7 +7600,17 @@ function autoCreditNfProductToInventory(nfInfo, p) {
   if (countedBoxes <= 0) return;
 
   const totalUnits = Math.round(countedBoxes * (p.boxMultiplier || 1));
-  let invProd = products.find(prod => prod.code === p.code);
+  
+  // Buscar item existente diretamente do localStorage da loja de destino
+  const key = `cacaushow_db_inventory_${targetStore}_${p.code}`;
+  const localData = localStorage.getItem(key);
+  let invProd = null;
+  if (localData) {
+    try {
+      invProd = JSON.parse(localData);
+    } catch (e) {}
+  }
+
   if (!invProd) {
     invProd = {
       code: p.code,
@@ -7543,14 +7622,36 @@ function autoCreditNfProductToInventory(nfInfo, p) {
       dataEntrada: nfInfo.emissao,
       qtdEntradaUnidades: totalUnits
     };
-    products.push(invProd);
   } else {
     invProd.dataEntrada = nfInfo.emissao;
     invProd.qtdEntradaUnidades = totalUnits;
   }
 
   dbBridge.saveInventoryItem(targetStore, invProd);
-  renderTable();
+
+  // Se a loja de destino for a loja ativa, atualiza também a lista em memória
+  if (targetStore === currentStore) {
+    let existingIndex = products.findIndex(prod => prod.code === p.code);
+    if (existingIndex > -1) {
+      products[existingIndex] = {
+        ...products[existingIndex],
+        dataEntrada: invProd.dataEntrada,
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades
+      };
+    } else {
+      products.push({
+        code: invProd.code,
+        barras: invProd.barras || '',
+        description: invProd.description || 'Produto',
+        validade: invProd.validade ? new Date(invProd.validade) : null,
+        daysRemaining: invProd.daysRemaining,
+        countedQty: invProd.countedQty || '',
+        dataEntrada: invProd.dataEntrada || '',
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades || 0
+      });
+    }
+    renderTable();
+  }
 }
 
 function renderNfTable() {
