@@ -668,6 +668,26 @@ async function inicializarDados() {
         }
       }
 
+      // Localização (geofencing), horário e meta das operações: cadastro
+      // centralizado no servidor (tabela `configuracoes`), para que a cerca
+      // virtual valha igual em qualquer dispositivo/colaboradora — não só no
+      // navegador de quem configurou. Strings JSON, mesmo padrão do
+      // notificacoes_config acima.
+      if (config.operacoesGeoloc) {
+        try {
+          Object.assign(LOJAS_GEOLOC, JSON.parse(config.operacoesGeoloc));
+        } catch (e) {
+          console.error("Erro ao sincronizar operacoesGeoloc do servidor:", e);
+        }
+      }
+      if (config.operacoesConfig) {
+        try {
+          Object.assign(OPERACOES_CONFIG, JSON.parse(config.operacoesConfig));
+        } catch (e) {
+          console.error("Erro ao sincronizar operacoesConfig do servidor:", e);
+        }
+      }
+
       // Chave mestra de notificações de eventos (default: desativada)
       localStorage.setItem(NOTIF_MASTER_KEY, notifMasterFromValue(config.notificacoes_eventos_ativas) ? "1" : "0");
       renderNotificationTable();
@@ -1674,21 +1694,31 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Toggle expandir/colapsar grupos da sidebar (Acordeão suave)
+// Toggle expandir/colapsar grupos da sidebar (Acordeão: abrir um grupo
+// recolhe automaticamente os demais, evitando uma sidebar gigante quando
+// vários grupos ficam abertos ao mesmo tempo).
 document.querySelectorAll(".sidebar-group-header").forEach(header => {
   header.addEventListener("click", () => {
     const group = header.closest(".sidebar-group");
-    if (group) {
-      const isExpanded = group.classList.contains("expanded");
-      if (isExpanded) {
-        group.classList.remove("expanded");
-        group.classList.add("collapsed");
-        header.setAttribute("aria-expanded", "false");
-      } else {
-        group.classList.remove("collapsed");
-        group.classList.add("expanded");
-        header.setAttribute("aria-expanded", "true");
-      }
+    if (!group) return;
+    const isExpanded = group.classList.contains("expanded");
+
+    document.querySelectorAll(".sidebar-group.expanded").forEach(outroGrupo => {
+      if (outroGrupo === group) return;
+      outroGrupo.classList.remove("expanded");
+      outroGrupo.classList.add("collapsed");
+      const outroHeader = outroGrupo.querySelector(".sidebar-group-header");
+      if (outroHeader) outroHeader.setAttribute("aria-expanded", "false");
+    });
+
+    if (isExpanded) {
+      group.classList.remove("expanded");
+      group.classList.add("collapsed");
+      header.setAttribute("aria-expanded", "false");
+    } else {
+      group.classList.remove("collapsed");
+      group.classList.add("expanded");
+      header.setAttribute("aria-expanded", "true");
     }
   });
 });
@@ -9179,17 +9209,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const btnSaveOperacoes = document.getElementById("config-btn-save-operacoes");
   if (btnSaveOperacoes) {
-    btnSaveOperacoes.addEventListener("click", () => {
-      config.operacoesGeoloc = config.operacoesGeoloc || {};
-      config.operacoesConfig = config.operacoesConfig || {};
+    btnSaveOperacoes.addEventListener("click", async () => {
+      const novoGeoloc = {};
+      const novoConfig = {};
 
       document.querySelectorAll(".config-op-lat").forEach(input => {
         const operacao = input.dataset.operacao;
         const lat = parseFloat(input.value) || 0;
         const lngInput = document.querySelector(`.config-op-lng[data-operacao="${operacao}"]`);
         const lng = lngInput ? (parseFloat(lngInput.value) || 0) : 0;
-        config.operacoesGeoloc[operacao] = { lat, lng };
-        LOJAS_GEOLOC[operacao] = { lat, lng };
+        novoGeoloc[operacao] = { lat, lng };
       });
 
       document.querySelectorAll(".config-op-abertura").forEach(input => {
@@ -9199,12 +9228,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const metaInput = document.querySelector(`.config-op-meta[data-operacao="${operacao}"]`);
         const fechamento = fechamentoInput ? (fechamentoInput.value || "22:00") : "22:00";
         const metaDiaria = metaInput ? (parseFloat(metaInput.value) || 0) : 0;
-        config.operacoesConfig[operacao] = { abertura, fechamento, metaDiaria };
-        OPERACOES_CONFIG[operacao] = { abertura, fechamento, metaDiaria };
+        novoConfig[operacao] = { abertura, fechamento, metaDiaria };
       });
 
+      const semCoordenadas = Object.keys(novoGeoloc).filter(op => novoGeoloc[op].lat === 0 && novoGeoloc[op].lng === 0);
+
+      btnSaveOperacoes.disabled = true;
+      // Persiste no backend (tabela `configuracoes`, cadastro centralizado — vale
+      // para todos os dispositivos/colaboradoras, não só para quem salvou), com
+      // fallback local se a API estiver offline no momento do salvamento.
+      const okGeoloc = await salvarConfigAPI("operacoesGeoloc", JSON.stringify(novoGeoloc));
+      const okConfig = await salvarConfigAPI("operacoesConfig", JSON.stringify(novoConfig));
+      btnSaveOperacoes.disabled = false;
+
+      Object.assign(LOJAS_GEOLOC, novoGeoloc);
+      Object.assign(OPERACOES_CONFIG, novoConfig);
+      config.operacoesGeoloc = novoGeoloc;
+      config.operacoesConfig = novoConfig;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      showToast("Localização, horários e metas das operações salvos com sucesso!", "sucesso");
+
+      if (okGeoloc && okConfig) {
+        if (semCoordenadas.length > 0) {
+          showToast(`Salvo! Atenção: ${semCoordenadas.join(", ")} ainda ${semCoordenadas.length > 1 ? "estão" : "está"} com coordenadas 0,0 — a cerca virtual vai bloquear a marcação de ponto até isso ser corrigido.`, "erro");
+        } else {
+          showToast("Localização, horários e metas das operações salvos para todos os dispositivos!", "sucesso");
+        }
+      } else {
+        showToast("Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar para valer nas demais colaboradoras.", "erro");
+      }
     });
   }
 
