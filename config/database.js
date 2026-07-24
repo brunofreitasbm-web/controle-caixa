@@ -21,7 +21,11 @@ const camelCaseMap = {
   metamensal: 'metaMensal',
   importadoem: 'importadoEm',
   vendaacumulada: 'vendaAcumulada',
-  registradopor: 'registradoPor'
+  registradopor: 'registradoPor',
+  hasbiometricenrolled: 'hasBiometricEnrolled',
+  tentativasfalhas: 'tentativasFalhas',
+  bloqueadoate: 'bloqueadoAte',
+  ultimatentativaem: 'ultimaTentativaEm'
 };
 
 function normalizeRow(row) {
@@ -274,6 +278,15 @@ function initDb(onSuccess) {
           criadoEm TEXT,
           atualizadoEm TEXT
         )`,
+        // Controle de tentativas de cadastro biométrico (self-enrollment).
+        // Separada de ponto_biometria porque o embedding lá é NOT NULL — aqui
+        // um usuário pode acumular falhas sem nunca ter tido um embedding.
+        `CREATE TABLE IF NOT EXISTS biometria_tentativas (
+          usuario TEXT PRIMARY KEY,
+          tentativasFalhas INTEGER DEFAULT 0,
+          bloqueadoAte TEXT,
+          ultimaTentativaEm TEXT
+        )`,
         // DOUBLE PRECISION (não REAL): no Postgres, REAL é float4 e arredonda
         // valores monetários acima de ~7 dígitos (264634,67 viraria 264635).
         // No SQLite o nome mapeia para afinidade REAL (double de 8 bytes).
@@ -405,6 +418,12 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE boletos ADD COLUMN parcela TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN hasBiometricEnrolled INTEGER DEFAULT 0', [], () => resolve());
         });
       });
 
