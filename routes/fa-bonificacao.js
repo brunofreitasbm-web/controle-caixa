@@ -160,7 +160,7 @@ const REGRA_LOCACOES_PADRAO = {
   metaSabado: 45,
   metaDomingo: 40,
   ticketMedio: 48,
-  pisoMes: 455,
+  pisoMes: 480,
   metaMes: 840,
   superMetaMes: 1110,
   farolVerde: 1.0,

@@ -3161,7 +3161,7 @@ function renderFaMetaDashboard(resultado, regra) {
 // ==========================================================================
 const REGRA_LOCACOES_FALLBACK = {
   metaSegQui: 20, metaSexta: 38, metaSabado: 45, metaDomingo: 40,
-  ticketMedio: 48, pisoMes: 455, metaMes: 840, superMetaMes: 1110,
+  ticketMedio: 48, pisoMes: 480, metaMes: 840, superMetaMes: 1110,
   farolVerde: 1.0, farolAmarelo: 0.8
 };
 
@@ -3263,54 +3263,54 @@ function renderFaLocacoesDashboard(lancamentos, regra) {
   const receitaReal = envelopesMes.reduce((s, r) => s + (parseMoeda(r.valorEnvelope) || 0), 0);
   const ticketMedioReal = totalMes > 0 ? receitaReal / totalMes : 0;
 
-  // Cálculo da Bonificação conforme o Plano de Bonificação (Circuito)
+  // Cálculo da Bonificação conforme o Plano de Bonificação (Circuito - CIRCUITO.docx)
   let bonusVolume = 0;
-  if (totalMes >= (regra.metaMes || 1500) && totalMes < (regra.superMetaMes || 1950)) {
+  if (totalMes >= 1500 && totalMes < 1950) {
     bonusVolume = 300;
-  } else if (totalMes >= (regra.superMetaMes || 1950)) {
-    const blocosAcima = Math.floor((totalMes - (regra.superMetaMes || 1950)) / 50);
+  } else if (totalMes >= 1950) {
+    const blocosAcima = Math.floor((totalMes - 1950) / 50);
     bonusVolume = 600 + (blocosAcima * 10);
   }
 
-  // Bônus por captura de excedente: R$ 100 se ticket médio real >= R$ 27 e superou o piso (824)
+  // Bônus por captura de excedente: R$ 100 se ticket médio real >= R$ 27 e superou o piso de bonificação (824)
   let bonusExcedente = 0;
-  const ticketMedioMeta = (regra.ticketMedio === 48) ? 27 : (regra.ticketMedio || 27); // se for o padrão de 48, assume a regra de 27 de excedente do docx
-  if (ticketMedioReal >= ticketMedioMeta && totalMes >= (regra.pisoMes || 824)) {
+  const ticketMedioMeta = 27; 
+  if (ticketMedioReal >= ticketMedioMeta && totalMes >= 824) {
     bonusExcedente = 100;
   }
 
   const bonusTotalAtendente = bonusVolume + bonusExcedente;
 
-  // Progresso do mês contra a meta
-  const pct = (regra.metaMes || 1500) > 0 ? Math.min(100, (totalMes / (regra.metaMes || 1500)) * 100) : 0;
+  // Progresso do mês contra a meta comercial (Plano de Negócios)
+  const pct = (regra.metaMes || 840) > 0 ? Math.min(100, (totalMes / (regra.metaMes || 840)) * 100) : 0;
   const bar = document.getElementById("fa-loc-gauge-bar");
   if (bar) {
     bar.style.width = `${pct}%`;
-    bar.style.background = totalMes >= (regra.metaMes || 1500) ? "#16a34a" : (totalMes >= (regra.pisoMes || 824) ? "#d4af37" : "#dc2626");
+    bar.style.background = totalMes >= (regra.metaMes || 840) ? "#16a34a" : (totalMes >= (regra.pisoMes || 480) ? "#d4af37" : "#dc2626");
   }
   const labelMes = document.getElementById("fa-loc-mes-label");
-  if (labelMes) labelMes.textContent = `${totalMes} / ${regra.metaMes || 1500} locações`;
+  if (labelMes) labelMes.textContent = `${totalMes} / ${regra.metaMes || 840} locações`;
 
   // Marcas de piso e super-meta na barra (relativas à meta = 100%)
   const marcaPiso = document.getElementById("fa-loc-marca-piso");
   const marcaSuper = document.getElementById("fa-loc-marca-super");
-  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, ((regra.pisoMes || 824) / (regra.metaMes || 1500)) * 100)}%`;
-  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, ((regra.superMetaMes || 1950) / (regra.metaMes || 1500)) * 100)}%`;
+  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, ((regra.pisoMes || 480) / (regra.metaMes || 840)) * 100)}%`;
+  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, ((regra.superMetaMes || 1110) / (regra.metaMes || 840)) * 100)}%`;
 
-  // Mensagem motivacional por faixa
+  // Mensagem motivacional por faixa comercial (Plano de Negócios)
   const msg = document.getElementById("fa-loc-mensagem-motivacional");
   if (msg) {
-    if (totalMes >= (regra.superMetaMes || 1950)) {
-      msg.textContent = `🏆 Super-meta batida! Bônus de volume: ${formatBRL(bonusVolume)} por atendente!`;
+    if (totalMes >= (regra.superMetaMes || 1110)) {
+      msg.textContent = `🏆 Super-meta batida! Desempenho excelente no mês!`;
       msg.style.color = "#16a34a";
-    } else if (totalMes >= (regra.metaMes || 1500)) {
-      msg.textContent = `🎉 Meta do mês batida! Bônus de volume: ${formatBRL(bonusVolume)}. Faltam ${(regra.superMetaMes || 1950) - totalMes} locações para a super-meta 🏆`;
+    } else if (totalMes >= (regra.metaMes || 840)) {
+      msg.textContent = `🎉 Meta do mês batida! Faltam ${(regra.superMetaMes || 1110) - totalMes} locações para a super-meta 🏆`;
       msg.style.color = "#16a34a";
-    } else if (totalMes >= (regra.pisoMes || 824)) {
-      msg.textContent = `💪 Piso garantido! Faltam ${(regra.metaMes || 1500) - totalMes} locações para a meta 🎯`;
+    } else if (totalMes >= (regra.pisoMes || 480)) {
+      msg.textContent = `💪 Piso garantido! Faltam ${(regra.metaMes || 840) - totalMes} locações para a meta 🎯`;
       msg.style.color = "#d97706";
     } else {
-      msg.textContent = `Faltam ${(regra.pisoMes || 824) - totalMes} locações para garantir o piso do mês. Bora empurrar a pelúcia! 🧸`;
+      msg.textContent = `Faltam ${(regra.pisoMes || 480) - totalMes} locações para garantir o ponto de equilíbrio do mês. Bora focar nas vendas! 🧸`;
       msg.style.color = "var(--muted)";
     }
   }
@@ -3320,11 +3320,11 @@ function renderFaLocacoesDashboard(lancamentos, regra) {
   if (cardsWrap) {
     cardsWrap.innerHTML = "";
     const cards = [
-      { titulo: "Locações no Mês", valor: totalMes, meta: `piso ${regra.pisoMes || 824} / meta ${regra.metaMes || 1500}` },
+      { titulo: "Locações no Mês", valor: totalMes, meta: `piso ${regra.pisoMes || 480} / meta ${regra.metaMes || 840}` },
       { titulo: "Receita Real (Caixa)", valor: formatBRL(receitaReal), meta: `realizada em fechamentos` },
       { titulo: "Ticket Médio Real", valor: formatBRL(ticketMedioReal), meta: `meta excedente: ${formatBRL(ticketMedioMeta)}` },
-      { titulo: "Bônus Volume", valor: formatBRL(bonusVolume), meta: totalMes >= (regra.metaMes || 1500) ? "✅ Garantido" : "Abaixo da Meta" },
-      { titulo: "Bônus Excedente", valor: formatBRL(bonusExcedente), meta: bonusExcedente > 0 ? "✅ Qualificado" : "Fora da Meta" },
+      { titulo: "Bônus Volume", valor: formatBRL(bonusVolume), meta: totalMes >= 1500 ? "✅ Garantido" : "Abaixo da Meta (1500)" },
+      { titulo: "Bônus Excedente", valor: formatBRL(bonusExcedente), meta: bonusExcedente > 0 ? "✅ Qualificado" : "Fora da Meta (Piso 824)" },
       { titulo: "BÔNUS POR ATENDENTE", valor: formatBRL(bonusTotalAtendente), meta: "volume + excedente", destaque: true }
     ];
     cards.forEach(info => {
