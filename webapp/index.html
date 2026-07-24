@@ -160,6 +160,34 @@
   </div>
 </div>
 
+<!-- ===================== CÂMERA UNIVERSAL (fullscreen, multi-modo) ===================== -->
+<div id="camera-universal-overlay" class="camera-universal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="camera-universal-status-text">
+  <div class="camera-universal-video-wrap">
+    <video id="camera-universal-video" autoplay playsinline muted></video>
+  </div>
+  <canvas id="camera-universal-analysis-canvas" class="hidden"></canvas>
+
+  <div id="camera-universal-mask" class="camera-universal-mask camera-universal-mask-oval state-invalid">
+    <div class="camera-universal-mask-frame"></div>
+  </div>
+
+  <div class="camera-universal-header">
+    <button type="button" id="camera-universal-close" class="camera-universal-close" aria-label="Fechar câmera">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <div class="camera-universal-status">
+    <span id="camera-universal-status-text">Aproxime o rosto</span>
+  </div>
+
+  <div class="camera-universal-actions">
+    <button type="button" id="camera-universal-capture" class="camera-universal-capture-btn" disabled>
+      <i class="fa-solid fa-camera"></i> Capturar
+    </button>
+  </div>
+</div>
+
 <div id="app" class="app-layout hidden">
 
   <!-- Backdrop overlay for mobile drawer -->
@@ -2657,6 +2685,13 @@
                     <i class="fa-solid fa-right-from-bracket"></i> Sair / Mudar Usuário
                   </button>
                 </div>
+
+                <div class="pt-2">
+                  <button type="button" id="config-btn-cadastrar-biometria" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 hidden">
+                    <i class="fa-solid fa-face-viewfinder"></i> Cadastrar Biometria
+                  </button>
+                  <p id="config-biometria-status" class="text-[11px] text-muted mt-2 hidden"></p>
+                </div>
               </div>
             </div>
           </div>
@@ -3101,6 +3136,7 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
+<script src="camera-universal.js?v=1"></script>
 <script src="app.js?v=7"></script>
 </body>
 </html>

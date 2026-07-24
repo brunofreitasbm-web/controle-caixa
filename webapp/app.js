@@ -4789,7 +4789,7 @@ async function carregarColaboradores() {
       const res = await fetch(`${API_BASE}/colaboradores`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        USERS = data.map(c => ({ nome: c.nome, role: c.role }));
+        USERS = data.map(c => ({ nome: c.nome, role: c.role, hasBiometricEnrolled: !!c.hasBiometricEnrolled }));
         localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
 
         // FORÇAR ATUALIZAÇÃO DO ROLE SE MUDOU NO BANCO
@@ -4803,6 +4803,10 @@ async function carregarColaboradores() {
             if (typeof iniciarModuloBase === "function") {
               iniciarModuloBase();
             }
+          }
+          if (userDb) {
+            currentUser.hasBiometricEnrolled = userDb.hasBiometricEnrolled;
+            localStorage.setItem("session_user", JSON.stringify(currentUser));
           }
         }
       }
@@ -4873,6 +4877,9 @@ async function renderizarColaboradores() {
 
     const labelRole = roleLabels[u.role] || u.role;
     const styleBadge = roleStyles[u.role] || "background: rgba(0,0,0,0.06); color: #333;";
+    const btnResetarBiometriaHtml = u.hasBiometricEnrolled
+      ? `<button class="btn-mini-outline btn-resetar-biometria" data-nome="${u.nome}" style="margin-right: 6px;">🧑‍💻 Resetar Biometria</button>`
+      : "";
 
     tr.innerHTML = `
       <td><strong>${u.nome}</strong></td>
@@ -4880,6 +4887,7 @@ async function renderizarColaboradores() {
       <td>${statusPinHtml}</td>
       <td style="text-align: right; white-space: nowrap;">
         <button class="btn-mini-outline btn-alterar-pin" data-nome="${u.nome}" style="margin-right: 6px;">✏️ Alterar PIN</button>
+        ${btnResetarBiometriaHtml}
         <button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: #d9534f; border-color: #d9534f;">🗑️ Excluir</button>
       </td>
     `;
@@ -4890,9 +4898,41 @@ async function renderizarColaboradores() {
     btn.onclick = () => abrirModalAdminPin(btn.dataset.nome);
   });
 
+  tbody.querySelectorAll(".btn-resetar-biometria").forEach(btn => {
+    btn.onclick = () => resetarBiometriaColaborador(btn.dataset.nome);
+  });
+
   tbody.querySelectorAll(".btn-excluir-colab").forEach(btn => {
     btn.onclick = () => excluirColaborador(btn.dataset.nome);
   });
+}
+
+async function resetarBiometriaColaborador(nome) {
+  if (!currentUser || currentUser.role !== "owner") {
+    showToast("Apenas administradores podem resetar a biometria.", "erro");
+    return;
+  }
+  const ok = await showModal(`Deseja resetar a biometria facial de "${nome}"? O colaborador precisará cadastrar o rosto novamente e as tentativas de bloqueio serão liberadas.`, {
+    title: "Resetar Biometria",
+    icon: "🧑‍💻",
+    btnText: "Resetar Biometria",
+    btnClass: "btn-danger"
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/colaboradores/${encodeURIComponent(nome)}/reset-biometria`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorUsuario: currentUser.nome })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast(`Biometria de ${nome} resetada com sucesso.`, "sucesso");
+    renderizarColaboradores();
+  } catch (e) {
+    console.error("Erro ao resetar biometria:", e);
+    showToast("Não foi possível resetar a biometria.", "erro");
+  }
 }
 
 let usuarioPinAdminEmEdicao = null;
@@ -9024,6 +9064,8 @@ function inicializarPainelConfiguracoes() {
   const configTimeoutSelect = document.getElementById("config-timeout-select");
   if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
 
+  atualizarBotaoCadastroBiometria();
+
   // Mostrar aba do WhatsApp se for owner/administrador
   const cardWa = document.getElementById("config-card-whatsapp");
   if (currentUser.role === "owner") {
@@ -9114,6 +9156,58 @@ function inicializarPainelConfiguracoes() {
 
 }
 
+// --- Self-enrollment biométrico (Configurações) ---
+
+function atualizarBotaoCadastroBiometria() {
+  const btn = document.getElementById("config-btn-cadastrar-biometria");
+  const status = document.getElementById("config-biometria-status");
+  if (!btn || !status || !currentUser) return;
+
+  if (currentUser.hasBiometricEnrolled) {
+    btn.classList.add("hidden");
+    status.textContent = "Biometria facial já cadastrada.";
+    status.classList.remove("hidden");
+  } else {
+    btn.classList.remove("hidden");
+    btn.disabled = false;
+    status.classList.add("hidden");
+  }
+}
+
+function abrirCadastroBiometria() {
+  const btn = document.getElementById("config-btn-cadastrar-biometria");
+  const status = document.getElementById("config-biometria-status");
+
+  CameraUniversal.open("enrollment", {
+    usuario: currentUser.nome,
+    onCapture: async (result) => {
+      if (result.status === "ENROLLED") {
+        currentUser.hasBiometricEnrolled = true;
+        localStorage.setItem("session_user", JSON.stringify(currentUser));
+        await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+        atualizarBotaoCadastroBiometria();
+      } else if (result.status === "REJECTED_RETRYABLE") {
+        showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+      } else if (result.status === "TEMPORARILY_BLOCKED") {
+        showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+        if (status) {
+          status.textContent = "Cadastro bloqueado temporariamente. Procure o RH/Administrador.";
+          status.classList.remove("hidden");
+        }
+        if (btn) btn.disabled = true;
+      } else {
+        showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+      }
+    },
+    onCancel: (err) => {
+      if (err) {
+        console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+        showToast("Não foi possível acessar a câmera.", "erro");
+      }
+    }
+  });
+}
+
 // Configurações: Ouvir eventos após o carregamento da página
 document.addEventListener("DOMContentLoaded", () => {
   // Alteração do Timeout
@@ -9149,6 +9243,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const btnTrocarUser = document.getElementById("btn-trocar-usuario");
       if (btnTrocarUser) btnTrocarUser.click();
     });
+  }
+
+  const btnCadastrarBiometria = document.getElementById("config-btn-cadastrar-biometria");
+  if (btnCadastrarBiometria) {
+    btnCadastrarBiometria.addEventListener("click", abrirCadastroBiometria);
   }
 
   // Salvar links do WhatsApp (Owner)
@@ -10076,7 +10175,7 @@ function iniciarDeteccaoFacial() {
         await fetch(`${API_BASE}/ponto/biometria`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ usuario: currentUser.nome, embedding: descriptor })
+          body: JSON.stringify({ usuario: currentUser.nome, embedding: descriptor, detectionScore: deteccao.detection.score })
         });
         pontoFaceEmbeddingSalvo = descriptor;
         pontoFaceVerificada = true;

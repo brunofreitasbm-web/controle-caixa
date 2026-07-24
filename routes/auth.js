@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
+const requireOwner = require('./middleware/requireOwner');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -138,7 +139,7 @@ router.delete('/pins/:usuario', (req, res) => {
 router.get('/colaboradores', (req, res) => {
   db.all('SELECT * FROM colaboradores ORDER BY nome ASC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+    res.json((rows || []).map(normalizeRow));
   });
 });
 
@@ -158,6 +159,24 @@ router.post('/colaboradores', (req, res) => {
       res.json({ success: true, nome: nomeTrim, role });
     }
   );
+});
+
+// Redefinição excepcional de biometria — apenas Admin/Owner. Limpa o
+// embedding cadastrado e o histórico de tentativas/bloqueio, liberando o
+// colaborador para um novo self-enrollment do zero.
+router.post('/colaboradores/:nome/reset-biometria', requireOwner, (req, res) => {
+  const { nome } = req.params;
+
+  db.run('UPDATE colaboradores SET hasBiometricEnrolled = 0 WHERE nome = ?', [nome], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    db.run('DELETE FROM ponto_biometria WHERE usuario = ?', [nome], (err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      db.run('DELETE FROM biometria_tentativas WHERE usuario = ?', [nome], (err3) => {
+        if (err3) return res.status(500).json({ error: err3.message });
+        res.json({ success: true });
+      });
+    });
+  });
 });
 
 router.delete('/colaboradores/:nome', (req, res) => {
