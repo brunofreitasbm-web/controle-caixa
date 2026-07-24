@@ -264,6 +264,16 @@ function initDb(onSuccess) {
           status TEXT,
           criadoEm TEXT
         )`,
+        // Embedding facial (128 floats, JSON) para reconhecimento no Registro
+        // de Ponto — uma linha por usuário, reaproveitada em toda marcação
+        // futura. TEXT funciona igual em SQLite/Postgres, sem precisão a perder
+        // (é serializado, não somado no SQL).
+        `CREATE TABLE IF NOT EXISTS ponto_biometria (
+          usuario TEXT PRIMARY KEY,
+          embedding TEXT NOT NULL,
+          criadoEm TEXT,
+          atualizadoEm TEXT
+        )`,
         // DOUBLE PRECISION (não REAL): no Postgres, REAL é float4 e arredonda
         // valores monetários acima de ~7 dígitos (264634,67 viraria 264635).
         // No SQLite o nome mapeia para afinidade REAL (double de 8 bytes).

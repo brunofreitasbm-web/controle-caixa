@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v2';
+const CACHE_NAME = 'ponto-pwa-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -21,7 +21,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS_TO_CACHE);
-    })
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -35,7 +35,7 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -50,7 +50,9 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
+    // ignoreSearch: assets como style.css?v=6/app.js?v=7 têm query de cache-busting
+    // no HTML, mas foram precacheados sem ela — sem isso, todo load era cache miss.
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
       if (cachedResponse) {
         fetch(event.request).then(networkResponse => {
           if (networkResponse.status === 200) {
@@ -59,7 +61,9 @@ self.addEventListener('fetch', event => {
         }).catch(() => {});
         return cachedResponse;
       }
-      return fetch(event.request);
+      // Sem cache e sem rede (servidor fora do ar/offline): antes rejeitava sem
+      // catch, virando "Uncaught (in promise) TypeError: Failed to fetch" no console.
+      return fetch(event.request).catch(() => caches.match('/index.html'));
     })
   );
 });

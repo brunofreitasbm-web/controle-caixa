@@ -41,6 +41,8 @@
 <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
 <!-- jsPDF (PDF generation) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- face-api.js (biometria facial do Registro de Ponto) -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 
@@ -175,26 +177,10 @@
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
-    <!-- Quick Actions: Meta e Registrar Envelope se adaptam ao módulo ativo
-         (Cacau Show ou Faça Amigos) — ver atalhoMeta/atalhoRegistrarEnvelope. -->
-    <div class="quick-actions-grid">
-      <button class="quick-action-item" onclick="document.getElementById('tab-btn-controle-ponto').click();" aria-label="Registro de Ponto">
-        <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>Registro de Ponto</span>
-      </button>
-      <button class="quick-action-item" onclick="document.getElementById('tab-btn-conferencia-nfe')?.click();" aria-label="Inventário/Conferência">
-        <i class="fa-solid fa-truck"></i>
-        <span>Conferência</span>
-      </button>
-      <button class="quick-action-item" onclick="atalhoMeta();" aria-label="Meta">
-        <i class="fa-solid fa-bullseye"></i>
-        <span>Meta</span>
-      </button>
-      <button class="quick-action-item" onclick="atalhoRegistrarEnvelope();" aria-label="Registrar Envelope (Fechamento)">
-        <i class="fa-solid fa-file-signature"></i>
-        <span>Registrar Envelope</span>
-      </button>
-    </div>
+    <!-- Menu rápido: gerado por renderMenuRapido() a partir de QUICK_MENU_POR_ROLE,
+         curado por perfil (Owner vê 3 itens de consolidação; Colaborador/Líder
+         veem as rotinas operacionais; Faça Amigos vê seus próprios atalhos). -->
+    <div class="quick-actions-grid" id="quick-actions-grid"></div>
 
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
       <div class="sidebar-group collapsed" id="group-controle-caixa">
@@ -2320,8 +2306,24 @@
                 <i class="fa-solid fa-camera text-3xl text-brand-600 mb-2"></i>
                 <p class="text-[11px] text-brand-400">Ative a câmera para bater ponto</p>
               </div>
+              <!-- Grade de biometria facial: só aparece com a câmera ligada -->
+              <div id="ponto-face-overlay" class="hidden absolute inset-0 pointer-events-none">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full">
+                  <line x1="33.33" y1="0" x2="33.33" y2="100" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
+                  <line x1="66.66" y1="0" x2="66.66" y2="100" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
+                  <line x1="0" y1="33.33" x2="100" y2="33.33" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
+                  <line x1="0" y1="66.66" x2="100" y2="66.66" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
+                  <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="currentColor" stroke-width="0.6" class="text-brand-300/70" />
+                </svg>
+              </div>
             </div>
-            
+
+            <!-- Estado da verificação facial -->
+            <div id="ponto-face-banner" class="hidden w-full mb-4 p-2.5 rounded-xl border text-[11px] font-bold text-center transition">
+              <i id="ponto-face-banner-icon" class="fa-solid fa-camera mr-1"></i>
+              <span id="ponto-face-banner-texto">Coleta de padrão biométrico inicial</span>
+            </div>
+
             <button type="button" id="btn-ponto-ativar-cam" class="w-full py-2 bg-brand-800 hover:bg-brand-700 text-brand-100 font-bold rounded-xl text-xs transition mb-4">
               <i class="fa-solid fa-video mr-1"></i> Ativar Câmera
             </button>
@@ -3098,20 +3100,9 @@
 
 <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-<!-- Bottom Navigation (Mobile PWA — #7) -->
-<nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile">
-  <button class="bottom-nav-btn active" data-tab="registro"><span class="nav-icon"><i class="fa-solid fa-file-signature"></i></span>Registro</button>
-  <button class="bottom-nav-btn" data-tab="meta-hora-hora"><span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>Meta</button>
-  <button class="bottom-nav-btn" data-tab="dashboard"><span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>Dashboard</button>
-  <button class="bottom-nav-btn" data-tab="historico"><span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>Histórico</button>
-  <button class="bottom-nav-btn" data-tab="mensal"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Mensal</button>
-  <button class="bottom-nav-btn" data-tab="conferencia-nfe"><span class="nav-icon"><i class="fa-solid fa-truck"></i></span>NF-e</button>
-  <button class="bottom-nav-btn" data-tab="inventario-estoque"><span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span>Estoque</button>
-  <button class="bottom-nav-btn" id="bottom-nav-controle-ponto" data-tab="controle-ponto"><span class="nav-icon"><i class="fa-solid fa-clock"></i></span>Ponto</button>
-  <button class="bottom-nav-btn hidden" data-tab="auditoria"><span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>Auditoria</button>
-  <button class="bottom-nav-btn hidden fa-nav-btn" data-tab="faca-amigos"><span class="nav-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>FA</button>
-  <button class="bottom-nav-btn hidden" id="bottom-nav-colaboradores" data-tab="colaboradores"><span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span>Colab</button>
-</nav>
+<!-- Bottom Navigation (Mobile PWA — #7). Conteúdo gerado por renderMenuRapido()
+     a partir de QUICK_MENU_POR_ROLE, curado por perfil. -->
+<nav id="bottom-nav" class="bottom-nav hidden" aria-label="Navegação mobile"></nav>
 
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>

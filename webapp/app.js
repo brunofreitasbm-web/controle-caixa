@@ -68,6 +68,10 @@ const OPERACOES_CONFIG = {
 // Unidades do Faça Amigos (mesmos rótulos de LOJAS_FA / seletor #fa-loja).
 const UNIDADES_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
 
+// Biometria facial do Registro de Ponto (face-api.js).
+const FACE_DETECTION_MIN_CONFIDENCE = 0.85; // confiança mínima do detector p/ considerar que há um rosto nítido
+const FACE_MATCH_MAX_DISTANCE = 0.5;        // distância euclidiana máx. entre embeddings p/ considerar "mesma pessoa"
+
 // Perfis de acesso:
 // consultora            -> só "Novo Registro"
 // consultora_dashboard   -> "Novo Registro" + "Dashboard de Envelopes"
@@ -91,10 +95,44 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
+};
+
+// Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
+// curado por perfil — diferente de TABS_POR_ROLE, que continua controlando a
+// sidebar completa. `faSubtab`, quando presente, pula direto para a sub-aba
+// certa dentro de "faca-amigos" (mesmo padrão dos botões tab-btn-fa-*).
+const QUICK_MENU_POR_ROLE = {
+  consultora: [
+    { tab: "registro", icon: "fa-file-signature", label: "Registrar Caixa" },
+    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto" },
+    { tab: "meta-hora-hora", icon: "fa-bullseye", label: "Metas Hora a Hora" },
+    { tab: "conferencia-nfe", icon: "fa-truck", label: "Conferência NF-e" },
+    { tab: "inventario-estoque", icon: "fa-clipboard-list", label: "Inventário" },
+  ],
+  consultora_dashboard: [
+    { tab: "registro", icon: "fa-file-signature", label: "Registrar Caixa" },
+    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto" },
+    { tab: "meta-hora-hora", icon: "fa-bullseye", label: "Metas Hora a Hora" },
+    { tab: "conferencia-nfe", icon: "fa-truck", label: "Conferência NF-e" },
+    { tab: "inventario-estoque", icon: "fa-clipboard-list", label: "Inventário" },
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard" },
+    { tab: "historico", icon: "fa-receipt", label: "Histórico" },
+    { tab: "importacoes", icon: "fa-file-import", label: "Importações" },
+    { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+  ],
+  consultora_fa: [
+    { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope" },
+    { tab: "faca-amigos", faSubtab: "fa-meta", icon: "fa-bullseye", label: "Meta & Bonificação" },
+  ],
+  owner: [
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS" },
+    { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA" },
+    { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+  ],
 };
 
 // Mapeamento de perfis para as preferências de notificação
@@ -1209,7 +1247,9 @@ function iniciarModuloBase(moduloOpcional) {
   if (moduloOpcional) {
     localStorage.setItem("ultimoModulo_" + currentUser.nome, moduloOpcional);
     if (moduloOpcional === "cacau-show") {
-      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo" && tab !== "controle-ponto");
+      // controle-ponto continua liberado aqui: virou item normal de menu para
+      // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
+      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos", "configuracoes"];
@@ -1266,11 +1306,8 @@ function iniciarModuloBase(moduloOpcional) {
     group.classList.toggle("hidden", !temTabVisivel);
   });
 
-  // Sync bottom nav visibility (#7)
-  document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
-    const permitido = tabsPermitidas.includes(btn.dataset.tab);
-    btn.classList.toggle("hidden", !permitido);
-  });
+  // Menu rápido (grade desktop + barra mobile), curado por perfil
+  renderMenuRapido();
   document.getElementById("bottom-nav").classList.remove("hidden");
   document.getElementById("fab-novo-registro").classList.remove("hidden");
 
@@ -1548,10 +1585,16 @@ function ativarTab(tabName) {
     inicializarPainelConfiguracoes();
   }
 
-  // Sync bottom nav (#7)
-  document.querySelectorAll(".bottom-nav-btn").forEach(b => b.classList.remove("active"));
-  const activeBottom = document.querySelector(`.bottom-nav-btn[data-tab="${tabName}"]`);
-  if (activeBottom) activeBottom.classList.add("active");
+  // Sync bottom nav + grade de atalhos (#7). Quando duas pílulas apontam pro
+  // mesmo data-tab (ex.: "Registrar Envelope" e "Meta & Bonificação", ambas
+  // faca-amigos), prioriza a que casa também com a sub-aba atual — cada
+  // superfície (mobile/desktop) é resolvida separadamente.
+  document.querySelectorAll(".bottom-nav-btn, .quick-action-item").forEach(b => b.classList.remove("active"));
+  [".bottom-nav-btn", ".quick-action-item"].forEach(seletor => {
+    const candidatos = document.querySelectorAll(`${seletor}[data-tab="${tabName}"]`);
+    const ativo = [...candidatos].find(b => b.dataset.faSubtab === faSubTabAtiva) || candidatos[0];
+    if (ativo) ativo.classList.add("active");
+  });
 
   // Aplicar/remover tema visual FAçaAmigos
   document.body.classList.toggle("tema-fa", tabName === "faca-amigos");
@@ -1681,32 +1724,46 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 });
 
-// --- Atalhos da sidebar que se adaptam ao módulo ativo ---
-// Cacau Show e Faça Amigos têm telas distintas de Meta e de Registro de
-// Envelope; o atalho escolhe a que estiver disponível para o perfil/módulo.
-function atalhoMeta() {
-  const btnFaMeta = document.getElementById("tab-btn-fa-meta");
-  const btnCacauMeta = document.getElementById("tab-btn-meta-hora-hora");
-  if (btnFaMeta && !btnFaMeta.classList.contains("hidden")) return btnFaMeta.click();
-  if (btnCacauMeta && !btnCacauMeta.classList.contains("hidden")) return btnCacauMeta.click();
-  showToast("Nenhuma tela de Meta disponível para o seu perfil.", "erro");
-}
+// --- Menu rápido (grade desktop + barra mobile), curado por perfil ---
+// Substitui a grade de atalhos fixa e a filtragem da barra mobile por
+// tabsPermitidas: cada perfil tem sua própria lista (QUICK_MENU_POR_ROLE),
+// então os botões apontam direto pro alvo certo, sem precisar "adivinhar".
+function renderMenuRapido() {
+  const itens = QUICK_MENU_POR_ROLE[currentUser.role] || [];
 
-function atalhoRegistrarEnvelope() {
-  const btnFa = document.getElementById("tab-btn-faca-amigos");
-  const btnCacau = document.getElementById("tablink-registro");
-  if (btnFa && !btnFa.classList.contains("hidden")) {
-    faSubTabAtiva = "fa-registro";
-    return btnFa.click();
+  const criarBotao = (item, classe) => {
+    const btn = document.createElement("button");
+    btn.className = classe;
+    btn.dataset.tab = item.tab;
+    if (item.faSubtab) btn.dataset.faSubtab = item.faSubtab;
+    btn.addEventListener("click", () => {
+      if (item.faSubtab) faSubTabAtiva = item.faSubtab;
+      ativarTab(item.tab);
+    });
+    return btn;
+  };
+
+  const grade = document.getElementById("quick-actions-grid");
+  if (grade) {
+    grade.innerHTML = "";
+    itens.forEach(item => {
+      const btn = criarBotao(item, "quick-action-item");
+      btn.setAttribute("aria-label", item.label);
+      btn.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.label}</span>`;
+      grade.appendChild(btn);
+    });
   }
-  if (btnCacau && !btnCacau.classList.contains("hidden")) return btnCacau.click();
-  showToast("Nenhuma tela de Registro de Envelope disponível para o seu perfil.", "erro");
-}
 
-// Bottom nav click handlers (#7)
-document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
-  btn.addEventListener("click", () => ativarTab(btn.dataset.tab));
-});
+  const bottomNav = document.getElementById("bottom-nav");
+  if (bottomNav) {
+    bottomNav.innerHTML = "";
+    itens.forEach(item => {
+      const btn = criarBotao(item, "bottom-nav-btn");
+      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span>${item.label}`;
+      bottomNav.appendChild(btn);
+    });
+  }
+}
 
 // FAB — abre tab de registro (#7)
 document.getElementById("fab-novo-registro").addEventListener("click", () => {
@@ -9673,6 +9730,12 @@ let pontoGpsAccuracy = null;
 // NF-e/Inventário) para não recarregar essas telas ao trocar de operação aqui.
 let pontoOperacaoAtiva = null;
 let pontoGpsWatchId = null;
+
+// Biometria facial
+let modelosFaciaisCarregados = false;
+let pontoFaceVerificada = false;
+let pontoFaceEmbeddingSalvo = null; // null = ainda não checou; false = usuário sem cadastro; number[] = embedding salvo
+let pontoFaceDetectInterval = null;
 // LOJAS_GEOLOC e OPERACOES_CONFIG estão declarados no topo do arquivo (perto de
 // WHATSAPP_GRUPOS), pois carregarConfiguracoes() precisa deles antes deste ponto.
 
@@ -9756,29 +9819,143 @@ function ativarCameraPonto() {
   const video = document.getElementById("ponto-video");
   const placeholder = document.getElementById("ponto-camera-placeholder");
   const btn = document.getElementById("btn-ponto-ativar-cam");
+  const overlay = document.getElementById("ponto-face-overlay");
 
   if (pontoStream) {
     // Desativar
+    pararDeteccaoFacial();
     pontoStream.getTracks().forEach(track => track.stop());
     pontoStream = null;
     video.classList.add("hidden");
     placeholder.classList.remove("hidden");
+    overlay.classList.add("hidden");
+    esconderBannerFacial();
     btn.innerHTML = `<i class="fa-solid fa-video mr-1"></i> Ativar Câmera`;
     return;
   }
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-    .then(stream => {
+    .then(async stream => {
       pontoStream = stream;
       video.srcObject = stream;
       video.classList.remove("hidden");
       placeholder.classList.add("hidden");
+      overlay.classList.remove("hidden");
       btn.innerHTML = `<i class="fa-solid fa-video-slash mr-1"></i> Desativar Câmera`;
+
+      mostrarBannerFacial("buscando", "Carregando reconhecimento facial…");
+      await carregarModelosFaciais();
+      await verificarBiometriaCadastrada();
+      iniciarDeteccaoFacial();
     })
     .catch(err => {
       console.error("Erro ao acessar câmera:", err);
       showToast("Não foi possível acessar a câmera do dispositivo.", "erro");
     });
+}
+
+async function carregarModelosFaciais() {
+  if (modelosFaciaisCarregados) return;
+  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master";
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ]);
+  modelosFaciaisCarregados = true;
+}
+
+async function verificarBiometriaCadastrada() {
+  try {
+    const res = await fetch(`${API_BASE}/ponto/biometria/${encodeURIComponent(currentUser.nome)}`);
+    const data = await res.json();
+    pontoFaceEmbeddingSalvo = data.embedding || false;
+  } catch (err) {
+    console.error("Erro ao checar biometria cadastrada:", err);
+    pontoFaceEmbeddingSalvo = false;
+  }
+}
+
+function mostrarBannerFacial(estado, texto) {
+  const banner = document.getElementById("ponto-face-banner");
+  const icone = document.getElementById("ponto-face-banner-icon");
+  const textoEl = document.getElementById("ponto-face-banner-texto");
+  const estilos = {
+    buscando: { cls: "bg-brand-900/40 border-brand-700 text-brand-200", icon: "fa-camera" },
+    sucesso: { cls: "bg-emerald-950/40 border-emerald-800 text-emerald-400", icon: "fa-circle-check" },
+    erro: { cls: "bg-rose-950/40 border-rose-800 text-rose-400", icon: "fa-triangle-exclamation" },
+  };
+  const estilo = estilos[estado] || estilos.buscando;
+  banner.className = `w-full mb-4 p-2.5 rounded-xl border text-[11px] font-bold text-center transition ${estilo.cls}`;
+  icone.className = `fa-solid ${estilo.icon} mr-1`;
+  textoEl.textContent = texto;
+  banner.classList.remove("hidden");
+}
+
+function esconderBannerFacial() {
+  document.getElementById("ponto-face-banner").classList.add("hidden");
+}
+
+function iniciarDeteccaoFacial() {
+  pararDeteccaoFacial();
+
+  mostrarBannerFacial("buscando", pontoFaceEmbeddingSalvo === false
+    ? "Coleta de padrão biométrico inicial"
+    : "Posicione o rosto para reconhecimento");
+
+  const video = document.getElementById("ponto-video");
+  pontoFaceDetectInterval = setInterval(async () => {
+    if (!pontoStream) return;
+
+    const deteccao = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true)
+      .withFaceDescriptor();
+
+    if (!deteccao || deteccao.detection.score < FACE_DETECTION_MIN_CONFIDENCE) return;
+
+    const descriptor = Array.from(deteccao.descriptor);
+
+    if (pontoFaceEmbeddingSalvo === false) {
+      // Enrollment: primeiro cadastro do rosto desta pessoa
+      clearInterval(pontoFaceDetectInterval);
+      pontoFaceDetectInterval = null;
+      try {
+        await fetch(`${API_BASE}/ponto/biometria`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario: currentUser.nome, embedding: descriptor })
+        });
+        pontoFaceEmbeddingSalvo = descriptor;
+        pontoFaceVerificada = true;
+        mostrarBannerFacial("sucesso", "Rosto reconhecido");
+        await showModal("Biometria cadastrada com sucesso", { icon: "✅", title: "Biometria cadastrada" });
+      } catch (err) {
+        console.error("Erro ao salvar biometria:", err);
+        showToast("Não foi possível salvar a biometria facial. Tente novamente.", "erro");
+        iniciarDeteccaoFacial();
+      }
+      return;
+    }
+
+    // Verificação: compara o rosto ao vivo com o embedding já cadastrado
+    const distancia = faceapi.euclideanDistance(descriptor, pontoFaceEmbeddingSalvo);
+    if (distancia < FACE_MATCH_MAX_DISTANCE) {
+      pontoFaceVerificada = true;
+      mostrarBannerFacial("sucesso", "Rosto reconhecido");
+    } else {
+      pontoFaceVerificada = false;
+      mostrarBannerFacial("erro", "Rosto não reconhecido");
+    }
+  }, 400);
+}
+
+function pararDeteccaoFacial() {
+  if (pontoFaceDetectInterval) {
+    clearInterval(pontoFaceDetectInterval);
+    pontoFaceDetectInterval = null;
+  }
+  pontoFaceVerificada = false;
 }
 
 function ativarGPSPonto() {
@@ -9864,6 +10041,12 @@ async function registrarMarcacaoPonto(tipo) {
   
   if (dist > 50) {
     showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
+    return;
+  }
+
+  // Biometria facial: obrigatória sempre que a câmera está ativa
+  if (pontoStream && !pontoFaceVerificada) {
+    showToast("Reconhecimento facial pendente. Posicione o rosto na câmera.", "erro");
     return;
   }
 
