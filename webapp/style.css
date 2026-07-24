@@ -3447,7 +3447,11 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   background-color: var(--topbar-bg) !important;
   border-bottom: 1px solid var(--topbar-border) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
-  height: 70px;
+  /* min-height (não height): em telas estreitas o topbar empilha em várias
+     linhas (ver @media max-width:768px acima, que muda para flex-direction:
+     column) — uma altura fixa cortava essas linhas extras e o menu
+     "Trocar Módulo"/badge/avatar vazava por cima do conteúdo abaixo. */
+  min-height: 70px;
   padding: 0 24px;
 }
 
@@ -3508,7 +3512,7 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
 /* Device identification and spacing adjustments (Safe areas) */
 body.device-ios .topbar {
   padding-top: env(safe-area-inset-top);
-  height: calc(70px + env(safe-area-inset-top));
+  min-height: calc(70px + env(safe-area-inset-top));
 }
 
 body.device-ios .sidebar {
