@@ -1521,6 +1521,14 @@ function renderApp() {
   }
 }
 
+// --- Configurações Globais ---
+const btnGlobalConfig = document.getElementById("btn-global-configuracoes");
+if (btnGlobalConfig) {
+  btnGlobalConfig.addEventListener("click", () => {
+    ativarTab("configuracoes");
+  });
+}
+
 // --- Trocar PIN ---
 const modalTrocarPin = document.getElementById("modal-trocar-pin");
 document.getElementById("btn-trocar-pin").addEventListener("click", () => {
@@ -6563,7 +6571,7 @@ function renderNfCardsGallery() {
         <span class="text-xs text-brand-400 font-mono font-bold mr-6"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
       </div>
       <div class="${lojaAutoDetectada ? 'mb-3' : 'mb-2'}">
-        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-white text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
+        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-brand-900 text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
         <div class="mt-1">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800/80">
             <i class="fa-solid fa-store text-brand-500"></i> ${lojaNome} (${lojaCodigo})
@@ -8902,18 +8910,34 @@ function inicializarPainelConfiguracoes() {
   if (currentUser.role === "owner") {
     if (cardWa) cardWa.classList.remove("hidden");
     
+    function getBadgeHtml(value) {
+      const val = (value || "").trim();
+      if (!val) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800"><i class="fa-solid fa-circle-minus"></i> Pendente</span>`;
+      if (val.startsWith("https://chat.whatsapp.com/")) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800"><i class="fa-solid fa-circle-check"></i> Configurado</span>`;
+      return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-800"><i class="fa-solid fa-circle-exclamation"></i> Link Inválido</span>`;
+    }
+
     // Renderizar inputs Cacau Show
     const containerCacau = document.getElementById("config-wa-cacau-inputs");
     if (containerCacau) {
       containerCacau.innerHTML = "";
       Object.keys(WHATSAPP_GRUPOS).forEach(loja => {
+        const value = WHATSAPP_GRUPOS[loja] || "";
         const field = document.createElement("div");
         field.className = "field";
         field.innerHTML = `
-          <label class="block text-[10px] text-muted font-semibold mb-1">${loja}</label>
-          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${WHATSAPP_GRUPOS[loja] || ''}" placeholder="Link do grupo...">
+          <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
+            <span>${loja}</span>
+            <span class="status-badge">${getBadgeHtml(value)}</span>
+          </label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
         `;
         containerCacau.appendChild(field);
+        
+        // Validação em tempo real
+        field.querySelector("input").addEventListener("input", (e) => {
+          field.querySelector(".status-badge").innerHTML = getBadgeHtml(e.target.value);
+        });
       });
     }
 
@@ -8922,13 +8946,22 @@ function inicializarPainelConfiguracoes() {
     if (containerFa) {
       containerFa.innerHTML = "";
       Object.keys(WHATSAPP_GRUPOS_FA).forEach(loja => {
+        const value = WHATSAPP_GRUPOS_FA[loja] || "";
         const field = document.createElement("div");
         field.className = "field";
         field.innerHTML = `
-          <label class="block text-[10px] text-muted font-semibold mb-1">${loja}</label>
-          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${WHATSAPP_GRUPOS_FA[loja] || ''}" placeholder="Link do grupo...">
+          <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
+            <span>${loja}</span>
+            <span class="status-badge">${getBadgeHtml(value)}</span>
+          </label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
         `;
         containerFa.appendChild(field);
+
+        // Validação em tempo real
+        field.querySelector("input").addEventListener("input", (e) => {
+          field.querySelector(".status-badge").innerHTML = getBadgeHtml(e.target.value);
+        });
       });
     }
   } else {

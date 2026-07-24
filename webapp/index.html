@@ -315,24 +315,10 @@
         <span class="tab-text">Controle de Ponto</span>
       </button>
 
-      <!-- Configurações (com Colaboradores dentro) -->
-      <div class="sidebar-group collapsed" id="group-configuracoes">
-        <button class="sidebar-group-header" aria-expanded="false">
-          <span class="group-icon"><i class="fa-solid fa-sliders"></i></span>
-          <span class="group-title">Configurações</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
-            <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
-            <span class="tab-text">Colaboradores</span>
-          </button>
-          <button class="tab-btn hidden" id="tab-btn-configuracoes" data-tab="configuracoes" role="tab" aria-selected="false" aria-controls="tab-configuracoes">
-            <span class="tab-icon"><i class="fa-solid fa-sliders"></i></span>
-            <span class="tab-text">Configurações</span>
-          </button>
-        </div>
-      </div>
+      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
+        <span class="tab-icon"><i class="fa-solid fa-users-gear" style="color: #6366f1;"></i></span>
+        <span class="tab-text">Colaboradores</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -379,6 +365,9 @@
             </div>
           </div>
         </div>
+        <button id="btn-global-configuracoes" class="icon-btn" title="Configurações" aria-label="Configurações" style="margin-left: 4px; display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-gear"></i>
+        </button>
         <!-- Perfil do Usuário (BlueDox Style) -->
         <div id="topbar-user-profile" class="user-profile-header" style="position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
           <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização"></span>
@@ -514,7 +503,7 @@
           <p class="text-xs text-brand-100 mt-1">Acompanhamento geral de envelopes em trânsito e fechamentos do dia.</p>
         </div>
         <div class="flex items-center gap-3">
-          <div class="dash-total text-xs font-bold bg-brand-950 border border-brand-800 px-3 py-1.5 rounded-xl text-brand-200" id="dash-total-geral">R$ 0,00 em trânsito</div>
+          <div class="dash-total" id="dash-total-geral">R$ 0,00 em trânsito</div>
         </div>
       </div>
 
@@ -1353,21 +1342,7 @@
             </div>
           </div>
 
-          <div class="mt-6 flex flex-wrap justify-between items-center gap-3 bg-brand-950/80 px-4 py-3 rounded-xl border border-brand-900/60">
-            <div class="inline-flex items-center gap-2">
-              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
-                <i class="fa-solid fa-store"></i> Loja Ativa:
-              </span>
-              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
-                <option value="9175" selected>Loja 9175 - Marambaia</option>
-                <option value="4304">Loja 4304 - Icoaraci</option>
-                <option value="9201">Loja 9201 - Mário Covas</option>
-              </select>
-            </div>
-            <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
-              <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
-            </button>
-          </div>
+
         </div>
 
         <!-- Passo a passo: extração e importação de XMLs (visível ao Líder de Operações) -->
@@ -1595,6 +1570,9 @@
                 </select>
               </div>
               <span class="text-xs font-mono font-bold text-brand-300">NF Nº <span id="nf-numero">-</span></span>
+              <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition">
+                <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
+              </button>
             </div>
           </div>
 
@@ -1787,8 +1765,8 @@
           <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
             <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
             <div>
-              <div class="text-2xl font-bold text-white" id="stat-total-products">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Produtos</div>
+              <div class="text-2xl font-bold text-brand-900" id="stat-total-products">0</div>
+              <div class="text-xs text-brand-700 uppercase tracking-wider font-bold">Total Produtos</div>
             </div>
           </div>
           <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-red-950/20 border-l-4 border-l-red-500 border border-red-500/20 shadow-md">

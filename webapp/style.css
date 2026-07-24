@@ -871,13 +871,13 @@ input:focus, select:focus {
 }
 
 .dash-total {
-  background: linear-gradient(135deg, var(--gold-light), #e3f0ea);
-  color: var(--wine-dark);
+  background: var(--gold-light) !important;
+  color: var(--wine-dark) !important;
   font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  padding: 10px 24px;
+  font-weight: 800;
+  padding: 8px 20px;
   border-radius: 999px;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--gold);
 }
