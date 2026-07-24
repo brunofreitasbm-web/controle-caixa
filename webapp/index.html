@@ -3232,6 +3232,9 @@
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
 <script src="camera-universal.js?v=1"></script>
-<script src="app.js?v=10"></script>
+<!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
+     para receber as alterações feitas pelos outros usuários logados. -->
+<script src="realtime.js?v=1"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
