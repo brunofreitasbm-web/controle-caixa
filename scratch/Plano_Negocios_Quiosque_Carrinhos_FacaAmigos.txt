@@ -1,0 +1,308 @@
+PLANO DE NEGÓCIOS
+Quiosque de Carrinhos Infantis por Tempo
+Ecossistema FaçaAmigos  •  Parque Shopping – Parque Verde, Belém/PA
+Documento de apoio à tomada de decisão
+Junho de 2026  •  Preparado para Bruno Freitas
+Sumário
+TOC \h \o "1-2"
+1. Sumário Executivo
+Este plano avalia a abertura de um quiosque de aluguel de carrinhos infantis por tempo dentro do Parque Shopping (Parque Verde, Belém/PA), integrado ao ecossistema FaçaAmigos. A criança passeia pelos corredores do shopping em um carrinho elétrico ou de empurrar, com cobrança por bloco de tempo e operação assistida por atendente fixo.
+A proposta combina três vantagens: baixa complexidade operacional, alta margem de contribuição por locação e forte sinergia com o playground FaçaAmigos, funcionando como porta de entrada e gerador de tráfego qualificado para a marca.
+Premissas validadas com o empreendedor
+Premissa
+Definição
+Modelo de operação
+Atendente fixo (entrega, cobrança e zelo da frota)
+Forma de cobrança
+R$ 25 — Pelúcia (10 min) e Carro/Jipe (15 min); excedente R$ 3,00/min
+Frota inicial
+10 carrinhos: 4 pelúcia + 4 grandes + 2 pequenos
+Investimento (CAPEX)
+R$ 60 mil (realizado — abaixo da estimativa inicial de R$ 93 mil)
+Equipe
+2 atendentes (sem folguista)
+Circulação
+Livre nos corredores do shopping
+Público
+Amplo, de 1 a 10 anos (incluir modelos adaptados)
+Objetivo principal
+Gerar receita própria (centro de lucro)
+Conclusão preliminar
+A tabela oficial de preços (R$ 25 por locação — Pelúcia 10 min ou Carro/Jipe 15 min — mais excedente de R$ 3,00/min) é bem mais alinhada ao mercado do que a hipótese anterior de R$ 48: fica muito próxima do benchmark competitivo da Animal Tour (R$ 15–25 a cada 8 minutos), citado na Seção 3. Essa é uma correção de rota positiva para a competitividade comercial do quiosque.
+Como consultor, o ponto que exige atenção total do empreendedor é este: o preço-base caiu ~44% frente ao modelo anterior (de R$ 48 para R$ 25, chegando a R$ 27 com excedente médio capturado). Para manter um resultado saudável, o volume médio de locações precisou subir de ~28/dia para cerca de 50/dia — quase o dobro. Isso só é operacionalmente viável porque os blocos também ficaram bem mais curtos (10–15 min contra 20–30 min do modelo anterior), o que permite um giro por hora maior. Na planilha, essa é uma hipótese de giro a ser validada na prática — não um dado garantido — e deve ser o primeiro indicador acompanhado no piloto.
+Boa notícia no meio disso: o CAPEX real ficou em R$ 60 mil — abaixo dos R$ 93 mil estimados —, o que acelera o retorno em todos os cenários. No cenário realista (50 locações/dia, ticket médio de R$ 27), a receita mensal estimada é de R$ 40.500, o lucro líquido gira em torno de R$ 14.400/mês e o payback cai para ~4,2 meses. Porém, o ponto de equilíbrio subiu de ~15 para cerca de 27–28 locações/dia, e o cenário conservador (35/dia) segue apenas marginalmente positivo (lucro de ~R$ 2 mil/mês, payback de ~29,5 meses mesmo com o CAPEX menor). A margem de segurança do negócio segue mais estreita do que no modelo de preço anterior.
+Um segundo ponto crítico: o preço-base sozinho (R$ 25, sem excedente) deixa o negócio muito perto do zero a zero mesmo no cenário realista. A meta de ticket R$ 27 pressupõe capturar, em média, R$ 2,00 de excedente por locação — ou seja, o minuto excedente deixou de ser um upsell acessório e passou a ser peça-chave da rentabilidade (ver Kit do Colaborador, que já reforça essa oferta em toda locação).
+Recomendação: avançar, condicionado a (1) validar em piloto o giro de ~50 locações/dia e a captura de excedente antes de comprometer a frota cheia; (2) renegociar os termos do contrato com o shopping — carência inicial e revisão do aluguel mínimo/sazonal; (3) carta de anuência para circulação nos corredores.
+2. O Negócio e a Proposta de Valor
+O quiosque oferece uma experiência lúdica de curta duração: a criança dirige (ou é empurrada em) um carrinho temático pelos corredores do shopping enquanto a família circula. É um produto de impulso, decisão rápida e alto apelo emocional para crianças de 1 a 10 anos.
+Diferenciais dentro do ecossistema FaçaAmigos
+Marca-mãe já conhecida: o quiosque herda a credibilidade e o DNA de inclusão do FaçaAmigos, recém-inaugurado no mesmo shopping.
+Inclusão como diferencial real: parte da frota com modelos adaptados (apoio postural, cintos, opção de condução por controle remoto pelo responsável), atendendo crianças com deficiência e neurodivergentes — algo que praticamente nenhum concorrente de quiosque oferece.
+Venda cruzada: cada locação é uma oportunidade de encaminhar a família ao playground (combo carrinho + playground, assinatura FaçaAmigos).
+Atendimento afetuoso e seguro: atendente treinado nos mesmos protocolos do playground (primeiros socorros, acolhimento, segurança).
+Linhas de produto sugeridas
+Pelúcia: 
+R$ 25 pelo bloco de 10 minutos (R$ 2,50/min) — o formato de maior apelo visual, com ciclo mais curto e giro mais rápido.
+Carro/Jipe: 
+R$ 25 pelo bloco de 15 minutos (R$ 1,67/min).
+Minuto excedente unificado: 
+R$ 3,00/min, válido para os dois modelos — é a principal alavanca de margem e deve ser oferecido ativamente ao fim de cada locação.
+Hora inclusiva: 
+sessão com carrinho adaptado e suporte do atendente — maior valor percebido e ticket premium.
+Combo FaçaAmigos: 
+carrinho + entrada no playground com desconto, integrando os dois negócios.
+Cartão recarregável / créditos: 
+pré-pago com bônus, criando recorrência e caixa antecipado.
+3. Mercado e Concorrência
+O aluguel de mini veículos infantis por tempo é um modelo consolidado em shoppings brasileiros, operado por marcas como Mini Cars, P Diverte, Piloto Kids e Baby Drive. A referência de preço de mercado gira em torno de R$ 1,00 a R$ 1,20 por minuto — por exemplo, 30 minutos por cerca de R$ 30 a R$ 35. Já no segmento específico de bichinhos de pelúcia motorizados, a rede Animal Tour pratica R$ 15 a R$ 25 a cada 8 minutos. A tabela oficial adotada neste plano (R$ 25 por 10–15 min) está bem próxima dessas referências, o que reforça sua competitividade comercial frente ao modelo anterior.
+Em Belém, o público familiar de classes B e C frequenta shoppings como espaço de lazer de fim de semana, com forte sazonalidade positiva em férias escolares (julho e janeiro), Círio (outubro) e datas comemorativas. O Parque Shopping, no Parque Verde, atende bairros densos da Grande Belém, com perfil familiar favorável ao produto.
+Análise competitiva resumida
+Fator
+Concorrência típica
+FaçaAmigos Carrinhos
+Inclusão
+Raramente oferecida
+Frota adaptada + equipe treinada
+Marca
+Operador isolado
+Ecossistema FaçaAmigos
+Venda cruzada
+Inexistente
+Playground + assinatura
+Preço
+R$ ~1/min
+Competitivo + combos
+Observação: estimativas de mercado, a validar com pesquisa local de preço nos quiosques concorrentes de Belém.
+4. Operação
+Estrutura física
+Quiosque de 6 m² (loja PSBQF121, Piso 1), com identidade visual FaçaAmigos, ponto de energia para recarga e área de guarda dos carrinhos. O espaço é compacto, o que exige guarda eficiente da frota e rodízio de baterias.
+Frota inicial de 10 carrinhos: 4 carros de pelúcia (R$ 7.000 cada), 4 carros grandes (R$ 5.500 cada) e 2 carros pequenos (R$ 2.500 cada). A pelúcia é o item de maior apelo visual e melhor receita por minuto; os carros pequenos atendem a primeira infância. Recomenda-se incluir ao menos um modelo adaptado para crianças PCD.
+Baterias e carregadores reserva para rodízio, garantindo frota sempre disponível nos picos.
+Sinalização de regras, totem de preços e maquininha de cartão/Pix.
+Equipe e escala
+Com funcionamento de 10h às 22h, 7 dias por semana (73h/semana), a operação será conduzida por dois atendentes em turnos, sem folguista — opção que reduz a folha. Atenção: dois atendentes não cobrem sozinhos os 7 dias com o descanso semanal remunerado obrigatório (DSR); recomenda-se planejar rodízio de folgas (com o quiosque podendo operar com um atendente em horários de menor fluxo) ou prever um freelancer pontual nos picos, para manter a operação dentro da lei trabalhista.
+2 atendentes fixos em turnos (manhã/tarde-noite), sem folguista fixo; folgas cobertas por rodízio ou reforço pontual.
+Treinamento alinhado ao playground: acolhimento, segurança, primeiros socorros e atendimento inclusivo.
+Rotina diária (resumo)
+Abertura: checagem de integridade dos carrinhos, carga das baterias, higienização, conferência de caixa e maquininha.
+Operação: protocolo de entrega (orientação de uso, termo rápido de responsabilidade), controle de tempo, ronda de segurança e recarga em rodízio.
+Fechamento: higienização, recarga total, conferência de frota e fechamento financeiro do dia.
+Segurança e jurídico
+Carta de anuência da administração do shopping para circulação nos corredores (item crítico e pré-requisito).
+Termo de uso/responsabilidade assinado pelo responsável; regras de idade, peso e velocidade.
+Seguro de responsabilidade civil e cobertura para terceiros.
+Manutenção preventiva semanal da frota.
+5. Marketing e Integração com o FaçaAmigos
+Lançamento conjunto com o playground: comunicação cruzada nas redes do FaçaAmigos e no shopping.
+Combos e assinatura: integrar o carrinho aos planos do FaçaAmigos para aumentar recorrência.
+Conteúdo digital: reels curtos das crianças passeando (com autorização), reforçando o posicionamento inclusivo.
+Parcerias internas: praça de alimentação, cinema e lojas infantis do Parque Shopping.
+Datas locais: férias escolares, Círio, Dia das Crianças e festas juninas paraenses.
+6. Plano Financeiro
+Todos os valores são estimativas de mercado em reais (BRL) e devem ser validados com cotações locais e dados reais de operação.
+6.1 Investimento inicial (CAPEX)
+Item
+Valor (R$)
+4 carros de pelúcia (R$ 7.000 cada)
+28.000
+4 carros grandes (R$ 5.500 cada)
+22.000
+2 carros pequenos (R$ 2.500 cada)
+5.000
+Estrutura do quiosque e identidade visual
+12.000
+Baterias/carregadores reserva e ferramentas
+4.000
+Sinalização, totem, maquininha e tablet de controle
+3.000
+Mídia inaugural exigida pelo shopping (parcelável 4x)
+10.000
+Taxa de adesão/montagem e fit-out
+4.000
+Capital de giro inicial (3 meses de folga)
+5.000
+Subtotal (estimativa inicial)
+93.000
+Ajuste (execução real vs. estimativa)
+(33.000)
+TOTAL REALIZADO
+60.000
+O CAPEX efetivamente realizado ficou em R$ 60.000 — R$ 33 mil abaixo da estimativa inicial de R$ 93 mil, e dentro da faixa de R$ 30–70 mil originalmente prevista. A diferença não foi rastreada item a item nesta versão do plano; recomenda-se documentar internamente quais linhas caíram (frota, mídia inaugural, fit-out ou capital de giro) para manter a rastreabilidade contábil. Os cálculos de payback e retorno deste plano (Seções 6.3 e 6.4) já usam o valor realizado de R$ 60 mil.
+6.2 Custos mensais (cenário realista)
+Item
+Valor (R$)
+Aluguel base negociado (média mensal, já com sazonais)
+11.080
+Condomínio
+550
+Fundo de promoção (FPP)
+110
+Pessoal (2 atendentes, sem folguista, com encargos)
+5.400
+Energia, manutenção e reposição de baterias
+1.500
+Taxas de cartão/Pix (~4% da receita)
+1.620
+Marketing
+600
+Contador / taxas / seguro
+800
+Diversos
+500
+Total de custos
+22.160
+Com o aluguel negociado para R$ 9.500/mês de base, somados os aluguéis sazonais (maio +50%, outubro +50% e dezembro +100%), o custo de aluguel equivale a uma média mensal de cerca de R$ 11.080. Continua sendo o maior item da estrutura de custos, o que reforça a importância de buscar carência e revisão dos sazonais na assinatura do contrato.
+6.3 Cenários de receita e resultado
+Premissa de preço: R$ 25 por locação (Pelúcia 10 min / Carro-Jipe 15 min — preço-base idêntico) mais excedente unificado de R$ 3,00/min. O ticket médio de cada cenário reflete uma captura crescente de excedente (de R$ 0 no conservador a R$ 5 no otimista). Como o preço-base é o mesmo para os dois modelos, o volume de locações passa a depender do giro (blocos mais curtos) muito mais do que do mix de produtos.
+Indicador
+Conservador
+Realista
+Otimista
+Locações/mês
+1.050
+1.500
+1.950
+Locações/dia (média)
+~35
+~50
+~65
+Ticket médio (R$)
+25
+27
+30
+Receita/mês (R$)
+26.250
+40.500
+58.500
+Custos fixos + ocupação (R$)
+20.540
+20.540
+20.540
+Taxas, impostos e variáveis (R$)
+3.680
+5.550
+7.800
+Lucro líquido/mês (R$)
+~2.030
+~14.400
+~30.200
+Payback c/ CAPEX R$ 93 mil — estimativa inicial (meses)
+~45,8
+~6,5
+~3,1
+Payback c/ CAPEX R$ 60 mil — realizado (meses)
+~29,5
+~4,2
+~2,0
+Nota crítica: o corte de preço (de R$ 48 para ~R$ 25–30) tornou o cenário conservador apenas marginalmente positivo — lucro de ~R$ 2 mil/mês —, mesmo com o CAPEX real mais baixo aliviando o payback (de ~45,8 para ~29,5 meses). No cenário realista, o CAPEX de R$ 60 mil traz o payback para ~4,2 meses — um resultado bom, mas que não deve ofuscar a fragilidade do cenário conservador. A viabilidade do negócio segue dependendo do cenário realista se confirmar na prática, o que reforça três recomendações: (1) validar o giro de ~50 locações/dia já nas primeiras semanas de operação; (2) treinar a equipe para capturar o excedente de forma consistente (ver Kit do Colaborador); e (3) negociar ainda mais o aluguel, já que o custo de ocupação fixo pesa proporcionalmente mais sobre uma receita menor.
+6.4 Ponto de equilíbrio
+Com custos fixos (incluindo aluguel e ocupação) de aproximadamente R$ 20.540/mês e margem de contribuição de cerca de R$ 25 por locação (ticket médio de R$ 27 menos taxas de cartão, impostos e custo variável), o ponto de equilíbrio é de aproximadamente:
+≈ 824 locações/mês  ≈  27 a 28 locações/dia
+Esse patamar quase dobrou frente ao modelo de preço anterior (15 locações/dia), como consequência direta do corte no ticket médio. Ainda é alcançável em um shopping de fluxo familiar — especialmente com blocos mais curtos permitindo maior giro — mas exige consistência de demanda também nos dias úteis e reduz a margem de segurança do negócio. Abaixo desse volume, o resultado fica negativo.
+7. Riscos e Mitigações
+Risco
+Impacto
+Mitigação
+Volume de ~50 locações/dia não se confirmar
+Alto
+Piloto com medição semanal de giro; plano B de ajuste de preço/mix se o volume não vier
+Equipe não capturar o minuto excedente
+Alto
+Script de oferta obrigatório (ver Kit do Colaborador); acompanhar % de locações com excedente
+Aluguel mínimo alto em meses fracos
+Alto
+Negociar carência, aluguel escalonado e/ou percentual puro no início
+Shopping não autorizar circulação livre
+Alto
+Negociar anuência antes da compra; ter plano B de pista delimitada
+Sazonalidade + aluguel sazonal (dez +100%)
+Médio
+Capital de giro reforçado; campanhas de pico; negociar os sazonais
+Acidente/dano a terceiros
+Alto
+Seguro RC, termo de uso, ronda e limites de velocidade
+Manutenção/quebra de frota
+Médio
+Baterias reserva, manutenção preventiva, fornecedor local
+Concorrência de novo operador
+Médio
+Diferencial de inclusão e marca FaçaAmigos
+8. Faixas de Desempenho e Plano de Bonificação
+Para dar à operação uma régua clara de acompanhamento diário, os cenários financeiros da Seção 6 foram convertidos em quatro faixas de locações/mês. Essa mesma faixa é usada de forma consistente na planilha de Acompanhamento Diário de Metas, no Cartaz de Meta do Dia afixado no quiosque e no Plano de Bonificação da equipe (documento específico de gestão de pessoas).
+Faixa
+Locações/mês
+Locações/dia (média)
+Situação financeira
+Bônus da equipe
+Abaixo do Piso
+< 824
+< 27–28
+Prejuízo operacional
+Sem bônus
+Piso a Meta
+824 – 1.499
+28 – 49
+Positivo, mas frágil (cenário Conservador)
+Sem bônus de volume
+Meta
+1.500 – 1.949
+50 – 64
+Saudável (cenário Realista)
+R$ 300/atendente + excedente
+Super-meta
+1.950 ou mais
+65 ou mais
+Forte (cenário Otimista)
+R$ 600/atendente + escalonamento + excedente
+As metas diárias comunicadas à equipe (Segunda a Quinta: 35 · Sexta: 65 · Sábado: 80 · Domingo: 70) foram calibradas para, somadas ao longo do mês, posicionar a operação dentro da faixa Meta (entre 1.500 e ~1.555 locações, a depender do calendário do mês). Ou seja: o cumprimento integral da rotina diária já combinada com a equipe entrega o cenário Realista deste plano — não o Otimista. Superar a faixa Super-meta exige desempenho consistentemente acima do combinado, o que justifica o escalonamento contínuo do bônus nessa faixa.
+Essa régua também expõe o risco do cenário Conservador: entre o Piso e a Meta, o quiosque já opera no azul, mas sem folga financeira nem bônus de volume para a equipe — reforçando por que o giro real de locações/dia é o indicador nº 1 a acompanhar no piloto de 90 dias (ver Seção 10).
+9. Proposta Comercial do Shopping e Estratégia de Negociação
+Em 03/06/2026, o Parque Shopping (Allos) enviou proposta para a operação do quiosque de carrinhos (loja PSBQF121, Piso 1, 6 m²). Os termos atuais, válidos por 30 dias, são:
+Item da proposta
+Condição
+Local / área
+PSBQF121 – Piso 1 – 6 m² (2 x 3 m)
+Aluguel mínimo mensal
+R$ 11.000
+Aluguel percentual (A%)
+10% das vendas (vale o maior entre mínimo e %)
+Condomínio
+R$ 550/mês
+Fundo de promoção (FPP)
+R$ 110/mês
+Aluguel sazonal
+Maio +50%, Outubro +50%, Dezembro +100%
+Mídia inaugural
+R$ 10.000 (parcelável em 4x)
+Energia
+Conforme consumo
+Período
+A combinar
+Leitura crítica da proposta
+O custo de ocupação total no primeiro ano soma aproximadamente R$ 154 mil só de aluguel (12 meses + sazonais), equivalente a uma média de R$ 12.830/mês, mais condomínio e FPP. Para uma loja de 6 m², o aluguel por metro quadrado é alto. O aluguel percentual de 10% é irrelevante na prática, pois o mínimo (R$ 11.000) só seria superado com faturamento acima de R$ 110.000/mês. Na essência, o operador assume todo o risco: paga o mínimo cheio mesmo em meses fracos.
+Alavancas de negociação (em ordem de prioridade)
+Carência de aluguel: 
+solicitar 1 a 3 meses de carência total (ou aluguel simbólico) na fase de montagem e maturação. É a concessão mais comum e a de maior impacto no caixa inicial.
+Aluguel escalonado (degrau): 
+iniciar em R$ 6.000–7.000/mês e crescer gradualmente até o mínimo cheio em 12 meses, acompanhando a curva de faturamento.
+Aluguel percentual puro no início: 
+nos primeiros 6–12 meses, pagar apenas 10% das vendas (sem mínimo), alinhando o risco do shopping ao do operador. É a alavanca de maior valor.
+Revisão dos aluguéis sazonais: 
+negociar a eliminação ou redução do dobro de dezembro e dos +50% de maio/outubro, ou condicioná-los a metas de venda.
+Mídia inaugural: 
+pedir abatimento (R$ 10.000 é alto para um quiosque) ou diluição em mais parcelas; idealmente converter parte em mídia de performance.
+Prazo x preço: 
+oferecer um contrato mais longo em troca de aluguel menor, ou um piloto curto (12 meses) com cláusula de saída para reduzir o risco.
+Sinergia do ecossistema: 
+usar o fato de já operar o playground FaçaAmigos no mesmo shopping como poder de barganha — um operador âncora e recorrente tem valor para a administração.
+Impacto financeiro da negociação
+As projeções financeiras deste plano já adotam um aluguel base negociado de R$ 9.500/mês (abaixo dos R$ 11.000 da proposta original), o que demonstra o ganho da negociação. Cada R$ 1.000 a menos no aluguel mensal melhora o lucro líquido em R$ 1.000/mês e reduz o ponto de equilíbrio em cerca de 24 locações/mês. Se a carência de 3 meses for obtida, o caixa inicial é aliviado em ~R$ 28 mil. As metas remanescentes de negociação são: obter carência, escalonar o aluguel no primeiro ano e reduzir/eliminar os aluguéis sazonais.
+10. Recomendação e Próximos Passos
+O projeto é viável e estrategicamente coerente com o ecossistema FaçaAmigos, mas a alta carga de aluguel torna o resultado sensível ao volume. A recomendação é avançar de forma faseada e condicionada à renegociação dos termos, para limitar o risco antes do compromisso total de capital.
+Renegociar a proposta do shopping antes de assinar: priorizar carência inicial, aluguel escalonado e revisão dos sazonais (ver Seção 9).
+Obter a carta de anuência do shopping para circulação dos carrinhos nos corredores (pré-requisito).
+CAPEX real já confirmado em R$ 60 mil (abaixo da estimativa de R$ 93 mil) — documentar internamente quais itens caíram, para manter a rastreabilidade contábil do investimento.
+Pesquisar preços dos quiosques concorrentes em Belém para calibrar o ticket médio.
+Rodar piloto de 90 dias com 8 carrinhos, medindo especialmente: locações/dia (meta ~50), giro por hora no pico e % de locações com excedente capturado — os três indicadores que sustentam a nova tabela de preços.
+Decidir a ampliação para 12 carrinhos e a oferta de assinatura com base nos dados do piloto.
+Documento de apoio à decisão. Os números são estimativas de mercado e devem ser validados com cotações e dados reais antes do investimento.

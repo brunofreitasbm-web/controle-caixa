@@ -1,0 +1,77 @@
+PLANO DE BONIFICAÇÃO
+Equipe do Quiosque de Carrinhos
+Ecossistema FaçaAmigos · Parque Shopping, Belém/PA
+1. Objetivo e Princípios
+Este plano alinha o interesse da equipe do quiosque ao resultado financeiro do negócio, premiando volume de locações e a captura do minuto excedente — os dois indicadores que sustentam a viabilidade da tabela de preços vigente (ver Plano de Negócios, Seção 6).
+Alinhamento: a equipe só é bonificada quando o quiosque está de fato lucrativo.
+Transparência: todo o cálculo usa dados já registrados na planilha de Acompanhamento Diário de Metas — nenhum critério oculto.
+Segurança em primeiro lugar: nenhuma meta de volume justifica pular etapas de segurança ou do POP de operação. A trava de segurança (Seção 4.3) tem prioridade sobre qualquer bônus.
+2. Elegibilidade
+Os 2 atendentes fixos do quiosque, sem folguista, são elegíveis integralmente a cada mês trabalhado.
+Atendente admitido ou desligado no meio do mês recebe o bônus de volume da equipe integralmente (é um resultado coletivo), e o bônus de excedente proporcional aos dias efetivamente trabalhados.
+Eventual reforço/freelancer de fim de semana (ver Plano de Negócios, Seção 4) não participa deste plano, salvo acordo específico.
+3. Estrutura da Bonificação
+3.1 Bônus por Volume (por atendente)
+Calculado sobre o total de locações do mês, já apurado na planilha de Acompanhamento (linha TOTAL, coluna Realizado).
+Faixa de locações/mês
+Nível
+Bônus por atendente
+Abaixo de 824
+Abaixo do Piso
+Sem bônus — quiosque no vermelho
+824 a 1.499
+Piso a Meta
+Sem bônus de volume (elegível ao bônus de excedente — Seção 3.2)
+1.500 a 1.949
+Meta
+R$ 300
+1.950 ou mais
+Super-meta
+R$ 600 + R$ 10 a cada 50 locações acima de 1.950
+Exemplo de escalonamento: com 2.200 locações no mês (250 acima de 1.950 = 5 blocos de 50), o bônus de volume é R$ 600 + 5 × R$ 10 = R$ 650 por atendente.
+3.2 Bônus por Captura de Excedente
+O ticket médio de R$ 27 que sustenta o cenário realista pressupõe capturar, em média, R$ 2,00 de excedente por locação (preço-base é R$ 25). Este bônus recompensa diretamente esse comportamento, independentemente do volume do mês.
+Regra: 
+se o ticket médio real do mês (Receita total ÷ Locações realizadas, ambos já calculados na planilha de Acompanhamento) for igual ou superior a R$ 27, cada atendente recebe R$ 100.
+Condição: 
+aplicável em qualquer mês em que o quiosque tenha superado o Piso (824 locações) — inclusive em meses abaixo da Meta, para reforçar o hábito mesmo quando o volume ainda não está no ponto ideal.
+3.3 Trava de Segurança e Qualidade
+O bônus do mês (volume + excedente) é integralmente cancelado, independentemente do resultado financeiro, se ocorrer qualquer um dos itens abaixo:
+Incidente de segurança grave (acidente com criança por falha de protocolo).
+Checklist de abertura ou fechamento não preenchido em 3 dias ou mais no mês.
+Divergência de caixa não justificada.
+4. Exemplos de Cálculo por Cenário
+Valores de locações, ticket e lucro extraídos do Simulador Financeiro (aba Cenários). O bônus de excedente assume que a meta de ticket foi atingida nos cenários Realista e Otimista.
+Cenário
+Locações/mês
+Ticket médio
+Bônus de volume (equipe)
+Bônus de excedente (equipe)
+Total/atendente
+Conservador
+1.050
+R$ 25
+R$ 0
+R$ 0
+R$ 0
+Realista
+1.500
+R$ 27
+R$ 600
+R$ 200
+R$ 400
+Otimista
+1.950
+R$ 30
+R$ 1.200
+R$ 200
+R$ 700
+Como referência de proporcionalidade: no cenário Realista, o bônus total da equipe (R$ 800) equivale a ~5,6% do lucro líquido do mês (R$ 14.407); no Otimista, R$ 1.400 equivalem a ~4,6% do lucro (R$ 30.157) — uma faixa saudável para planos de incentivo, que não compromete a rentabilidade do negócio.
+Observação: no cenário Conservador, o quiosque está entre o Piso e a Meta — por isso não há bônus de volume nem de excedente (ticket abaixo de R$ 27). Este é o resultado esperado do desenho do plano: reforçar que a operação precisa consistentemente superar a Meta para gerar bonificação relevante.
+5. Pagamento e Governança
+Apuração: no primeiro dia útil do mês seguinte, com base no total acumulado da planilha de Acompanhamento Diário de Metas do mês fechado.
+Pagamento: junto com a folha de pagamento do mês seguinte, como verba variável identificada no holerite.
+Comunicação: o resultado (locações, ticket médio, bônus apurado) é compartilhado com a equipe no fechamento do mês, reforçando a transparência do cálculo.
+6. Revisão do Plano
+Este plano deve ser revisado sempre que houver mudança relevante na tabela de preços, no CAPEX ou nos custos fixos do quiosque — os parâmetros que definem Piso, Meta e Super-meta vêm diretamente do Simulador Financeiro. Recomenda-se revisão formal a cada trimestre, mesmo sem mudanças de preço, para calibrar os valores de bônus à realidade operacional observada nos primeiros meses de piloto.
+Documento de gestão interna. Valores de bônus são uma proposta inicial e podem ser recalibrados após validação do giro real de locações no piloto de 90 dias (ver Plano de Negócios, Seção 10).
