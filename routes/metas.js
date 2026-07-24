@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, normalizeRow } = require('../config/database');
+const { publish } = require('../config/realtime');
 
 // ==========================================================================
 // Metas (meta do ano da operação)
@@ -48,6 +49,7 @@ router.post('/metas/importar', (req, res) => {
     [ano, loja, metaAnual || null, metaMensal ? JSON.stringify(metaMensal) : null, origem || 'importacao_manual', agora, agora],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('meta.importada', { ano, loja }, { origem: req.query.clientId, usuario: req.query.usuario });
       res.status(201).json({ success: true });
     }
   );
@@ -57,6 +59,7 @@ router.delete('/metas/:id', (req, res) => {
   const { id } = req.params;
   db.run('DELETE FROM metas WHERE id = ?', [id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
+    publish('meta.excluida', { id }, { origem: req.query.clientId, usuario: req.query.usuario });
     res.json({ success: true });
   });
 });
@@ -97,6 +100,8 @@ router.post('/vendas-horarias', (req, res) => {
     [loja, data, hora, vendaAcumulada, registradoPor || null, agora, vendaAcumulada, registradoPor || null],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('venda.horaria', { loja, data, hora, vendaAcumulada, registradoPor: registradoPor || null },
+        { origem: req.body.clientId, usuario: registradoPor });
       res.json({ success: true });
     }
   );

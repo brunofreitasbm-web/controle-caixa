@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
+const { publish } = require('../config/realtime');
 
 router.post('/sync', (req, res) => {
   const records = req.body.records || [];
@@ -46,6 +47,11 @@ router.post('/sync', (req, res) => {
           if (errors.length > 0) {
             return res.status(500).json({ success: false, errors });
           }
+          // Só metadados no evento: a selfie (r.photo) e o GPS nunca trafegam
+          // no canal em tempo real.
+          publish('ponto.registro', {
+            registros: records.map(x => ({ id: x.id, usuario: x.usuario, tipo: x.tipo, operacao: x.operacao || null, timestamp: x.timestamp }))
+          }, { origem: req.body.clientId, usuario: records[0] && records[0].usuario });
           return res.json({ success: true, count: records.length });
         }
       }
@@ -65,6 +71,8 @@ router.post('/ajuste', (req, res) => {
     [id, usuario, data, tipo, motivo, comprovante, 'PENDING', criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('ponto.ajuste', { id, usuario, data, tipo, status: 'PENDING' },
+        { origem: req.body.clientId, usuario });
       res.json({ success: true });
     }
   );

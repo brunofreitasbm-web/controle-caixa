@@ -717,8 +717,7 @@ async function inicializarDados() {
             const key = `${nf.numero.toString().trim()}_${store}`;
             serverNfs[key] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
           });
-          // Merge: server wins over stale local data
-          importedNfs = Object.assign({}, importedNfs, serverNfs);
+          importedNfs = mesclarNfs(importedNfs, serverNfs);
           localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
         }
       } catch (nfErr) {
@@ -739,6 +738,45 @@ async function inicializarDados() {
   if (typeof renderNfCardsGallery === 'function') {
     try { renderNfCardsGallery(); } catch(e) { /* DOM pode não estar pronto ainda */ }
   }
+}
+
+/**
+ * Mescla as NF-es do servidor com as que estão no aparelho.
+ *
+ * Antes isto era um Object.assign (servidor sobrescrevia tudo), o que apagava
+ * contagens digitadas offline e ainda não enviadas. Agora o servidor manda na
+ * estrutura da nota, mas uma contagem que só existe localmente é preservada.
+ */
+function mesclarNfs(locais, doServidor) {
+  const resultado = Object.assign({}, locais);
+
+  Object.keys(doServidor).forEach(chave => {
+    const nfServidor = doServidor[chave];
+    const nfLocal = resultado[chave];
+
+    if (!nfLocal || !Array.isArray(nfLocal.products)) {
+      resultado[chave] = nfServidor;
+      return;
+    }
+
+    const contagemLocal = {};
+    nfLocal.products.forEach(p => {
+      if (p && p.code !== undefined && p.countedQty !== '' && p.countedQty !== undefined && p.countedQty !== null) {
+        contagemLocal[p.code] = p.countedQty;
+      }
+    });
+
+    (nfServidor.products || []).forEach(p => {
+      const semValorNoServidor = p.countedQty === '' || p.countedQty === undefined || p.countedQty === null;
+      if (semValorNoServidor && contagemLocal[p.code] !== undefined) {
+        p.countedQty = contagemLocal[p.code];
+      }
+    });
+
+    resultado[chave] = nfServidor;
+  });
+
+  return resultado;
 }
 
 const STORAGE_KEY_FA = "cacaushow_controle_caixa_fa_v1";
@@ -4702,6 +4740,23 @@ async function processarFilaSync() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(item.data)
         });
+      } else if (item.type === "INVENTARIO") {
+        const clientId = (window.RT && window.RT.clientId) || "";
+        res = await fetch(
+          `${API_BASE}/inventario/${encodeURIComponent(item.loja)}/${encodeURIComponent(item.data.code)}` +
+          `?usuario=${encodeURIComponent(item.usuario || "")}&clientId=${encodeURIComponent(clientId)}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(item.data)
+          }
+        );
+      } else if (item.type === "NF_ITEM") {
+        res = await fetch(`${API_BASE}/nfs/${encodeURIComponent(item.nfNum)}/item/${encodeURIComponent(item.code)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
       }
 
       if (!res || !res.ok) {
@@ -5131,6 +5186,10 @@ if (btnAtualizarColab) {
 class CacauShowControlBoxBridge {
   constructor() {
     this.channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cacaushow_app_bridge') : null;
+    // Um timer por produto: o campo de quantidade dispara a cada tecla, e sem
+    // isso seria uma requisição por dígito.
+    this.enviosPendentes = new Map();
+    this.DEBOUNCE_MS = 400;
     this.initListeners();
   }
 
@@ -5173,6 +5232,7 @@ class CacauShowControlBoxBridge {
       item.lastUpdated = new Date().toISOString();
 
       localStorage.setItem(key, JSON.stringify(item));
+      this.agendarEnvio(storeId, item);
       if (this.channel) {
         this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload: item });
       }
@@ -5181,9 +5241,9 @@ class CacauShowControlBoxBridge {
     return null;
   }
 
-  // Salvar item de inventário individualmente no localStorage e notificar via BroadcastChannel
-  saveInventoryItem(storeId, item) {
-    if (!storeId || !item || !item.code) return;
+  // Monta o payload padrão e grava no localStorage (cache local / modo offline)
+  gravarLocal(storeId, item) {
+    if (!storeId || !item || !item.code) return null;
     const key = `cacaushow_db_inventory_${storeId}_${item.code}`;
     const payload = {
       code: item.code,
@@ -5194,13 +5254,142 @@ class CacauShowControlBoxBridge {
       countedQty: item.countedQty !== undefined ? item.countedQty : '',
       dataEntrada: item.dataEntrada || '',
       qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
-      lastUpdated: new Date().toISOString()
+      atualizadoPor: item.atualizadoPor || (typeof currentUser === 'object' && currentUser ? currentUser.nome : null),
+      lastUpdated: item.lastUpdated || new Date().toISOString()
     };
     localStorage.setItem(key, JSON.stringify(payload));
+    return payload;
+  }
+
+  // Salvar item de inventário: grava local, manda para o servidor (com debounce)
+  // e avisa as outras abas deste mesmo navegador.
+  saveInventoryItem(storeId, item) {
+    const payload = this.gravarLocal(storeId, item);
+    if (!payload) return;
+
+    this.agendarEnvio(storeId, payload);
     if (this.channel) {
       this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload });
     }
     return payload;
+  }
+
+  // Item que chegou de OUTRO usuário pelo canal de tempo real: grava no cache
+  // local sem devolver para o servidor (senão vira ping-pong).
+  aplicarItemRemoto(storeId, item) {
+    return this.gravarLocal(storeId, item);
+  }
+
+  agendarEnvio(storeId, payload) {
+    if (typeof currentUser === 'object' && currentUser && currentUser.nome && currentUser.nome.includes('Treinamento')) {
+      return; // Modo treinamento nunca escreve no banco
+    }
+    const chave = `${storeId}_${payload.code}`;
+    clearTimeout(this.enviosPendentes.get(chave));
+    this.enviosPendentes.set(chave, setTimeout(() => {
+      this.enviosPendentes.delete(chave);
+      this.enviarItem(storeId, payload);
+    }, this.DEBOUNCE_MS));
+  }
+
+  async enviarItem(storeId, payload) {
+    const usuario = (typeof currentUser === 'object' && currentUser && currentUser.nome) ? currentUser.nome : '';
+    const clientId = (window.RT && window.RT.clientId) || '';
+
+    if (!API_ONLINE) {
+      addToSyncQueue({ type: 'INVENTARIO', loja: storeId, data: payload, usuario });
+      return false;
+    }
+
+    try {
+      const url = `${API_BASE}/inventario/${encodeURIComponent(storeId)}/${encodeURIComponent(payload.code)}` +
+        `?usuario=${encodeURIComponent(usuario)}&clientId=${encodeURIComponent(clientId)}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return true;
+    } catch (e) {
+      console.error('[Inventário] Falha ao enviar item, indo para a fila offline:', e);
+      addToSyncQueue({ type: 'INVENTARIO', loja: storeId, data: payload, usuario });
+      return false;
+    }
+  }
+
+  // Traz o inventário da loja do servidor e atualiza o cache local.
+  async carregarDoServidor(storeId) {
+    if (!API_ONLINE) return null;
+    try {
+      const res = await fetch(`${API_BASE}/inventario?loja=${encodeURIComponent(storeId)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const itens = await res.json();
+      if (!Array.isArray(itens)) return null;
+      itens.forEach(item => this.gravarLocal(storeId, item));
+      return itens;
+    } catch (e) {
+      console.error('[Inventário] Não foi possível carregar do servidor:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Sobe para o servidor o inventário que já estava salvo neste aparelho.
+   * Roda uma única vez por navegador — sem isso, as contagens em andamento
+   * quando esta versão entrou no ar ficariam presas no celular de quem contou.
+   */
+  async migrarLocalParaServidor() {
+    const FLAG = 'cacaushow_inv_migrado_v1';
+    if (localStorage.getItem(FLAG) === '1' || !API_ONLINE) return;
+
+    const porLoja = {};
+    const prefixo = 'cacaushow_db_inventory_';
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(prefixo)) continue;
+      const resto = key.slice(prefixo.length);
+      const sep = resto.indexOf('_');
+      if (sep <= 0) continue;
+      const loja = resto.slice(0, sep);
+      try {
+        const item = JSON.parse(localStorage.getItem(key));
+        if (!item || !item.code) continue;
+        (porLoja[loja] = porLoja[loja] || []).push(item);
+      } catch (e) { }
+    }
+
+    const lojas = Object.keys(porLoja);
+    if (lojas.length === 0) {
+      localStorage.setItem(FLAG, '1');
+      return;
+    }
+
+    const usuario = (typeof currentUser === 'object' && currentUser && currentUser.nome) ? currentUser.nome : '';
+    let tudoOk = true;
+    for (const loja of lojas) {
+      try {
+        const res = await fetch(`${API_BASE}/inventario/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loja,
+            itens: porLoja[loja],
+            usuario,
+            clientId: (window.RT && window.RT.clientId) || '',
+            origem: 'migracao'
+          })
+        });
+        if (!res.ok) tudoOk = false;
+      } catch (e) {
+        tudoOk = false;
+      }
+    }
+
+    if (tudoOk) {
+      localStorage.setItem(FLAG, '1');
+      console.log(`[Inventário] Migração concluída: ${lojas.length} loja(s) enviadas ao servidor.`);
+    }
   }
 }
 
@@ -5873,11 +6062,16 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInventoryForCurrentStore();
         if (typeof renderTable === 'function') renderTable();
         if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
+        // Busca no servidor o que as outras pessoas já contaram nesta loja
+        sincronizarInventarioDaLoja(currentStore);
         showToast(`Loja ativa alterada para Loja ${currentStore}`, 'info');
       });
     });
   }
   loadInventoryForCurrentStore();
+  // O inventário agora é compartilhado: sobe o que este aparelho tinha guardado
+  // e puxa o que as outras colaboradoras já contaram.
+  iniciarSincronizacaoDoInventario();
 
   const btnExport = document.getElementById('btn-export');
   if (btnExport) btnExport.addEventListener('click', exportExcel);
@@ -5904,11 +6098,125 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Scanner do Inventário de Estoque ---
   // Usa a mesma regra de prioridade: CodBarra → CSV → CodProduto
   inicializarScannerInventario();
+  inicializarInsercaoManualInventario();
 
   checkMonthlyInventoryAlert();
   inicializarBoletosTab();
   inicializarMetasImportTab();
 });
+
+// Listener de Inserção Manual de Produto no Inventário
+function inicializarInsercaoManualInventario() {
+  const inputCodigo = document.getElementById("inv-manual-codigo");
+  const inputDescricao = document.getElementById("inv-manual-descricao");
+  const inputValidade = document.getElementById("inv-manual-validade");
+  const inputQuantidade = document.getElementById("inv-manual-quantidade");
+  const btnAdicionar = document.getElementById("btn-inv-manual-adicionar");
+
+  if (!inputCodigo || !btnAdicionar) return;
+
+  // Evento de digitação no campo código/EAN para buscar descrição
+  inputCodigo.addEventListener("input", () => {
+    const cleanCode = inputCodigo.value.trim();
+    if (!cleanCode) {
+      inputDescricao.value = "";
+      return;
+    }
+
+    let codProd = null;
+    let desc = null;
+
+    if (codBarraParaCodProd[cleanCode]) {
+      codProd = codBarraParaCodProd[cleanCode];
+      desc = codBarraParaDesc[cleanCode] || codProdParaDesc[codProd] || null;
+    } else if (codProdParaDesc[cleanCode]) {
+      codProd = cleanCode;
+      desc = codProdParaDesc[cleanCode];
+    }
+
+    if (desc) {
+      inputDescricao.value = desc;
+    } else {
+      inputDescricao.value = "Produto não cadastrado";
+    }
+  });
+
+  btnAdicionar.addEventListener("click", () => {
+    const cleanCode = inputCodigo.value.trim();
+    const desc = inputDescricao.value.trim();
+    const validadeVal = inputValidade.value;
+    const qtdVal = inputQuantidade.value.trim();
+
+    if (!cleanCode) {
+      showToast("Por favor, informe o código do produto ou EAN.", "erro");
+      return;
+    }
+
+    if (!desc || desc === "Produto não cadastrado") {
+      showToast("Código do produto não encontrado no sistema.", "erro");
+      return;
+    }
+
+    if (!validadeVal) {
+      showToast("Por favor, selecione a validade.", "erro");
+      return;
+    }
+
+    if (!qtdVal || Number(qtdVal) <= 0) {
+      showToast("Por favor, informe uma quantidade válida.", "erro");
+      return;
+    }
+
+    let codProd = cleanCode;
+    let ean = "";
+    if (codBarraParaCodProd[cleanCode]) {
+      codProd = codBarraParaCodProd[cleanCode];
+      ean = cleanCode;
+    } else if (codProdParaDesc[cleanCode]) {
+      ean = codProdParaCodBarra[cleanCode] || "";
+    }
+
+    const dValidade = new Date(validadeVal + "T12:00:00");
+    const dToday = new Date();
+    dToday.setHours(0, 0, 0, 0);
+    const diffTime = dValidade.getTime() - dToday.getTime();
+    const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Verificar se já existe no inventário atual
+    const jaExiste = products.find(prod => prod.code === codProd);
+    if (jaExiste) {
+      const atual = jaExiste.countedQty === '' ? 0 : Number(jaExiste.countedQty);
+      jaExiste.countedQty = (atual + Number(qtdVal)).toString();
+      jaExiste.validade = dValidade;
+      jaExiste.daysRemaining = daysRemaining;
+      dbBridge.saveInventoryItem(currentStore, jaExiste);
+    } else {
+      const novoProduto = {
+        code: codProd,
+        barras: ean,
+        description: desc,
+        validade: dValidade,
+        daysRemaining: daysRemaining,
+        countedQty: qtdVal,
+        dataEntrada: "",
+        qtdEntradaUnidades: 0
+      };
+      products.push(novoProduto);
+      dbBridge.saveInventoryItem(currentStore, novoProduto);
+    }
+
+    triggerInventoryStartedNotification();
+    renderTable();
+
+    showToast(`✅ ${desc} adicionado com sucesso!`, "sucesso");
+
+    // Limpar os campos do form manual
+    inputCodigo.value = "";
+    inputDescricao.value = "";
+    inputValidade.value = "";
+    inputQuantidade.value = "";
+  });
+}
 
 
 function loadInventoryForCurrentStore() {
@@ -7529,18 +7837,53 @@ function saveNfQuantity(code, value, targetNfNumber = null) {
 
     localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
 
-    // Sync quantities in real time with backend
-    if (API_ONLINE) {
-      fetch(`${API_BASE}/nfs/${nfNum}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          info: currentNf.info,
-          products: currentNf.products
-        })
-      })
-      .catch(err => console.error('Erro ao sincronizar quantidade da NF-e no servidor:', err));
-    }
+    // Envia SÓ este produto (PATCH), com debounce. Antes daqui saía um PUT com
+    // o array inteiro a cada tecla: duas pessoas conferindo a mesma nota
+    // apagavam a contagem uma da outra, porque cada resposta levava junto uma
+    // cópia desatualizada do resto.
+    enviarItemNfComDebounce(nfNum, code, value);
+  }
+}
+
+const _enviosNfPendentes = new Map();
+const DEBOUNCE_NF_MS = 400;
+
+function enviarItemNfComDebounce(nfNum, code, value) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) return;
+
+  const chave = `${nfNum}_${code}`;
+  clearTimeout(_enviosNfPendentes.get(chave));
+  _enviosNfPendentes.set(chave, setTimeout(() => {
+    _enviosNfPendentes.delete(chave);
+    enviarItemNf(nfNum, code, value);
+  }, DEBOUNCE_NF_MS));
+}
+
+async function enviarItemNf(nfNum, code, value) {
+  const nf = importedNfs[nfNum];
+  const loja = (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+  const corpo = {
+    countedQty: value,
+    usuario: currentUser ? currentUser.nome : '',
+    loja,
+    clientId: (window.RT && window.RT.clientId) || ''
+  };
+
+  if (!API_ONLINE) {
+    addToSyncQueue({ type: 'NF_ITEM', nfNum, code, data: corpo, usuario: corpo.usuario });
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/nfs/${encodeURIComponent(nfNum)}/item/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    console.error('Erro ao sincronizar quantidade da NF-e no servidor:', err);
+    addToSyncQueue({ type: 'NF_ITEM', nfNum, code, data: corpo, usuario: corpo.usuario });
   }
 }
 
@@ -7570,9 +7913,20 @@ function concluirConferenciaAtiva() {
     const currentNf = importedNfs[numNF];
     if (!currentNf) return;
 
-    // 1. Mark completed
+    // 1. Mark completed (local + servidor, avisando os outros usuários)
     currentNf.info.concluidaEm = new Date().toISOString();
-    
+    if (API_ONLINE && !(currentUser && currentUser.nome && currentUser.nome.includes("Treinamento"))) {
+      fetch(`${API_BASE}/nfs/${encodeURIComponent(numNF)}/concluir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: currentUser ? currentUser.nome : '',
+          loja: (currentNf.info && currentNf.info.targetStore) ? currentNf.info.targetStore : currentStore,
+          clientId: (window.RT && window.RT.clientId) || ''
+        })
+      }).catch(err => console.error('Erro ao marcar conferência como concluída no servidor:', err));
+    }
+
     // 2. Feed inventory with checked products
     if (currentNf.products) {
       currentNf.products.forEach(p => {
@@ -9998,41 +10352,70 @@ async function handleDiscPdfs(files, selectedUser) {
       }
 
       if (!targetUser) {
-        if (files.length === 1 && selectedUser) {
-          targetUser = selectedUser;
+        // Tentar extrair o nome do PDF ou do nome do arquivo
+        const nomeExtraido = extrairNomeDoPdf(textContent, file.name);
+        
+        // Chamar modal de cadastro e aguardar preenchimento
+        const dadosCadastro = await obterConfirmacaoCadastroDisc(nomeExtraido, d, i, s, c, perfilPredominante);
+        if (dadosCadastro) {
+          const { nome, unidade, perfil } = dadosCadastro;
+          
+          if (API_ONLINE) {
+            try {
+              const res = await fetch(`${API_BASE}/colaboradores`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome, role: perfil })
+              });
+              const data = await res.json();
+              if (data.error) {
+                showToast(`Erro ao cadastrar: ${data.error}`, "erro");
+                continue;
+              }
+              // Salvar PIN padrão 0000
+              await salvarPinAPI(nome, "0000");
+              pins[nome] = '****';
+              localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+            } catch (err) {
+              showToast("Erro de comunicação ao salvar colaborador.", "erro");
+              continue;
+            }
+          } else {
+            const idx = USERS.findIndex(u => u.nome === nome);
+            if (idx >= 0) USERS[idx].role = perfil;
+            else USERS.push({ nome, role: perfil });
+            localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
+            pins[nome] = "0000";
+            localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+          }
+          
+          targetUser = nome;
+          await carregarColaboradores();
+          
+          profiles[targetUser] = {
+            userName: targetUser,
+            d, i, s, c,
+            perfilPredominante,
+            store: unidade,
+            dataAtualizacao: new Date().toISOString().split("T")[0]
+          };
+          processados++;
         } else {
-          console.warn(`Não foi possível determinar o colaborador para o arquivo: ${file.name}`);
+          console.warn(`Cadastro cancelado para o arquivo: ${file.name}`);
           continue;
         }
+      } else {
+        // Se já existe, mantém a loja existente
+        const lojaExistente = getStoreForColab(targetUser);
+        profiles[targetUser] = {
+          userName: targetUser,
+          d, i, s, c,
+          perfilPredominante,
+          store: lojaExistente,
+          dataAtualizacao: new Date().toISOString().split("T")[0]
+        };
+        processados++;
       }
-
-      // Algoritmo de extração das pontuações D, I, S, C
-      let d = 25, i = 25, s = 25, c = 25;
-
-      const matchD = textUpper.match(/DOMINÂNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/DOMINANTE[^\d]*(\d{1,3})/i);
-      const matchI = textUpper.match(/INFLUÊNCIA[^\d]*(\d{1,3})/i) || textUpper.match(/INFLUENCIADOR[^\d]*(\d{1,3})/i);
-      const matchS = textUpper.match(/ESTABILIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/ESTÁVEL[^\d]*(\d{1,3})/i);
-      const matchC = textUpper.match(/CONFORMIDADE[^\d]*(\d{1,3})/i) || textUpper.match(/CONFORME[^\d]*(\d{1,3})/i);
-
-      if (matchD) d = parseInt(matchD[1]);
-      if (matchI) i = parseInt(matchI[1]);
-      if (matchS) s = parseInt(matchS[1]);
-      if (matchC) c = parseInt(matchC[1]);
-
-      let perfilPredominante = "Dominante";
-      let max = d;
-      if (i > max) { max = i; perfilPredominante = "Influenciador"; }
-      if (s > max) { max = s; perfilPredominante = "Estável"; }
-      if (c > max) { max = c; perfilPredominante = "Conforme"; }
-
-      profiles[targetUser] = {
-        userName: targetUser,
-        d, i, s, c,
-        perfilPredominante,
-        dataAtualizacao: new Date().toISOString().split("T")[0]
-      };
-
-      processados++;
     } catch (err) {
       console.error(`Erro ao processar PDF ${file.name}:`, err);
     }
@@ -10046,12 +10429,100 @@ async function handleDiscPdfs(files, selectedUser) {
   setTimeout(() => {
     if (containerInfo) containerInfo.classList.add("hidden");
     if (processados > 0) {
-      showToast(`Sucesso! ${processados} laudo(s) DISC em PDF processado(s) e salvo(s).`, "sucesso");
+      showToast(`Sucesso! ${processados} laudo(s) DISC em PDF processado(s) e cadastrado(s)/salvo(s).`, "sucesso");
       renderRhModulo();
+      renderizarColaboradores();
     } else {
-      showToast("Nenhum laudo DISC foi associado. Selecione o colaborador ou insira o nome no arquivo.", "erro");
+      showToast("Nenhum laudo DISC foi associado.", "erro");
     }
   }, 600);
+}
+
+// Extrai nome do candidato/colaborador a partir do texto ou nome do arquivo
+function extrairNomeDoPdf(textContent, fileName) {
+  const textUpper = textContent.toUpperCase();
+  
+  const patterns = [
+    /NOME\s*DOS?\s*AVALIADOS?[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /NOME\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /NOME\s*DO\s*CLIENTE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /RELATÓRIO\s*DE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /CANDIDATO\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /COLABORADOR\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i
+  ];
+  
+  for (const regex of patterns) {
+    const match = textContent.match(regex);
+    if (match && match[1]) {
+      const nomeLimpo = match[1].replace(/\r?\n|\r/g, " ").trim();
+      const partes = nomeLimpo.split(/\s+/).filter(p => p.length > 1);
+      if (partes.length >= 2) {
+        return partes.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+      }
+    }
+  }
+
+  let cleanName = fileName.replace(/\.pdf$/i, "");
+  cleanName = cleanName.replace(/disc/gi, "");
+  cleanName = cleanName.replace(/[_\-+]/g, " ").trim();
+  const partesFile = cleanName.split(/\s+/).filter(p => p.length > 1);
+  if (partesFile.length >= 2) {
+    return partesFile.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  }
+
+  return "";
+}
+
+// Abre o modal de cadastro via DISC e retorna os dados preenchidos ou null
+function obterConfirmacaoCadastroDisc(nomeDetectado, d, i, s, c, perfilPredominante) {
+  return new Promise(resolve => {
+    const modal = document.getElementById("modal-cadastro-disc");
+    if (!modal) {
+      resolve(null);
+      return;
+    }
+
+    document.getElementById("disc-colab-nome").value = nomeDetectado || "";
+    document.getElementById("disc-colab-unidade").value = "";
+    document.getElementById("disc-colab-perfil").value = "";
+    document.getElementById("disc-preview-d").textContent = d;
+    document.getElementById("disc-preview-i").textContent = i;
+    document.getElementById("disc-preview-s").textContent = s;
+    document.getElementById("disc-preview-c").textContent = c;
+    document.getElementById("disc-preview-predominante").textContent = perfilPredominante;
+
+    modal.classList.remove("hidden");
+
+    const btnConfirmar = document.getElementById("disc-cadastro-confirmar");
+    const btnCancelar = document.getElementById("disc-cadastro-cancelar");
+
+    btnConfirmar.onclick = () => {
+      const nome = document.getElementById("disc-colab-nome").value.trim();
+      const unidade = document.getElementById("disc-colab-unidade").value;
+      const perfil = document.getElementById("disc-colab-perfil").value;
+
+      if (!nome) {
+        showToast("Por favor, insira o nome do colaborador.", "erro");
+        return;
+      }
+      if (!unidade) {
+        showToast("Por favor, selecione a unidade/loja.", "erro");
+        return;
+      }
+      if (!perfil) {
+        showToast("Por favor, selecione o perfil de acesso.", "erro");
+        return;
+      }
+
+      modal.classList.add("hidden");
+      resolve({ nome, unidade, perfil });
+    };
+
+    btnCancelar.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(null);
+    };
+  });
 }
 
 function inicializarRhListeners() {

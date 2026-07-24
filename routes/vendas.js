@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
+const { publish } = require('../config/realtime');
 
 const JANELA_CONFIRMACAO_MIN = 30;
 
@@ -57,6 +58,8 @@ router.post('/registrar', (req, res) => {
     [id, operacao, usuario, valor, data, horaSlot, timestamp, timestamp],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('meta.checkin', { id, operacao, usuario, valor, data, horaSlot, timestamp },
+        { origem: req.body.clientId, usuario });
       res.json({ success: true, timestamp });
     }
   );

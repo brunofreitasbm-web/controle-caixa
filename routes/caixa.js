@@ -4,6 +4,16 @@ const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
 const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush } = require('../config/notifications');
+const { publish } = require('../config/realtime');
+
+// A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
+// com limit de 15mb). Ela nunca vai no evento de tempo real — o cliente que
+// precisar da imagem busca o registro sob demanda.
+function semFoto(registro) {
+  if (!registro || typeof registro !== 'object') return registro;
+  const { fotoEnvelope, ...resto } = registro;
+  return { ...resto, temFoto: !!fotoEnvelope };
+}
 
 // Notificação de divergência de fundo de caixa (#8 Reconciliação)
 router.post('/divergencia', (req, res) => {
@@ -74,6 +84,25 @@ router.get('/registros', (req, res) => {
   });
 });
 
+// Foto de um registro específico.
+// Os eventos de tempo real não carregam a foto (base64 pesado); quem receber um
+// registro novo pelo canal busca a imagem aqui, só daquele registro.
+router.get('/registros/:id/foto', (req, res) => {
+  db.get('SELECT fotoEnvelope FROM registros WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
+    res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
+  });
+});
+
+router.get('/registros-fa/:id/foto', (req, res) => {
+  db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
+    res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
+  });
+});
+
 // FA-1. Obter todos os registros FaçaAmigos
 router.get('/registros-fa', (req, res) => {
   db.all('SELECT * FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
@@ -123,6 +152,7 @@ router.post('/registros-fa', (req, res) => {
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
+      publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
 
       res.json({ success: true, id: r.id });
     }
@@ -160,6 +190,7 @@ router.put('/registros-fa/:id', (req, res) => {
 
     const usuarioLog = req.query.usuario || 'Desconhecido';
     registrarLog(id, 'UPDATE_FA', `[FaçaAmigos] Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
+    publish('registroFa.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
 
     res.json({ success: true });
   });
@@ -179,6 +210,7 @@ router.delete('/registros-fa/:id', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
 
     registrarLog(id, 'DELETE_FA', `[FaçaAmigos] Registro removido logicamente.`, usuario);
+    publish('registroFa.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
 
     res.json({ success: true });
   });
@@ -220,6 +252,7 @@ router.post('/registros', (req, res) => {
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE', `Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
+      publish('registro.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
 
       res.json({ success: true, id: r.id });
     }
@@ -257,7 +290,8 @@ router.put('/registros/:id', (req, res) => {
     
     const usuarioLog = req.query.usuario || 'Desconhecido';
     registrarLog(id, 'UPDATE', `Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
-    
+    publish('registro.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
+
     res.json({ success: true });
   });
 });
@@ -276,7 +310,8 @@ router.delete('/registros/:id', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     registrarLog(id, 'DELETE', `Registro removido logicamente.`, usuario);
-    
+    publish('registro.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
+
     res.json({ success: true });
   });
 });

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
+const { publish } = require('../config/realtime');
 
 // Importação em lote das metas diárias extraídas da planilha "$ Meta Total"
 // por loja. `origem` diferencia linhas com detalhamento real por dia
@@ -35,6 +36,8 @@ router.post('/importar', (req, res) => {
           if (errors.length > 0) {
             return res.status(500).json({ success: false, errors });
           }
+          publish('metaLoja.importada', { loja, quantidade: linhas.length },
+            { origem: req.body.clientId, usuario: req.query.usuario });
           return res.json({ success: true, count: linhas.length });
         }
       }

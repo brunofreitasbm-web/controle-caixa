@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
+const { publish } = require('../config/realtime');
 
 // Regra padrão usada quando nenhuma competência foi cadastrada ainda —
 // reflete exatamente as fórmulas da planilha original de bonificação.
@@ -33,6 +34,8 @@ router.post('/diaria', (req, res) => {
     [id, usuario, unidade, data, vendas30 || 0, vendas1h || 0, vendas2h || 0, locacoes || 0, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('fa.bonificacao', { id, usuario, unidade, data, vendas30: vendas30 || 0, vendas1h: vendas1h || 0, vendas2h: vendas2h || 0, locacoes: locacoes || 0 },
+        { origem: req.body.clientId, usuario });
       res.json({ success: true });
     }
   );

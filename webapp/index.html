@@ -1796,6 +1796,38 @@
           </div>
         </div>
 
+        <!-- Card de Inserção Manual de Produto -->
+        <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 shadow-xl">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-keyboard"></i> Inserção Manual de Produto (Alternativa à Câmera)
+            </span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div class="field">
+              <label for="inv-manual-codigo" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Código do Produto ou EAN</label>
+              <input type="text" id="inv-manual-codigo" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="Código ou EAN">
+            </div>
+            <div class="field">
+              <label for="inv-manual-descricao" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Descrição</label>
+              <input type="text" id="inv-manual-descricao" class="w-full bg-brand-900/50 border border-brand-700 rounded-xl px-3 py-2 text-xs text-brand-400 focus:outline-none" placeholder="Localizando produto..." readonly style="opacity: 0.8; color: #a78bfa;">
+            </div>
+            <div class="field">
+              <label for="inv-manual-validade" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Validade</label>
+              <input type="date" id="inv-manual-validade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" style="color: white; height: auto;">
+            </div>
+            <div class="field">
+              <label for="inv-manual-quantidade" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Quantidade</label>
+              <input type="number" id="inv-manual-quantidade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="Qtd">
+            </div>
+          </div>
+          <div class="mt-3 flex justify-end" style="margin-top: 12px; display: flex; justify-content: flex-end;">
+            <button id="btn-inv-manual-adicionar" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-1.5" style="background-color: rgb(67, 56, 202);">
+              <i class="fa-solid fa-plus"></i> Adicionar ao Inventário
+            </button>
+          </div>
+        </div>
+
         <!-- Suporte oculto para funcionalidades legadas -->
         <div class="hidden">
           <input type="file" id="excel-file" accept=".xlsx, .xls">
@@ -3008,6 +3040,69 @@
         <button id="admin-pin-cancelar" class="btn-secondary">Cancelar</button>
         <button id="admin-pin-salvar" class="btn-primary">Salvar PIN</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cadastro Automático via DISC -->
+<div id="modal-cadastro-disc" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-cadastro-disc-title" aria-modal="true">
+  <div class="modal w-full max-w-md mx-4 rounded-2xl border border-indigo-900/60 bg-brand-950 p-6 text-left shadow-2xl">
+    <h3 id="modal-cadastro-disc-title" class="text-base font-bold text-indigo-400 mb-2 flex items-center gap-2">
+      <i class="fa-solid fa-user-plus"></i> Novo Colaborador Detectado via DISC
+    </h3>
+    <p class="text-xs text-brand-300 mb-4">
+      O perfil foi lido com sucesso. Confirme os dados abaixo para cadastrar o colaborador no sistema com o PIN padrão <strong>0000</strong>.
+    </p>
+    
+    <div class="space-y-4">
+      <div class="field" style="margin-bottom: 12px;">
+        <label for="disc-colab-nome" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Nome do Colaborador *</label>
+        <input type="text" id="disc-colab-nome" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="Nome Completo">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div class="field">
+          <label for="disc-colab-unidade" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Unidade / Loja *</label>
+          <select id="disc-colab-unidade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" style="color: white; height: auto;">
+            <option value="" disabled selected>Selecione...</option>
+            <option value="Marambaia">Marambaia</option>
+            <option value="Icoaraci">Icoaraci</option>
+            <option value="Mário Covas">Mário Covas</option>
+            <option value="Grão Pará">Grão Pará</option>
+            <option value="ParqueShopping">ParqueShopping</option>
+            <option value="Parque Circuito">Parque Circuito</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="disc-colab-perfil" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Perfil de Acesso *</label>
+          <select id="disc-colab-perfil" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" style="color: white; height: auto;">
+            <option value="" disabled selected>Selecione...</option>
+            <option value="consultora">Consultora Cacau Show</option>
+            <option value="consultora_dashboard">Líder de Operações Cacau Show</option>
+            <option value="consultora_fa">Consultora FaçaAmigos (FA)</option>
+            <option value="owner">Administrador / Owner</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-3 text-xs space-y-1" style="background: rgba(30, 27, 75, 0.4); border: 1px solid rgba(99, 102, 241, 0.5); padding: 12px; border-radius: 12px;">
+        <div class="text-[10px] uppercase font-bold text-indigo-400" style="color: #818cf8; margin-bottom: 4px;">Resultado do Perfil DISC</div>
+        <div class="flex justify-between text-brand-200" style="display: flex; justify-content: space-between; color: #cbb49a;">
+          <span>D: <strong id="disc-preview-d">0</strong>%</span>
+          <span>I: <strong id="disc-preview-i">0</strong>%</span>
+          <span>S: <strong id="disc-preview-s">0</strong>%</span>
+          <span>C: <strong id="disc-preview-c">0</strong>%</span>
+        </div>
+        <div class="text-[11px] text-brand-300 mt-1" style="color: #a78bfa; margin-top: 6px;">
+          Perfil Predominante: <span id="disc-preview-predominante" class="font-bold text-white" style="color: white;">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions mt-6 flex justify-end gap-2" style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px;">
+      <button id="disc-cadastro-cancelar" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-900 hover:bg-brand-850 text-brand-300">Cancelar</button>
+      <button id="disc-cadastro-confirmar" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow hover:bg-indigo-600">Confirmar Cadastro</button>
     </div>
   </div>
 </div>

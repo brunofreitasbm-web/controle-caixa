@@ -20,6 +20,8 @@ const vendasRoutes = require('./routes/vendas');
 const faBonificacaoRoutes = require('./routes/fa-bonificacao');
 const metasLojasRoutes = require('./routes/metas-lojas');
 const metasRoutes = require('./routes/metas');
+const realtimeRoutes = require('./routes/realtime');
+const inventarioRoutes = require('./routes/inventario');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +33,10 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'webapp')));
 
 // Registrar Rotas Modularizadas
+// O canal SSE vem primeiro: é uma conexão longa e não deve passar por nenhum
+// middleware de parsing/roteamento mais pesado.
+app.use('/api', realtimeRoutes);
+app.use('/api', inventarioRoutes);
 app.use('/api', authRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', financeiroRoutes);

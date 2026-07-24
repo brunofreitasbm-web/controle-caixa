@@ -22,6 +22,12 @@ const camelCaseMap = {
   importadoem: 'importadoEm',
   vendaacumulada: 'vendaAcumulada',
   registradopor: 'registradoPor',
+  codproduto: 'codProduto',
+  dataentrada: 'dataEntrada',
+  countedqty: 'countedQty',
+  qtdentradaunidades: 'qtdEntradaUnidades',
+  atualizadopor: 'atualizadoPor',
+  atualizadoem: 'atualizadoEm',
   hasbiometricenrolled: 'hasBiometricEnrolled',
   tentativasfalhas: 'tentativasFalhas',
   bloqueadoate: 'bloqueadoAte',
@@ -372,6 +378,27 @@ function initDb(onSuccess) {
           registradoPor TEXT,
           criadoEm TEXT,
           UNIQUE(loja, data, hora)
+        )`,
+        // Inventário de estoque compartilhado. Antes disso o inventário vivia
+        // apenas no localStorage de cada aparelho (chaves
+        // cacaushow_db_inventory_<loja>_<cod>), então duas consultoras contando
+        // a mesma loja não enxergavam uma o trabalho da outra.
+        // countedQty é TEXT de propósito: o app usa '' para "ainda não contado"
+        // e precisa distinguir isso de 0 (contado e não tem nenhum).
+        `CREATE TABLE IF NOT EXISTS inventario_itens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          loja TEXT NOT NULL,
+          codProduto TEXT NOT NULL,
+          barras TEXT,
+          descricao TEXT,
+          validade TEXT,
+          countedQty TEXT,
+          dataEntrada TEXT,
+          qtdEntradaUnidades INTEGER DEFAULT 0,
+          atualizadoPor TEXT,
+          atualizadoEm TEXT,
+          criadoEm TEXT,
+          UNIQUE(loja, codProduto)
         )`
       ];
 
