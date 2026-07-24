@@ -155,6 +155,14 @@
 .to-brand-950 { --tw-gradient-to: #0F1420 var(--tw-gradient-to-position) !important; }
 .to-paper { --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important; }
 
+/* Mesmo problema do bloco acima (classes usadas via JS mas ausentes do
+   tailwind-compiled.css estático): sem isto, as barras de progresso de
+   Meta Hora a Hora e do painel de Perfil DISC do RH ficavam com o
+   preenchimento transparente — só a trilha escura (bg-brand-900) aparecia,
+   dando a impressão de que a barra nunca se movia. */
+.bg-amber-500 { background-color: #F59E0B !important; }
+.bg-emerald-500 { background-color: #10B981 !important; }
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2517,8 +2525,36 @@ body.tema-fa .topbar {
 }
 
 @media (max-width: 600px) {
+  /* Mantém 2 colunas (grade 2x2) e compacta os cartões para os 4 módulos
+     caberem numa tela só, sem precisar rolar (mesmo em telas pequenas como
+     iPhone SE). */
+  .module-modal {
+    padding: 20px;
+  }
+
   .module-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .module-card {
+    padding: 14px 10px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .module-card h3 {
+    font-size: 0.95rem;
+  }
+
+  .module-card p {
+    font-size: 0.72rem;
+  }
+
+  .mod-icon {
+    font-size: 1.8rem;
+    margin-bottom: 2px;
   }
 }
 
@@ -2701,14 +2737,16 @@ body.tema-fa .topbar {
 }
 
 /* Visual Unification of Logistics & Boletos Tabs with the Main Theme
-   (estendido também a Ponto e RH — mesmo idioma "glass" escuro que antes
-   ficava incoerente com o resto do app, agora unificado ao tema claro). */
+   (estendido também a Ponto, RH e Meta Hora a Hora — mesmo idioma "glass"
+   escuro que antes ficava incoerente com o resto do app, agora unificado
+   ao tema claro). */
 #tab-conferencia-nfe .glass-card,
 #tab-inventario-estoque .glass-card,
 #tab-boletos .glass-card,
 #tab-auditoria-boletos .glass-card,
 #tab-controle-ponto .glass-card,
-#tab-rh-modulo .glass-card {
+#tab-rh-modulo .glass-card,
+#tab-meta-hora-hora .glass-card {
   background: var(--paper) !important;
   border: 1px solid var(--border) !important;
   color: var(--ink) !important;
@@ -2733,12 +2771,15 @@ body.tema-fa .topbar {
 #tab-controle-ponto h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
 #tab-rh-modulo h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
 #tab-rh-modulo h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
-#tab-rh-modulo h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400) {
+#tab-rh-modulo h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
+#tab-meta-hora-hora h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-meta-hora-hora h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
+#tab-meta-hora-hora h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400) {
   color: var(--wine) !important;
   font-family: 'Outfit', sans-serif !important;
 }
 
-/* Inputs, selects, and text targets em Logística, Ponto e RH */
+/* Inputs, selects, and text targets em Logística, Ponto, RH e Meta Hora a Hora */
 #tab-conferencia-nfe select,
 #tab-conferencia-nfe input,
 #tab-inventario-estoque select,
@@ -2750,7 +2791,9 @@ body.tema-fa .topbar {
 #tab-controle-ponto select,
 #tab-controle-ponto input,
 #tab-rh-modulo select,
-#tab-rh-modulo input {
+#tab-rh-modulo input,
+#tab-meta-hora-hora select,
+#tab-meta-hora-hora input {
   background-color: var(--cream) !important;
   color: var(--ink) !important;
   border: 1px solid var(--border) !important;
@@ -2773,12 +2816,15 @@ body.tema-fa .topbar {
 #tab-controle-ponto .text-\[11px\],
 #tab-rh-modulo .text-xs,
 #tab-rh-modulo .text-\[11px\],
+#tab-meta-hora-hora .text-xs,
+#tab-meta-hora-hora .text-\[11px\],
 #tab-conferencia-nfe .text-brand-400,
 #tab-inventario-estoque .text-brand-400,
 #tab-boletos .text-brand-400,
 #tab-auditoria-boletos .text-brand-400,
 #tab-controle-ponto .text-brand-400,
-#tab-rh-modulo .text-brand-400 {
+#tab-rh-modulo .text-brand-400,
+#tab-meta-hora-hora .text-brand-400 {
   font-size: 0.875rem !important; /* ~14px instead of 11/12px */
 }
 
@@ -2787,7 +2833,8 @@ body.tema-fa .topbar {
 #tab-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
 #tab-auditoria-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
 #tab-controle-ponto .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *) {
+#tab-rh-modulo .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
+#tab-meta-hora-hora .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *) {
   color: var(--muted) !important;
 }
 
@@ -2798,7 +2845,8 @@ body.tema-fa .topbar {
 #tab-boletos button,
 #tab-auditoria-boletos button,
 #tab-controle-ponto button,
-#tab-rh-modulo button {
+#tab-rh-modulo button,
+#tab-meta-hora-hora button {
   min-height: 44px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2813,7 +2861,8 @@ body.tema-fa .topbar {
 #tab-boletos .text-brand-200,
 #tab-auditoria-boletos .text-brand-200,
 #tab-controle-ponto .text-brand-200:not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-200:not(.bg-gradient-to-r *) {
+#tab-rh-modulo .text-brand-200:not(.bg-gradient-to-r *),
+#tab-meta-hora-hora .text-brand-200:not(.bg-gradient-to-r *) {
   color: var(--ink) !important;
 }
 
@@ -2848,7 +2897,13 @@ body.tema-fa .topbar {
 #tab-rh-modulo .bg-brand-950\/60,
 #tab-rh-modulo .bg-brand-950\/80,
 #tab-rh-modulo .bg-brand-900\/30,
-#tab-rh-modulo .bg-brand-900\/40 {
+#tab-rh-modulo .bg-brand-900\/40,
+#tab-meta-hora-hora .bg-brand-950,
+#tab-meta-hora-hora .bg-brand-900,
+#tab-meta-hora-hora .bg-brand-950\/40,
+#tab-meta-hora-hora .bg-brand-950\/90,
+#tab-meta-hora-hora .bg-brand-900\/30,
+#tab-meta-hora-hora .bg-brand-900\/40 {
   background: var(--cream) !important;
   color: var(--ink) !important;
 }
@@ -2876,7 +2931,9 @@ body.tema-fa .topbar {
 #tab-controle-ponto .text-brand-100:not(.bg-gradient-to-r *),
 #tab-controle-ponto .text-brand-300:not(.bg-gradient-to-r *),
 #tab-rh-modulo .text-brand-100:not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-300:not(.bg-gradient-to-r *) {
+#tab-rh-modulo .text-brand-300:not(.bg-gradient-to-r *),
+#tab-meta-hora-hora .text-brand-100:not(.bg-gradient-to-r *),
+#tab-meta-hora-hora .text-brand-300:not(.bg-gradient-to-r *) {
   color: var(--muted) !important;
 }
 

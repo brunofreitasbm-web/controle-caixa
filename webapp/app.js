@@ -1674,21 +1674,31 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Toggle expandir/colapsar grupos da sidebar (Acordeão suave)
+// Toggle expandir/colapsar grupos da sidebar (Acordeão: abrir um grupo
+// recolhe automaticamente os demais, evitando uma sidebar gigante quando
+// vários grupos ficam abertos ao mesmo tempo).
 document.querySelectorAll(".sidebar-group-header").forEach(header => {
   header.addEventListener("click", () => {
     const group = header.closest(".sidebar-group");
-    if (group) {
-      const isExpanded = group.classList.contains("expanded");
-      if (isExpanded) {
-        group.classList.remove("expanded");
-        group.classList.add("collapsed");
-        header.setAttribute("aria-expanded", "false");
-      } else {
-        group.classList.remove("collapsed");
-        group.classList.add("expanded");
-        header.setAttribute("aria-expanded", "true");
-      }
+    if (!group) return;
+    const isExpanded = group.classList.contains("expanded");
+
+    document.querySelectorAll(".sidebar-group.expanded").forEach(outroGrupo => {
+      if (outroGrupo === group) return;
+      outroGrupo.classList.remove("expanded");
+      outroGrupo.classList.add("collapsed");
+      const outroHeader = outroGrupo.querySelector(".sidebar-group-header");
+      if (outroHeader) outroHeader.setAttribute("aria-expanded", "false");
+    });
+
+    if (isExpanded) {
+      group.classList.remove("expanded");
+      group.classList.add("collapsed");
+      header.setAttribute("aria-expanded", "false");
+    } else {
+      group.classList.remove("collapsed");
+      group.classList.add("expanded");
+      header.setAttribute("aria-expanded", "true");
     }
   });
 });
