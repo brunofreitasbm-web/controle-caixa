@@ -43,6 +43,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- face-api.js (biometria facial do Registro de Ponto) -->
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- JSZip (DOCX parsing no Faça Amigos) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -1172,6 +1174,20 @@
 
         <!-- ======= REGRAS DE LOCAÇÕES (Parque Circuito) ======= -->
         <div id="fa-regras-bloco-locacoes" class="hidden">
+          <div class="card">
+            <h3>Importar Plano de Bonificação (Parque Circuito)</h3>
+            <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 12px;">
+              Carregue o arquivo de regras (.docx) correspondente ao plano do Parque Circuito para preencher automaticamente as metas e limites de forma versionada por competência.
+            </p>
+            <div class="flex items-center gap-3">
+              <label class="btn-primary py-2 px-4 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2 cursor-pointer" style="width: fit-content; background: var(--wine);">
+                <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo DOCX
+                <input type="file" id="fa-loc-regras-importar-docx" accept=".docx" class="hidden">
+              </label>
+              <span id="fa-loc-regras-importar-status" class="text-xs text-muted font-bold">Nenhum arquivo selecionado</span>
+            </div>
+          </div>
+
           <div class="card">
             <h3>Meta de Locações por Dia da Semana</h3>
             <div class="grid-2">

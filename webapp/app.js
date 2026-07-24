@@ -3249,53 +3249,92 @@ async function carregarFaMetaLocacoes(unidade) {
 
 function renderFaLocacoesDashboard(lancamentos, regra) {
   const totalMes = lancamentos.reduce((s, l) => s + (l.locacoes || 0), 0);
-  const receitaMes = totalMes * regra.ticketMedio;
+  const receitaMes = totalMes * (regra.ticketMedio || 48);
+
+  // Calcular receita real a partir dos envelopes de fechamento FaçaAmigos para esta unidade no mês
+  const competencia = document.getElementById("fa-regras-competencia-selector") ? document.getElementById("fa-regras-competencia-selector").value : competenciaAtual();
+  const unidade = document.getElementById("fa-meta-unidade") ? document.getElementById("fa-meta-unidade").value : "Parque Circuito";
+  const envelopesMes = (registrosFA || []).filter(r => 
+    r.loja === unidade && 
+    r.tipoOperacao === "Fechamento" && 
+    r.dataOperacao && 
+    r.dataOperacao.startsWith(competencia)
+  );
+  const receitaReal = envelopesMes.reduce((s, r) => s + (parseMoeda(r.valorEnvelope) || 0), 0);
+  const ticketMedioReal = totalMes > 0 ? receitaReal / totalMes : 0;
+
+  // Cálculo da Bonificação conforme o Plano de Bonificação (Circuito)
+  let bonusVolume = 0;
+  if (totalMes >= (regra.metaMes || 1500) && totalMes < (regra.superMetaMes || 1950)) {
+    bonusVolume = 300;
+  } else if (totalMes >= (regra.superMetaMes || 1950)) {
+    const blocosAcima = Math.floor((totalMes - (regra.superMetaMes || 1950)) / 50);
+    bonusVolume = 600 + (blocosAcima * 10);
+  }
+
+  // Bônus por captura de excedente: R$ 100 se ticket médio real >= R$ 27 e superou o piso (824)
+  let bonusExcedente = 0;
+  const ticketMedioMeta = (regra.ticketMedio === 48) ? 27 : (regra.ticketMedio || 27); // se for o padrão de 48, assume a regra de 27 de excedente do docx
+  if (ticketMedioReal >= ticketMedioMeta && totalMes >= (regra.pisoMes || 824)) {
+    bonusExcedente = 100;
+  }
+
+  const bonusTotalAtendente = bonusVolume + bonusExcedente;
 
   // Progresso do mês contra a meta
-  const pct = regra.metaMes > 0 ? Math.min(100, (totalMes / regra.metaMes) * 100) : 0;
+  const pct = (regra.metaMes || 1500) > 0 ? Math.min(100, (totalMes / (regra.metaMes || 1500)) * 100) : 0;
   const bar = document.getElementById("fa-loc-gauge-bar");
-  bar.style.width = `${pct}%`;
-  bar.style.background = totalMes >= regra.metaMes ? "#16a34a" : (totalMes >= regra.pisoMes ? "#d4af37" : "#dc2626");
-  document.getElementById("fa-loc-mes-label").textContent = `${totalMes} / ${regra.metaMes} locações`;
+  if (bar) {
+    bar.style.width = `${pct}%`;
+    bar.style.background = totalMes >= (regra.metaMes || 1500) ? "#16a34a" : (totalMes >= (regra.pisoMes || 824) ? "#d4af37" : "#dc2626");
+  }
+  const labelMes = document.getElementById("fa-loc-mes-label");
+  if (labelMes) labelMes.textContent = `${totalMes} / ${regra.metaMes || 1500} locações`;
 
   // Marcas de piso e super-meta na barra (relativas à meta = 100%)
   const marcaPiso = document.getElementById("fa-loc-marca-piso");
   const marcaSuper = document.getElementById("fa-loc-marca-super");
-  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, (regra.pisoMes / regra.metaMes) * 100)}%`;
-  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, (regra.superMetaMes / regra.metaMes) * 100)}%`;
+  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, ((regra.pisoMes || 824) / (regra.metaMes || 1500)) * 100)}%`;
+  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, ((regra.superMetaMes || 1950) / (regra.metaMes || 1500)) * 100)}%`;
 
   // Mensagem motivacional por faixa
   const msg = document.getElementById("fa-loc-mensagem-motivacional");
-  if (totalMes >= regra.superMetaMes) {
-    msg.textContent = "🏆 Super-meta batida! Bônus da equipe garantido!";
-    msg.style.color = "#16a34a";
-  } else if (totalMes >= regra.metaMes) {
-    msg.textContent = `🎉 Meta do mês batida! Faltam ${regra.superMetaMes - totalMes} locações para a super-meta 🏆`;
-    msg.style.color = "#16a34a";
-  } else if (totalMes >= regra.pisoMes) {
-    msg.textContent = `💪 Piso garantido! Faltam ${regra.metaMes - totalMes} locações para a meta 🎯`;
-    msg.style.color = "#d97706";
-  } else {
-    msg.textContent = `Faltam ${regra.pisoMes - totalMes} locações para garantir o piso do mês. Bora empurrar a pelúcia! 🧸`;
-    msg.style.color = "var(--muted)";
+  if (msg) {
+    if (totalMes >= (regra.superMetaMes || 1950)) {
+      msg.textContent = `🏆 Super-meta batida! Bônus de volume: ${formatBRL(bonusVolume)} por atendente!`;
+      msg.style.color = "#16a34a";
+    } else if (totalMes >= (regra.metaMes || 1500)) {
+      msg.textContent = `🎉 Meta do mês batida! Bônus de volume: ${formatBRL(bonusVolume)}. Faltam ${(regra.superMetaMes || 1950) - totalMes} locações para a super-meta 🏆`;
+      msg.style.color = "#16a34a";
+    } else if (totalMes >= (regra.pisoMes || 824)) {
+      msg.textContent = `💪 Piso garantido! Faltam ${(regra.metaMes || 1500) - totalMes} locações para a meta 🎯`;
+      msg.style.color = "#d97706";
+    } else {
+      msg.textContent = `Faltam ${(regra.pisoMes || 824) - totalMes} locações para garantir o piso do mês. Bora empurrar a pelúcia! 🧸`;
+      msg.style.color = "var(--muted)";
+    }
   }
 
   // Cards de resumo
   const cardsWrap = document.getElementById("fa-loc-cards-resumo");
-  cardsWrap.innerHTML = "";
-  const cards = [
-    { titulo: "Locações no Mês", valor: totalMes, meta: `meta ${regra.metaMes}` },
-    { titulo: "Receita Estimada", valor: formatBRL(receitaMes), meta: `ticket ${formatBRL(regra.ticketMedio)}` },
-    { titulo: "Piso do Mês", valor: regra.pisoMes, meta: totalMes >= regra.pisoMes ? "✅ atingido" : "pendente" },
-    { titulo: "Super-Meta", valor: regra.superMetaMes, meta: totalMes >= regra.superMetaMes ? "🏆 batida" : "bônus da equipe", destaque: true }
-  ];
-  cards.forEach(info => {
-    const card = document.createElement("div");
-    card.className = "loja-card fa-loja-card";
-    if (info.destaque) card.style.borderTopColor = "#16a34a";
-    card.innerHTML = `<h4>${info.titulo}</h4><div class="valor">${info.valor}</div><div class="meta"><span>${info.meta}</span></div>`;
-    cardsWrap.appendChild(card);
-  });
+  if (cardsWrap) {
+    cardsWrap.innerHTML = "";
+    const cards = [
+      { titulo: "Locações no Mês", valor: totalMes, meta: `piso ${regra.pisoMes || 824} / meta ${regra.metaMes || 1500}` },
+      { titulo: "Receita Real (Caixa)", valor: formatBRL(receitaReal), meta: `realizada em fechamentos` },
+      { titulo: "Ticket Médio Real", valor: formatBRL(ticketMedioReal), meta: `meta excedente: ${formatBRL(ticketMedioMeta)}` },
+      { titulo: "Bônus Volume", valor: formatBRL(bonusVolume), meta: totalMes >= (regra.metaMes || 1500) ? "✅ Garantido" : "Abaixo da Meta" },
+      { titulo: "Bônus Excedente", valor: formatBRL(bonusExcedente), meta: bonusExcedente > 0 ? "✅ Qualificado" : "Fora da Meta" },
+      { titulo: "BÔNUS POR ATENDENTE", valor: formatBRL(bonusTotalAtendente), meta: "volume + excedente", destaque: true }
+    ];
+    cards.forEach(info => {
+      const card = document.createElement("div");
+      card.className = "loja-card fa-loja-card";
+      if (info.destaque) card.style.borderTopColor = "#16a34a";
+      card.innerHTML = `<h4>${info.titulo}</h4><div class="valor">${info.valor}</div><div class="meta"><span>${info.meta}</span></div>`;
+      cardsWrap.appendChild(card);
+    });
+  }
 
   // Tabela dia a dia
   const tbody = document.getElementById("fa-loc-tabela-mes-tbody");
@@ -3331,6 +3370,86 @@ async function inicializarFaRegrasBonificacao() {
   if (selMetodologia) selMetodologia.onchange = alternarModoRegrasFa;
 
   document.getElementById("fa-btn-regras-salvar").onclick = salvarRegrasFaConformeModo;
+
+  // Lógica de importação do plano DOCX (Parque Circuito)
+  const inputDocx = document.getElementById("fa-loc-regras-importar-docx");
+  const statusDocx = document.getElementById("fa-loc-regras-importar-status");
+  if (inputDocx) {
+    inputDocx.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      statusDocx.textContent = "Processando arquivo...";
+      statusDocx.style.color = "var(--wine)";
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const docXml = await zip.file("word/document.xml").async("text");
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(docXml, "text/xml");
+        const paragraphs = xmlDoc.getElementsByTagName("w:p");
+        
+        let fullText = "";
+        for (let i = 0; i < paragraphs.length; i++) {
+          const p = paragraphs[i];
+          let pText = "";
+          const texts = p.getElementsByTagName("w:t");
+          for (let j = 0; j < texts.length; j++) {
+            pText += texts[j].textContent;
+          }
+          if (pText.trim()) {
+            fullText += pText + "\n";
+          }
+        }
+        
+        // Parser Regex Inteligente
+        const textoLimpo = fullText.replace(/(\d)\.(\d{3})/g, "$1$2");
+        
+        let piso = 824; 
+        let meta = 1500;
+        let superMeta = 1950;
+        let ticket = 27;
+        
+        // Buscar Piso (Ex: "824 a 1.499" ou "Abaixo de 824")
+        const matchPiso = textoLimpo.match(/Abaixo de (\d+)/) || textoLimpo.match(/(\d+) a \d+.*Piso/i) || textoLimpo.match(/Piso\D*(\d+)/i);
+        if (matchPiso) piso = parseInt(matchPiso[1]);
+        
+        // Buscar Meta (Ex: "1.500 a 1.949")
+        const matchMeta = textoLimpo.match(/(\d+) a \d+.*Meta/i) || textoLimpo.match(/Meta\D*(\d+)/i);
+        if (matchMeta) meta = parseInt(matchMeta[1]);
+        
+        // Buscar Super-meta (Ex: "1.950 ou mais")
+        const matchSuper = textoLimpo.match(/(\d+) ou mais.*Super/i) || textoLimpo.match(/Super-meta\D*(\d+)/i);
+        if (matchSuper) superMeta = parseInt(matchSuper[1]);
+        
+        // Buscar Ticket Médio (Ex: "R$ 27")
+        const matchTicket = textoLimpo.match(/ticket médio\D*(\d+)/i) || textoLimpo.match(/R\$\s*(\d+)/);
+        if (matchTicket) ticket = parseFloat(matchTicket[1]);
+        
+        // Preencher inputs
+        document.getElementById("fa-loc-regras-piso").value = piso;
+        document.getElementById("fa-loc-regras-meta").value = meta;
+        document.getElementById("fa-loc-regras-super").value = superMeta;
+        document.getElementById("fa-loc-regras-ticket").value = ticket;
+        
+        // Padrões do Farol padrão de locações
+        document.getElementById("fa-loc-regras-segqui").value = 20;
+        document.getElementById("fa-loc-regras-sexta").value = 38;
+        document.getElementById("fa-loc-regras-sabado").value = 45;
+        document.getElementById("fa-loc-regras-domingo").value = 40;
+        document.getElementById("fa-loc-regras-verde").value = 100;
+        document.getElementById("fa-loc-regras-amarelo").value = 80;
+
+        statusDocx.innerHTML = `<span style="color: #16a34a;"><i class="fa-solid fa-circle-check"></i> Importado! (Piso: ${piso}, Meta: ${meta}, Super: ${superMeta}, Ticket: R$ ${ticket})</span>`;
+        showToast("Plano de Bonificação extraído com sucesso!", "sucesso");
+      } catch (err) {
+        console.error("Erro ao processar arquivo docx:", err);
+        statusDocx.innerHTML = `<span style="color: var(--red);"><i class="fa-solid fa-circle-xmark"></i> Erro ao processar arquivo</span>`;
+        showToast("Não foi possível ler o arquivo. Verifique se é um DOCX válido.", "erro");
+      }
+    });
+  }
 
   alternarModoRegrasFa();
   await carregarRegrasFaConformeModo();
@@ -10518,7 +10637,30 @@ async function carregarMetaHoraHora() {
   for (let slot = aberturaMin + 60; slot <= fechamentoMin; slot += 60) {
     checkpoints.push(slot);
   }
-  const metaPorHora = checkpoints.length > 0 ? metaDiaria / checkpoints.length : 0;
+
+  // Algoritmo de Desagregação Ponderada de Metas (Sazonalidade Semanal + Fluxo Shopping)
+  const CURVA_TRAFEGO_SHOPPING = {
+    9: 0.4, 10: 0.4, 11: 0.8, 12: 1.3, 13: 1.3, 14: 0.85, 15: 0.85, 16: 0.85, 17: 1.1, 18: 1.5, 19: 1.5, 20: 1.5, 21: 0.6
+  };
+
+  const obterPesoHoraMeta = (horaSlot, diaSemana) => {
+    const hora = parseInt(horaSlot.split(":")[0]);
+    const pesoBase = CURVA_TRAFEGO_SHOPPING[hora] !== undefined ? CURVA_TRAFEGO_SHOPPING[hora] : 0.85;
+    const diasPico = ["Sexta-feira", "Sábado", "Domingo"];
+    const fatorSazonalidade = diasPico.includes(diaSemana) ? 1.6 : 1.0;
+    return pesoBase * fatorSazonalidade;
+  };
+
+  const calcularMetaProporcionalSlot = (slotMin, meta, checks, diaSemana) => {
+    if (meta <= 0 || checks.length === 0) return 0;
+    const pesosDia = checks.map(s => obterPesoHoraMeta(horaStrPorMinutos(s), diaSemana));
+    const somaPesos = pesosDia.reduce((a, b) => a + b, 0);
+    if (somaPesos <= 0) return meta / checks.length;
+    const pesoSlot = obterPesoHoraMeta(horaStrPorMinutos(slotMin), diaSemana);
+    return (pesoSlot / somaPesos) * meta;
+  };
+
+  const diaSemanaHoje = nomeDiaSemanaPorData(hoje);
 
   // Meta de amanhã, para preparação
   const metaAmanha = await buscarMetaDiaLoja(metaOperacaoAtiva, amanhaStr(hoje));
@@ -10546,8 +10688,18 @@ async function carregarMetaHoraHora() {
   const totalHoje = vendas.reduce((soma, v) => soma + (v.valor || 0), 0);
   const now = new Date();
   const agoraMin = now.getHours() * 60 + now.getMinutes();
-  const horasDecorridas = Math.min(Math.max((agoraMin - aberturaMin) / 60, 0), checkpoints.length);
-  const esperadoAteAgora = horasDecorridas * metaPorHora;
+
+  // Acumulador Ponderado Esperado até Agora
+  let esperadoAteAgora = 0;
+  checkpoints.forEach(slotMin => {
+    const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+    if (agoraMin >= slotMin) {
+      esperadoAteAgora += metaSlot;
+    } else if (agoraMin > slotMin - 60) {
+      const pctHora = (agoraMin - (slotMin - 60)) / 60;
+      esperadoAteAgora += metaSlot * pctHora;
+    }
+  });
 
   // Progresso do dia
   const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
@@ -10563,8 +10715,12 @@ async function carregarMetaHoraHora() {
 
   const esperadoEl = document.getElementById("meta-esperado-ate-agora");
   if (esperadoEl) esperadoEl.textContent = formatBRL(esperadoAteAgora);
+  
+  // Card de Meta da Hora (Mostra a meta do slot ativo no momento)
+  const slotAtual = checkpoints.find(slot => agoraMin >= slot - 60 && agoraMin < slot) || checkpoints[checkpoints.length - 1];
+  const metaHoraAtual = calcularMetaProporcionalSlot(slotAtual, metaDiaria, checkpoints, diaSemanaHoje);
   const porHoraEl = document.getElementById("meta-por-hora");
-  if (porHoraEl) porHoraEl.textContent = formatBRL(metaPorHora);
+  if (porHoraEl) porHoraEl.textContent = formatBRL(metaHoraAtual);
 
   // Mensagem motivacional
   const msgEl = document.getElementById("meta-mensagem-motivacional");
@@ -10581,15 +10737,17 @@ async function carregarMetaHoraHora() {
     }
   }
 
-  // Streak: intervalos consecutivos (já encerrados) que bateram a meta por hora,
-  // contando a partir do mais recente para trás.
+  // Streak: intervalos consecutivos que bateram a meta
   const streakEl = document.getElementById("meta-streak-label");
   if (streakEl) {
     const encerrados = checkpoints.filter(slot => agoraMin >= slot);
     let streak = 0;
     for (let i = encerrados.length - 1; i >= 0; i--) {
-      const venda = vendasPorSlot[horaStrPorMinutos(encerrados[i])];
-      if (venda && venda.valor >= metaPorHora) streak++;
+      const slotMin = encerrados[i];
+      const slotStr = horaStrPorMinutos(slotMin);
+      const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+      const venda = vendasPorSlot[slotStr];
+      if (venda && venda.valor >= metaSlot) streak++;
       else break;
     }
     if (streak >= 2) {
@@ -10630,10 +10788,11 @@ async function carregarMetaHoraHora() {
         acaoHtml = "—";
       }
 
+      const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="py-2 px-4 font-mono font-bold">${inicioIntervalo}–${slotStr}</td>
-        <td class="py-2 px-4 text-right font-mono">${formatBRL(metaPorHora)}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatBRL(metaSlot)}</td>
         <td class="py-2 px-4 text-center">${statusHtml}</td>
         <td class="py-2 px-4 text-right">${acaoHtml}</td>
       `;
