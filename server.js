@@ -13,7 +13,7 @@ const { initDb, dbAllAsync, dbGetAsync, dbRunAsync } = require('./config/databas
 const {
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
-  META_JANELA_CONFIRMACAO_MIN,
+  META_JANELA_FECHAMENTO_DEPOIS_MIN,
   META_LEMBRETE_MIN_ANTES,
   agoraBrasilMeta,
   minutosParaHoraStrMeta,
@@ -216,7 +216,7 @@ if (require.main === module) {
         const confirmados = new Set(checkins.map(c => c.horaSlot));
 
         const perdidos = checkpointsDoDiaMeta(loja)
-          .filter(slotMin => slotMin + META_JANELA_CONFIRMACAO_MIN < agora.minutosDoDia)
+          .filter(slotMin => slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN < agora.minutosDoDia)
           .map(minutosParaHoraStrMeta)
           .filter(horaSlot => !confirmados.has(horaSlot));
 

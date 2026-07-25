@@ -12148,11 +12148,13 @@ function formatTime(date) {
 // ==========================================================================
 // MÓDULO META HORA A HORA — meta diária real vem das planilhas importadas
 // (Importações > Metas Diárias). Colaboradora confirma, por check-in, o
-// valor vendido em cada intervalo de hora, só até 30min depois do horário.
+// valor vendido em cada intervalo de hora, numa janela que abre 5min antes
+// e fecha 20min depois do horário.
 // Não usa dados do Controle de Caixa/envelopes.
 // ==========================================================================
 let metaOperacaoAtiva = null;
-const META_JANELA_CONFIRMACAO_MIN = 30;
+const META_JANELA_ABERTURA_ANTES_MIN = 5;
+const META_JANELA_FECHAMENTO_DEPOIS_MIN = 20;
 
 function minutosDoDiaPorHora(horaStr) {
   const [h, m] = (horaStr || "09:00").split(":").map(Number);
@@ -12505,21 +12507,36 @@ async function carregarMetaHoraHora() {
       if (venda) {
         statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900/50">✅ Total do dia: ${formatBRL(venda.valor)}</span>`;
         acaoHtml = "—";
-      } else if (agoraMin < slotMin) {
-        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800">🔒 Aguardando o horário</span>`;
-        acaoHtml = "—";
-      } else if (agoraMin <= slotMin + META_JANELA_CONFIRMACAO_MIN) {
-        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-900/40">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_CONFIRMACAO_MIN)}</span>`;
+      } else {
+        const dentroDaJanela = agoraMin >= slotMin - META_JANELA_ABERTURA_ANTES_MIN
+          && agoraMin <= slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+
+        if (agoraMin < slotMin - META_JANELA_ABERTURA_ANTES_MIN) {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800">🔒 Aguardando o horário</span>`;
+        } else if (dentroDaJanela) {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-900/40">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN)}</span>`;
+        } else {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-900/40">⛔ Intervalo perdido</span>`;
+        }
+
+        // Campo sempre visível (passado, presente e futuro) para o operador
+        // já poder digitar antes da hora — o botão só fica ativo dentro da
+        // janela de confirmação (5min antes a 20min depois), que o servidor
+        // também valida.
         const inputId = `meta-slot-input-${slotMin}`;
+        const desabilitado = dentroDaJanela ? "" : "disabled";
+        const classeBotao = dentroDaJanela
+          ? "px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition"
+          : "px-2 py-1 bg-emerald-900 text-emerald-700 font-bold text-[10px] rounded-lg cursor-not-allowed opacity-60";
+        const tituloBotao = dentroDaJanela
+          ? "Confirmar o total acumulado deste intervalo"
+          : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
             <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
-            <button type="button" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition" data-confirmar-slot="${slotStr}">Confirmar</button>
+            <button type="button" ${desabilitado} title="${tituloBotao}" class="${classeBotao}" data-confirmar-slot="${slotStr}">Confirmar</button>
           </div>
         `;
-      } else {
-        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-900/40">⛔ Intervalo perdido</span>`;
-        acaoHtml = "—";
       }
 
       // Meta ACUMULADA até este intervalo — é isso que se compara com o

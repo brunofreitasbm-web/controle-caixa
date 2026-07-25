@@ -187,7 +187,7 @@ const OPERACOES_CONFIG_META = {
 };
 // Unidades do Faça Amigos não usam Meta Hora a Hora.
 const UNIDADES_FA_META = ['Grão Pará', 'ParqueShopping', 'Parque Circuito'];
-const META_JANELA_CONFIRMACAO_MIN = 30;
+const META_JANELA_FECHAMENTO_DEPOIS_MIN = 20;
 const META_LEMBRETE_MIN_ANTES = 10;
 
 function agoraBrasilMeta() {
@@ -353,7 +353,7 @@ module.exports = {
   enviarNotificacaoPush,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
-  META_JANELA_CONFIRMACAO_MIN,
+  META_JANELA_FECHAMENTO_DEPOIS_MIN,
   META_LEMBRETE_MIN_ANTES,
   agoraBrasilMeta,
   minutosParaHoraStrMeta,

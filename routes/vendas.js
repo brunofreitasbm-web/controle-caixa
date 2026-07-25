@@ -3,7 +3,8 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { publish } = require('../config/realtime');
 
-const JANELA_CONFIRMACAO_MIN = 30;
+const JANELA_ABERTURA_ANTES_MIN = 5;
+const JANELA_FECHAMENTO_DEPOIS_MIN = 20;
 
 // Data/hora "agora" no fuso de Brasília — usar UTC puro aqui causaria rejeição
 // de check-ins legítimos à noite (quando UTC já virou o dia seguinte).
@@ -42,8 +43,8 @@ router.post('/registrar', (req, res) => {
   if (slotMin === null) {
     return res.status(400).json({ error: 'Intervalo de hora inválido.' });
   }
-  if (agora.minutosDoDia < slotMin || agora.minutosDoDia > slotMin + JANELA_CONFIRMACAO_MIN) {
-    return res.status(400).json({ error: `Este intervalo só pode ser confirmado até ${JANELA_CONFIRMACAO_MIN} minutos depois do horário estabelecido.` });
+  if (agora.minutosDoDia < slotMin - JANELA_ABERTURA_ANTES_MIN || agora.minutosDoDia > slotMin + JANELA_FECHAMENTO_DEPOIS_MIN) {
+    return res.status(400).json({ error: `Este intervalo só pode ser confirmado de ${JANELA_ABERTURA_ANTES_MIN} minutos antes até ${JANELA_FECHAMENTO_DEPOIS_MIN} minutos depois do horário estabelecido.` });
   }
 
   const id = `${operacao}_${data}_${horaSlot}`;
