@@ -2998,6 +2998,18 @@ async function buscarRegraFaBonificacao(competencia) {
   }
 }
 
+// Deriva os campos calculados de um lançamento (total, % conversão, dia da
+// semana e pix do dia) a partir das contagens brutas de vendas — reaproveitado
+// tanto no dashboard individual (calcularBonificacaoFa) quanto no quadro
+// combinado de todas as colaboradoras (carregarLancamentosDoMesTodasColaboradoras).
+function calcularLinhaBonificacaoFa(l, regra) {
+  const total = (l.vendas30 || 0) + (l.vendas1h || 0) + (l.vendas2h || 0);
+  const pctConversao = total > 0 ? ((l.vendas1h || 0) + (l.vendas2h || 0)) / total : 0;
+  const diaSemana = nomeDiaSemanaPorData(l.data);
+  const pixHoje = (regra.pixDiasSemana.includes(diaSemana) && (l.vendas2h || 0) >= regra.pixMinVendas2h) ? regra.pixValor : 0;
+  return { ...l, diaSemana, total, pctConversao, pixHoje };
+}
+
 function calcularBonificacaoFa(lancamentos, regra) {
   let totalV30 = 0, totalV1h = 0, totalV2h = 0, totalPix = 0;
 
@@ -3006,13 +3018,9 @@ function calcularBonificacaoFa(lancamentos, regra) {
     totalV1h += l.vendas1h || 0;
     totalV2h += l.vendas2h || 0;
 
-    const total = (l.vendas30 || 0) + (l.vendas1h || 0) + (l.vendas2h || 0);
-    const pctConversao = total > 0 ? ((l.vendas1h || 0) + (l.vendas2h || 0)) / total : 0;
-    const diaSemana = nomeDiaSemanaPorData(l.data);
-    const pixHoje = (regra.pixDiasSemana.includes(diaSemana) && (l.vendas2h || 0) >= regra.pixMinVendas2h) ? regra.pixValor : 0;
-    totalPix += pixHoje;
-
-    return { ...l, diaSemana, total, pctConversao, pixHoje };
+    const linha = calcularLinhaBonificacaoFa(l, regra);
+    totalPix += linha.pixHoje;
+    return linha;
   });
 
   const totalAtend = totalV30 + totalV1h + totalV2h;
@@ -3140,6 +3148,48 @@ async function carregarFaMetaConversao(unidade) {
 
   const resultado = calcularBonificacaoFa(lancamentos, regra);
   renderFaMetaDashboard(resultado, regra);
+  carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, regra);
+}
+
+// Quadro "Lançamentos do Mês": ao contrário do dashboard acima (que é sempre
+// da colaboradora selecionada), aqui mostramos o mês inteiro com todas as
+// colaboradoras da unidade juntas — quem lançou cada dia aparece na coluna
+// Colaboradora, já que elas costumam se revezar dia a dia.
+async function carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, regra) {
+  const tbody = document.getElementById("fa-meta-tabela-mes-tbody");
+  const tabelaVazia = document.getElementById("fa-meta-tabela-vazia");
+  if (!tbody) return;
+
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar lançamentos do mês (todas as colaboradoras) FA:", err);
+  }
+
+  const linhas = lancamentos
+    .map(l => calcularLinhaBonificacaoFa(l, regra))
+    .sort((a, b) => b.data.localeCompare(a.data) || a.usuario.localeCompare(b.usuario));
+
+  tbody.innerHTML = "";
+  tabelaVazia.classList.toggle("hidden", linhas.length > 0);
+  linhas.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${l.data.split("-").reverse().join("/")}</td>
+      <td>${l.usuario}</td>
+      <td>${l.diaSemana}</td>
+      <td>${l.vendas30 || 0}</td>
+      <td>${l.vendas1h || 0}</td>
+      <td>${l.vendas2h || 0}</td>
+      <td>${l.total}</td>
+      <td>${(l.pctConversao * 100).toFixed(1)}%</td>
+      <td>${l.pixHoje > 0 ? formatBRL(l.pixHoje) : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 function renderFaMetaDashboard(resultado, regra) {
@@ -3219,27 +3269,6 @@ function renderFaMetaDashboard(resultado, regra) {
     }
     fdsWrap.appendChild(chip);
   }
-
-  // Tabela dia a dia
-  const tbody = document.getElementById("fa-meta-tabela-mes-tbody");
-  const tabelaVazia = document.getElementById("fa-meta-tabela-vazia");
-  tbody.innerHTML = "";
-  const linhasOrdenadas = resultado.linhas.slice().sort((a, b) => b.data.localeCompare(a.data));
-  tabelaVazia.classList.toggle("hidden", linhasOrdenadas.length > 0);
-  linhasOrdenadas.forEach(l => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${l.data.split("-").reverse().join("/")}</td>
-      <td>${l.diaSemana}</td>
-      <td>${l.vendas30 || 0}</td>
-      <td>${l.vendas1h || 0}</td>
-      <td>${l.vendas2h || 0}</td>
-      <td>${l.total}</td>
-      <td>${(l.pctConversao * 100).toFixed(1)}%</td>
-      <td>${l.pixHoje > 0 ? formatBRL(l.pixHoje) : "—"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
 }
 
 // ==========================================================================
