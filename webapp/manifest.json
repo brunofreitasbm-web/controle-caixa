@@ -1,7 +1,7 @@
 {
-  "name": "Ponto Eletrônico Seguro",
-  "short_name": "PontoPWA",
-  "description": "Controle de Ponto PWA CLT-Compliant com Geolocalização e Anti-Fraude",
+  "name": "HuB Operações",
+  "short_name": "HuB Operações",
+  "description": "HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

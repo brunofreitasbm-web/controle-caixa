@@ -69,7 +69,7 @@ function Generate-PngIcon($outFile, $canvasSize) {
     # Label text
     $fontText = New-Object System.Drawing.Font -ArgumentList 'Trebuchet MS', ([float]($canvasSize * 0.055)), ([System.Drawing.FontStyle]::Bold)
     $textBox = New-Object System.Drawing.RectangleF 0, ([float]($canvasSize * 0.76)), $canvasSize, ([float]($canvasSize * 0.18))
-    $g.DrawString('HUB DE OPERAÇÕES', $fontText, $goldBrush, $textBox, $sf)
+    $g.DrawString('HUB OPERAÇÕES', $fontText, $goldBrush, $textBox, $sf)
 
     $bmp.Save($outFile, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose()

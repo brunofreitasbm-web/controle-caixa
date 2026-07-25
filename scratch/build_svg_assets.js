@@ -53,8 +53,8 @@ function generateSvgIcon(size) {
     <text x="${size * 0.5}" y="${size * 0.455}" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="${size * 0.16}" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
   </g>
 
-  <!-- Rótulo "HUB DE OPERAÇÕES" -->
-  <text x="${size * 0.5}" y="${size * 0.84}" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="${size * 0.068}" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="${size * 0.004}">HUB DE OPERAÇÕES</text>
+  <!-- Rótulo "HUB OPERAÇÕES" -->
+  <text x="${size * 0.5}" y="${size * 0.84}" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="${size * 0.068}" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="${size * 0.004}">HUB OPERAÇÕES</text>
 </svg>`;
 }
 

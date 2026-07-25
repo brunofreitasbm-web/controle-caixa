@@ -82,7 +82,7 @@ self.addEventListener('push', function(event) {
   if (event.data) {
     try {
       const data = event.data.json();
-      const title = data.title || 'Ponto Eletrônico Seguro';
+      const title = data.title || 'HuB Operações';
       const options = {
         body: data.body || 'Nova notificação de jornada.',
         icon: data.icon || '/icons/icon-192.png',

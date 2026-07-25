@@ -42,6 +42,6 @@
     <text x="96" y="87.36" font-family="'Trebuchet MS', 'Arial Black', sans-serif" font-size="30.72" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" dominant-baseline="middle">$</text>
   </g>
 
-  <!-- Rótulo "HUB DE OPERAÇÕES" -->
-  <text x="96" y="161.28" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="13.056000000000001" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="0.768">HUB DE OPERAÇÕES</text>
+  <!-- Rótulo "HUB OPERAÇÕES" -->
+  <text x="96" y="161.28" font-family="'Trebuchet MS', 'Outfit', 'Segoe UI', sans-serif" font-size="13.056000000000001" font-weight="800" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="0.768">HUB OPERAÇÕES</text>
 </svg>

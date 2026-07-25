@@ -1008,7 +1008,7 @@ function mesmoDia(isoA, isoB) {
 }
 
 // ==========================================================================
-// TEMA & CONFIGURAÇÕES GERAIS (HUB de Operações)
+// TEMA & CONFIGURAÇÕES GERAIS (HuB Operações)
 // ==========================================================================
 function aplicarTema() {
   // Modo escuro removido: o app opera exclusivamente no tema claro.
@@ -4912,11 +4912,11 @@ if (btnInstalarPwa) {
 }
 
 window.addEventListener("appinstalled", () => {
-  console.log("Aplicativo Controle de Caixa instalado com sucesso.");
+  console.log("Aplicativo HuB Operações instalado com sucesso.");
   if (btnInstalarPwa) {
     btnInstalarPwa.classList.add("hidden");
   }
-  showToast("Aplicativo Controle de Caixa instalado com sucesso!", "success");
+  showToast("Aplicativo HuB Operações instalado com sucesso!", "success");
 });
 
 // ==========================================================================
