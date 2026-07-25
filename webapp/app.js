@@ -10531,7 +10531,10 @@ function extrairNomeDoPdf(textContent, fileName) {
     /NOME\s*DO\s*CLIENTE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
     /RELATÓRIO\s*DE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
     /CANDIDATO\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
-    /COLABORADOR\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i
+    /COLABORADOR\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /ANÁLISE\s*EXECUTIVA\s+([A-ZÀ-Ú\s]{3,40})/i,
+    /SUMÁRIO\s+([A-ZÀ-Ú\s]{3,40})/i,
+    /VISÃO\s*GERAL\s+([A-ZÀ-Ú\s]{3,40})/i
   ];
   
   for (const regex of patterns) {
