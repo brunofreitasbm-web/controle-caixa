@@ -9432,18 +9432,9 @@ window.carregarAuditoriaBoletos = function() {
 
   divergenciasCount = auditList.filter(i => i.isDivergent).length;
 
-  // Notificar só o que sobrou divergente depois da conciliação — antes disso um
-  // par que a segunda passada iria unir já teria disparado dois e-mails.
-  auditList.filter(i => i.isDivergent).forEach(i => {
-    notificarDivergenciaAuditoria(
-      i.loja,
-      i.nfeNumber === "—" ? "Não Importada" : i.nfeNumber,
-      i.valorNfe,
-      i.documentoBoleto === "—" ? "Não Encontrado" : i.documentoBoleto,
-      i.valorBoletos,
-      i.descDivergencia
-    );
-  });
+  // Notificação "⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos" desativada
+  // a pedido — a tabela/contadores de divergência abaixo continuam normais,
+  // só o disparo para Bruno/Isabella/Alexandra/LiderOP foi removido.
 
   const statNfe = document.getElementById("stat-audit-nfe-total");
   const statBoleto = document.getElementById("stat-audit-boleto-total");
@@ -9537,36 +9528,6 @@ window.carregarAuditoriaBoletos = function() {
     tbody.appendChild(tr);
   });
 };
-
-function notificarDivergenciaAuditoria(loja, nfeNumber, valorNfe, documentoBoleto, valorBoletos, detalheDivergencia) {
-  const storeLabel = loja === "9175" ? "Marambaia (9175)" : (loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
-  const key = `audit_notif_v3_${loja}_${nfeNumber}_${documentoBoleto}_${detalheDivergencia.replace(/\s+/g, '')}`;
-  if (localStorage.getItem(key)) return;
-
-  const assunto = `⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos - Loja ${storeLabel}`;
-  const mensagem = `Atenção Bruno e Isabella,\n\nFoi identificada uma divergência na auditoria de boletos vs NF-e da Loja ${storeLabel}:\n\n` +
-    `• Loja: ${storeLabel}\n` +
-    `• Nota Fiscal (NF-e): ${nfeNumber} (Valor NF: ${formatBRL(valorNfe)})\n` +
-    `• Documento/Boleto: ${documentoBoleto} (Valor Títulos: ${formatBRL(valorBoletos)})\n` +
-    `• Detalhes da Divergência: ${detalheDivergencia}\n\n` +
-    `👉 Ação Recomendada: Por favor, abram um SAF imediatamente no portal Cacau Show para contestar esta divergência.`;
-
-  fetch('/api/notificar-gestao', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
-      assunto: assunto,
-      mensagem: mensagem,
-      operador: currentUser ? currentUser.nome : 'Sistema'
-    })
-  })
-  .then(() => {
-    localStorage.setItem(key, "true");
-    console.log(`Notificação de divergência enviada para Bruno, Isabella, Alexandra e LiderOP.`);
-  })
-  .catch(err => console.error("Erro ao enviar notificação de auditoria:", err));
-}
 
 // ==========================================================================
 // CONFIGURAÇÕES: LÓGICA DE UI E EVENTOS
