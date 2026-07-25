@@ -11128,7 +11128,10 @@ function ativarCameraPonto() {
     return;
   }
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+  // Pede resolução ideal 3:4 (retrato) para casar com o viewport vertical do
+  // card — sem isso a webcam manda o padrão paisagem e o object-fit:cover
+  // crop fica mais agressivo (perde parte do rosto nas laterais).
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } } })
     .then(async stream => {
       pontoStream = stream;
       video.srcObject = stream;

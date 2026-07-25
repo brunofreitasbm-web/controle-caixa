@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v15';
+const CACHE_NAME = 'ponto-pwa-v16';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

@@ -2378,7 +2378,10 @@
             </div>
 
             <!-- Camera / Photo Viewport -->
-            <div class="w-full bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center" style="aspect-ratio:3/4; max-height:360px;">
+            <!-- max-width em vez de max-height: com w-full puro, max-height competia
+                 com aspect-ratio e vencia em telas largas, achatando a câmera pra
+                 paisagem. Limitando a largura, a altura segue o aspect-ratio certo. -->
+            <div class="w-full bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center mx-auto" style="aspect-ratio:3/4; max-width:340px;">
               <video id="ponto-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
               <canvas id="ponto-canvas" class="w-full h-full object-cover hidden"></canvas>
               <div id="ponto-camera-placeholder" class="text-center p-4">
@@ -3330,6 +3333,6 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
