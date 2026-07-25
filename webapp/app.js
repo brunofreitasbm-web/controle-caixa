@@ -10869,15 +10869,30 @@ function iniciarDeteccaoFacial() {
       clearInterval(pontoFaceDetectInterval);
       pontoFaceDetectInterval = null;
       try {
-        await fetch(`${API_BASE}/ponto/biometria`, {
+        const res = await fetch(`${API_BASE}/ponto/biometria`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ usuario: currentUser.nome, embedding: descriptor, detectionScore: deteccao.detection.score })
         });
-        pontoFaceEmbeddingSalvo = descriptor;
-        pontoFaceVerificada = true;
-        mostrarBannerFacial("sucesso", "Rosto reconhecido");
-        await showModal("Biometria cadastrada com sucesso", { icon: "✅", title: "Biometria cadastrada" });
+        const data = await res.json();
+
+        if (data.status === "ENROLLED") {
+          pontoFaceEmbeddingSalvo = descriptor;
+          pontoFaceVerificada = true;
+          mostrarBannerFacial("sucesso", "Rosto reconhecido");
+          await showModal("Biometria cadastrada com sucesso", { icon: "✅", title: "Biometria cadastrada" });
+        } else if (data.status === "TEMPORARILY_BLOCKED") {
+          pontoFaceVerificada = false;
+          mostrarBannerFacial("erro", "Cadastro bloqueado temporariamente");
+          showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          // loop não reiniciado: tentar de novo é inútil durante o bloqueio de 24h
+        } else {
+          // REJECTED_RETRYABLE (ou status inesperado): qualidade insuficiente, libera nova tentativa
+          pontoFaceVerificada = false;
+          mostrarBannerFacial("erro", "Qualidade insuficiente, tente novamente");
+          showToast(`Qualidade insuficiente. Tentativas restantes: ${data.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          iniciarDeteccaoFacial();
+        }
       } catch (err) {
         console.error("Erro ao salvar biometria:", err);
         showToast("Não foi possível salvar a biometria facial. Tente novamente.", "erro");
