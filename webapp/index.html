@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1C2435">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F4F6FA">
 <meta name="description" content="HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos">
 <title>HuB Operações</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -81,20 +81,20 @@
         <label id="login-pin-label" for="login-pin">PIN (4 dígitos)</label>
         <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
         <div id="pin-dots-login" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
         </div>
       </div>
       <div class="field hidden" id="login-pin-confirm-wrap">
         <label for="login-pin-confirm">Confirme o PIN</label>
         <input type="password" id="login-pin-confirm" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
         <div id="pin-dots-confirm" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-          <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+          <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
         </div>
       </div>
       <p id="login-msg" class="form-msg-erro hidden" role="alert"></p>
@@ -115,10 +115,10 @@
       <label for="session-pin">PIN (4 dígitos)</label>
       <input type="password" id="session-pin" inputmode="numeric" maxlength="4" placeholder="****" class="sr-only opacity-0 absolute w-0 h-0 pointer-events-none">
       <div id="pin-dots-session" class="pin-dots-container flex justify-center gap-4 py-2 cursor-pointer">
-        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
-        <div class="pin-dot w-4 h-4 rounded-full border-2 border-brand-300 transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
+        <div class="pin-dot w-4 h-4 rounded-full border-2 border-strong transition-all duration-200"></div>
       </div>
     </div>
     <p id="session-msg" class="form-msg-erro hidden" role="alert"></p>
@@ -275,7 +275,7 @@
             <span class="tab-text">Boletos</span>
           </button>
           <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos">
-            <span class="tab-icon"><i class="fa-solid fa-calculator text-brand-500"></i></span>
+            <span class="tab-icon"><i class="fa-solid fa-calculator text-accent"></i></span>
             <span class="tab-text">Auditoria Boletos</span>
           </button>
         </div>
@@ -403,7 +403,7 @@
         <!-- Perfil do Usuário (BlueDox Style) -->
         <div id="topbar-user-profile" class="user-profile-header" style="position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
           <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização"></span>
-          <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--wine), var(--wine-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+          <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--tone-accent-soft); border: 1.5px solid var(--edge-accent); color: var(--tone-accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
           <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
         </div>
       </div>
@@ -413,15 +413,15 @@
 
     <!-- ===================== TAB: NOVO REGISTRO ===================== -->
     <section id="tab-registro" class="tab-panel active" role="tabpanel" aria-labelledby="tablink-registro">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-envelope-open-text text-brand-300"></i> Registrar Movimento (Envelope)
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-envelope-open-text text-ink-muted"></i> Registrar Movimento (Envelope)
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Insira os dados do movimento de caixa diário e envie as informações de fechamento por envelope.</p>
+          <p class="text-xs text-ink-strong mt-1">Insira os dados do movimento de caixa diário e envie as informações de fechamento por envelope.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Caixa Geral</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Caixa Geral</span>
         </div>
       </div>
 
@@ -527,12 +527,12 @@
 
     <!-- ===================== TAB: DASHBOARD ===================== -->
     <section id="tab-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tablink-dashboard">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-brand-300"></i> Envelopes por Loja
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-ink-muted"></i> Envelopes por Loja
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Acompanhamento geral de envelopes em trânsito e fechamentos do dia.</p>
+          <p class="text-xs text-ink-strong mt-1">Acompanhamento geral de envelopes em trânsito e fechamentos do dia.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="dash-total" id="dash-total-geral">R$ 0,00 em trânsito</div>
@@ -589,15 +589,15 @@
 
     <!-- ===================== TAB: HISTÓRICO ===================== -->
     <section id="tab-historico" class="tab-panel" role="tabpanel" aria-labelledby="tablink-historico">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-brand-300"></i> Histórico Completo
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-ink-muted"></i> Histórico Completo
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Histórico completo e detalhado de todos os envelopes e movimentações enviadas.</p>
+          <p class="text-xs text-ink-strong mt-1">Histórico completo e detalhado de todos os envelopes e movimentações enviadas.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Registros</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Registros</span>
         </div>
       </div>
 
@@ -649,15 +649,15 @@
 
     <!-- ===================== TAB: DASHBOARD MENSAL (só Bruno/Isabella) ===================== -->
     <section id="tab-mensal" class="tab-panel" role="tabpanel" aria-labelledby="tablink-mensal">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-calendar-days text-brand-300"></i> Dashboard Mensal por Loja
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-ink-muted"></i> Dashboard Mensal por Loja
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Análise consolidada do faturamento e somatória mensal por unidade ativa.</p>
+          <p class="text-xs text-ink-strong mt-1">Análise consolidada do faturamento e somatória mensal por unidade ativa.</p>
         </div>
         <div class="flex items-center gap-3">
-          <div class="field mes-picker bg-brand-950 rounded-xl px-2 py-1 border border-brand-800">
+          <div class="field mes-picker bg-surface-2 rounded-xl px-2 py-1 border border-subtle">
             <input type="month" id="mensal-mes-filtro" aria-label="Selecionar mês" style="background: transparent; border: none; color: white; min-height: auto; padding: 4px;">
           </div>
         </div>
@@ -693,15 +693,15 @@
 
     <!-- ===================== TAB: AUDITORIA ===================== -->
     <section id="tab-auditoria" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-auditoria">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-user-shield text-brand-300"></i> Auditoria de Ações
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-ink-muted"></i> Auditoria de Ações
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Log completo de modificações de PIN, status e fechamentos do sistema.</p>
+          <p class="text-xs text-ink-strong mt-1">Log completo de modificações de PIN, status e fechamentos do sistema.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest">Acesso Restrito</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-danger-soft border border-danger text-danger uppercase tracking-widest">Acesso Restrito</span>
         </div>
       </div>
 
@@ -1286,15 +1286,15 @@
 
     <!-- ===================== TAB: COLABORADORES (só Bruno/Isabella) ===================== -->
     <section id="tab-colaboradores" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-colaboradores">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-users-gear text-brand-300"></i> Gerenciamento de Colaboradores
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-users-gear text-ink-muted"></i> Gerenciamento de Colaboradores
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Gerenciamento de acessos, criação de novos usuários e alteração de PINs.</p>
+          <p class="text-xs text-ink-strong mt-1">Gerenciamento de acessos, criação de novos usuários e alteração de PINs.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest">Acesso Restrito</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-danger-soft border border-danger text-danger uppercase tracking-widest">Acesso Restrito</span>
         </div>
       </div>
 
@@ -1394,38 +1394,38 @@
 
     <!-- ===================== ABA: IMPORTAÇÕES (UPLOADS CENTRALIZADOS) ===================== -->
     <section id="tab-importacoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-importacoes">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-file-import text-brand-300"></i> Importações
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-file-import text-ink-muted"></i> Importações
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Central de carga de arquivos: XMLs de Notas Fiscais e o relatório PDF de Títulos do Cacau Digital.</p>
+          <p class="text-xs text-ink-strong mt-1">Central de carga de arquivos: XMLs de Notas Fiscais e o relatório PDF de Títulos do Cacau Digital.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Entrada de Dados</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Entrada de Dados</span>
         </div>
       </div>
 
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
 
         <!-- ---------- Importação de NF-e (XML) ---------- -->
-        <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl cursor-pointer hover:border-brand-500 transition-all duration-300">
+        <div id="nf-drop-zone" class="glass-card p-6 rounded-2xl bg-surface-2 border border-subtle text-center shadow-xl cursor-pointer hover:border-accent transition-all duration-300">
           <div class="max-w-md mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
-              <i class="fa-solid fa-file-code text-brand-500"></i>
+            <div class="w-16 h-16 rounded-full bg-surface-1 flex items-center justify-center text-ink-muted text-2xl mx-auto border border-subtle">
+              <i class="fa-solid fa-file-code text-accent"></i>
             </div>
             <div>
-              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Notas Fiscais XML</h3>
-              <p class="text-xs text-brand-400 mt-1">Selecione ou arraste os arquivos XML das Notas Fiscais extraídos do Cacau Digital (de 1 a múltiplos arquivos)</p>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Importar Notas Fiscais XML</h3>
+              <p class="text-xs text-ink-muted mt-1">Selecione ou arraste os arquivos XML das Notas Fiscais extraídos do Cacau Digital (de 1 a múltiplos arquivos)</p>
             </div>
             <label class="btn-upload-highlight mx-auto">
               <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivos XML
               <input type="file" id="nf-file" accept=".xml" multiple class="hidden">
             </label>
-            <div id="nf-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
-              <div id="nf-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
-              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
-                <div id="nf-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div id="nf-file-info" class="text-xs text-ink-muted font-mono hidden w-full mt-3">
+              <div id="nf-progress-label" class="text-center mb-1 text-ink">Processando...</div>
+              <div class="w-full bg-surface-1 rounded-full h-2 overflow-hidden border border-subtle">
+                <div id="nf-progress-bar" class="bg-accent-soft h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
             </div>
           </div>
@@ -1434,139 +1434,139 @@
         </div>
 
         <!-- Passo a passo: extração e importação de XMLs (visível ao Líder de Operações) -->
-        <details id="passo-a-passo-xml" class="passo-a-passo glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg hidden">
-          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-brand-300 tracking-wider flex items-center gap-1.5">
-            <i class="fa-solid fa-route text-brand-500"></i>
+        <details id="passo-a-passo-xml" class="passo-a-passo glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg hidden">
+          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-ink-muted tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-route text-accent"></i>
             <span class="flex-1 text-left">Passo a Passo (Extração &amp; Importação de XMLs)</span>
             <span class="passo-a-passo-chevron">▼</span>
           </summary>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center text-xs font-medium mt-4">
             <!-- Passo 1 -->
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+            <div class="p-3 bg-surface-1 border border-subtle hover:border-accent rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
               <div class="flex flex-col items-center w-full">
-                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">1</span>
-                <strong class="text-brand-200 text-sm">Cacau Digital</strong>
-                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Acesse o portal da Cacau Show.</p>
+                <span class="w-7 h-7 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2 group-hover:bg-accent-soft transition">1</span>
+                <strong class="text-ink text-sm">Cacau Digital</strong>
+                <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">Acesse o portal da Cacau Show.</p>
               </div>
-              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              <div class="mt-2 text-accent hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
             </div>
 
             <!-- Passo 2 -->
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+            <div class="p-3 bg-surface-1 border border-subtle hover:border-accent rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
               <div class="flex flex-col items-center w-full">
-                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">2</span>
-                <strong class="text-brand-200 text-sm">Pedidos &gt; Notas Fiscais</strong>
-                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Navegue pelo menu de Pedidos e selecione Notas Fiscais.</p>
+                <span class="w-7 h-7 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2 group-hover:bg-accent-soft transition">2</span>
+                <strong class="text-ink text-sm">Pedidos &gt; Notas Fiscais</strong>
+                <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">Navegue pelo menu de Pedidos e selecione Notas Fiscais.</p>
               </div>
-              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              <div class="mt-2 text-accent hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
             </div>
 
             <!-- Passo 3 -->
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+            <div class="p-3 bg-surface-1 border border-subtle hover:border-accent rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
               <div class="flex flex-col items-center w-full">
-                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">3</span>
-                <strong class="text-brand-200 text-sm">Loja &amp; Período</strong>
-                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione a loja correspondente e filtre pelo período desejado.</p>
+                <span class="w-7 h-7 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2 group-hover:bg-accent-soft transition">3</span>
+                <strong class="text-ink text-sm">Loja &amp; Período</strong>
+                <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">Selecione a loja correspondente e filtre pelo período desejado.</p>
               </div>
-              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              <div class="mt-2 text-accent hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
             </div>
 
             <!-- Passo 4 -->
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 hover:border-brand-700/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+            <div class="p-3 bg-surface-1 border border-subtle hover:border-accent rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
               <div class="flex flex-col items-center w-full">
-                <span class="w-7 h-7 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2 group-hover:bg-brand-700 transition">4</span>
-                <strong class="text-brand-200 text-sm">Seleciona &amp; Baixar XMLs</strong>
-                <p class="text-[11px] text-brand-400 mt-1 leading-relaxed">Selecione as notas desejadas e clique em Baixar XMLs.</p>
+                <span class="w-7 h-7 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2 group-hover:bg-accent-soft transition">4</span>
+                <strong class="text-ink text-sm">Seleciona &amp; Baixar XMLs</strong>
+                <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">Selecione as notas desejadas e clique em Baixar XMLs.</p>
               </div>
-              <div class="mt-2 text-brand-500 hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
+              <div class="mt-2 text-accent hidden lg:block"><i class="fa-solid fa-angles-right"></i></div>
             </div>
 
             <!-- Passo 5 -->
-            <div class="p-3 bg-brand-800/40 border border-brand-700/50 hover:border-brand-600/80 rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
+            <div class="p-3 bg-surface-3 border border-subtle hover:border-accent rounded-xl flex flex-col items-center justify-between transition-all duration-200 group">
               <div class="flex flex-col items-center w-full">
-                <span class="w-7 h-7 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-extrabold mb-2">5</span>
-                <strong class="text-brand-300 text-sm">Extrair &amp; Importar</strong>
-                <p class="text-[11px] text-brand-200/85 mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
+                <span class="w-7 h-7 rounded-full bg-accent-soft text-ink-strong flex items-center justify-center font-extrabold mb-2">5</span>
+                <strong class="text-ink-muted text-sm">Extrair &amp; Importar</strong>
+                <p class="text-[11px] text-ink mt-1 leading-relaxed">Extraia o arquivo ZIP baixado e importe as XMLs no botão acima.</p>
               </div>
-              <div class="mt-2 text-brand-500/50 hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
+              <div class="mt-2 text-accent hidden lg:block"><i class="fa-solid fa-check-double"></i></div>
             </div>
           </div>
         </details>
 
         <!-- ---------- Importação de Títulos (PDF) ---------- -->
-        <div id="boleto-import-card" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
+        <div id="boleto-import-card" class="glass-card p-6 rounded-2xl bg-surface-2 border border-subtle text-center shadow-xl">
           <div class="max-w-md mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+            <div class="w-16 h-16 rounded-full bg-surface-1 flex items-center justify-center text-ink-muted text-2xl mx-auto border border-subtle">
               <i class="fa-solid fa-file-pdf"></i>
             </div>
             <div>
-              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Relatório de Títulos PDF</h3>
-              <p class="text-xs text-brand-400 mt-1">Selecione o PDF exportado do portal Consulta de Títulos da Cacau Show</p>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Importar Relatório de Títulos PDF</h3>
+              <p class="text-xs text-ink-muted mt-1">Selecione o PDF exportado do portal Consulta de Títulos da Cacau Show</p>
             </div>
             <label class="btn-upload-highlight mx-auto">
               <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo PDF
               <input type="file" id="boleto-pdf-file" accept=".pdf" class="hidden">
             </label>
-            <div id="boleto-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
-              <div id="boleto-progress-label" class="text-center mb-1 text-brand-200">Processando...</div>
-              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
-                <div id="boleto-progress-bar" class="bg-brand-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div id="boleto-file-info" class="text-xs text-ink-muted font-mono hidden w-full mt-3">
+              <div id="boleto-progress-label" class="text-center mb-1 text-ink">Processando...</div>
+              <div class="w-full bg-surface-1 rounded-full h-2 overflow-hidden border border-subtle">
+                <div id="boleto-progress-bar" class="bg-accent-soft h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Passo a passo: importação de títulos (visível ao Líder de Operações) -->
-        <details id="passo-a-passo-titulos" class="passo-a-passo glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/60 shadow-lg hidden">
-          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-brand-300 tracking-wider flex items-center gap-1.5">
+        <details id="passo-a-passo-titulos" class="passo-a-passo glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg hidden">
+          <summary class="passo-a-passo-summary text-xs font-extrabold uppercase text-ink-muted tracking-wider flex items-center gap-1.5">
             <i class="fa-solid fa-circle-info"></i>
             <span class="flex-1 text-left">Passo a Passo (Importação de Títulos)</span>
             <span class="passo-a-passo-chevron">▼</span>
           </summary>
           <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center text-xs font-medium mt-4">
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">1</span>
-              <strong class="text-brand-200">Cacau Digital</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Acesse a extranet da Cacau Show</span>
+            <div class="p-3 bg-surface-1 border border-subtle rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2">1</span>
+              <strong class="text-ink">Cacau Digital</strong>
+              <span class="text-[10px] text-ink-muted mt-1">Acesse a extranet da Cacau Show</span>
             </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">2</span>
-              <strong class="text-brand-200">Financeiro &gt; Título</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Navegue até a consulta de títulos</span>
+            <div class="p-3 bg-surface-1 border border-subtle rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2">2</span>
+              <strong class="text-ink">Financeiro &gt; Título</strong>
+              <span class="text-[10px] text-ink-muted mt-1">Navegue até a consulta de títulos</span>
             </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">3</span>
-              <strong class="text-brand-200">Filtrar por Loja</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Filtre os boletos em aberto</span>
+            <div class="p-3 bg-surface-1 border border-subtle rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2">3</span>
+              <strong class="text-ink">Filtrar por Loja</strong>
+              <span class="text-[10px] text-ink-muted mt-1">Filtre os boletos em aberto</span>
             </div>
-            <div class="p-3 bg-brand-900/30 border border-brand-800/60 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-800 text-brand-200 flex items-center justify-center font-bold mb-2">4</span>
-              <strong class="text-brand-200">Imprimir em PDF</strong>
-              <span class="text-[10px] text-brand-400 mt-1">Gere o arquivo PDF do relatório</span>
+            <div class="p-3 bg-surface-1 border border-subtle rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-surface-3 text-ink flex items-center justify-center font-bold mb-2">4</span>
+              <strong class="text-ink">Imprimir em PDF</strong>
+              <span class="text-[10px] text-ink-muted mt-1">Gere o arquivo PDF do relatório</span>
             </div>
-            <div class="p-3 bg-brand-800/40 border border-brand-700/50 rounded-xl flex flex-col items-center">
-              <span class="w-6 h-6 rounded-full bg-brand-500 text-brand-950 flex items-center justify-center font-bold mb-2">5</span>
-              <strong class="text-brand-300">Importar no Sistema</strong>
-              <span class="text-[10px] text-brand-200/80 mt-1">Arraste ou selecione o PDF acima</span>
+            <div class="p-3 bg-surface-3 border border-subtle rounded-xl flex flex-col items-center">
+              <span class="w-6 h-6 rounded-full bg-accent-soft text-ink-strong flex items-center justify-center font-bold mb-2">5</span>
+              <strong class="text-ink-muted">Importar no Sistema</strong>
+              <span class="text-[10px] text-ink mt-1">Arraste ou selecione o PDF acima</span>
             </div>
           </div>
         </details>
 
         <!-- ---------- Importação de Metas Diárias (XLSX) ---------- -->
-        <div id="metas-import-card" class="glass-card p-6 rounded-2xl bg-brand-950 border border-brand-900 text-center shadow-xl">
+        <div id="metas-import-card" class="glass-card p-6 rounded-2xl bg-surface-2 border border-subtle text-center shadow-xl">
           <div class="max-w-md mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 text-2xl mx-auto border border-brand-800">
+            <div class="w-16 h-16 rounded-full bg-surface-1 flex items-center justify-center text-ink-muted text-2xl mx-auto border border-subtle">
               <i class="fa-solid fa-bullseye"></i>
             </div>
             <div>
-              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Importar Metas Diárias (XLSX)</h3>
-              <p class="text-xs text-brand-400 mt-1">Selecione a planilha de exportação de metas da loja (coluna "$ Meta Total"). Usado no Meta Hora a Hora.</p>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Importar Metas Diárias (XLSX)</h3>
+              <p class="text-xs text-ink-muted mt-1">Selecione a planilha de exportação de metas da loja (coluna "$ Meta Total"). Usado no Meta Hora a Hora.</p>
             </div>
-            <div class="inline-flex items-center gap-2 bg-brand-950/80 px-3 py-2 rounded-xl border border-brand-900/60">
-              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+            <div class="inline-flex items-center gap-2 bg-surface-2 px-3 py-2 rounded-xl border border-subtle">
+              <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
                 <i class="fa-solid fa-store"></i> Loja:
               </span>
-              <select id="metas-loja-selector" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+              <select id="metas-loja-selector" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
                 <option value="9175">Loja 9175 - Marambaia</option>
                 <option value="4304">Loja 4304 - Icoaraci</option>
                 <option value="9201">Loja 9201 - Mário Covas</option>
@@ -1576,7 +1576,7 @@
               <i class="fa-solid fa-file-arrow-up"></i> Selecionar Arquivo XLSX
               <input type="file" id="metas-xlsx-file" accept=".xlsx, .xls" class="hidden">
             </label>
-            <div id="metas-import-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3 text-left"></div>
+            <div id="metas-import-info" class="text-xs text-ink-muted font-mono hidden w-full mt-3 text-left"></div>
           </div>
         </div>
 
@@ -1585,15 +1585,15 @@
 
     <!-- ===================== ABA: CONFERÊNCIA DE NF-E (LOGÍSTICA) ===================== -->
     <section id="tab-conferencia-nfe" class="tab-panel hidden" role="tabpanel">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-receipt text-brand-300"></i> Recepção & Conferência de NF-e
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-receipt text-ink-muted"></i> Recepção & Conferência de NF-e
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Faça a validação física das Notas Fiscais utilizando a câmera do dispositivo. Os arquivos XML são carregados na aba <strong>Importações</strong>.</p>
+          <p class="text-xs text-ink-strong mt-1">Faça a validação física das Notas Fiscais utilizando a câmera do dispositivo. Os arquivos XML são carregados na aba <strong>Importações</strong>.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Logística</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Logística</span>
         </div>
       </div>
 
@@ -1617,19 +1617,19 @@
           </div>
 
           <!-- Barra de ação para seleção de múltiplas NF-es -->
-          <div id="nf-selection-action-bar" class="hidden glass-card p-4 rounded-2xl bg-brand-950/90 border border-brand-500/80 shadow-xl flex justify-between items-center animate-pulse mb-4">
-            <span class="text-xs text-brand-200 font-bold">
-              <i class="fa-solid fa-square-check text-brand-400 mr-1.5"></i> <span id="nf-selected-count">0</span> Nota(s) selecionada(s)<span id="nf-selected-store" class="text-brand-300 font-extrabold"></span>
+          <div id="nf-selection-action-bar" class="hidden glass-card p-4 rounded-2xl bg-surface-2 border border-accent shadow-xl flex justify-between items-center animate-pulse mb-4">
+            <span class="text-xs text-ink font-bold">
+              <i class="fa-solid fa-square-check text-ink-muted mr-1.5"></i> <span id="nf-selected-count">0</span> Nota(s) selecionada(s)<span id="nf-selected-store" class="text-ink-muted font-extrabold"></span>
             </span>
-            <button id="btn-conferir-selecionadas" class="px-4 py-2 bg-brand-650 hover:bg-brand-550 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+            <button id="btn-conferir-selecionadas" class="px-4 py-2 bg-accent-soft hover:bg-surface-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
               <i class="fa-solid fa-barcode"></i> Iniciar Conferência Conjunta
             </button>
           </div>
 
           <!-- Cards Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="nf-cards-grid">
-            <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
-              <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
+            <div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
+              <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-ink-strong"></i>
               Nenhuma Nota Fiscal importada. Clique acima para importar os arquivos XML da nota fiscal extraídos do Cacau Digital.
             </div>
           </div>
@@ -1637,61 +1637,61 @@
 
         <!-- Área de Trabalho / Bipagem Direct Direct NF -->
         <div id="nf-work-area" class="hidden space-y-6">
-          <div class="flex items-center justify-between bg-brand-950/80 p-4 rounded-2xl border border-brand-900 shadow-md">
+          <div class="flex items-center justify-between bg-surface-2 p-4 rounded-2xl border border-subtle shadow-md">
             <div class="flex items-center gap-2">
-              <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-brand-900 text-brand-200 hover:bg-brand-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-800">
+              <button id="btn-back-to-gallery" class="px-3 py-1.5 bg-surface-1 text-ink hover:bg-surface-hover rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-subtle">
                 <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria de Notas
               </button>
-              <button id="btn-concluir-conferencia" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-600 shadow-md">
+              <button id="btn-concluir-conferencia" class="px-3 py-1.5 bg-success-soft hover:bg-success-hover text-ink rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-success shadow-md">
                 <i class="fa-solid fa-check-double"></i> Concluir Conferência
               </button>
             </div>
             <div class="flex items-center gap-3">
-              <div class="inline-flex items-center gap-2 bg-brand-900/80 px-3 py-1 rounded-xl border border-brand-800">
-                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+              <div class="inline-flex items-center gap-2 bg-surface-1 px-3 py-1 rounded-xl border border-subtle">
+                <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-store"></i> Loja:
                 </span>
-                <select class="store-selector bg-brand-950 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+                <select class="store-selector bg-surface-2 text-ink-strong border border-subtle rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
                   <option value="9175" selected>Loja 9175 - Marambaia</option>
                   <option value="4304">Loja 4304 - Icoaraci</option>
                   <option value="9201">Loja 9201 - Mário Covas</option>
                 </select>
               </div>
-              <span class="text-xs font-mono font-bold text-brand-300">NF Nº <span id="nf-numero">-</span></span>
-              <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition">
+              <span class="text-xs font-mono font-bold text-ink-muted">NF Nº <span id="nf-numero">-</span></span>
+              <button id="btn-nf-whatsapp" class="inline-flex items-center gap-2 bg-success-soft hover:bg-success-hover text-ink font-bold px-3 py-1.5 rounded-xl text-xs transition">
                 <i class="fa-brands fa-whatsapp"></i> Notificar Gestão WhatsApp
               </button>
             </div>
           </div>
 
           <!-- Camera Scanner Viewport -->
-          <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 text-center shadow-xl">
+          <div class="glass-card rounded-2xl p-4 bg-surface-2 border border-subtle text-center shadow-xl">
             <div class="flex justify-between items-center mb-3">
-              <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5"><i class="fa-solid fa-camera"></i> Leitor Direct de Código de Barras (Hands-Free)</span>
-              <button id="btn-toggle-nf-scanner" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+              <span class="text-xs font-bold text-ink flex items-center gap-1.5"><i class="fa-solid fa-camera"></i> Leitor Direct de Código de Barras (Hands-Free)</span>
+              <button id="btn-toggle-nf-scanner" class="px-3 py-1.5 bg-accent-soft hover:bg-surface-hover text-ink font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-video"></i> <span id="nf-scanner-btn-text">Ativar Câmera NF</span>
               </button>
             </div>
             <div id="nf-camera-select-container" class="hidden mb-3 text-left">
-              <label for="nf-camera-select" class="text-[10px] text-brand-400 font-bold uppercase tracking-wider block mb-1">Selecionar Câmera:</label>
-              <select id="nf-camera-select" class="w-full bg-brand-900 text-brand-100 border border-brand-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand-500 cursor-pointer">
+              <label for="nf-camera-select" class="text-[10px] text-ink-muted font-bold uppercase tracking-wider block mb-1">Selecionar Câmera:</label>
+              <select id="nf-camera-select" class="w-full bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-accent cursor-pointer">
               </select>
             </div>
-            <div id="nf-scanner-container" class="hidden w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden border border-brand-800 relative">
+            <div id="nf-scanner-container" class="hidden w-full max-w-md mx-auto bg-surface-4 rounded-xl overflow-hidden border border-subtle relative">
               <div id="nf-reader" class="w-full"></div>
             </div>
           </div>
 
           <!-- Tabela de Produtos NF -->
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900">
-            <div class="p-3 bg-brand-950 border-b border-brand-900 flex justify-between items-center">
-              <input type="text" id="nf-search-input" placeholder="Filtrar produtos da nota..." class="bg-brand-900 border border-brand-800 text-brand-200 text-xs rounded-lg px-3 py-1.5 w-64 focus:outline-none">
-              <span class="text-xs text-brand-400 font-mono">Faltas: <strong id="nf-faltas-count" class="text-orange-400">0</strong></span>
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle">
+            <div class="p-3 bg-surface-2 border-b border-subtle flex justify-between items-center">
+              <input type="text" id="nf-search-input" placeholder="Filtrar produtos da nota..." class="bg-surface-1 border border-subtle text-ink text-xs rounded-lg px-3 py-1.5 w-64 focus:outline-none">
+              <span class="text-xs text-ink-muted font-mono">Faltas: <strong id="nf-faltas-count" class="text-warning">0</strong></span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Produto</th>
                     <th class="py-3 px-4 text-center">Validade</th>
                     <th class="py-3 px-4 text-center">Dias a Vencer</th>
@@ -1700,7 +1700,7 @@
                     <th class="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody id="nf-inventory-tbody" class="divide-y divide-brand-900/40">
+                <tbody id="nf-inventory-tbody" class="divide-y divide-subtle">
                   <!-- Injetado por JS -->
                 </tbody>
               </table>
@@ -1713,22 +1713,22 @@
 
     <!-- ===================== ABA: IMPORTAR META DO ANO (IMPORTAÇÕES) ===================== -->
     <section id="tab-importar-meta" class="tab-panel hidden" role="tabpanel">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-brand-300"></i> Importação da Meta do Ano
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-ink-muted"></i> Importação da Meta do Ano
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Importe a meta anual/mensal da operação para alimentar o acompanhamento de metas, incluindo a Meta Hora a Hora.</p>
+          <p class="text-xs text-ink-strong mt-1">Importe a meta anual/mensal da operação para alimentar o acompanhamento de metas, incluindo a Meta Hora a Hora.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Importações</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Importações</span>
         </div>
       </div>
 
       <div class="space-y-6">
         <!-- Aviso: modelo de importação a definir -->
-        <div class="card p-5 rounded-2xl flex items-start gap-3" style="border-color: var(--amber); background: var(--amber-light);">
-          <i class="fa-solid fa-circle-info text-lg mt-1" style="color: var(--amber);"></i>
+        <div class="card p-5 rounded-2xl flex items-start gap-3" style="border-color: var(--tone-warning-line); background: var(--tone-warning-soft);">
+          <i class="fa-solid fa-circle-info text-lg mt-1" style="color: var(--tone-warning-ink);"></i>
           <div>
             <h3 class="text-sm font-bold text-ink">Modelo de importação a definir</h3>
             <p class="text-xs text-muted mt-1">A estrutura para receber a meta do ano já está pronta (loja, ano, meta anual e meta mensal). O formato do arquivo de importação (planilha/relatório) ainda será definido — assim que estiver pronto, o upload abaixo passa a processá-lo automaticamente.</p>
@@ -1738,7 +1738,7 @@
         <!-- Zona de upload (placeholder) -->
         <div id="meta-drop-zone" class="glass-card p-6 rounded-2xl text-center shadow-xl">
           <div class="max-w-md mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-2xl mx-auto border border-brand-200">
+            <div class="w-16 h-16 rounded-full bg-surface-3 flex items-center justify-center text-ink-strong text-2xl mx-auto border border-strong">
               <i class="fa-solid fa-file-arrow-up"></i>
             </div>
             <div>
@@ -1755,7 +1755,7 @@
         <!-- Metas já importadas -->
         <div class="card rounded-2xl overflow-hidden">
           <div class="p-4 border-b border-border flex justify-between items-center">
-            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-bullseye text-brand-500 mr-1"></i> Metas Importadas</h3>
+            <h3 class="text-sm font-bold text-ink"><i class="fa-solid fa-bullseye text-accent mr-1"></i> Metas Importadas</h3>
           </div>
           <div id="metas-importadas-lista" class="p-4 text-xs text-muted">Nenhuma meta importada ainda.</div>
         </div>
@@ -1764,114 +1764,114 @@
 
     <!-- ===================== ABA: INVENTÁRIO DE ESTOQUE (LOGÍSTICA) ===================== -->
     <section id="tab-inventario-estoque" class="tab-panel hidden" role="tabpanel">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clipboard-list text-brand-300"></i> Inventário de Estoque
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-list text-ink-muted"></i> Inventário de Estoque
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Realize a conferência e o inventário cego de validades por loja.</p>
+          <p class="text-xs text-ink-strong mt-1">Realize a conferência e o inventário cego de validades por loja.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Controle de Validades</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Controle de Validades</span>
         </div>
       </div>
 
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner de Alerta Mensal -->
-        <div id="monthly-inventory-alert" class="p-4 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-700/50 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div id="monthly-inventory-alert" class="section-banner section-banner-warn flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-brand-800/80 text-brand-300 flex items-center justify-center text-xl shrink-0 border border-brand-700/50">
+            <div class="w-10 h-10 rounded-xl bg-surface-3 text-ink-muted flex items-center justify-center text-xl shrink-0 border border-subtle">
               <i class="fa-solid fa-calendar-check"></i>
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <strong class="text-brand-100 font-display font-extrabold text-sm uppercase tracking-wider">Inventário Mensal Obrigatório</strong>
-                <span id="monthly-deadline-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-800 text-brand-200 border border-brand-700">Prazo: Dia 25</span>
+                <strong class="text-ink-strong font-display font-extrabold text-sm uppercase tracking-wider">Inventário Mensal Obrigatório</strong>
+                <span id="monthly-deadline-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-surface-3 text-ink border border-subtle">Prazo: Dia 25</span>
               </div>
-              <p class="text-xs text-brand-300 mt-0.5">O inventário cego mensal de validade deve ser realizado no mínimo 1 vez até o <strong>dia 25 de cada mês</strong>.</p>
+              <p class="text-xs text-ink-muted mt-0.5">O inventário cego mensal de validade deve ser realizado no mínimo 1 vez até o <strong>dia 25 de cada mês</strong>.</p>
             </div>
           </div>
           <div class="flex items-center gap-3 shrink-0">
-            <div class="inline-flex items-center gap-2 bg-brand-950/90 px-3 py-1.5 rounded-xl border border-brand-700/60 shadow-md">
-              <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+            <div class="inline-flex items-center gap-2 bg-surface-2 px-3 py-1.5 rounded-xl border border-subtle shadow-md">
+              <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-store"></i> Loja Ativa:
               </span>
-              <select class="store-selector bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+              <select class="store-selector bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
                 <option value="9175" selected>Loja 9175 - Marambaia</option>
                 <option value="4304">Loja 4304 - Icoaraci</option>
                 <option value="9201">Loja 9201 - Mário Covas</option>
               </select>
             </div>
-            <div class="text-right text-xs font-mono font-bold text-brand-400 bg-brand-950/80 px-3 py-2 rounded-xl border border-brand-900 shrink-0">
-              Mês: <span id="current-month-name" class="text-brand-200 font-bold">-</span>
+            <div class="text-right text-xs font-mono font-bold text-ink-muted bg-surface-2 px-3 py-2 rounded-xl border border-subtle shrink-0">
+              Mês: <span id="current-month-name" class="text-ink font-bold">-</span>
             </div>
           </div>
         </div>
 
         <!-- Leitor de Código de Barras — Inventário de Estoque -->
-        <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 text-center shadow-xl">
+        <div class="glass-card rounded-2xl p-4 bg-surface-2 border border-subtle text-center shadow-xl">
           <div class="flex justify-between items-center mb-3">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5">
+              <span class="text-xs font-bold text-ink flex items-center gap-1.5">
                 <i class="fa-solid fa-barcode"></i> Leitor de Código de Barras (Inventário)
               </span>
-              <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-brand-800/60 text-brand-300 border border-brand-700/50 uppercase tracking-wider">
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-surface-3 text-ink-muted border border-subtle uppercase tracking-wider">
                 CodBarra → CodProduto
               </span>
             </div>
-            <button id="btn-toggle-scanner" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+            <button id="btn-toggle-scanner" class="px-3 py-1.5 bg-accent-soft hover:bg-surface-hover text-ink font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
               <i class="fa-solid fa-camera"></i> <span id="scanner-btn-text">Ativar Câmera</span>
             </button>
           </div>
           <!-- Regra de prioridade visível ao operador -->
           <div class="mb-3 flex flex-wrap justify-center gap-2 text-[10px]">
-            <span class="inline-flex items-center gap-1 bg-brand-900/60 border border-brand-700/50 text-brand-300 px-2.5 py-1 rounded-full font-semibold">
-              <i class="fa-solid fa-circle-1 text-brand-400"></i> 1º Lê o <strong>CodBarra</strong> (EAN do produto)
+            <span class="inline-flex items-center gap-1 bg-surface-1 border border-subtle text-ink-muted px-2.5 py-1 rounded-full font-semibold">
+              <i class="fa-solid fa-circle-1 text-ink-muted"></i> 1º Lê o <strong>CodBarra</strong> (EAN do produto)
             </span>
-            <span class="inline-flex items-center gap-1 text-brand-500 font-bold">→</span>
-            <span class="inline-flex items-center gap-1 bg-brand-900/60 border border-brand-700/50 text-brand-300 px-2.5 py-1 rounded-full font-semibold">
-              <i class="fa-solid fa-circle-2 text-brand-400"></i> 2º Fallback: <strong>CodProduto</strong> (etiqueta da caixa)
+            <span class="inline-flex items-center gap-1 text-accent font-bold">→</span>
+            <span class="inline-flex items-center gap-1 bg-surface-1 border border-subtle text-ink-muted px-2.5 py-1 rounded-full font-semibold">
+              <i class="fa-solid fa-circle-2 text-ink-muted"></i> 2º Fallback: <strong>CodProduto</strong> (etiqueta da caixa)
             </span>
           </div>
           <!-- Área do scanner (oculta até ativar) -->
-          <div id="scanner-container" class="hidden w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden border border-brand-800 relative">
+          <div id="scanner-container" class="hidden w-full max-w-md mx-auto bg-surface-4 rounded-xl overflow-hidden border border-subtle relative">
             <div id="reader" class="w-full"></div>
           </div>
         </div>
 
         <!-- Card de Inserção Manual de Produto -->
-        <div class="glass-card rounded-2xl p-4 bg-brand-950 border border-brand-900 shadow-xl">
+        <div class="glass-card rounded-2xl p-4 bg-surface-2 border border-subtle shadow-xl">
           <div class="flex items-center gap-2 mb-3">
-            <span class="text-xs font-bold text-brand-200 flex items-center gap-1.5">
+            <span class="text-xs font-bold text-ink flex items-center gap-1.5">
               <i class="fa-solid fa-keyboard"></i> Inserção Manual de Produto (Alternativa à Câmera)
             </span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: flex-end;">
             <div class="field">
-              <label for="inv-manual-codigo" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Código do Produto ou EAN</label>
-              <input type="text" id="inv-manual-codigo" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="Código ou EAN">
+              <label for="inv-manual-codigo" class="block text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Código do Produto ou EAN</label>
+              <input type="text" id="inv-manual-codigo" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" placeholder="Código ou EAN">
             </div>
             <div class="field">
-              <label for="inv-manual-descricao" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Descrição</label>
-              <input type="text" id="inv-manual-descricao" class="w-full bg-brand-900/50 border border-brand-700 rounded-xl px-3 py-2 text-xs text-brand-400 focus:outline-none" placeholder="Localizando produto..." readonly style="opacity: 0.8; color: #a78bfa;">
+              <label for="inv-manual-descricao" class="block text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Descrição</label>
+              <input type="text" id="inv-manual-descricao" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink-muted focus:outline-none" placeholder="Localizando produto..." readonly style="color: var(--ink-muted);">
             </div>
             <div class="field">
-              <label for="inv-manual-validade" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Validade</label>
-              <input type="date" id="inv-manual-validade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" style="color: white; height: auto;">
+              <label for="inv-manual-validade" class="block text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Validade</label>
+              <input type="date" id="inv-manual-validade" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" style="color: white; height: auto;">
             </div>
             <div class="field">
-              <label for="inv-manual-quantidade" class="block text-[10px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Quantidade</label>
-              <input type="number" id="inv-manual-quantidade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="Qtd">
+              <label for="inv-manual-quantidade" class="block text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Quantidade</label>
+              <input type="number" id="inv-manual-quantidade" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" placeholder="Qtd">
             </div>
           </div>
           <div class="mt-3 flex justify-end" style="margin-top: 12px; display: flex; justify-content: flex-end;">
-            <button id="btn-inv-manual-adicionar" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-1.5" style="background-color: rgb(67, 56, 202);">
+            <button id="btn-inv-manual-adicionar" class="px-4 py-2 bg-info-soft hover:bg-info-hover text-ink rounded-xl text-xs font-bold transition shadow-md flex items-center gap-1.5" style="border: 1.5px solid var(--tone-info-line);">
               <i class="fa-solid fa-plus"></i> Adicionar ao Inventário
             </button>
           </div>
           <div class="mt-3 flex justify-end" style="margin-top: 12px; display: flex; justify-content: flex-end;">
-            <button id="btn-inv-leitor-fisico" type="button" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-1.5" style="background-color: #43302b;">
+            <button id="btn-inv-leitor-fisico" type="button" class="px-4 py-2 bg-surface-3 hover:bg-surface-hover text-ink rounded-xl text-xs font-bold transition shadow-md flex items-center gap-1.5" style="border: 1.5px solid var(--edge-strong);">
               <i class="fa-solid fa-barcode"></i> Ativar Leitor Físico
             </button>
           </div>
@@ -1887,64 +1887,64 @@
 
         <!-- Dashboard Stat Cards Inventário -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
-            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-surface-2 border border-subtle">
+            <div class="p-3 bg-surface-1 rounded-xl text-ink-muted text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
             <div>
-              <div class="text-2xl font-bold text-brand-900" id="stat-total-products">0</div>
-              <div class="text-xs text-brand-700 uppercase tracking-wider font-bold">Total Produtos</div>
+              <div class="text-2xl font-bold text-ink-strong" id="stat-total-products">0</div>
+              <div class="text-xs text-ink-strong uppercase tracking-wider font-bold">Total Produtos</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-red-950/20 border-l-4 border-l-red-500 border border-red-500/20 shadow-md">
-            <div class="p-3 bg-red-500/20 rounded-xl text-red-400 text-xl"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-danger-soft border-l-4 border-l-red-500 border border-danger shadow-md">
+            <div class="p-3 bg-danger-soft rounded-xl text-danger text-xl"><i class="fa-solid fa-circle-exclamation"></i></div>
             <div>
-              <div class="text-2xl font-black text-red-500" id="stat-red">0</div>
-              <div class="text-xs text-red-400 uppercase tracking-wider font-bold">Crítico (≤ 20 dias)</div>
+              <div class="text-2xl font-black text-danger" id="stat-red">0</div>
+              <div class="text-xs text-danger uppercase tracking-wider font-bold">Crítico (≤ 20 dias)</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-orange-950/20 border-l-4 border-l-orange-500 border border-orange-500/20 shadow-md">
-            <div class="p-3 bg-orange-500/20 rounded-xl text-orange-400 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-warning-soft border-l-4 border-l-orange-500 border border-warning shadow-md">
+            <div class="p-3 bg-warning-soft rounded-xl text-warning text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
             <div>
-              <div class="text-2xl font-black text-orange-500" id="stat-orange">0</div>
-              <div class="text-xs text-orange-400 uppercase tracking-wider font-bold">Alerta (21-40 dias)</div>
+              <div class="text-2xl font-black text-warning" id="stat-orange">0</div>
+              <div class="text-xs text-warning uppercase tracking-wider font-bold">Alerta (21-40 dias)</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-green-950/20 border-l-4 border-l-green-500 border border-green-500/20 shadow-md">
-            <div class="p-3 bg-green-500/20 rounded-xl text-green-400 text-xl"><i class="fa-solid fa-check-circle"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-success-soft border-l-4 border-l-green-500 border border-success shadow-md">
+            <div class="p-3 bg-success-soft rounded-xl text-success text-xl"><i class="fa-solid fa-check-circle"></i></div>
             <div>
-              <div class="text-2xl font-black text-green-500" id="stat-green">0</div>
-              <div class="text-xs text-green-400 uppercase tracking-wider font-bold">No Prazo (> 40 dias)</div>
+              <div class="text-2xl font-black text-success" id="stat-green">0</div>
+              <div class="text-xs text-success uppercase tracking-wider font-bold">No Prazo (> 40 dias)</div>
             </div>
           </div>
         </div>
 
         <!-- Toolbar & Tabela de Estoque -->
-        <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-surface-2 p-4 rounded-xl border border-subtle">
           <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
             <div class="relative w-full sm:w-72">
-              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-brand-400">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-ink-muted">
                 <i class="fa-solid fa-magnifying-glass"></i>
               </span>
-              <input type="text" id="search-input" placeholder="Buscar por barras, código ou descrição..." class="w-full bg-brand-950 border border-brand-900 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-brand-500 text-xs transition">
+              <input type="text" id="search-input" placeholder="Buscar por barras, código ou descrição..." class="w-full bg-surface-2 border border-subtle rounded-xl pl-10 pr-4 py-2 text-ink focus:outline-none focus:border-accent text-xs transition">
             </div>
           </div>
           
           <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-            <button id="filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md filtro-ativo">Todos</button>
-            <button id="filter-red" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-red-600 text-white shadow-md hover:bg-red-500">Crítico</button>
-            <button id="filter-orange" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-500 text-white shadow-md hover:bg-orange-400">Alerta</button>
-            <button id="filter-green" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-green-600 text-white shadow-md hover:bg-green-500">No Prazo</button>
-            <button id="btn-export" class="ml-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
+            <button id="filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink-strong border border-accent shadow-md filtro-ativo">Todos</button>
+            <button id="filter-red" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-danger-soft text-danger border border-danger shadow-md hover:bg-danger-hover">Crítico</button>
+            <button id="filter-orange" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-warning-soft text-warning border border-warning shadow-md hover:bg-warning-hover">Alerta</button>
+            <button id="filter-green" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-success-soft text-success border border-success shadow-md hover:bg-success-hover">No Prazo</button>
+            <button id="btn-export" class="ml-2 px-4 py-2 bg-success-soft hover:bg-success-hover text-ink rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
               <i class="fa-solid fa-file-export"></i> Concluir e Exportar
             </button>
           </div>
         </div>
 
-        <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950">
+        <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
-                  <th class="py-3 px-4 font-mono text-brand-300 font-extrabold">COD_PROD</th>
+                <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
+                  <th class="py-3 px-4 font-mono text-ink-muted font-extrabold">COD_PROD</th>
                   <th class="py-3 px-4">Produto</th>
                   <th class="py-3 px-4 text-center">Data Entrada NF</th>
                   <th class="py-3 px-4 text-center">Entrada (UN)</th>
@@ -1953,7 +1953,7 @@
                   <th class="py-3 px-4 text-center w-32">QTD Inventariada</th>
                 </tr>
               </thead>
-              <tbody id="inventory-tbody" class="divide-y divide-brand-900/40">
+              <tbody id="inventory-tbody" class="divide-y divide-subtle">
                 <!-- Injetado por JS -->
               </tbody>
             </table>
@@ -1968,64 +1968,64 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner e Título -->
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-950 via-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="section-header">
           <div>
-            <h2 class="font-display text-xl font-bold text-brand-200 flex items-center gap-2">
-              <i class="fa-solid fa-file-invoice-dollar text-brand-500"></i> Gestão de Boletos e Títulos
+            <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              <i class="fa-solid fa-file-invoice-dollar text-accent"></i> Gestão de Boletos e Títulos
             </h2>
-            <p class="text-xs text-brand-400 mt-1">Módulo financeiro exclusivo para controle e notificação de vencimentos de boletos. O PDF de títulos é carregado na aba <strong>Importações</strong>.</p>
+            <p class="text-xs text-ink-muted mt-1">Módulo financeiro exclusivo para controle e notificação de vencimentos de boletos. O PDF de títulos é carregado na aba <strong>Importações</strong>.</p>
           </div>
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest animate-pulse">Acesso Restrito</span>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-danger-soft border border-danger text-danger uppercase tracking-widest animate-pulse">Acesso Restrito</span>
           </div>
         </div>
 
         <!-- Dashboard Stat Cards Boletos -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <!-- CARD EM VERMELHO - TÍTULOS EM ABERTO -->
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border-l-4 border-l-red-600 border border-brand-900">
-            <div class="p-3 bg-red-950/60 rounded-xl text-red-500 text-xl"><i class="fa-solid fa-circle-exclamation animate-pulse"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-surface-2 border-l-4 border-l-red-600 border border-subtle">
+            <div class="p-3 bg-danger-soft rounded-xl text-danger text-xl"><i class="fa-solid fa-circle-exclamation animate-pulse"></i></div>
             <div class="flex-1">
-              <div class="text-2xl font-black text-red-500" id="stat-boletos-aberto-total">R$ 0,00</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Títulos em Aberto</div>
-              <div class="text-[11px] text-brand-300 mt-1 pt-1 border-t border-brand-900/50 flex justify-between">
+              <div class="text-2xl font-black text-danger" id="stat-boletos-aberto-total">R$ 0,00</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Títulos em Aberto</div>
+              <div class="text-[11px] text-ink-muted mt-1 pt-1 border-t border-subtle flex justify-between">
                 <span>Aberto até hoje:</span>
-                <span class="font-bold text-red-400" id="stat-boletos-aberto-hoje">R$ 0,00</span>
+                <span class="font-bold text-danger" id="stat-boletos-aberto-hoje">R$ 0,00</span>
               </div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
-            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-receipt"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-surface-2 border border-subtle">
+            <div class="p-3 bg-surface-1 rounded-xl text-ink-muted text-xl"><i class="fa-solid fa-receipt"></i></div>
             <div>
-              <div class="text-2xl font-bold text-white" id="stat-boletos-count">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total de Boletos</div>
+              <div class="text-2xl font-bold text-ink" id="stat-boletos-count">0</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Total de Boletos</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
-            <div class="p-3 bg-brand-900 rounded-xl text-brand-300 text-xl"><i class="fa-solid fa-clock"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-surface-2 border border-subtle">
+            <div class="p-3 bg-surface-1 rounded-xl text-ink-muted text-xl"><i class="fa-solid fa-clock"></i></div>
             <div>
-              <div class="text-2xl font-bold text-white" id="stat-boletos-vencendo-hoje">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Vencendo Hoje</div>
+              <div class="text-2xl font-bold text-ink" id="stat-boletos-vencendo-hoje">0</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Vencendo Hoje</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-brand-950 border border-brand-900">
-            <div class="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 text-xl"><i class="fa-solid fa-check-double"></i></div>
+          <div class="glass-card p-4 rounded-xl flex items-center gap-4 bg-surface-2 border border-subtle">
+            <div class="p-3 bg-success-soft rounded-xl text-success text-xl"><i class="fa-solid fa-check-double"></i></div>
             <div>
-              <div class="text-2xl font-bold text-emerald-400" id="stat-boletos-pagos">R$ 0,00</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Pago</div>
+              <div class="text-2xl font-bold text-success" id="stat-boletos-pagos">R$ 0,00</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Total Pago</div>
             </div>
           </div>
         </div>
 
         <!-- Tabela de Boletos Importados -->
         <div class="space-y-4">
-          <div class="flex flex-col md:flex-row justify-between items-center gap-3 bg-brand-950/60 p-4 rounded-xl border border-brand-900/60">
+          <div class="flex flex-col md:flex-row justify-between items-center gap-3 bg-surface-2 p-4 rounded-xl border border-subtle">
             <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-              <div class="inline-flex items-center gap-2 bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-800 shadow-inner w-full sm:w-auto">
-                <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+              <div class="inline-flex items-center gap-2 bg-surface-2 px-3 py-1.5 rounded-xl border border-subtle shadow-inner w-full sm:w-auto">
+                <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
                   <i class="fa-solid fa-store"></i> Loja:
                 </span>
-                <select id="boleto-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
+                <select id="boleto-store-filter" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer w-full sm:w-auto">
                   <option value="all">Todas as Lojas</option>
                   <option value="9175">Loja 9175 - Marambaia</option>
                   <option value="4304">Loja 4304 - Icoaraci</option>
@@ -2035,9 +2035,9 @@
             </div>
             
             <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-              <button id="boleto-filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md">Todos</button>
-              <button id="boleto-filter-aberto" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40">Em Aberto</button>
-              <button id="boleto-filter-pago" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40">Pagos</button>
+              <button id="boleto-filter-all" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink-strong border border-accent shadow-md">Todos</button>
+              <button id="boleto-filter-aberto" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-danger border border-danger">Em Aberto</button>
+              <button id="boleto-filter-pago" class="px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-success border border-success">Pagos</button>
             </div>
           </div>
 
@@ -2045,7 +2045,7 @@
             <span id="boleto-batch-count-info">0 boletos selecionados (R$ 0,00)</span>
             <div class="flex gap-2">
               <button id="btn-boleto-batch-pagar" class="btn-primary btn-batch"><i class="fa-solid fa-check"></i> Pagar selecionados</button>
-              <button id="btn-boleto-batch-apagar" class="btn-secondary btn-batch" style="color: var(--red); border-color: var(--red);"><i class="fa-solid fa-trash-can"></i> Apagar selecionados</button>
+              <button id="btn-boleto-batch-apagar" class="btn-secondary btn-batch" style="color: var(--tone-danger-ink); border-color: var(--tone-danger-line);"><i class="fa-solid fa-trash-can"></i> Apagar selecionados</button>
             </div>
           </div>
 
@@ -2064,8 +2064,8 @@
                     <th class="py-3 px-4 text-center">Ações</th>
                   </tr>
                 </thead>
-                <tbody id="boletos-tbody" class="divide-y divide-brand-900/40">
-                  <tr class="text-brand-400 text-center">
+                <tbody id="boletos-tbody" class="divide-y divide-subtle">
+                  <tr class="text-ink-muted text-center">
                     <td colspan="8" class="py-8">Nenhum boleto importado até o momento.</td>
                   </tr>
                 </tbody>
@@ -2082,70 +2082,70 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner e Título -->
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+        <div class="section-header">
           <div>
-            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-calculator text-brand-300"></i> Auditoria de Boletos vs NF-e
+            <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-ink-muted"></i> Auditoria de Boletos vs NF-e
             </h2>
-            <p class="text-xs text-brand-100 mt-1">Cruzamento inteligente de faturamentos de boletos cadastrados e NF-e importadas por loja.</p>
+            <p class="text-xs text-ink-strong mt-1">Cruzamento inteligente de faturamentos de boletos cadastrados e NF-e importadas por loja.</p>
           </div>
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-950 border border-red-800 text-red-400 uppercase tracking-widest animate-pulse">Acesso Super Restrito</span>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-danger-soft border border-danger text-danger uppercase tracking-widest animate-pulse">Acesso Super Restrito</span>
           </div>
         </div>
 
         <!-- Filtros e Controles -->
-        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="glass-card p-4 rounded-2xl border border-subtle flex flex-col sm:flex-row justify-between items-center gap-4">
           <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            <label for="auditoria-store-filter" class="text-xs font-bold text-brand-300 w-full sm:w-auto">Filtrar por Loja:</label>
-            <select id="auditoria-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto">
+            <label for="auditoria-store-filter" class="text-xs font-bold text-ink-muted w-full sm:w-auto">Filtrar por Loja:</label>
+            <select id="auditoria-store-filter" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer w-full sm:w-auto">
               <option value="all">Todas as Lojas</option>
               <option value="9175">Marambaia (9175)</option>
               <option value="4304">Icoaraci (4304)</option>
               <option value="9201">Mário Covas (9201)</option>
             </select>
           </div>
-          <button id="btn-atualizar-auditoria" class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center">
+          <button id="btn-atualizar-auditoria" class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-accent-soft hover:bg-surface-hover text-ink w-full sm:w-auto justify-center">
             <i class="fa-solid fa-rotate"></i> Atualizar Auditoria
           </button>
         </div>
 
         <!-- Dashboard Stat Cards Auditoria -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-500 font-black text-xl">
+          <div class="glass-card p-4 rounded-2xl border border-subtle flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-accent font-black text-xl">
               <i class="fa-solid fa-file-invoice"></i>
             </div>
             <div>
-              <div class="text-2xl font-black text-white" id="stat-audit-nfe-total">R$ 0,00</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total NF-e</div>
+              <div class="text-2xl font-black text-ink" id="stat-audit-nfe-total">R$ 0,00</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Total NF-e</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-500 font-black text-xl">
+          <div class="glass-card p-4 rounded-2xl border border-subtle flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-accent font-black text-xl">
               <i class="fa-solid fa-barcode"></i>
             </div>
             <div>
-              <div class="text-2xl font-black text-white" id="stat-audit-boleto-total">R$ 0,00</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Total Boletos</div>
+              <div class="text-2xl font-black text-ink" id="stat-audit-boleto-total">R$ 0,00</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Total Boletos</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-red-500 font-black text-xl" id="icon-audit-divergente">
+          <div class="glass-card p-4 rounded-2xl border border-subtle flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-danger font-black text-xl" id="icon-audit-divergente">
               <i class="fa-solid fa-triangle-exclamation"></i>
             </div>
             <div>
-              <div class="text-2xl font-black text-red-400" id="stat-audit-divergente">0</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Divergências</div>
+              <div class="text-2xl font-black text-danger" id="stat-audit-divergente">0</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Divergências</div>
             </div>
           </div>
-          <div class="glass-card p-4 rounded-2xl border border-brand-900/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-emerald-500 font-black text-xl">
+          <div class="glass-card p-4 rounded-2xl border border-subtle flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-success font-black text-xl">
               <i class="fa-solid fa-shield-check"></i>
             </div>
             <div>
-              <div class="text-2xl font-black text-emerald-400" id="stat-audit-status">100% OK</div>
-              <div class="text-xs text-brand-400 uppercase tracking-wider font-semibold">Status Geral</div>
+              <div class="text-2xl font-black text-success" id="stat-audit-status">100% OK</div>
+              <div class="text-xs text-ink-muted uppercase tracking-wider font-semibold">Status Geral</div>
             </div>
           </div>
         </div>
@@ -2153,16 +2153,16 @@
         <div class="card bg-paper p-6 rounded-2xl border border-border">
           <div class="space-y-4">
             <div class="flex justify-between items-center">
-              <h3 class="text-sm font-extrabold uppercase text-brand-500 tracking-wider">Resultados da Análise</h3>
+              <h3 class="text-sm font-extrabold uppercase text-accent tracking-wider">Resultados da Análise</h3>
               <span class="text-[10px] text-muted font-bold">Dados cruzados em tempo real</span>
             </div>
 
             <!-- Legenda dos grupos: a tabela vem agrupada por situação, das
                  pendências reais no topo até o que já está conciliado. -->
             <div class="flex flex-wrap gap-2 text-[10px] font-bold">
-              <span class="px-2.5 py-1 rounded-full bg-red-950 text-red-400 border border-red-900/40">Divergências</span>
-              <span class="px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-900/40">Conciliado por Valor (revisar)</span>
-              <span class="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-900/50">Conciliado</span>
+              <span class="px-2.5 py-1 rounded-full bg-danger-soft text-danger border border-danger">Divergências</span>
+              <span class="px-2.5 py-1 rounded-full bg-warning-soft text-warning border border-warning">Conciliado por Valor (revisar)</span>
+              <span class="px-2.5 py-1 rounded-full bg-success-soft text-success border border-success">Conciliado</span>
             </div>
 
             <div class="table-wrap">
@@ -2183,8 +2183,8 @@
                     <th class="py-2 px-4 text-center">Diferença</th>
                   </tr>
                 </thead>
-                <tbody id="auditoria-tbody" class="divide-y divide-brand-900/40">
-                  <tr class="text-brand-400 text-center">
+                <tbody id="auditoria-tbody" class="divide-y divide-subtle">
+                  <tr class="text-ink-muted text-center">
                     <td colspan="6" class="py-8">Aguardando processamento dos dados...</td>
                   </tr>
                 </tbody>
@@ -2198,25 +2198,25 @@
 
     <!-- ===================== MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC ===================== -->
     <section id="tab-rh-modulo" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-rh-modulo">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-indigo-950 via-slate-900 to-brand-950 border border-indigo-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-users-viewfinder text-indigo-400"></i> Módulo RH & Gestão de Pessoas (DISC)
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-users-viewfinder text-info"></i> Módulo RH & Gestão de Pessoas (DISC)
           </h2>
-          <p class="text-xs text-brand-200 mt-1">Análise de perfis comportamentais DISC, upload de laudos em PDF, dashboards e insights de formação de equipe.</p>
+          <p class="text-xs text-ink mt-1">Análise de perfis comportamentais DISC, upload de laudos em PDF, dashboards e insights de formação de equipe.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-950 border border-indigo-700 text-indigo-300 uppercase tracking-widest">Acesso Exclusivo Owner</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-info-soft border border-info text-info uppercase tracking-widest">Acesso Exclusivo Owner</span>
         </div>
       </div>
 
       <!-- Filtro Geral de Unidade / Loja -->
-      <div class="glass-card p-4 rounded-xl border border-brand-900 bg-brand-950/60 shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="glass-card p-4 rounded-xl border border-subtle bg-surface-2 shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div class="flex items-center gap-3 w-full sm:w-auto">
-          <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
-            <i class="fa-solid fa-store text-indigo-400"></i> Unidade / Loja:
+          <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+            <i class="fa-solid fa-store text-info"></i> Unidade / Loja:
           </span>
-          <select id="rh-store-filter" class="bg-brand-900 text-brand-100 border border-brand-700 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto">
+          <select id="rh-store-filter" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer w-full sm:w-auto">
             <option value="all" selected>Todas as Lojas / Unidades</option>
             <optgroup label="Cacau Show">
               <option value="9175">Loja 9175 - Marambaia</option>
@@ -2232,14 +2232,14 @@
         </div>
         
         <!-- Navegação de Sub-abas do RH -->
-        <div class="flex items-center gap-2 bg-brand-950 p-1 rounded-xl border border-brand-800 w-full sm:w-auto justify-center">
-          <button id="rh-subtab-btn-perfis" class="rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow">
+        <div class="flex items-center gap-2 bg-surface-2 p-1 rounded-xl border border-subtle w-full sm:w-auto justify-center">
+          <button id="rh-subtab-btn-perfis" class="rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow">
             <i class="fa-solid fa-id-card"></i> Perfis & Upload
           </button>
-          <button id="rh-subtab-btn-dashboard" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white">
+          <button id="rh-subtab-btn-dashboard" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong">
             <i class="fa-solid fa-chart-pie"></i> Dashboard Gerencial
           </button>
-          <button id="rh-subtab-btn-insights" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white">
+          <button id="rh-subtab-btn-insights" class="rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong">
             <i class="fa-solid fa-brain"></i> Formação de Equipe
           </button>
         </div>
@@ -2248,18 +2248,18 @@
       <!-- SUB-ABA 1: PERFIS & UPLOAD DISC -->
       <div id="rh-subtab-perfis" class="rh-subtab-panel space-y-6">
         <!-- Card de Upload de PDF DISC -->
-        <div class="glass-card p-6 rounded-2xl bg-brand-950 border border-indigo-900/60 text-center shadow-xl">
+        <div class="glass-card p-6 rounded-2xl bg-surface-2 border border-info text-center shadow-xl">
           <div class="max-w-xl mx-auto space-y-4">
-            <div class="w-16 h-16 rounded-full bg-indigo-950 flex items-center justify-center text-indigo-400 text-2xl mx-auto border border-indigo-800">
+            <div class="w-16 h-16 rounded-full bg-info-soft flex items-center justify-center text-info text-2xl mx-auto border border-info">
               <i class="fa-solid fa-file-pdf"></i>
             </div>
             <div>
-              <h3 class="font-display text-sm font-extrabold text-brand-200 uppercase tracking-wider">Upload de Relatório DISC em PDF</h3>
-              <p class="text-xs text-brand-400 mt-1">Selecione o colaborador e anexe o laudo PDF para analisar e calcular o perfil comportamental automaticamente.</p>
+              <h3 class="font-display text-sm font-extrabold text-ink uppercase tracking-wider">Upload de Relatório DISC em PDF</h3>
+              <p class="text-xs text-ink-muted mt-1">Selecione o colaborador e anexe o laudo PDF para analisar e calcular o perfil comportamental automaticamente.</p>
             </div>
 
             <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <select id="disc-upload-user-select" class="bg-brand-900 text-brand-100 border border-brand-700 rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto">
+              <select id="disc-upload-user-select" class="bg-surface-1 text-ink-strong border border-subtle rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer w-full sm:w-auto">
                 <option value="">Detecção Automática ou Escolher Colaborador...</option>
               </select>
 
@@ -2268,14 +2268,14 @@
                 <input type="file" id="disc-pdf-file" accept=".pdf" multiple class="hidden">
               </label>
 
-              <a id="btn-whatsapp-disc-invite" href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%) !important; border-color: rgba(255,255,255,0.3) !important; padding: 0.8rem 1.4rem !important; font-size: 0.8rem !important;">
+              <a id="btn-whatsapp-disc-invite" href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="btn-primary" style="padding: 0.8rem 1.4rem; font-size: 0.8rem;">
                 <i class="fa-brands fa-whatsapp text-sm"></i> Enviar Convite WhatsApp
               </a>
             </div>
-            <div id="disc-file-info" class="text-xs text-brand-300 font-mono hidden w-full mt-3">
-              <div id="disc-progress-label" class="text-center mb-1 text-brand-200">Lendo PDF DISC...</div>
-              <div class="w-full bg-brand-900 rounded-full h-2 overflow-hidden border border-brand-800">
-                <div id="disc-progress-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div id="disc-file-info" class="text-xs text-ink-muted font-mono hidden w-full mt-3">
+              <div id="disc-progress-label" class="text-center mb-1 text-ink">Lendo PDF DISC...</div>
+              <div class="w-full bg-surface-1 rounded-full h-2 overflow-hidden border border-subtle">
+                <div id="disc-progress-bar" class="bg-info-soft h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
             </div>
           </div>
@@ -2284,19 +2284,19 @@
         <!-- Tabela / Lista de Colaboradores e Perfis DISC -->
         <div class="card space-y-4">
           <div class="flex justify-between items-center flex-wrap gap-2">
-            <h3 class="font-bold text-sm text-brand-200 flex items-center gap-2">
+            <h3 class="font-bold text-sm text-ink flex items-center gap-2">
               <i class="fa-solid fa-users"></i> Matriz de Perfis Comportamentais
             </h3>
             <div class="flex items-center gap-3">
               <div id="rh-restore-container" class="hidden"></div>
-              <span id="rh-colab-count-badge" class="text-xs text-brand-400 font-mono">0 colaboradores</span>
+              <span id="rh-colab-count-badge" class="text-xs text-ink-muted font-mono">0 colaboradores</span>
             </div>
           </div>
 
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs border-collapse">
               <thead>
-                <tr class="border-b border-brand-800 text-brand-400 font-bold uppercase tracking-wider">
+                <tr class="border-b border-subtle text-ink-muted font-bold uppercase tracking-wider">
                   <th class="py-3 px-4">Colaborador(a)</th>
                   <th class="py-3 px-4">Unidade / Loja</th>
                   <th class="py-3 px-4 text-center">Perfil Predominante</th>
@@ -2307,7 +2307,7 @@
                   <th class="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody id="rh-disc-table-body" class="divide-y divide-brand-900/60">
+              <tbody id="rh-disc-table-body" class="divide-y divide-subtle">
                 <!-- Inserido dinamicamente pelo JS -->
               </tbody>
             </table>
@@ -2319,25 +2319,25 @@
       <div id="rh-subtab-dashboard" class="rh-subtab-panel hidden space-y-6">
         <!-- Cards de Visão Geral DISC -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="glass-card p-4 rounded-xl border border-red-900/40 bg-red-950/20 text-center" style="border-top: 3px solid var(--disc-d);">
-            <div class="text-2xl font-bold text-red-400" id="stat-disc-d">0</div>
-            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Dominância (D)</div>
-            <div class="text-[9px] text-brand-400 mt-0.5">Execução & Liderança</div>
+          <div class="glass-card p-4 rounded-xl border border-danger bg-danger-soft text-center" style="border-top: 3px solid var(--disc-d);">
+            <div class="text-2xl font-bold text-danger" id="stat-disc-d">0</div>
+            <div class="text-[10px] text-ink-muted uppercase tracking-wider font-extrabold mt-1">Dominância (D)</div>
+            <div class="text-[9px] text-ink-muted mt-0.5">Execução & Liderança</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-amber-900/40 bg-amber-950/20 text-center" style="border-top: 3px solid var(--disc-i);">
-            <div class="text-2xl font-bold text-amber-400" id="stat-disc-i">0</div>
-            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Influência (I)</div>
-            <div class="text-[9px] text-brand-400 mt-0.5">Comunicação & Vendas</div>
+          <div class="glass-card p-4 rounded-xl border border-warning bg-warning-soft text-center" style="border-top: 3px solid var(--disc-i);">
+            <div class="text-2xl font-bold text-warning" id="stat-disc-i">0</div>
+            <div class="text-[10px] text-ink-muted uppercase tracking-wider font-extrabold mt-1">Influência (I)</div>
+            <div class="text-[9px] text-ink-muted mt-0.5">Comunicação & Vendas</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-center" style="border-top: 3px solid var(--disc-s);">
-            <div class="text-2xl font-bold text-emerald-400" id="stat-disc-s">0</div>
-            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Estabilidade (S)</div>
-            <div class="text-[9px] text-brand-400 mt-0.5">Planejamento & Suporte</div>
+          <div class="glass-card p-4 rounded-xl border border-success bg-success-soft text-center" style="border-top: 3px solid var(--disc-s);">
+            <div class="text-2xl font-bold text-success" id="stat-disc-s">0</div>
+            <div class="text-[10px] text-ink-muted uppercase tracking-wider font-extrabold mt-1">Estabilidade (S)</div>
+            <div class="text-[9px] text-ink-muted mt-0.5">Planejamento & Suporte</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-indigo-900/40 bg-indigo-950/20 text-center" style="border-top: 3px solid var(--disc-c);">
-            <div class="text-2xl font-bold text-indigo-400" id="stat-disc-c">0</div>
-            <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Conformidade (C)</div>
-            <div class="text-[9px] text-brand-400 mt-0.5">Processos & Detalhes</div>
+          <div class="glass-card p-4 rounded-xl border border-info bg-info-soft text-center" style="border-top: 3px solid var(--disc-c);">
+            <div class="text-2xl font-bold text-info" id="stat-disc-c">0</div>
+            <div class="text-[10px] text-ink-muted uppercase tracking-wider font-extrabold mt-1">Conformidade (C)</div>
+            <div class="text-[9px] text-ink-muted mt-0.5">Processos & Detalhes</div>
           </div>
         </div>
 
@@ -2381,31 +2381,31 @@
     <!-- ===================== ABA: CONTROLE DE PONTO (CLT-COMPLIANT) ===================== -->
     <section id="tab-controle-ponto" class="tab-panel hidden" role="tabpanel">
       <!-- Title Banner -->
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clock text-brand-300"></i> Registro de Ponto Eletrônico
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-clock text-ink-muted"></i> Registro de Ponto Eletrônico
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Marcações de jornada em conformidade com a Portaria 671/2021 MTP com geofencing.</p>
+          <p class="text-xs text-ink-strong mt-1">Marcações de jornada em conformidade com a Portaria 671/2021 MTP com geofencing.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span id="ponto-offline-badge" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-950/60 border border-emerald-800 text-emerald-400 uppercase tracking-widest hidden"><i class="fa-solid fa-cloud-arrow-up animate-bounce"></i> Offline Activo</span>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">CLT Compliant</span>
+          <span id="ponto-offline-badge" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-success-soft border border-success text-success uppercase tracking-widest hidden"><i class="fa-solid fa-cloud-arrow-up animate-bounce"></i> Offline Activo</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">CLT Compliant</span>
         </div>
       </div>
 
       <!-- Alerta de Biometria Pendente -->
-      <div id="ponto-biometria-alert" class="p-4 mb-6 rounded-2xl bg-indigo-950/40 border border-indigo-800/60 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden">
+      <div id="ponto-biometria-alert" class="p-4 mb-6 rounded-2xl bg-info-soft border border-info shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-900/50 flex items-center justify-center text-indigo-400">
+          <div class="w-10 h-10 rounded-xl bg-info-soft flex items-center justify-center text-info">
             <i class="fa-solid fa-face-viewfinder text-lg"></i>
           </div>
           <div>
-            <h4 class="text-sm font-bold text-white">Biometria Facial Pendente</h4>
-            <p class="text-xs text-brand-200">Você precisa cadastrar seu rosto uma única vez antes de registrar o ponto com segurança.</p>
+            <h4 class="text-sm font-bold text-ink">Biometria Facial Pendente</h4>
+            <p class="text-xs text-ink">Você precisa cadastrar seu rosto uma única vez antes de registrar o ponto com segurança.</p>
           </div>
         </div>
-        <button type="button" id="btn-ponto-cadastrar-biometria-banner" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-800 text-white text-xs font-bold rounded-xl transition shadow flex items-center gap-2">
+        <button type="button" id="btn-ponto-cadastrar-biometria-banner" class="px-4 py-2 bg-info-soft hover:bg-info-hover active:bg-info-soft text-ink text-xs font-bold rounded-xl transition shadow flex items-center gap-2">
           <i class="fa-solid fa-camera"></i> Cadastrar Meu Rosto
         </button>
       </div>
@@ -2414,14 +2414,14 @@
         
         <!-- Action / Capture Card -->
         <div class="lg:col-span-1 space-y-6">
-          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col items-center">
-            <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-4 self-start"><i class="fa-solid fa-video mr-1"></i> Identificação Facial</h3>
+          <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg flex flex-col items-center">
+            <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider mb-4 self-start"><i class="fa-solid fa-video mr-1"></i> Identificação Facial</h3>
 
             <!-- Operação Ativa: seletor próprio do Ponto (não usa .store-selector, que
                  é compartilhado com NF-e/Inventário e recarregaria essas telas à toa). -->
             <div class="w-full mb-4">
-              <label class="block text-[10px] font-bold uppercase tracking-wider text-brand-400 mb-1">Operação Ativa</label>
-              <select id="ponto-operacao-selector" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1">Operação Ativa</label>
+              <select id="ponto-operacao-selector" class="w-full bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
                 <optgroup label="Cacau Show">
                   <option value="Marambaia">Marambaia (9175)</option>
                   <option value="Icoaraci">Icoaraci (4304)</option>
@@ -2439,21 +2439,21 @@
             <!-- max-width em vez de max-height: com w-full puro, max-height competia
                  com aspect-ratio e vencia em telas largas, achatando a câmera pra
                  paisagem. Limitando a largura, a altura segue o aspect-ratio certo. -->
-            <div class="w-full bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center mx-auto" style="aspect-ratio:3/4; max-width:340px;">
+            <div class="w-full bg-surface-4 rounded-xl overflow-hidden border border-subtle relative mb-4 flex items-center justify-center mx-auto" style="aspect-ratio:3/4; max-width:340px;">
               <video id="ponto-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
               <canvas id="ponto-canvas" class="w-full h-full object-cover hidden"></canvas>
               <div id="ponto-camera-placeholder" class="text-center p-4">
-                <i class="fa-solid fa-camera text-3xl text-brand-600 mb-2"></i>
-                <p class="text-[11px] text-brand-400">Ative a câmera para bater ponto</p>
+                <i class="fa-solid fa-camera text-3xl text-ink-strong mb-2"></i>
+                <p class="text-[11px] text-ink-muted">Ative a câmera para bater ponto</p>
               </div>
               <!-- Grade de biometria facial: só aparece com a câmera ligada -->
               <div id="ponto-face-overlay" class="hidden absolute inset-0 pointer-events-none">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full">
-                  <line x1="33.33" y1="0" x2="33.33" y2="100" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
-                  <line x1="66.66" y1="0" x2="66.66" y2="100" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
-                  <line x1="0" y1="33.33" x2="100" y2="33.33" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
-                  <line x1="0" y1="66.66" x2="100" y2="66.66" stroke="currentColor" stroke-width="0.3" class="text-brand-400/40" />
-                  <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="currentColor" stroke-width="0.6" class="text-brand-300/70" />
+                  <line x1="33.33" y1="0" x2="33.33" y2="100" stroke="currentColor" stroke-width="0.3" class="text-ink-muted" />
+                  <line x1="66.66" y1="0" x2="66.66" y2="100" stroke="currentColor" stroke-width="0.3" class="text-ink-muted" />
+                  <line x1="0" y1="33.33" x2="100" y2="33.33" stroke="currentColor" stroke-width="0.3" class="text-ink-muted" />
+                  <line x1="0" y1="66.66" x2="100" y2="66.66" stroke="currentColor" stroke-width="0.3" class="text-ink-muted" />
+                  <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="currentColor" stroke-width="0.6" class="text-ink-muted" />
                 </svg>
               </div>
             </div>
@@ -2464,26 +2464,26 @@
               <span id="ponto-face-banner-texto">Coleta de padrão biométrico inicial</span>
             </div>
 
-            <button type="button" id="btn-ponto-ativar-cam" class="w-full py-2 bg-brand-800 hover:bg-brand-700 text-brand-100 font-bold rounded-xl text-xs transition mb-4">
+            <button type="button" id="btn-ponto-ativar-cam" class="w-full py-2 bg-surface-3 hover:bg-surface-hover text-ink-strong font-bold rounded-xl text-xs transition mb-4">
               <i class="fa-solid fa-video mr-1"></i> Ativar Câmera
             </button>
 
-            <button type="button" id="btn-ponto-cadastrar-biometria" class="w-full py-2 font-bold rounded-xl transition mb-4" style="background-color:#4338ca !important;color:#ffffff !important;font-size:0.75rem;">
+            <button type="button" id="btn-ponto-cadastrar-biometria" class="w-full py-2 font-bold rounded-xl transition mb-4" style="font-size:0.75rem;">
               <i class="fa-solid fa-face-viewfinder mr-1"></i> Capturar Biometria Inicial
             </button>
 
             <!-- Punch In/Out Action buttons -->
             <div class="w-full grid grid-cols-2 gap-2">
-              <button id="btn-ponto-entrada" class="btn-ponto py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+              <button id="btn-ponto-entrada" class="btn-ponto py-3 bg-success-soft hover:bg-success-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
                 <i class="fa-solid fa-door-open text-base"></i> Entrada
               </button>
-              <button id="btn-ponto-saida-int" class="btn-ponto py-3 bg-amber-800 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+              <button id="btn-ponto-saida-int" class="btn-ponto py-3 bg-warning-soft hover:bg-warning-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
                 <i class="fa-solid fa-utensils text-base"></i> Almoço
               </button>
-              <button id="btn-ponto-retorno-int" class="btn-ponto py-3 bg-amber-850 hover:bg-amber-750 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+              <button id="btn-ponto-retorno-int" class="btn-ponto py-3 bg-warning-soft hover:bg-warning-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
                 <i class="fa-solid fa-rotate-left text-base"></i> Retorno
               </button>
-              <button id="btn-ponto-saida" class="btn-ponto py-3 bg-rose-800 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
+              <button id="btn-ponto-saida" class="btn-ponto py-3 bg-danger-soft hover:bg-danger-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex flex-col items-center gap-1">
                 <i class="fa-solid fa-door-closed text-base"></i> Saída
               </button>
             </div>
@@ -2491,12 +2491,12 @@
             <!-- GPS details: mantido no DOM (ativarGPSPonto/registrarMarcacaoPonto dependem
                  destes elementos e das variáveis pontoGpsCoords/pontoGpsAccuracy), só oculto
                  da tela — a validação de cerca virtual continua ativa nos bastidores. -->
-            <div id="ponto-gps-panel" class="hidden w-full mt-4 bg-brand-900/30 p-3 rounded-xl border border-brand-900 text-left space-y-2">
-              <div class="flex justify-between items-center text-[10px] font-bold uppercase text-brand-400">
+            <div id="ponto-gps-panel" class="hidden w-full mt-4 bg-surface-1 p-3 rounded-xl border border-subtle text-left space-y-2">
+              <div class="flex justify-between items-center text-[10px] font-bold uppercase text-ink-muted">
                 <span>Localização GPS</span>
-                <span id="ponto-gps-status" class="text-rose-500 font-black"><i class="fa-solid fa-circle-xmark"></i> Pendente</span>
+                <span id="ponto-gps-status" class="text-danger font-black"><i class="fa-solid fa-circle-xmark"></i> Pendente</span>
               </div>
-              <div class="text-[11px] text-brand-200 font-mono space-y-1">
+              <div class="text-[11px] text-ink font-mono space-y-1">
                 <p id="ponto-gps-coords">Coordenadas: --</p>
                 <p id="ponto-gps-accuracy">Precisão: --</p>
                 <p id="ponto-gps-distance">Distância da Loja: --</p>
@@ -2510,49 +2510,49 @@
         <div id="ponto-painel-admin" class="hidden lg:col-span-2 space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Balance Card -->
-            <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
-              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-chart-pie mr-1"></i> Resumo da Jornada</h3>
+            <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg">
+              <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider mb-3"><i class="fa-solid fa-chart-pie mr-1"></i> Resumo da Jornada</h3>
               <div class="space-y-4">
                 <div>
-                  <div class="flex justify-between text-xs font-bold text-brand-200 mb-1">
+                  <div class="flex justify-between text-xs font-bold text-ink mb-1">
                     <span>Trabalhado hoje</span>
                     <span id="ponto-balance-today">0h 00m</span>
                   </div>
-                  <div class="w-full bg-brand-900 rounded-full h-3.5 overflow-hidden border border-brand-850">
-                    <div id="ponto-balance-progress" class="bg-brand-500 h-3.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                  <div class="w-full bg-surface-1 rounded-full h-3.5 overflow-hidden border border-subtle">
+                    <div id="ponto-balance-progress" class="bg-accent-soft h-3.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                   </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 pt-2 text-center text-xs">
-                  <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
-                    <span class="block text-[10px] text-brand-400 font-bold uppercase">Meta Diária</span>
-                    <strong class="text-sm text-brand-100 mt-1 block">08:00</strong>
+                  <div class="bg-surface-1 p-2.5 rounded-xl border border-subtle">
+                    <span class="block text-[10px] text-ink-muted font-bold uppercase">Meta Diária</span>
+                    <strong class="text-sm text-ink-strong mt-1 block">08:00</strong>
                   </div>
-                  <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
-                    <span class="block text-[10px] text-brand-400 font-bold uppercase">Saldo Acumulado</span>
-                    <strong id="ponto-balance-accumulated" class="text-sm text-brand-200 mt-1 block">00:00</strong>
+                  <div class="bg-surface-1 p-2.5 rounded-xl border border-subtle">
+                    <span class="block text-[10px] text-ink-muted font-bold uppercase">Saldo Acumulado</span>
+                    <strong id="ponto-balance-accumulated" class="text-sm text-ink mt-1 block">00:00</strong>
                   </div>
                 </div>
                 
                 <!-- CLT alert -->
-                <div id="ponto-clt-alert" class="hidden p-3 rounded-xl bg-rose-950/40 border border-rose-800/50 text-[11px] text-rose-350 font-semibold animate-pulse">
+                <div id="ponto-clt-alert" class="hidden p-3 rounded-xl bg-danger-soft border border-danger text-[11px] text-danger font-semibold animate-pulse">
                   <i class="fa-solid fa-triangle-exclamation mr-1"></i> Atenção: Você está próximo de exceder o limite de 2h extras diárias (Art. 59 CLT).
                 </div>
               </div>
             </div>
 
             <!-- Upload Atestado / Ajustes Card -->
-            <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
-              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-file-medical mr-1"></i> Atestado ou Ajuste</h3>
+            <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg">
+              <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider mb-3"><i class="fa-solid fa-file-medical mr-1"></i> Atestado ou Ajuste</h3>
               <form id="form-ponto-ajuste" class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
                   <div class="field">
-                    <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Data</label>
-                    <input type="date" id="ponto-ajuste-data" required class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Data</label>
+                    <input type="date" id="ponto-ajuste-data" required class="w-full bg-surface-1 border border-subtle text-ink rounded-lg p-1.5 text-xs">
                   </div>
                   <div class="field">
-                    <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Tipo</label>
-                    <select id="ponto-ajuste-tipo" class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Tipo</label>
+                    <select id="ponto-ajuste-tipo" class="w-full bg-surface-1 border border-subtle text-ink rounded-lg p-1.5 text-xs">
                       <option value="ATESTADO">Atestado Médico</option>
                       <option value="AJUSTE">Esquecimento / Ajuste</option>
                     </select>
@@ -2560,20 +2560,20 @@
                 </div>
                 
                 <div class="field">
-                  <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Justificativa / Motivo</label>
-                  <input type="text" id="ponto-ajuste-motivo" placeholder="Ex: Atestado de consulta odontológica" required class="w-full bg-brand-900 border border-brand-800 text-white rounded-lg p-1.5 text-xs">
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Justificativa / Motivo</label>
+                  <input type="text" id="ponto-ajuste-motivo" placeholder="Ex: Atestado de consulta odontológica" required class="w-full bg-surface-1 border border-subtle text-ink rounded-lg p-1.5 text-xs">
                 </div>
 
                 <div class="field">
-                  <label class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Comprovante / Atestado</label>
-                  <label class="w-full py-2 bg-brand-900 hover:bg-brand-800 text-brand-200 border border-dashed border-brand-700 rounded-xl text-xs text-center cursor-pointer block transition">
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Comprovante / Atestado</label>
+                  <label class="w-full py-2 bg-surface-1 hover:bg-surface-hover text-ink border border-dashed border-subtle rounded-xl text-xs text-center cursor-pointer block transition">
                     <i class="fa-solid fa-paperclip"></i> Anexar Foto / Arquivo
                     <input type="file" id="ponto-ajuste-file" accept="image/*" capture="environment" class="hidden">
                   </label>
-                  <span id="ponto-ajuste-filename" class="text-[10px] text-brand-400 block mt-1 overflow-hidden text-ellipsis whitespace-nowrap">Nenhum arquivo selecionado</span>
+                  <span id="ponto-ajuste-filename" class="text-[10px] text-ink-muted block mt-1 overflow-hidden text-ellipsis whitespace-nowrap">Nenhum arquivo selecionado</span>
                 </div>
                 
-                <button type="submit" class="w-full py-2 bg-brand-600 hover:bg-brand-500 text-white font-extrabold rounded-xl text-xs transition">
+                <button type="submit" class="w-full py-2 bg-accent-soft hover:bg-surface-hover text-ink font-extrabold rounded-xl text-xs transition">
                   <i class="fa-solid fa-paper-plane mr-1"></i> Enviar Solicitação
                 </button>
               </form>
@@ -2581,14 +2581,14 @@
           </div>
 
           <!-- History Table -->
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
-            <div class="p-4 bg-brand-950 border-b border-brand-900 flex justify-between items-center">
-              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-list mr-1"></i> Histórico Mensal</h3>
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
+            <div class="p-4 bg-surface-2 border-b border-subtle flex justify-between items-center">
+              <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider"><i class="fa-solid fa-list mr-1"></i> Histórico Mensal</h3>
               <div class="flex items-center gap-2">
-                <button type="button" id="btn-ponto-pdf" class="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+                <button type="button" id="btn-ponto-pdf" class="px-3 py-1.5 bg-success-soft hover:bg-success-hover text-ink font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
                   <i class="fa-solid fa-file-pdf"></i> Gerar Espelho de Ponto
                 </button>
-                <button type="button" id="btn-ponto-email-contador" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition" title="Envia a folha de ponto (PDF) por e-mail para o contador cadastrado em Configurações">
+                <button type="button" id="btn-ponto-email-contador" class="px-3 py-1.5 bg-accent-soft hover:bg-surface-hover text-ink font-bold text-xs rounded-xl flex items-center gap-1.5 transition" title="Envia a folha de ponto (PDF) por e-mail para o contador cadastrado em Configurações">
                   <i class="fa-solid fa-paper-plane"></i> Enviar ao Contador
                 </button>
               </div>
@@ -2597,7 +2597,7 @@
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Data</th>
                     <th class="py-3 px-4 text-center">Entrada</th>
                     <th class="py-3 px-4 text-center">Almoço</th>
@@ -2606,7 +2606,7 @@
                     <th class="py-3 px-4 text-center">Saldo</th>
                   </tr>
                 </thead>
-                <tbody id="ponto-historico-tbody" class="divide-y divide-brand-900/40">
+                <tbody id="ponto-historico-tbody" class="divide-y divide-subtle">
                   <!-- Gerado dinamicamente no JS -->
                 </tbody>
               </table>
@@ -2615,9 +2615,9 @@
 
           <!-- Relatório por Operação: agrega o ponto de todas as colaboradoras, filtrável
                por loja/operação (só Líder de Operações e Owner enxergam este painel). -->
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
-            <div class="p-4 bg-brand-950 border-b border-brand-900">
-              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider mb-3"><i class="fa-solid fa-users-rectangle mr-1"></i> Relatório de Ponto por Operação</h3>
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
+            <div class="p-4 bg-surface-2 border-b border-subtle">
+              <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider mb-3"><i class="fa-solid fa-users-rectangle mr-1"></i> Relatório de Ponto por Operação</h3>
               <div class="flex flex-wrap gap-2" id="ponto-relatorio-tabs" role="tablist" aria-label="Filtrar relatório de ponto por operação">
                 <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="todas">Todas</button>
                 <button type="button" class="ponto-relatorio-tab px-3 py-1.5 rounded-xl text-xs font-bold transition border" data-operacao="Marambaia">Marambaia</button>
@@ -2632,7 +2632,7 @@
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Colaboradora</th>
                     <th class="py-3 px-4">Operação</th>
                     <th class="py-3 px-4">Data</th>
@@ -2642,8 +2642,8 @@
                     <th class="py-3 px-4 text-center">Saída</th>
                   </tr>
                 </thead>
-                <tbody id="ponto-relatorio-tbody" class="divide-y divide-brand-900/40">
-                  <tr class="text-brand-400 text-center">
+                <tbody id="ponto-relatorio-tbody" class="divide-y divide-subtle">
+                  <tr class="text-ink-muted text-center">
                     <td colspan="7" class="py-8">Selecione uma operação para carregar o relatório.</td>
                   </tr>
                 </tbody>
@@ -2657,27 +2657,27 @@
 
     <!-- ===================== ABA: META HORA A HORA (VENDAS CACAU SHOW) ===================== -->
     <section id="tab-meta-hora-hora" class="tab-panel hidden" role="tabpanel">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-bullseye text-brand-300"></i> Meta Hora a Hora
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-ink-muted"></i> Meta Hora a Hora
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Lance suas vendas ao longo do turno e acompanhe o progresso da meta diária, hora a hora. Não usa dados do Controle de Caixa/envelopes — é um lançamento independente.</p>
+          <p class="text-xs text-ink-strong mt-1">Lance suas vendas ao longo do turno e acompanhe o progresso da meta diária, hora a hora. Não usa dados do Controle de Caixa/envelopes — é um lançamento independente.</p>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Engajamento de Vendas</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Engajamento de Vendas</span>
         </div>
       </div>
 
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
 
         <!-- Operação -->
-        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
+        <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg">
           <div class="inline-flex items-center gap-2">
-            <span class="text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="text-xs font-extrabold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
               <i class="fa-solid fa-store"></i> Operação:
             </span>
-            <select id="meta-operacao-selector" class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer">
+            <select id="meta-operacao-selector" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
               <option value="Marambaia">Marambaia (9175)</option>
               <option value="Icoaraci">Icoaraci (4304)</option>
               <option value="Mário Covas">Mário Covas (9201)</option>
@@ -2686,22 +2686,22 @@
         </div>
 
         <!-- Aviso: sem meta diária cadastrada para hoje -->
-        <div id="meta-sem-dados-aviso" class="hidden glass-card p-6 rounded-2xl border border-amber-800/50 bg-amber-950/20 text-center">
-          <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mb-2 block"></i>
-          <p class="text-sm font-bold text-amber-400">Meta não cadastrada para hoje — aguardando nova planilha</p>
-          <p class="text-xs text-brand-400 mt-1">Importe a planilha de metas desta loja na aba <strong>Importações</strong>.</p>
+        <div id="meta-sem-dados-aviso" class="hidden glass-card p-6 rounded-2xl border border-warning bg-warning-soft text-center">
+          <i class="fa-solid fa-triangle-exclamation text-warning text-2xl mb-2 block"></i>
+          <p class="text-sm font-bold text-warning">Meta não cadastrada para hoje — aguardando nova planilha</p>
+          <p class="text-xs text-ink-muted mt-1">Importe a planilha de metas desta loja na aba <strong>Importações</strong>.</p>
 
           <!-- Preenchimento manual: só Líder de Operações/Owner, para os dias
                em que a planilha ainda não tem meta diária detalhada. -->
-          <div id="meta-manual-box" class="hidden mt-5 pt-5 border-t border-amber-800/40">
-            <p class="text-xs font-bold text-brand-200 mb-2">Definir a meta de hoje manualmente</p>
+          <div id="meta-manual-box" class="hidden mt-5 pt-5 border-t border-warning">
+            <p class="text-xs font-bold text-ink mb-2">Definir a meta de hoje manualmente</p>
             <div class="flex flex-col sm:flex-row gap-2 justify-center items-center">
-              <input type="number" id="meta-manual-valor" step="0.01" min="0" placeholder="Meta do dia (R$)" class="bg-brand-900 border border-brand-800 text-white rounded-xl p-2.5 text-sm w-full sm:w-56 focus:outline-none focus:border-brand-500">
-              <button type="button" id="btn-meta-manual-salvar" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+              <input type="number" id="meta-manual-valor" step="0.01" min="0" placeholder="Meta do dia (R$)" class="bg-surface-1 border border-subtle text-ink rounded-xl p-2.5 text-sm w-full sm:w-56 focus:outline-none focus:border-accent">
+              <button type="button" id="btn-meta-manual-salvar" class="px-5 py-2.5 bg-success-soft hover:bg-success-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Meta de Hoje
               </button>
             </div>
-            <p class="text-[11px] text-brand-400 mt-2">Vale só para hoje nesta loja. Quando a planilha oficial for importada, ela substitui este valor.</p>
+            <p class="text-[11px] text-ink-muted mt-2">Vale só para hoje nesta loja. Quando a planilha oficial for importada, ela substitui este valor.</p>
           </div>
         </div>
 
@@ -2709,64 +2709,64 @@
         <div id="meta-conteudo-dia" class="hidden space-y-6">
 
           <!-- Prepare-se para Amanhã -->
-          <div id="meta-amanha-card" class="hidden glass-card p-4 rounded-2xl border border-brand-700/50 bg-brand-900/30 flex items-center gap-3">
-            <i class="fa-solid fa-calendar-day text-brand-400 text-xl"></i>
-            <p class="text-xs text-brand-200"><strong>Prepare-se para amanhã:</strong> meta de <strong id="meta-amanha-valor">R$ 0,00</strong></p>
+          <div id="meta-amanha-card" class="hidden glass-card p-4 rounded-2xl border border-subtle bg-surface-1 flex items-center gap-3">
+            <i class="fa-solid fa-calendar-day text-ink-muted text-xl"></i>
+            <p class="text-xs text-ink"><strong>Prepare-se para amanhã:</strong> meta de <strong id="meta-amanha-valor">R$ 0,00</strong></p>
           </div>
 
           <!-- Progresso do Dia -->
-          <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
-            <div class="flex justify-between items-center text-xs font-bold text-brand-200 mb-2">
+          <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 shadow-lg">
+            <div class="flex justify-between items-center text-xs font-bold text-ink mb-2">
               <span>Progresso de Hoje</span>
               <div class="flex items-center gap-2">
                 <span id="meta-progresso-label">R$ 0,00 / R$ 0,00</span>
                 <!-- Só Líder de Operações/Owner podem editar a meta já lançada -->
-                <button type="button" id="btn-meta-editar" class="hidden text-brand-400 hover:text-brand-200 transition" title="Editar meta de hoje">
+                <button type="button" id="btn-meta-editar" class="hidden text-ink-muted hover:text-ink-strong transition" title="Editar meta de hoje">
                   <i class="fa-solid fa-pen"></i>
                 </button>
               </div>
             </div>
-            <div id="meta-editar-box" class="hidden flex flex-col sm:flex-row gap-2 items-center mb-3 p-3 rounded-xl border border-brand-800/80 bg-brand-900/40">
-              <input type="number" id="meta-editar-valor" step="0.01" min="0" placeholder="Nova meta do dia (R$)" class="bg-brand-900 border border-brand-800 text-white rounded-xl p-2 text-sm w-full sm:w-48 focus:outline-none focus:border-brand-500">
-              <button type="button" id="btn-meta-editar-salvar" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <div id="meta-editar-box" class="hidden flex flex-col sm:flex-row gap-2 items-center mb-3 p-3 rounded-xl border border-subtle bg-surface-1">
+              <input type="number" id="meta-editar-valor" step="0.01" min="0" placeholder="Nova meta do dia (R$)" class="bg-surface-1 border border-subtle text-ink rounded-xl p-2 text-sm w-full sm:w-48 focus:outline-none focus:border-accent">
+              <button type="button" id="btn-meta-editar-salvar" class="px-4 py-2 bg-success-soft hover:bg-success-hover text-ink font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-floppy-disk"></i> Salvar
               </button>
-              <button type="button" id="btn-meta-editar-cancelar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition">Cancelar</button>
+              <button type="button" id="btn-meta-editar-cancelar" class="px-4 py-2 bg-surface-3 hover:bg-surface-hover text-ink font-bold text-xs rounded-xl transition">Cancelar</button>
             </div>
-            <div class="w-full bg-brand-900 rounded-full h-4 overflow-hidden border border-brand-850">
-              <div id="meta-progresso-bar" class="bg-brand-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+            <div class="w-full bg-surface-1 rounded-full h-4 overflow-hidden border border-subtle">
+              <div id="meta-progresso-bar" class="bg-accent-soft h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
             <p id="meta-mensagem-motivacional" class="mt-3 text-sm font-bold text-center"></p>
             <div class="grid grid-cols-2 gap-2 pt-4 text-center text-xs">
-              <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
-                <span class="block text-[10px] text-brand-400 font-bold uppercase">Esperado até agora</span>
-                <strong id="meta-esperado-ate-agora" class="text-sm text-brand-100 mt-1 block">R$ 0,00</strong>
+              <div class="bg-surface-1 p-2.5 rounded-xl border border-subtle">
+                <span class="block text-[10px] text-ink-muted font-bold uppercase">Esperado até agora</span>
+                <strong id="meta-esperado-ate-agora" class="text-sm text-ink-strong mt-1 block">R$ 0,00</strong>
               </div>
-              <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
-                <span class="block text-[10px] text-brand-400 font-bold uppercase">Meta por Hora</span>
-                <strong id="meta-por-hora" class="text-sm text-brand-200 mt-1 block">R$ 0,00</strong>
+              <div class="bg-surface-1 p-2.5 rounded-xl border border-subtle">
+                <span class="block text-[10px] text-ink-muted font-bold uppercase">Meta por Hora</span>
+                <strong id="meta-por-hora" class="text-sm text-ink mt-1 block">R$ 0,00</strong>
               </div>
             </div>
-            <p id="meta-streak-label" class="hidden mt-3 text-xs font-bold text-center text-orange-400"></p>
+            <p id="meta-streak-label" class="hidden mt-3 text-xs font-bold text-center text-warning"></p>
           </div>
 
           <!-- Grade Hora a Hora: check-in por intervalo, liberado só até 30min após o horário -->
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
-            <div class="p-4 bg-brand-950 border-b border-brand-900">
-              <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Hora a Hora</h3>
-              <p class="text-[11px] text-brand-400 mt-1">O primeiro intervalo do dia começa 1h após a abertura. Cada intervalo só pode ser confirmado até 30 minutos depois do horário. Em cada intervalo, informe o <strong>total acumulado de vendas do dia até aquele horário</strong> — não o valor vendido só naquela hora.</p>
+          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
+            <div class="p-4 bg-surface-2 border-b border-subtle">
+              <h3 class="text-xs font-extrabold uppercase text-ink-muted tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Hora a Hora</h3>
+              <p class="text-[11px] text-ink-muted mt-1">O primeiro intervalo do dia começa 1h após a abertura. Cada intervalo só pode ser confirmado até 30 minutos depois do horário. Em cada intervalo, informe o <strong>total acumulado de vendas do dia até aquele horário</strong> — não o valor vendido só naquela hora.</p>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
+                  <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Intervalo</th>
                     <th class="py-3 px-4 text-right">Meta Acumulada</th>
                     <th class="py-3 px-4 text-center">Status</th>
                     <th class="py-3 px-4 text-right">Ação</th>
                   </tr>
                 </thead>
-                <tbody id="meta-hora-a-hora-tbody" class="divide-y divide-brand-900/40">
+                <tbody id="meta-hora-a-hora-tbody" class="divide-y divide-subtle">
                   <!-- Gerado dinamicamente no JS -->
                 </tbody>
               </table>
@@ -2782,15 +2782,15 @@
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
         
         <!-- Banner e Título -->
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="section-header">
           <div>
-            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-sliders text-brand-300"></i> Painel de Configurações
+            <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-ink-muted"></i> Painel de Configurações
             </h2>
-            <p class="text-xs text-brand-100 mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
+            <p class="text-xs text-ink-strong mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
           </div>
           <div>
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Ajustes do HuB</span>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Ajustes do HuB</span>
           </div>
         </div>
 
@@ -2801,7 +2801,7 @@
           <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
             <div>
               <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-shield-halved text-brand-500"></i> Segurança & Sessão
+                <i class="fa-solid fa-shield-halved text-accent"></i> Segurança & Sessão
               </h3>
               <p class="text-xs text-muted mb-4">Gerencie as regras de expiração e altere seus dados de autenticação rápida.</p>
               
@@ -2821,7 +2821,7 @@
                   <button type="button" id="config-btn-change-pin" class="flex-1 py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-key"></i> Alterar meu PIN
                   </button>
-                  <button type="button" id="config-btn-logout" class="flex-1 py-2.5 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                  <button type="button" id="config-btn-logout" class="flex-1 py-2.5 bg-danger-soft hover:bg-danger-hover border border-danger text-danger font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-right-from-bracket"></i> Sair / Mudar Usuário
                   </button>
                 </div>
@@ -2840,7 +2840,7 @@
           <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
             <div>
               <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-database text-brand-500"></i> Atualização do App (Cache)
+                <i class="fa-solid fa-database text-accent"></i> Atualização do App (Cache)
               </h3>
               <p class="text-xs text-muted mb-4">Se o app parecer "travado" numa versão antiga depois de uma atualização, force a atualização aqui — sem precisar desinstalar ou pedir ajuda.</p>
 
@@ -2861,7 +2861,7 @@
           <!-- Card: Geofencing do Ponto (Líder de Operações / Owner) -->
           <div id="config-card-geofencing" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-location-crosshairs text-brand-500"></i> Geofencing do Ponto
+              <i class="fa-solid fa-location-crosshairs text-accent"></i> Geofencing do Ponto
             </h3>
             <p class="text-xs text-muted mb-4">Raio de tolerância, em metros, ao redor da localização de cada operação (definida acima) para liberar a marcação de ponto. Muito baixo bloqueia colaboradoras dentro da própria loja; muito alto perde o propósito da cerca virtual.</p>
 
@@ -2879,7 +2879,7 @@
           <!-- Card: WhatsApp Lojas (Apenas Owners/Gestores) -->
           <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-brands fa-whatsapp text-emerald-500"></i> Links dos Grupos de WhatsApp das Lojas
+              <i class="fa-brands fa-whatsapp text-success"></i> Links dos Grupos de WhatsApp das Lojas
             </h3>
             <p class="text-xs text-muted mb-4">Configure os links de convite para os relatórios serem enviados diretamente para os grupos corretos de cada filial.</p>
             
@@ -2911,7 +2911,7 @@
           <!-- Card: Localização e Horário das Operações (Líder de Operações / Owner) -->
           <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-map-location-dot text-brand-500"></i> Localização e Horário das Operações
+              <i class="fa-solid fa-map-location-dot text-accent"></i> Localização e Horário das Operações
             </h3>
             <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora — a meta do dia em si vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
 
@@ -2944,16 +2944,16 @@
             <div class="flex items-center justify-between mb-4">
               <div>
                 <h3 class="text-base font-bold flex items-center gap-2">
-                  <i class="fa-solid fa-bell text-brand-500"></i> Canais e Regras de Notificações
+                  <i class="fa-solid fa-bell text-accent"></i> Canais e Regras de Notificações
                 </h3>
                 <p class="text-xs text-muted mt-1">Gerencie quais perfis recebem cada tipo de alerta por email ou push notification.</p>
               </div>
-              <div id="notif-owner-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-brand-800/40 border border-brand-700/40 text-brand-700 hidden">
+              <div id="notif-owner-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-surface-3 border border-subtle text-ink-strong hidden">
                 <i class="fa-solid fa-lock-open"></i> Edição habilitada
               </div>
             </div>
 
-            <div class="mb-4 p-4 rounded-lg bg-blue-950/20 border border-blue-800/40 text-xs text-blue-200">
+            <div class="mb-4 p-4 rounded-lg bg-info-soft border border-info text-xs text-info">
               <strong>💡 Tip:</strong> Apenas Owners (Bruno e Isabella) podem editar essas preferências. Colaboradores e Líderes veem em leitura.
             </div>
 
@@ -2995,9 +2995,9 @@
           <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
           <button type="button" class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
             style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
               <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-user-shield"></i></span>
+                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-user-shield"></i></span>
                 <div class="text-left">
                   <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
                   <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
@@ -3012,9 +3012,9 @@
                então a visibilidade já é controlada por tabsPermitidas. -->
           <button type="button" class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
             style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
               <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-users-gear"></i></span>
+                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-users-gear"></i></span>
                 <div class="text-left">
                   <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
                   <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
@@ -3027,7 +3027,7 @@
           <!-- Card: Dados do Contador (emissão mensal da Folha de Ponto) — Owner -->
           <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-file-invoice text-brand-500"></i> Dados do Contador (Folha de Ponto)
+              <i class="fa-solid fa-file-invoice text-accent"></i> Dados do Contador (Folha de Ponto)
             </h3>
             <p class="text-xs text-muted mb-4">E-mail para onde a Folha de Ponto em PDF é enviada. O envio é feito por você, pelo botão <strong>"Enviar ao Contador"</strong> na aba Controle de Ponto — nada é disparado automaticamente.</p>
 
@@ -3053,7 +3053,7 @@
           <!-- Card: Manutenção & Dados -->
           <div class="card p-6 rounded-2xl border border-border md:col-span-2">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-database text-brand-500"></i> Gestão de Dados & Armazenamento Local
+              <i class="fa-solid fa-database text-accent"></i> Gestão de Dados & Armazenamento Local
             </h3>
             <p class="text-xs text-muted mb-4">Exporte backups de segurança, importe dados existentes ou redefina o banco local em caso de inconsistência persistente.</p>
             
@@ -3089,7 +3089,7 @@
                   <h4 class="text-xs font-bold mb-1">Limpar Dados Locais</h4>
                   <p class="text-[10px] text-muted mb-3">Apaga o cache local deste navegador. Não afeta a base do servidor central.</p>
                 </div>
-                <button type="button" id="config-btn-clear" class="w-full py-2.5 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                <button type="button" id="config-btn-clear" class="w-full py-2.5 bg-danger-soft hover:bg-danger-hover border border-danger text-danger font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
                   <i class="fa-solid fa-trash-can"></i> Limpar Tudo (Reset)
                 </button>
               </div>
@@ -3100,7 +3100,7 @@
           <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-border">
-                <i class="fa-solid fa-circle-info text-brand-500 text-lg"></i>
+                <i class="fa-solid fa-circle-info text-accent text-lg"></i>
               </div>
               <div>
                 <span class="block text-xs font-bold">HuB Operações — v4.0.0</span>
@@ -3112,7 +3112,7 @@
                 <span class="block text-[10px] text-muted">Usuário Ativo</span>
                 <span class="block text-xs font-bold" id="config-user-info">-</span>
               </div>
-              <div class="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-950/10 border border-emerald-800/30 text-emerald-700" id="config-connection-badge">
+              <div class="px-3 py-1 rounded-full text-[10px] font-bold bg-success-soft border border-success text-success" id="config-connection-badge">
                 Conectado
               </div>
             </div>
@@ -3239,7 +3239,7 @@
       <input type="password" id="admin-pin-input" inputmode="numeric" maxlength="4" placeholder="****">
     </div>
     <div class="modal-actions" style="justify-content: space-between;">
-      <button id="admin-pin-resetar" class="btn-secondary" style="color: var(--danger-color, #d9534f);" title="Remove o PIN para forçar a criação no próximo login">Resetar PIN</button>
+      <button id="admin-pin-resetar" class="btn-secondary" style="color: var(--tone-danger-ink);" title="Remove o PIN para forçar a criação no próximo login">Resetar PIN</button>
       <div style="display: flex; gap: 8px;">
         <button id="admin-pin-cancelar" class="btn-secondary">Cancelar</button>
         <button id="admin-pin-salvar" class="btn-primary">Salvar PIN</button>
@@ -3250,24 +3250,24 @@
 
 <!-- Modal: Cadastro Automático via DISC -->
 <div id="modal-cadastro-disc" class="modal-overlay hidden" role="dialog" aria-labelledby="modal-cadastro-disc-title" aria-modal="true">
-  <div class="modal w-full max-w-md mx-4 rounded-2xl border border-indigo-900/60 bg-brand-950 p-6 text-left shadow-2xl">
-    <h3 id="modal-cadastro-disc-title" class="text-base font-bold text-indigo-400 mb-2 flex items-center gap-2">
+  <div class="modal w-full max-w-md mx-4 rounded-2xl border border-info bg-surface-2 p-6 text-left shadow-2xl">
+    <h3 id="modal-cadastro-disc-title" class="text-base font-bold text-info mb-2 flex items-center gap-2">
       <i class="fa-solid fa-user-plus"></i> Novo Colaborador Detectado via DISC
     </h3>
-    <p class="text-xs text-brand-300 mb-4">
+    <p class="text-xs text-ink-muted mb-4">
       O perfil foi lido com sucesso. Confirme os dados abaixo para cadastrar o colaborador no sistema com o PIN padrão <strong>0000</strong>.
     </p>
     
     <div class="space-y-4">
       <div class="field" style="margin-bottom: 12px;">
-        <label for="disc-colab-nome" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Nome do Colaborador *</label>
-        <input type="text" id="disc-colab-nome" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="Nome Completo">
+        <label for="disc-colab-nome" class="block text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Nome do Colaborador *</label>
+        <input type="text" id="disc-colab-nome" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" placeholder="Nome Completo">
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
         <div class="field">
-          <label for="disc-colab-unidade" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Unidade / Loja *</label>
-          <select id="disc-colab-unidade" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" style="color: white; height: auto;">
+          <label for="disc-colab-unidade" class="block text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Unidade / Loja *</label>
+          <select id="disc-colab-unidade" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" style="color: white; height: auto;">
             <option value="" disabled selected>Selecione...</option>
             <option value="Marambaia">Marambaia</option>
             <option value="Icoaraci">Icoaraci</option>
@@ -3279,8 +3279,8 @@
         </div>
 
         <div class="field">
-          <label for="disc-colab-perfil" class="block text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1" style="color: #cbb49a;">Perfil de Acesso *</label>
-          <select id="disc-colab-perfil" class="w-full bg-brand-900 border border-brand-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" style="color: white; height: auto;">
+          <label for="disc-colab-perfil" class="block text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1" style="color: var(--ink-muted);">Perfil de Acesso *</label>
+          <select id="disc-colab-perfil" class="w-full bg-surface-1 border border-subtle rounded-xl px-3 py-2 text-xs text-ink focus:outline-none focus:border-accent" style="color: white; height: auto;">
             <option value="" disabled selected>Selecione...</option>
             <option value="consultora">Consultora Cacau Show</option>
             <option value="consultora_dashboard">Líder de Operações Cacau Show</option>
@@ -3290,52 +3290,52 @@
         </div>
       </div>
 
-      <div class="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-3 text-xs space-y-1" style="background: rgba(30, 27, 75, 0.4); border: 1px solid rgba(99, 102, 241, 0.5); padding: 12px; border-radius: 12px;">
-        <div class="text-[10px] uppercase font-bold text-indigo-400" style="color: #818cf8; margin-bottom: 4px;">Resultado do Perfil DISC</div>
-        <div class="flex justify-between text-brand-200" style="display: flex; justify-content: space-between; color: #cbb49a;">
+      <div class="bg-info-soft border border-info rounded-xl p-3 text-xs space-y-1" style="padding: 12px; border-radius: 12px;">
+        <div class="text-[10px] uppercase font-bold text-info" style="margin-bottom: 4px;">Resultado do Perfil DISC</div>
+        <div class="flex justify-between text-ink" style="display: flex; justify-content: space-between; color: var(--ink-muted);">
           <span>D: <strong id="disc-preview-d">0</strong>%</span>
           <span>I: <strong id="disc-preview-i">0</strong>%</span>
           <span>S: <strong id="disc-preview-s">0</strong>%</span>
           <span>C: <strong id="disc-preview-c">0</strong>%</span>
         </div>
-        <div class="text-[11px] text-brand-300 mt-1" style="color: #a78bfa; margin-top: 6px;">
-          Perfil Predominante: <span id="disc-preview-predominante" class="font-bold text-white" style="color: white;">-</span>
+        <div class="text-[11px] text-ink-muted mt-1" style="margin-top: 6px;">
+          Perfil Predominante: <span id="disc-preview-predominante" class="font-bold text-ink" >-</span>
         </div>
       </div>
     </div>
 
     <div class="modal-actions mt-6 flex justify-end gap-2" style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px;">
-      <button id="disc-cadastro-cancelar" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-900 hover:bg-brand-850 text-brand-300">Cancelar</button>
-      <button id="disc-cadastro-confirmar" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow hover:bg-indigo-600">Confirmar Cadastro</button>
+      <button id="disc-cadastro-cancelar" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-1 hover:bg-surface-hover text-ink-muted">Cancelar</button>
+      <button id="disc-cadastro-confirmar" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow hover:bg-info-hover">Confirmar Cadastro</button>
     </div>
   </div>
 </div>
 
 <!-- Email Report Modal -->
-<div id="email-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-brand-700/40 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="email-modal-card">
-    <div class="flex justify-between items-start mb-4 pb-3 border-b border-brand-900">
-      <h3 class="text-base font-bold text-brand-200 flex items-center gap-2">
-        <i class="fa-solid fa-paper-plane text-brand-400"></i> Envio de Relatório de Recebimento
+<div id="email-modal" class="fixed inset-0 bg-scrim backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-subtle shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="email-modal-card">
+    <div class="flex justify-between items-start mb-4 pb-3 border-b border-subtle">
+      <h3 class="text-base font-bold text-ink flex items-center gap-2">
+        <i class="fa-solid fa-paper-plane text-ink-muted"></i> Envio de Relatório de Recebimento
       </h3>
-      <button id="btn-close-email-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+      <button id="btn-close-email-modal" class="text-ink-muted hover:text-ink-strong transition text-lg"><i class="fa-solid fa-xmark"></i></button>
     </div>
     
     <div class="space-y-4 text-xs">
       <div>
-        <label class="block text-[11px] text-brand-300 font-semibold uppercase mb-1">E-mail do Destinatário (Gestão/Fiscal)</label>
-        <input type="email" id="email-recipient-input" value="gestao.cacaushow@lojas.com.br" placeholder="email@cacaushow.com.br" class="w-full bg-brand-950 border border-brand-800 rounded-xl p-3 text-white focus:outline-none focus:border-brand-500 transition">
+        <label class="block text-[11px] text-ink-muted font-semibold uppercase mb-1">E-mail do Destinatário (Gestão/Fiscal)</label>
+        <input type="email" id="email-recipient-input" value="gestao.cacaushow@lojas.com.br" placeholder="email@cacaushow.com.br" class="w-full bg-surface-2 border border-subtle rounded-xl p-3 text-ink focus:outline-none focus:border-accent transition">
       </div>
 
-      <div class="bg-brand-950/60 p-3 rounded-xl border border-brand-900 text-[11px] text-brand-400">
+      <div class="bg-surface-2 p-3 rounded-xl border border-subtle text-[11px] text-ink-muted">
         O relatório resumido de todas as notas fiscais conferidas será transmitido silenciosamente para a gestão.
       </div>
 
       <div class="flex gap-3 pt-2">
-        <button id="btn-email-cancel" class="flex-1 py-2.5 bg-brand-900 border border-brand-800 text-brand-300 font-bold rounded-xl transition">
+        <button id="btn-email-cancel" class="flex-1 py-2.5 bg-surface-1 border border-subtle text-ink-muted font-bold rounded-xl transition">
           Cancelar
         </button>
-        <button id="btn-email-send-now" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2">
+        <button id="btn-email-send-now" class="flex-1 py-2.5 bg-accent-soft hover:bg-surface-hover text-ink font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2">
           <i class="fa-solid fa-paper-plane"></i> Enviar E-mail
         </button>
       </div>
@@ -3344,27 +3344,27 @@
 </div>
 
 <!-- WhatsApp Report Modal -->
-<div id="whatsapp-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-  <div class="glass-card w-full max-w-lg mx-4 rounded-2xl border border-emerald-500/40 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="wa-modal-card">
-    <div class="flex justify-between items-start mb-4 pb-3 border-b border-brand-900">
-      <h3 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+<div id="whatsapp-modal" class="fixed inset-0 bg-scrim backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-lg mx-4 rounded-2xl border border-success shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="wa-modal-card">
+    <div class="flex justify-between items-start mb-4 pb-3 border-b border-subtle">
+      <h3 class="text-xl font-bold text-success flex items-center gap-2">
         <i class="fa-brands fa-whatsapp text-2xl"></i> Relatório de Recebimento de NF-e
       </h3>
-      <button id="btn-close-wa-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+      <button id="btn-close-wa-modal" class="text-ink-muted hover:text-ink-strong transition text-lg"><i class="fa-solid fa-xmark"></i></button>
     </div>
     
     <div class="space-y-4">
-      <p class="text-xs text-brand-300">
+      <p class="text-xs text-ink-muted">
         Copie ou envie diretamente a mensagem formatada de recebimento para o <strong>Grupo de Gestão da Cacau Show</strong>.
       </p>
 
-      <textarea id="wa-message-text" rows="10" readonly class="w-full bg-brand-950 border border-brand-900 rounded-xl p-3 text-xs text-brand-200 font-mono focus:outline-none custom-scrollbar select-all"></textarea>
+      <textarea id="wa-message-text" rows="10" readonly class="w-full bg-surface-2 border border-subtle rounded-xl p-3 text-xs text-ink font-mono focus:outline-none custom-scrollbar select-all"></textarea>
 
       <div class="flex gap-3 pt-2">
-        <button id="btn-wa-copy" class="flex-1 py-3 bg-brand-900 hover:bg-brand-850 border border-brand-800 text-brand-300 font-bold rounded-xl text-sm transition flex items-center justify-center gap-2">
+        <button id="btn-wa-copy" class="flex-1 py-3 bg-surface-1 hover:bg-surface-hover border border-subtle text-ink-muted font-bold rounded-xl text-sm transition flex items-center justify-center gap-2">
           <i class="fa-solid fa-copy"></i> Copiar Mensagem
         </button>
-        <button id="btn-wa-send" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-sm transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
+        <button id="btn-wa-send" class="flex-1 py-3 bg-success-soft hover:bg-success-hover text-ink font-black rounded-xl text-sm transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
           <i class="fa-brands fa-whatsapp text-lg"></i> Abrir WhatsApp
         </button>
       </div>
@@ -3373,47 +3373,47 @@
 </div>
 
 <!-- Scan Result Quick Count Dialog Modal -->
-<div id="quick-count-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-brand-500/30 shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="modal-card">
+<div id="quick-count-modal" class="fixed inset-0 bg-scrim backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="glass-card w-full max-w-md mx-4 rounded-2xl border border-accent shadow-2xl p-6 overflow-hidden transform scale-95 transition-transform duration-300" id="modal-card">
     <div class="flex justify-between items-start mb-4">
-      <h3 class="text-xl font-bold text-brand-300 flex items-center gap-2">
-        <i class="fa-solid fa-camera-retro text-brand-400"></i> Produto Escaneado!
+      <h3 class="text-xl font-bold text-ink-muted flex items-center gap-2">
+        <i class="fa-solid fa-camera-retro text-ink-muted"></i> Produto Escaneado!
       </h3>
-      <button id="btn-close-modal" class="text-brand-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+      <button id="btn-close-modal" class="text-ink-muted hover:text-ink-strong transition text-lg"><i class="fa-solid fa-xmark"></i></button>
     </div>
     
     <div class="space-y-4">
-      <div class="bg-brand-950 p-4 rounded-xl border border-brand-900">
-        <div class="text-xs text-brand-400 font-bold uppercase tracking-wider">Descrição</div>
-        <div class="text-lg font-bold text-white mb-2" id="modal-product-desc">-</div>
+      <div class="bg-surface-2 p-4 rounded-xl border border-subtle">
+        <div class="text-xs text-ink-muted font-bold uppercase tracking-wider">Descrição</div>
+        <div class="text-lg font-bold text-ink mb-2" id="modal-product-desc">-</div>
         
         <div class="grid grid-cols-2 gap-4 mt-2">
           <div>
-            <span class="text-xs text-brand-400 block font-semibold">Cód. Produto</span>
-            <span class="font-mono text-sm text-brand-300 font-bold" id="modal-product-code">-</span>
+            <span class="text-xs text-ink-muted block font-semibold">Cód. Produto</span>
+            <span class="font-mono text-sm text-ink-muted font-bold" id="modal-product-code">-</span>
           </div>
           <div>
-            <span class="text-xs text-brand-400 block font-semibold">Código Barras</span>
-            <span class="font-mono text-sm text-brand-300 font-bold" id="modal-product-barras">-</span>
+            <span class="text-xs text-ink-muted block font-semibold">Código Barras</span>
+            <span class="font-mono text-sm text-ink-muted font-bold" id="modal-product-barras">-</span>
           </div>
         </div>
       </div>
 
       <div>
-        <label class="block text-xs text-brand-300 font-bold uppercase mb-1">Data de Validade</label>
-        <input type="date" id="modal-product-expiry" class="w-full bg-brand-950 border border-brand-900 focus:border-brand-500 rounded-xl p-3 text-white text-base font-extrabold focus:outline-none transition">
+        <label class="block text-xs text-ink-muted font-bold uppercase mb-1">Data de Validade</label>
+        <input type="date" id="modal-product-expiry" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-base font-extrabold focus:outline-none transition">
       </div>
 
       <div>
-        <label class="block text-xs text-brand-300 font-bold uppercase mb-1">Quantidade Contada</label>
-        <input type="number" id="modal-product-qty" placeholder="0" class="w-full bg-brand-950 border border-brand-900 focus:border-brand-500 rounded-xl p-4 text-center text-white text-3xl font-black focus:outline-none transition">
+        <label class="block text-xs text-ink-muted font-bold uppercase mb-1">Quantidade Contada</label>
+        <input type="number" id="modal-product-qty" placeholder="0" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-4 text-center text-ink text-3xl font-black focus:outline-none transition">
       </div>
 
       <div class="flex gap-3 pt-2">
-        <button id="btn-modal-cancel" class="flex-1 py-3 bg-brand-900 hover:bg-brand-850 border border-brand-800 text-brand-300 font-bold rounded-xl text-sm transition">
+        <button id="btn-modal-cancel" class="flex-1 py-3 bg-surface-1 hover:bg-surface-hover border border-subtle text-ink-muted font-bold rounded-xl text-sm transition">
           Cancelar
         </button>
-        <button id="btn-modal-save" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white font-black rounded-xl text-sm transition shadow-lg">
+        <button id="btn-modal-save" class="flex-1 py-3 bg-accent-soft hover:bg-surface-hover text-ink font-black rounded-xl text-sm transition shadow-lg">
           Salvar Contagem
         </button>
       </div>
@@ -3422,7 +3422,7 @@
 </div>
 
 <!-- Notification Popup Toast -->
-<div id="toast" class="fixed bottom-5 right-5 bg-brand-500 text-brand-950 px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+<div id="toast" class="fixed bottom-5 right-5 bg-accent-soft text-ink-strong px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
   <i class="fa-solid fa-circle-check"></i> <span id="toast-message">Salvo com sucesso!</span>
 </div>
 

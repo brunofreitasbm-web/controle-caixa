@@ -1549,7 +1549,7 @@ function verificarInventarioMensalNotificacao() {
         icon: "📋",
         title: "Inventário Mensal Obrigatório",
         btnText: "Entendi / Ir para Inventário",
-        btnClass: "bg-brand-600 hover:bg-brand-500 text-white font-bold"
+        btnClass: "bg-accent-soft hover:bg-surface-hover text-ink font-bold"
       }
     ).then(() => {
       localStorage.setItem(storageKey, "true");
@@ -5008,7 +5008,7 @@ async function renderizarColaboradores() {
     consultora: "background: rgba(33, 150, 243, 0.12); color: #1976d2;",
     consultora_dashboard: "background: rgba(156, 39, 176, 0.12); color: #7b1fa2;",
     consultora_fa: "background: rgba(255, 152, 0, 0.12); color: #e65100;",
-    owner: "background: rgba(76, 175, 80, 0.12); color: #2e7d32;"
+    owner: "background: rgba(76, 175, 80, 0.12); color: var(--tone-success-ink);"
   };
 
   const unidadeLabels = {
@@ -5031,8 +5031,8 @@ async function renderizarColaboradores() {
     const tr = document.createElement("tr");
     const temPin = pins[u.nome] && pins[u.nome] !== '';
     const statusPinHtml = temPin
-      ? `<span style="color: #2e7d32; font-weight: 500;">🔒 PIN Cadastrado</span>`
-      : `<span style="color: #d9534f; font-weight: 500;">⚠️ Sem PIN (Cria no 1º login)</span>`;
+      ? `<span style="color: var(--tone-success-ink); font-weight: 500;">🔒 PIN Cadastrado</span>`
+      : `<span style="color: var(--tone-danger-ink); font-weight: 500;">⚠️ Sem PIN (Cria no 1º login)</span>`;
 
     const labelRole = roleLabels[u.role] || u.role;
     const styleBadge = roleStyles[u.role] || "background: rgba(0,0,0,0.06); color: #333;";
@@ -5050,7 +5050,7 @@ async function renderizarColaboradores() {
         <button class="btn-mini-outline btn-editar-colab" data-nome="${u.nome}" style="margin-right: 6px;">📝 Editar</button>
         <button class="btn-mini-outline btn-alterar-pin" data-nome="${u.nome}" style="margin-right: 6px;">✏️ Alterar PIN</button>
         ${btnResetarBiometriaHtml}
-        <button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: #d9534f; border-color: #d9534f;">🗑️ Excluir</button>
+        <button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: var(--tone-danger-ink); border-color: var(--tone-danger-ink);">🗑️ Excluir</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -5980,7 +5980,7 @@ function renderNotifMasterSwitch(isOwner) {
   const statusEl = document.getElementById("notif-master-status");
   if (statusEl) {
     statusEl.textContent = ativo ? "Ativado" : "Desativado";
-    statusEl.classList.toggle("text-brand-700", ativo);
+    statusEl.classList.toggle("text-ink-strong", ativo);
     statusEl.classList.toggle("text-muted", !ativo);
   }
 
@@ -6117,15 +6117,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ['dragenter', 'dragover'].forEach(eventName => {
       nfDropZone.addEventListener(eventName, () => {
-        nfDropZone.classList.add('border-brand-500', 'bg-brand-900/30');
-        nfDropZone.classList.remove('border-brand-700/80');
+        nfDropZone.classList.add('border-accent', 'bg-surface-1');
+        nfDropZone.classList.remove('border-subtle');
       }, false);
     });
 
     ['dragleave', 'dragend', 'drop'].forEach(eventName => {
       nfDropZone.addEventListener(eventName, () => {
-        nfDropZone.classList.remove('border-brand-500', 'bg-brand-900/30');
-        nfDropZone.classList.add('border-brand-700/80');
+        nfDropZone.classList.remove('border-accent', 'bg-surface-1');
+        nfDropZone.classList.add('border-subtle');
       }, false);
     });
 
@@ -6238,7 +6238,7 @@ function inicializarInsercaoManualInventario() {
     btnLeitorFisico.addEventListener("click", () => {
       leitorFisicoAtivo = !leitorFisicoAtivo;
       btnLeitorFisico.classList.toggle("ring-2", leitorFisicoAtivo);
-      btnLeitorFisico.classList.toggle("ring-emerald-400", leitorFisicoAtivo);
+      btnLeitorFisico.classList.toggle("ring-success", leitorFisicoAtivo);
       btnLeitorFisico.innerHTML = leitorFisicoAtivo
         ? '<i class="fa-solid fa-circle-dot"></i> Leitor Ativo — Aguardando Leitura'
         : '<i class="fa-solid fa-barcode"></i> Ativar Leitor Físico';
@@ -6710,13 +6710,13 @@ function checkMonthlyInventoryAlert() {
   const badgeEl = document.getElementById('monthly-deadline-badge');
   if (badgeEl) {
     if (currentDay > 25) {
-      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white animate-pulse shadow-md border border-red-500";
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-danger-soft text-ink animate-pulse shadow-md border border-danger";
       badgeEl.textContent = "⚠️ ATENÇÃO: PRAZO DIA 25 EXCEDIDO!";
     } else if (currentDay >= 20) {
-      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-600 text-white animate-pulse shadow-md border border-orange-500";
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-warning-soft text-ink animate-pulse shadow-md border border-warning";
       badgeEl.textContent = `⚠️ RETA FINAL (FALTA ${25 - currentDay} DIA(S))`;
     } else {
-      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-800 text-brand-200 border border-brand-700";
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-surface-3 text-ink border border-subtle";
       badgeEl.textContent = "Prazo: Dia 25";
     }
   }
@@ -6739,7 +6739,7 @@ function handleNfFiles(files) {
   const progressLabel = document.getElementById('nf-progress-label');
   if (infoEl) {
     infoEl.classList.remove('hidden');
-    infoEl.className = "mt-3 text-xs text-brand-300 font-mono";
+    infoEl.className = "mt-3 text-xs text-ink-muted font-mono";
     if (progressLabel) progressLabel.textContent = `Processando ${files.length} arquivo(s)... 0%`;
     if (progressBar) progressBar.style.width = '0%';
   }
@@ -6775,11 +6775,11 @@ function handleNfFiles(files) {
           ❌ ${errorCount} erro(s) ou formato inválido
         `;
         if (errorCount > 0) {
-          infoEl.className = "mt-3 text-xs text-red-400 font-mono bg-red-950/20 p-2.5 rounded-lg border border-red-900/40 text-left";
+          infoEl.className = "mt-3 text-xs text-danger font-mono bg-danger-soft p-2.5 rounded-lg border border-danger text-left";
         } else if (successCount > 0) {
-          infoEl.className = "mt-3 text-xs text-emerald-400 font-mono bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40 text-left";
+          infoEl.className = "mt-3 text-xs text-success font-mono bg-success-soft p-2.5 rounded-lg border border-success text-left";
         } else {
-          infoEl.className = "mt-3 text-xs text-brand-300 font-mono bg-brand-800/20 p-2.5 rounded-lg border border-brand-700/40 text-left";
+          infoEl.className = "mt-3 text-xs text-ink-muted font-mono bg-surface-3 p-2.5 rounded-lg border border-subtle text-left";
         }
       }
 
@@ -7185,9 +7185,9 @@ function renderNfCardsGallery() {
     if (countEl) countEl.textContent = `(${contagemPorLoja[store] !== undefined ? contagemPorLoja[store] : 0})`;
 
     if (store === nfGalleryStoreFilter) {
-      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-brand-700 text-white border-brand-600 shadow-md';
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-accent-soft text-ink border-accent shadow-md';
     } else {
-      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-brand-950 text-brand-300 border-brand-800/40 hover:bg-brand-800 hover:text-white';
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-surface-2 text-ink-muted border-subtle hover:bg-surface-hover hover:text-ink-strong';
     }
 
     if (!tab.dataset.listenerAdded) {
@@ -7213,8 +7213,8 @@ function renderNfCardsGallery() {
   if (nfKeysDaLoja.length === 0) {
     const msgLoja = nfGalleryStoreFilter === 'todas' ? 'qualquer loja' : getLojaNomePorCodigo(nfGalleryStoreFilter);
     grid.innerHTML = `
-      <div class="col-span-full py-12 text-center text-brand-400 text-sm glass-card rounded-2xl border border-brand-900">
-        <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-brand-600"></i>
+      <div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
+        <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-ink-strong"></i>
         Nenhuma Nota Fiscal pendente para ${msgLoja}.
       </div>
     `;
@@ -7237,17 +7237,17 @@ function renderNfCardsGallery() {
     }
 
     let statusText = 'Pendente';
-    let cardBgClass = 'border-brand-800/40 bg-brand-950/40';
-    let statusBadgeClass = 'bg-brand-900/80 text-brand-300 border-brand-800';
+    let cardBgClass = 'border-subtle bg-surface-2';
+    let statusBadgeClass = 'bg-surface-1 text-ink-muted border-subtle';
 
     if (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) {
       statusText = 'ENTRADA OK NO SISTEMA CACAU SHOW';
-      cardBgClass = 'border-emerald-600/60 bg-emerald-950/30';
-      statusBadgeClass = 'bg-emerald-600 text-white font-extrabold shadow-md';
+      cardBgClass = 'border-success bg-success-soft';
+      statusBadgeClass = 'bg-success-soft text-ink font-extrabold shadow-md';
     } else if (faltasCount > 0 && conferidosCount > 0) {
       statusText = `PENDÊNCIA (${faltasCount} Faltas)`;
-      cardBgClass = 'border-orange-500/60 bg-orange-950/30';
-      statusBadgeClass = 'bg-orange-600 text-white font-extrabold shadow-md animate-pulse';
+      cardBgClass = 'border-warning bg-warning-soft';
+      statusBadgeClass = 'bg-warning-soft text-ink font-extrabold shadow-md animate-pulse';
     }
 
     const lojaCodigo = (nfData.info && nfData.info.targetStore) ? nfData.info.targetStore : currentStore;
@@ -7256,7 +7256,7 @@ function renderNfCardsGallery() {
 
     const lojaAlertaHtml = lojaAutoDetectada ? '' : `
       <div class="mb-4">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-orange-950/50 text-orange-400 border border-orange-800/50 animate-pulse" title="Loja não identificada na NF-e — confira antes de conferir">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft text-warning border border-warning animate-pulse" title="Loja não identificada na NF-e — confira antes de conferir">
           <i class="fa-solid fa-triangle-exclamation"></i> ${lojaNome} (${lojaCodigo}) — não confirmada
         </span>
       </div>
@@ -7264,12 +7264,12 @@ function renderNfCardsGallery() {
 
     const isSelected = selectedNfNumbers.includes(numNF);
     if (isSelected) {
-      cardBgClass = 'border-brand-400 bg-brand-900/60 ring-2 ring-brand-500/50 scale-[1.01]';
+      cardBgClass = 'border-strong bg-surface-1 ring-2 ring-accent scale-[1.01]';
     }
 
     const selectCheckHtml = isSelected
-      ? `<span class="absolute top-4 right-4 text-emerald-400 text-lg"><i class="fa-solid fa-circle-check"></i></span>`
-      : `<span class="absolute top-4 right-4 text-brand-500 opacity-30 text-lg hover:opacity-80"><i class="fa-regular fa-circle"></i></span>`;
+      ? `<span class="absolute top-4 right-4 text-success text-lg"><i class="fa-solid fa-circle-check"></i></span>`
+      : `<span class="absolute top-4 right-4 text-accent opacity-30 text-lg hover:opacity-80"><i class="fa-regular fa-circle"></i></span>`;
 
     const card = document.createElement('div');
     card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
@@ -7277,18 +7277,18 @@ function renderNfCardsGallery() {
       ${selectCheckHtml}
       <div class="flex justify-between items-start mb-3">
         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
-        <span class="text-xs text-brand-400 font-mono font-bold mr-6"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
+        <span class="text-xs text-ink-muted font-mono font-bold mr-6"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
       </div>
       <div class="${lojaAutoDetectada ? 'mb-3' : 'mb-2'}">
-        <div class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Nota Fiscal <span class="text-brand-900 text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
+        <div class="text-[10px] text-ink-muted font-bold uppercase tracking-wider">Nota Fiscal <span class="text-ink-strong text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
         <div class="mt-1">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800/80">
-            <i class="fa-solid fa-store text-brand-500"></i> ${lojaNome} (${lojaCodigo})
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-surface-1 text-ink-muted border border-subtle">
+            <i class="fa-solid fa-store text-accent"></i> ${lojaNome} (${lojaCodigo})
           </span>
         </div>
       </div>
       ${lojaAlertaHtml}
-      <button type="button" class="btn-iniciar-direto mt-4 w-full py-2 bg-brand-700 hover:bg-brand-600 text-white font-bold rounded-xl text-xs text-center transition">
+      <button type="button" class="btn-iniciar-direto mt-4 w-full py-2 bg-accent-soft hover:bg-surface-hover text-ink font-bold rounded-xl text-xs text-center transition">
         <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
       </button>
     `;
@@ -7359,11 +7359,11 @@ function toggleNfSelection(numNF) {
     const checkIcon = cardEl.querySelector('.absolute.top-4.right-4');
     if (checkIcon) {
       if (isSelected) {
-        checkIcon.className = "absolute top-4 right-4 text-emerald-400 text-lg";
+        checkIcon.className = "absolute top-4 right-4 text-success text-lg";
         checkIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
-        cardEl.className = cardEl.className.replace(/border-brand-800\/40 bg-brand-950\/40|border-emerald-600\/60 bg-emerald-950\/30|border-orange-500\/60 bg-orange-950\/30/g, 'border-brand-400 bg-brand-900/60 ring-2 ring-brand-500/50 scale-[1.01]');
+        cardEl.className = cardEl.className.replace(/border-subtle bg-surface-2|border-success bg-success-soft|border-warning bg-warning-soft/g, 'border-strong bg-surface-1 ring-2 ring-accent scale-[1.01]');
       } else {
-        checkIcon.className = "absolute top-4 right-4 text-brand-500 opacity-30 text-lg hover:opacity-80";
+        checkIcon.className = "absolute top-4 right-4 text-accent opacity-30 text-lg hover:opacity-80";
         checkIcon.innerHTML = `<i class="fa-regular fa-circle"></i>`;
         // Restore class based on status
         const nfData = importedNfs[nKey];
@@ -7376,9 +7376,9 @@ function toggleNfSelection(numNF) {
             if (counted < p.nfQty) faltas += (p.nfQty - counted);
           });
         }
-        let restoreClass = 'border-brand-800/40 bg-brand-950/40';
-        if (conf === total && total > 0 && faltas === 0) restoreClass = 'border-emerald-600/60 bg-emerald-950/30';
-        else if (faltas > 0 && conf > 0) restoreClass = 'border-orange-500/60 bg-orange-950/30';
+        let restoreClass = 'border-subtle bg-surface-2';
+        if (conf === total && total > 0 && faltas === 0) restoreClass = 'border-success bg-success-soft';
+        else if (faltas > 0 && conf > 0) restoreClass = 'border-warning bg-warning-soft';
         
         cardEl.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${restoreClass}`;
       }
@@ -8164,36 +8164,36 @@ function renderNfTable() {
       const counted = p.countedQty === '' ? null : Number(p.countedQty);
       
       let statusText = 'Pendente';
-      let statusColorClass = 'text-orange-500 font-extrabold bg-orange-950/40 px-2 py-1 rounded border border-orange-800';
-      let rowBgClass = 'bg-orange-950/10 border-orange-900/20';
+      let statusColorClass = 'text-warning font-extrabold bg-warning-soft px-2 py-1 rounded border border-warning';
+      let rowBgClass = 'bg-warning-soft border-warning';
 
       if (counted !== null) {
         if (counted === p.nfQty) {
           statusText = 'Conforme';
-          statusColorClass = 'text-emerald-400 font-extrabold bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800';
-          rowBgClass = 'bg-emerald-950/5 border-emerald-900/20';
+          statusColorClass = 'text-success font-extrabold bg-success-soft px-2 py-1 rounded border border-success';
+          rowBgClass = 'bg-success-soft border-success';
         } else {
           statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
-          statusColorClass = 'text-rose-400 font-extrabold bg-rose-950/40 px-2 py-1 rounded border border-rose-800';
-          rowBgClass = 'bg-rose-950/10 border-rose-900/20';
+          statusColorClass = 'text-danger font-extrabold bg-danger-soft px-2 py-1 rounded border border-danger';
+          rowBgClass = 'bg-danger-soft border-danger';
         }
       }
 
       const tr = document.createElement('tr');
-      tr.className = `hover:bg-brand-900/30 transition-all border-b ${rowBgClass}`;
+      tr.className = `hover:bg-surface-hover transition-all border-b ${rowBgClass}`;
       
       const shortNf = numNF.split('_')[0];
       
       tr.innerHTML = `
         <td class="py-3 px-4">
-          <div class="font-semibold text-brand-100 text-xs">${p.description}</div>
-          <div class="text-[10px] text-brand-300 font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''} | <span class="text-brand-200 font-bold bg-brand-900/50 px-1 py-0.5 rounded border border-brand-800">NF: ${shortNf}</span></div>
+          <div class="font-semibold text-ink-strong text-xs">${p.description}</div>
+          <div class="text-[10px] text-ink-muted font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''} | <span class="text-ink font-bold bg-surface-1 px-1 py-0.5 rounded border border-subtle">NF: ${shortNf}</span></div>
         </td>
-        <td class="py-3 px-4 text-center text-xs text-brand-200">${p.validade ? formatDate(p.validade) : '-'}</td>
-        <td class="py-3 px-4 text-center text-xs text-brand-300">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
-        <td class="py-3 px-4 text-center font-bold text-xs text-brand-100">${p.nfQty}</td>
+        <td class="py-3 px-4 text-center text-xs text-ink">${p.validade ? formatDate(p.validade) : '-'}</td>
+        <td class="py-3 px-4 text-center text-xs text-ink-muted">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
+        <td class="py-3 px-4 text-center font-bold text-xs text-ink-strong">${p.nfQty}</td>
         <td class="py-3 px-4 text-center">
-          <input type="number" value="${p.countedQty}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-16 text-center bg-brand-950 border border-brand-800 text-white rounded py-1 font-bold text-xs" />
+          <input type="number" value="${p.countedQty}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-16 text-center bg-surface-2 border border-subtle text-ink rounded py-1 font-bold text-xs" />
         </td>
         <td class="py-3 px-4 text-center text-xs">
           <span class="${statusColorClass}">${statusText}</span>
@@ -8284,16 +8284,16 @@ function renderTable() {
   // selecionado agora se mostra por um anel branco, não por mudar a cor.
   const anelAtivo = "filtro-ativo";
   if (btnAll) {
-    btnAll.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md ${currentFilter === 'all' ? anelAtivo : ''}`;
+    btnAll.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md ${currentFilter === 'all' ? anelAtivo : ''}`;
   }
   if (btnRed) {
-    btnRed.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-red-600 text-white shadow-md hover:bg-red-500 ${currentFilter === 'red' ? anelAtivo : ''}`;
+    btnRed.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-danger-soft text-ink shadow-md hover:bg-danger-hover ${currentFilter === 'red' ? anelAtivo : ''}`;
   }
   if (btnOrange) {
-    btnOrange.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-500 text-white shadow-md hover:bg-orange-400 ${currentFilter === 'orange' ? anelAtivo : ''}`;
+    btnOrange.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-warning-soft text-ink shadow-md hover:bg-warning-hover ${currentFilter === 'orange' ? anelAtivo : ''}`;
   }
   if (btnGreen) {
-    btnGreen.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-green-600 text-white shadow-md hover:bg-green-500 ${currentFilter === 'green' ? anelAtivo : ''}`;
+    btnGreen.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-success-soft text-ink shadow-md hover:bg-success-hover ${currentFilter === 'green' ? anelAtivo : ''}`;
   }
 
   products.sort((a, b) => {
@@ -8327,21 +8327,21 @@ function renderTable() {
     // Mesma família de cor vivo dos botões de filtro (vermelho/laranja/verde),
     // não mais o tom escuro/translúcido antigo — pedido explícito pra ficar
     // intuitivo bater o olho na linha e já saber o status.
-    let rowBorder = 'border-l-4 border-l-green-500 bg-green-600/10';
+    let rowBorder = 'border-l-4 border-l-green-500 bg-success-soft';
     let urgentSignal = '';
 
     if (p.daysRemaining !== null) {
       if (p.daysRemaining <= 20) {
-        rowBorder = 'border-l-4 border-l-red-500 bg-red-600/20';
-        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">Crítico</span>`;
+        rowBorder = 'border-l-4 border-l-red-500 bg-danger-soft';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-danger-soft text-ink animate-pulse">Crítico</span>`;
       } else if (p.daysRemaining <= 40) {
-        rowBorder = 'border-l-4 border-l-orange-500 bg-orange-500/15';
-        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-orange-500 text-white">Alerta</span>`;
+        rowBorder = 'border-l-4 border-l-orange-500 bg-warning-soft';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-warning-soft text-ink">Alerta</span>`;
       } else {
-        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-green-600 text-white">No Prazo</span>`;
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-success-soft text-ink">No Prazo</span>`;
       }
     } else {
-      urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-green-600/40 text-white/80">Sem Validade</span>`;
+      urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-success-soft text-ink-muted">Sem Validade</span>`;
     }
 
     // Buscar o COD_PROD de 7 dígitos vindo dos XMLs das NF-e
@@ -8362,20 +8362,20 @@ function renderTable() {
     }
 
     const tr = document.createElement('tr');
-    tr.className = `hover:bg-brand-900/30 transition-all border-b border-brand-900/20 ${rowBorder}`;
+    tr.className = `hover:bg-surface-hover transition-all border-b border-subtle ${rowBorder}`;
     tr.innerHTML = `
       <td class="py-3 px-4">
-        <div class="font-mono text-xs text-brand-300 font-extrabold tracking-wider">${cod7}</div>
+        <div class="font-mono text-xs text-ink-muted font-extrabold tracking-wider">${cod7}</div>
       </td>
-      <td class="py-3 px-4 text-brand-100 font-medium text-xs">${p.description}</td>
-      <td class="py-3 px-4 text-center font-mono text-xs text-brand-300">${p.dataEntrada || '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs text-brand-200">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
+      <td class="py-3 px-4 text-ink-strong font-medium text-xs">${p.description}</td>
+      <td class="py-3 px-4 text-center font-mono text-xs text-ink-muted">${p.dataEntrada || '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
       <td class="py-3 px-4 text-center">
-        <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-brand-950 border border-brand-900 rounded px-2 py-1 text-white text-xs" />
+        <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-surface-2 border border-subtle rounded px-2 py-1 text-ink text-xs" />
       </td>
       <td class="py-3 px-4 text-center text-xs font-bold">${p.daysRemaining !== null ? `${p.daysRemaining} dias` : 'N/A'} ${urgentSignal}</td>
       <td class="py-3 px-4 text-center">
-        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-brand-950 border border-brand-900 rounded py-1 text-white font-bold text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-400/50 transition-all" />
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-surface-2 border border-subtle rounded py-1 text-ink font-bold text-sm focus:border-accent focus:ring-2 focus:ring-accent transition-all" />
       </td>
     `;
 
@@ -8500,7 +8500,7 @@ function exportExcel() {
           icon: "🚀",
           title: "Inventário Mensal Finalizado",
           btnText: "Excelente",
-          btnClass: "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+          btnClass: "bg-success-soft hover:bg-success-hover text-ink font-bold"
         }
       );
     }
@@ -8541,9 +8541,9 @@ function inicializarBoletosTab() {
   if (btnAll) {
     btnAll.addEventListener("click", () => {
       statusFilter = "all";
-      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
-      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40";
-      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40";
+      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
+      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-danger border border-danger";
+      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-success border border-success";
       renderBoletos(statusFilter);
     });
   }
@@ -8551,9 +8551,9 @@ function inicializarBoletosTab() {
   if (btnAberto) {
     btnAberto.addEventListener("click", () => {
       statusFilter = "Aberto";
-      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-white border border-brand-800/40";
-      btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
-      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-emerald-400 border border-emerald-900/40";
+      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-ink border border-subtle";
+      btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
+      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-success border border-success";
       renderBoletos(statusFilter);
     });
   }
@@ -8561,9 +8561,9 @@ function inicializarBoletosTab() {
   if (btnPago) {
     btnPago.addEventListener("click", () => {
       statusFilter = "Pago";
-      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-white border border-brand-800/40";
-      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-red-400 border border-red-900/40";
-      btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
+      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-ink border border-subtle";
+      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-danger border border-danger";
+      btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
       renderBoletos(statusFilter);
     });
   }
@@ -9074,7 +9074,7 @@ function renderBoletos(statusFilter = "all") {
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
-      <tr class="text-brand-400 text-center">
+      <tr class="text-ink-muted text-center">
         <td colspan="8" class="py-8">Nenhum boleto encontrado para os filtros selecionados.</td>
       </tr>
     `;
@@ -9287,7 +9287,7 @@ function conciliarOrfaosPorValor(auditList) {
     boleto.nfeNumber = nfe.nfeNumber;
     boleto.valorNfe = nfe.valorNfe;
     boleto.statusText = "Conciliado por Valor";
-    boleto.statusClass = "bg-amber-950 text-amber-400 border border-amber-900/40";
+    boleto.statusClass = "bg-warning-soft text-warning border border-warning";
     boleto.descDivergencia = "Pareado por valor (documento não confere) — revisar";
     boleto.isDivergent = false;
   });
@@ -9399,7 +9399,7 @@ window.carregarAuditoriaBoletos = function() {
     let valorNfe = 0;
     let valorBoletos = 0;
     let statusText = "OK";
-    let statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+    let statusClass = "bg-success-soft text-success border border-success";
     let isDivergent = false;
     let descDivergencia = "";
 
@@ -9423,7 +9423,7 @@ window.carregarAuditoriaBoletos = function() {
         isDivergent = true;
         statusText = "Loja Divergente";
         descDivergencia = `NF-e na loja ${nfeStore}, Títulos na loja ${boletoStores.join(', ')}`;
-        statusClass = "bg-orange-950 text-orange-400 border border-orange-900/40";
+        statusClass = "bg-warning-soft text-warning border border-warning";
       } else if (duplicatas.length > 0) {
         // Cruzamento por parcela: cada duplicata da NF-e (Nº de Ordem / Vencimento /
         // Valor) é pareada com um boleto do grupo. Cobre parcelamento (2+ duplicatas
@@ -9472,10 +9472,10 @@ window.carregarAuditoriaBoletos = function() {
           isDivergent = true;
           statusText = duplicatas.length > 1 ? "Divergência de Parcela" : "Divergência de Valor";
           descDivergencia = problemas.join(' | ');
-          statusClass = "bg-red-950 text-red-400 border border-red-900/40";
+          statusClass = "bg-danger-soft text-danger border border-danger";
         } else {
           statusText = "Conciliado";
-          statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+          statusClass = "bg-success-soft text-success border border-success";
         }
       } else {
         // Sem detalhe de duplicatas na NF-e (XML antigo ou importado via Excel):
@@ -9485,22 +9485,22 @@ window.carregarAuditoriaBoletos = function() {
           isDivergent = true;
           statusText = "Divergência de Valor";
           descDivergencia = `Diferença de ${formatBRL(diff)}`;
-          statusClass = "bg-red-950 text-red-400 border border-red-900/40";
+          statusClass = "bg-danger-soft text-danger border border-danger";
         } else {
           statusText = "Conciliado";
-          statusClass = "bg-emerald-950 text-emerald-400 border border-emerald-900/50";
+          statusClass = "bg-success-soft text-success border border-success";
         }
       }
     } else if (bg && !nfe) {
       isDivergent = true;
       statusText = "Sem NF-e";
       descDivergencia = "Nenhuma NF-e importada correspondente a este título";
-      statusClass = "bg-amber-950 text-amber-400 border border-amber-900/40";
+      statusClass = "bg-warning-soft text-warning border border-warning";
     } else if (nfe && !bg) {
       isDivergent = true;
       statusText = "Sem Boleto";
       descDivergencia = "Nenhum boleto registrado para esta NF-e";
-      statusClass = "bg-blue-950 text-blue-400 border border-blue-900/40";
+      statusClass = "bg-info-soft text-info border border-info";
     }
 
     auditList.push({
@@ -9534,25 +9534,25 @@ window.carregarAuditoriaBoletos = function() {
   if (statBoleto) statBoleto.textContent = formatBRL(totalBoletoAuditado);
   if (statDivergente) {
     statDivergente.textContent = divergenciasCount;
-    statDivergente.className = divergenciasCount > 0 ? "text-2xl font-black text-red-500" : "text-2xl font-black text-white";
+    statDivergente.className = divergenciasCount > 0 ? "text-2xl font-black text-danger" : "text-2xl font-black text-ink";
   }
   if (iconDivergente) {
-    iconDivergente.className = divergenciasCount > 0 ? "w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-red-500 font-black text-xl animate-pulse" : "w-12 h-12 rounded-xl bg-brand-950 flex items-center justify-center text-brand-400 font-black text-xl";
+    iconDivergente.className = divergenciasCount > 0 ? "w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-danger font-black text-xl animate-pulse" : "w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-ink-muted font-black text-xl";
   }
 
   if (statStatus) {
     if (divergenciasCount === 0) {
       statStatus.textContent = "100% OK";
-      statStatus.className = "text-2xl font-black text-emerald-400";
+      statStatus.className = "text-2xl font-black text-success";
     } else {
       statStatus.textContent = "Atenção";
-      statStatus.className = "text-2xl font-black text-amber-500";
+      statStatus.className = "text-2xl font-black text-warning";
     }
   }
 
   if (auditList.length === 0) {
     tbody.innerHTML = `
-      <tr class="text-brand-400 text-center">
+      <tr class="text-ink-muted text-center">
         <td colspan="6" class="py-8">Nenhum dado encontrado para os filtros selecionados.</td>
       </tr>
     `;
@@ -9567,9 +9567,9 @@ window.carregarAuditoriaBoletos = function() {
   // Cada faixa de prioridade ganha uma linha-título, para separar o que exige
   // ação do que já está resolvido.
   const GRUPOS = [
-    { chave: 0, titulo: "Divergências — exigem ação", classe: "bg-red-950/40 text-red-300" },
-    { chave: 1, titulo: "Conciliado por valor — revisar (documento não confere)", classe: "bg-amber-950/40 text-amber-300" },
-    { chave: 2, titulo: "Conciliado", classe: "bg-emerald-950/40 text-emerald-300" }
+    { chave: 0, titulo: "Divergências — exigem ação", classe: "bg-danger-soft text-danger" },
+    { chave: 1, titulo: "Conciliado por valor — revisar (documento não confere)", classe: "bg-warning-soft text-warning" },
+    { chave: 2, titulo: "Conciliado", classe: "bg-success-soft text-success" }
   ];
 
   let grupoAtual = null;
@@ -9597,8 +9597,8 @@ window.carregarAuditoriaBoletos = function() {
     let diffHtml = '<span class="text-muted">—</span>';
     if (temAmbos) {
       diffHtml = Math.abs(diff) <= 0.05
-        ? '<span class="text-emerald-400 font-bold">R$ 0,00</span>'
-        : `<span class="text-red-400 font-bold">${diff > 0 ? "+" : "−"}${formatBRL(Math.abs(diff))}</span>`;
+        ? '<span class="text-success font-bold">R$ 0,00</span>'
+        : `<span class="text-danger font-bold">${diff > 0 ? "+" : "−"}${formatBRL(Math.abs(diff))}</span>`;
     }
 
     tr.innerHTML = `
@@ -9636,7 +9636,7 @@ function inicializarPainelConfiguracoes() {
   if (connBadge) {
     connBadge.textContent = API_ONLINE ? "Conectado" : "Modo Offline";
     connBadge.className = `px-3 py-1 rounded-full text-[10px] font-bold ${
-      API_ONLINE ? 'bg-emerald-950 border border-emerald-800 text-emerald-400' : 'bg-red-950 border border-red-800 text-red-400'
+      API_ONLINE ? 'bg-success-soft border border-success text-success' : 'bg-danger-soft border border-danger text-danger'
     }`;
   }
 
@@ -9653,9 +9653,9 @@ function inicializarPainelConfiguracoes() {
     
     function getBadgeHtml(value) {
       const val = (value || "").trim();
-      if (!val) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800"><i class="fa-solid fa-circle-minus"></i> Pendente</span>`;
-      if (val.startsWith("https://chat.whatsapp.com/")) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800"><i class="fa-solid fa-circle-check"></i> Configurado</span>`;
-      return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-800"><i class="fa-solid fa-circle-exclamation"></i> Link Inválido</span>`;
+      if (!val) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-warning-soft text-warning"><i class="fa-solid fa-circle-minus"></i> Pendente</span>`;
+      if (val.startsWith("https://chat.whatsapp.com/")) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-success-soft text-success"><i class="fa-solid fa-circle-check"></i> Configurado</span>`;
+      return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-danger-soft text-danger"><i class="fa-solid fa-circle-exclamation"></i> Link Inválido</span>`;
     }
 
     // Renderizar inputs Cacau Show
@@ -10273,7 +10273,11 @@ document.addEventListener("DOMContentLoaded", () => {
 // Mesma paleta das var() em style.css (:root) — duplicada em hex aqui porque
 // os gráficos são SVG gerados via string, mais simples que ler getComputedStyle
 // pra cada desenho.
-const DISC_COLORS = { d: "#ef4444", i: "#f59e0b", s: "#10b981", c: "#6366f1" };
+// Duas escalas: DISC_COLORS pinta objetos gráficos (SVG, barras, discos) e
+// respeita o piso de 3:1 da WCAG 1.4.11 sobre fundo claro; DISC_INK é usada
+// sempre que a cor da letra vira TEXTO, onde o piso é 7:1 (AAA).
+const DISC_COLORS = { d: "#DC2626", i: "#B45309", s: "#047857", c: "#4338CA" };
+const DISC_INK    = { d: "#8C1220", i: "#7C2D12", s: "#0B5138", c: "#312E81" };
 const DISC_LABELS = { d: "Dominância", i: "Influência", s: "Estabilidade", c: "Conformidade" };
 const DISC_PERFIL_POR_LETRA = { d: "Dominante", i: "Influenciador", s: "Estável", c: "Conforme" };
 
@@ -10327,7 +10331,7 @@ function gerarSvgRadarDisc(valores, size = 260) {
   const poligonoPerfil = pontosPerfil.map(p => `${p.x},${p.y}`).join(" ");
 
   const marcadores = pontosPerfil.map(p =>
-    `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${DISC_COLORS[p.key]}" stroke="#0F1420" stroke-width="1.5"/>`
+    `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${DISC_COLORS[p.key]}" stroke="#FFFFFF" stroke-width="1.5"/>`
   ).join("");
 
   const rotulos = eixos.map(e => {
@@ -10335,7 +10339,7 @@ function gerarSvgRadarDisc(valores, size = 260) {
     const v = Math.round(valores[e.key] || 0);
     return `
       <text x="${x}" y="${y - 6}" text-anchor="middle" font-size="13" font-weight="800" fill="${DISC_COLORS[e.key]}">${e.label}</text>
-      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#8DA0C4">${v}%</text>
+      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#3A4759">${v}%</text>
     `;
   }).join("");
 
@@ -10372,9 +10376,9 @@ function gerarSvgDistribuicaoDisc(counts, size = 190) {
     const val = counts[key] || 0;
     const pct = Math.round((val / total) * 100);
     return `
-      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:#B9C6DE;">
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-muted);">
         <span style="width:10px;height:10px;border-radius:3px;background:${DISC_COLORS[key]};display:inline-block;flex-shrink:0;"></span>
-        <span>${label}: <strong style="color:#fff">${val}</strong> <span style="color:#6C7C99">(${pct}%)</span></span>
+        <span>${label}: <strong style="color:var(--ink-strong)">${val}</strong> <span style="color:var(--ink-muted)">(${pct}%)</span></span>
       </div>
     `;
   }).join("");
@@ -10383,8 +10387,8 @@ function gerarSvgDistribuicaoDisc(counts, size = 190) {
     <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
       <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
         ${arcos}
-        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${total}</text>
-        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#6C7C99" letter-spacing="1">PESSOAS</text>
+        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#0B1220">${total}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#3A4759" letter-spacing="1">PESSOAS</text>
       </svg>
       <div style="display:flex;flex-direction:column;gap:8px;">${legenda}</div>
     </div>
@@ -10421,10 +10425,10 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
   `;
 
   const rotulosExtremos = `
-    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#6C7C99">◀ Foco em Tarefa</text>
-    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#6C7C99">Foco em Pessoas ▶</text>
-    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">▲ Ritmo Rápido/Assertivo</text>
-    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">Ritmo Cauteloso/Reflexivo ▼</text>
+    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#3A4759">◀ Foco em Tarefa</text>
+    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#3A4759">Foco em Pessoas ▶</text>
+    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#3A4759">▲ Ritmo Rápido/Assertivo</text>
+    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#3A4759">Ritmo Cauteloso/Reflexivo ▼</text>
   `;
 
   // Distribui pontos que caem muito próximos (mesmo perfil arredondado) num
@@ -10454,7 +10458,7 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
 
   return `
     <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;" id="rh-talentos-svg">
-      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#0B0F18"/>
+      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#EDF1F7"/>
       ${fundos}
       ${letrasQuadrante}
       ${eixos}
@@ -10566,13 +10570,13 @@ function renderRhTable() {
     else if (prof.perfilPredominante === "Estável") badgeClass = "disc-badge-s";
 
     const tr = document.createElement("tr");
-    tr.className = "hover:bg-brand-900/40 transition";
+    tr.className = "hover:bg-surface-hover transition";
     tr.innerHTML = `
-      <td class="py-3 px-4 font-bold text-brand-100 flex items-center gap-2">
-        <i class="fa-solid fa-user-circle text-brand-400"></i> ${c.nome}
+      <td class="py-3 px-4 font-bold text-ink-strong flex items-center gap-2">
+        <i class="fa-solid fa-user-circle text-ink-muted"></i> ${c.nome}
       </td>
       <td class="py-3 px-4">
-        <select class="rh-colab-store-select bg-brand-900 text-brand-100 border border-brand-700 rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-indigo-500 cursor-pointer" data-user="${c.nome}">
+        <select class="rh-colab-store-select bg-surface-1 text-ink-strong border border-subtle rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-accent cursor-pointer" data-user="${c.nome}">
           <option value="all" ${store === 'all' ? 'selected' : ''}>Todas as Lojas (Geral)</option>
           <optgroup label="Cacau Show">
             <option value="9175" ${store === '9175' ? 'selected' : ''}>9175 - Marambaia</option>
@@ -10589,21 +10593,21 @@ function renderRhTable() {
       <td class="py-3 px-4 text-center">
         <span class="disc-badge ${badgeClass}">${prof.perfilPredominante}</span>
       </td>
-      <td class="py-3 px-4 text-center font-mono font-bold text-red-400">${prof.d}%</td>
-      <td class="py-3 px-4 text-center font-mono font-bold text-amber-400">${prof.i}%</td>
-      <td class="py-3 px-4 text-center font-mono font-bold text-emerald-400">${prof.s}%</td>
-      <td class="py-3 px-4 text-center font-mono font-bold text-indigo-400">${prof.c}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-danger">${prof.d}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-warning">${prof.i}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-success">${prof.s}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-info">${prof.c}%</td>
       <td class="py-3 px-4 text-right flex items-center justify-end gap-1.5">
-        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1" title="Enviar convite via WhatsApp">
+        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-success-soft hover:bg-success-hover border border-success text-success text-[10px] font-bold inline-flex items-center gap-1" title="Enviar convite via WhatsApp">
           <i class="fa-brands fa-whatsapp"></i> Convidar
         </a>
-        <button class="px-2 py-1 rounded bg-brand-900 hover:bg-brand-800 border border-brand-700 text-brand-200 text-[10px] font-bold btn-ver-perfil-disc" data-user="${c.nome}" title="Ver radar e aptidão comercial">
+        <button class="px-2 py-1 rounded bg-surface-1 hover:bg-surface-hover border border-subtle text-ink text-[10px] font-bold btn-ver-perfil-disc" data-user="${c.nome}" title="Ver radar e aptidão comercial">
           <i class="fa-solid fa-chart-simple"></i> Perfil
         </button>
-        <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}" title="Ajustar valores DISC">
+        <button class="px-2 py-1 rounded bg-info-soft hover:bg-info-hover border border-info text-info text-[10px] font-bold btn-edit-disc" data-user="${c.nome}" title="Ajustar valores DISC">
           <i class="fa-solid fa-pen"></i> Ajustar
         </button>
-        <button class="px-2 py-1 rounded bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 text-[10px] font-bold btn-remove-rh-disc" data-user="${c.nome}" title="Desconsiderar colaborador do RH">
+        <button class="px-2 py-1 rounded bg-danger-soft hover:bg-danger-hover border border-danger text-danger text-[10px] font-bold btn-remove-rh-disc" data-user="${c.nome}" title="Desconsiderar colaborador do RH">
           <i class="fa-solid fa-trash-can"></i>
         </button>
       </td>
@@ -10620,7 +10624,7 @@ function renderRhTable() {
   if (containerRestaurar) {
     if (excludedColabs.length > 0) {
       containerRestaurar.innerHTML = `
-        <button id="btn-restore-rh-colab" class="px-2.5 py-1 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-xs font-bold transition">
+        <button id="btn-restore-rh-colab" class="px-2.5 py-1 rounded-lg bg-info-soft hover:bg-info-hover border border-info text-info text-xs font-bold transition">
           <i class="fa-solid fa-rotate-left"></i> Restaurar Removidos (${excludedColabs.length})
         </button>
       `;
@@ -10799,13 +10803,13 @@ function renderRhDashboard() {
         .sort((a, b) => b.aptidao.score - a.aptidao.score);
 
       rankingContainer.innerHTML = ranking.map((p, idx) => `
-        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:#131A28;cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
-          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:#6C7C99;">${idx + 1}º</span>
-          <span style="width:28px;height:28px;border-radius:50%;background:${DISC_COLORS[p.dominante] || '#4A5568'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0;">${(p.dominante || '?').toUpperCase()}</span>
-          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#E4EAF5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
+        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:var(--surface-2);cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
+          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-muted);">${idx + 1}º</span>
+          <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-3);border:1.5px solid ${DISC_COLORS[p.dominante] || 'var(--edge-strong)'};display:flex;align-items:center;justify-content:center;color:${DISC_INK[p.dominante] || 'var(--ink)'};font-weight:800;font-size:11px;flex-shrink:0;">${(p.dominante || '?').toUpperCase()}</span>
+          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
           <div style="flex:2;min-width:60px;">
-            <div style="width:100%;background:#1F2A3D;border-radius:999px;height:8px;overflow:hidden;">
-              <div style="width:${p.aptidao.score}%;height:100%;background:${p.aptidao.nivel === 'alto' ? '#10b981' : p.aptidao.nivel === 'moderado' ? '#f59e0b' : '#4A5568'};border-radius:999px;"></div>
+            <div style="width:100%;background:var(--surface-4);border-radius:999px;height:8px;overflow:hidden;">
+              <div style="width:${p.aptidao.score}%;height:100%;background:${p.aptidao.nivel === 'alto' ? '#047857' : p.aptidao.nivel === 'moderado' ? '#B45309' : '#78869E'};border-radius:999px;"></div>
             </div>
           </div>
           <span class="rh-sales-badge rh-sales-badge-${p.aptidao.nivel}">${p.aptidao.score}%</span>
@@ -10834,9 +10838,9 @@ function renderRhInsights() {
 
   if (!total) {
     container.innerHTML = `
-      <div class="glass-card p-6 rounded-2xl border border-brand-800 bg-brand-950/70 md:col-span-3 text-center">
-        <i class="fa-solid fa-user-plus text-2xl text-indigo-400 mb-2"></i>
-        <p class="text-xs text-brand-300">Nenhum colaborador com perfil DISC nesta seleção ainda. Importe um laudo em PDF ou envie o convite por WhatsApp na aba "Perfis &amp; Upload" para começar a ver os insights aqui.</p>
+      <div class="glass-card p-6 rounded-2xl border border-subtle bg-surface-2 md:col-span-3 text-center">
+        <i class="fa-solid fa-user-plus text-2xl text-info mb-2"></i>
+        <p class="text-xs text-ink-muted">Nenhum colaborador com perfil DISC nesta seleção ainda. Importe um laudo em PDF ou envie o convite por WhatsApp na aba "Perfis &amp; Upload" para começar a ver os insights aqui.</p>
       </div>
     `;
     return;
@@ -10861,17 +10865,17 @@ function renderRhInsights() {
 
   // --- Card 1: Diagnóstico de Composição ---
   const cardDiagnostico = `
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_COLORS[letraMaisComum]}">
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_INK[letraMaisComum]}">
         <i class="fa-solid fa-bullseye text-base"></i> Diagnóstico de Composição
       </div>
-      <div class="text-xs text-brand-200 font-bold">${storeTitle} · ${total} pessoa${total > 1 ? "s" : ""}</div>
-      <p class="text-xs text-brand-300 leading-relaxed">
-        O traço predominante da equipe é <strong style="color:${DISC_COLORS[letraMaisComum]}">${DISC_LABELS[letraMaisComum]} (${letraMaisComum.toUpperCase()})</strong>,
+      <div class="text-xs text-ink font-bold">${storeTitle} · ${total} pessoa${total > 1 ? "s" : ""}</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        O traço predominante da equipe é <strong style="color:${DISC_INK[letraMaisComum]}">${DISC_LABELS[letraMaisComum]} (${letraMaisComum.toUpperCase()})</strong>,
         presente em ${counts[letraMaisComum]} de ${total} pessoa${total > 1 ? "s" : ""}. A média geral é
         D ${Math.round(medias.d)}% · I ${Math.round(medias.i)}% · S ${Math.round(medias.s)}% · C ${Math.round(medias.c)}%.
       </p>
-      <div class="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-300 text-[11px]">
+      <div class="p-2.5 rounded-lg bg-success-soft border border-success text-success text-[11px]">
         <i class="fa-solid fa-circle-check"></i> <strong>Ponto forte:</strong> equipe com perfil predominante bem definido facilita treinamentos direcionados em vez de genéricos.
       </div>
     </div>
@@ -10879,19 +10883,19 @@ function renderRhInsights() {
 
   // --- Card 2: Lacuna / oportunidade de contratação ---
   const cardLacuna = `
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_COLORS[letraMenosComum]}">
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_INK[letraMenosComum]}">
         <i class="fa-solid fa-triangle-exclamation text-base"></i> Lacuna de Perfil
       </div>
-      <div class="text-xs text-brand-200 font-bold">Traço menos presente: ${DISC_LABELS[letraMenosComum]} (${letraMenosComum.toUpperCase()})</div>
-      <p class="text-xs text-brand-300 leading-relaxed">
-        A média de <strong style="color:${DISC_COLORS[letraMenosComum]}">${DISC_LABELS[letraMenosComum]}</strong> é a mais baixa do grupo (${Math.round(medias[letraMenosComum])}%).
+      <div class="text-xs text-ink font-bold">Traço menos presente: ${DISC_LABELS[letraMenosComum]} (${letraMenosComum.toUpperCase()})</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        A média de <strong style="color:${DISC_INK[letraMenosComum]}">${DISC_LABELS[letraMenosComum]}</strong> é a mais baixa do grupo (${Math.round(medias[letraMenosComum])}%).
         ${letraMenosComum === "d" ? "Times com pouco D tendem a demorar mais pra tomar decisão em horário de pico ou vitrine promocional." : ""}
         ${letraMenosComum === "i" ? "Times com pouco I abordam menos o cliente de forma proativa, perdendo venda de adicionais." : ""}
         ${letraMenosComum === "s" ? "Times com pouco S tendem a ter mais variação de humor/ritmo no atendimento ao longo do dia." : ""}
         ${letraMenosComum === "c" ? "Times com pouco C tendem a ter mais divergência de caixa/inventário por falta de rigor em processo." : ""}
       </p>
-      <div class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-900/60 text-amber-300 text-[11px]">
+      <div class="p-2.5 rounded-lg bg-warning-soft border border-warning text-warning text-[11px]">
         <i class="fa-solid fa-lightbulb"></i> <strong>Sugestão:</strong> priorize esse traço na próxima contratação, ou reforce com treinamento situacional quem já está na equipe.
       </div>
     </div>
@@ -10899,16 +10903,16 @@ function renderRhInsights() {
 
   // --- Card 3: Prontidão comercial ---
   const cardVendas = `
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 text-success font-bold text-sm">
         <i class="fa-solid fa-chart-line text-base"></i> Prontidão Comercial
       </div>
-      <div class="text-xs text-brand-200 font-bold">Aptidão comercial média: ${mediaAptidao}%</div>
-      <p class="text-xs text-brand-300 leading-relaxed">
-        ${topVendas ? `<strong style="color:${DISC_COLORS[topVendas.dominante] || '#fff'}">${topVendas.nome}</strong> lidera o ranking de aptidão comercial (${topVendas.aptidao.score}%) — considere pra referência de mentoria de venda de adicionais.` : ""}
+      <div class="text-xs text-ink font-bold">Aptidão comercial média: ${mediaAptidao}%</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        ${topVendas ? `<strong style="color:${DISC_INK[topVendas.dominante] || 'var(--ink)'}">${topVendas.nome}</strong> lidera o ranking de aptidão comercial (${topVendas.aptidao.score}%) — considere pra referência de mentoria de venda de adicionais.` : ""}
         ${precisaCoaching.length > 0 ? ` ${precisaCoaching.length} pessoa${precisaCoaching.length > 1 ? "s" : ""} com perfil mais voltado a suporte/backoffice do que abordagem comercial direta — pode ser melhor aproveitada em conferência, estoque ou apoio de caixa.` : " Toda a equipe atual tem algum grau de aptidão comercial pelo perfil DISC."}
       </p>
-      <div class="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-900/60 text-indigo-300 text-[11px]">
+      <div class="p-2.5 rounded-lg bg-info-soft border border-info text-info text-[11px]">
         <i class="fa-solid fa-award"></i> <strong>Fit ideal p/ próxima vaga de vendas:</strong> priorize candidatas com <strong>I</strong> alto e <strong>D</strong> moderado — combinação associada a mais iniciativa comercial nesta heurística.
       </div>
     </div>
@@ -10938,22 +10942,22 @@ function renderRhInsights() {
       const pior = comparativo[comparativo.length - 1];
 
       cards.push(`
-        <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3 md:col-span-3">
-          <div class="flex items-center gap-2 text-indigo-300 font-bold text-sm">
+        <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3 md:col-span-3">
+          <div class="flex items-center gap-2 text-info font-bold text-sm">
             <i class="fa-solid fa-store text-base"></i> Comparativo entre Unidades — Prontidão Comercial
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             ${comparativo.map(c => `
-              <div class="p-3 rounded-xl bg-brand-900/40 border border-brand-800/80 text-center">
-                <div class="text-[10px] text-brand-400 uppercase font-bold tracking-wide">${(RH_STORE_TITULOS[c.lojaKey] || c.lojaKey).replace(/^Loja \d+ — /, "").replace(/^FaçaAmigos — /, "FA · ")}</div>
-                <div class="text-xl font-black mt-1" style="color:${c.lojaKey === melhor.lojaKey ? '#10b981' : c.lojaKey === pior.lojaKey ? '#f59e0b' : '#E4EAF5'}">${c.media}%</div>
-                <div class="text-[10px] text-brand-500">${c.qtd} pessoa${c.qtd > 1 ? "s" : ""}</div>
+              <div class="p-3 rounded-xl bg-surface-1 border border-subtle text-center">
+                <div class="text-[10px] text-ink-muted uppercase font-bold tracking-wide">${(RH_STORE_TITULOS[c.lojaKey] || c.lojaKey).replace(/^Loja \d+ — /, "").replace(/^FaçaAmigos — /, "FA · ")}</div>
+                <div class="text-xl font-black mt-1" style="color:${c.lojaKey === melhor.lojaKey ? '#0B5138' : c.lojaKey === pior.lojaKey ? '#7C2D12' : 'var(--ink)'}">${c.media}%</div>
+                <div class="text-[10px] text-accent">${c.qtd} pessoa${c.qtd > 1 ? "s" : ""}</div>
               </div>
             `).join("")}
           </div>
-          <p class="text-xs text-brand-300 leading-relaxed">
-            <strong style="color:#10b981">${RH_STORE_TITULOS[melhor.lojaKey] || melhor.lojaKey}</strong> tem a composição mais orientada a vendas (${melhor.media}%).
-            <strong style="color:#f59e0b">${RH_STORE_TITULOS[pior.lojaKey] || pior.lojaKey}</strong> é a que mais se beneficiaria de reforço em Influência/Dominância na equipe (${pior.media}%).
+          <p class="text-xs text-ink-muted leading-relaxed">
+            <strong style="color:#0B5138">${RH_STORE_TITULOS[melhor.lojaKey] || melhor.lojaKey}</strong> tem a composição mais orientada a vendas (${melhor.media}%).
+            <strong style="color:#7C2D12">${RH_STORE_TITULOS[pior.lojaKey] || pior.lojaKey}</strong> é a que mais se beneficiaria de reforço em Influência/Dominância na equipe (${pior.media}%).
           </p>
         </div>
       `);
@@ -10983,20 +10987,20 @@ function abrirPerfilIndividualRh(nome) {
     <div class="rh-perfil-modal">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
         <div>
-          <h3 style="font-size:1rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
+          <h3 style="font-size:1rem;font-weight:800;color:var(--ink-strong);display:flex;align-items:center;gap:8px;">
             <span style="width:34px;height:34px;border-radius:50%;background:${cor};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${(letra || "?").toUpperCase()}</span>
             ${nome}
           </h3>
           <span class="disc-badge disc-badge-${letra || 'c'}" style="margin-top:6px;">${prof.perfilPredominante}</span>
         </div>
-        <button id="rh-perfil-modal-fechar" style="background:#1F2A3D;border:none;color:#B9C6DE;width:28px;height:28px;border-radius:50%;cursor:pointer;flex-shrink:0;">✕</button>
+        <button id="rh-perfil-modal-fechar" style="background:var(--surface-3);border:none;color:var(--ink-muted);width:28px;height:28px;border-radius:50%;cursor:pointer;flex-shrink:0;">✕</button>
       </div>
       <div id="rh-perfil-modal-radar"></div>
-      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#131A28;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:11px;color:#B9C6DE;font-weight:700;">Aptidão Comercial (heurística DISC)</span>
+      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface-2);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--ink-muted);font-weight:700;">Aptidão Comercial (heurística DISC)</span>
         <span class="rh-sales-badge rh-sales-badge-${aptidao.nivel}">${aptidao.label} · ${aptidao.score}%</span>
       </div>
-      <p style="font-size:10.5px;color:#6C7C99;margin-top:10px;line-height:1.5;">
+      <p style="font-size:10.5px;color:var(--ink-muted);margin-top:10px;line-height:1.5;">
         Estimativa com base no perfil DISC (peso maior pra Influência e Dominância, típico de vendas consultivas de varejo). Não substitui avaliação de desempenho real — use como apoio de leitura rápida.
       </p>
     </div>
@@ -11341,9 +11345,9 @@ function inicializarRhListeners() {
 
   if (btnPerfis && btnDashboard && btnInsights) {
     btnPerfis.addEventListener("click", () => {
-      btnPerfis.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
-      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
-      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnPerfis.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
 
       panelPerfis.classList.remove("hidden");
       panelDashboard.classList.add("hidden");
@@ -11351,9 +11355,9 @@ function inicializarRhListeners() {
     });
 
     btnDashboard.addEventListener("click", () => {
-      btnDashboard.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
-      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
-      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnDashboard.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
 
       panelDashboard.classList.remove("hidden");
       panelPerfis.classList.add("hidden");
@@ -11362,9 +11366,9 @@ function inicializarRhListeners() {
     });
 
     btnInsights.addEventListener("click", () => {
-      btnInsights.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-700 text-white shadow";
-      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
-      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-950 text-brand-300 hover:text-white";
+      btnInsights.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
 
       panelInsights.classList.remove("hidden");
       panelPerfis.classList.add("hidden");
@@ -11520,8 +11524,8 @@ function inicializarAbaPonto() {
   if (relatorioTabs.length > 0) {
     relatorioTabs.forEach(tab => {
       tab.onclick = () => {
-        relatorioTabs.forEach(t => t.classList.remove("bg-brand-700", "text-white", "border-brand-600"));
-        tab.classList.add("bg-brand-700", "text-white", "border-brand-600");
+        relatorioTabs.forEach(t => t.classList.remove("bg-accent-soft", "text-ink", "border-accent"));
+        tab.classList.add("bg-accent-soft", "text-ink", "border-accent");
         carregarRelatorioPontoOperacao(tab.dataset.operacao);
       };
     });
@@ -11676,9 +11680,9 @@ function mostrarBannerFacial(estado, texto) {
   const icone = document.getElementById("ponto-face-banner-icon");
   const textoEl = document.getElementById("ponto-face-banner-texto");
   const estilos = {
-    buscando: { cls: "bg-brand-900/40 border-brand-700 text-brand-200", icon: "fa-camera" },
-    sucesso: { cls: "bg-emerald-950/40 border-emerald-800 text-emerald-400", icon: "fa-circle-check" },
-    erro: { cls: "bg-rose-950/40 border-rose-800 text-rose-400", icon: "fa-triangle-exclamation" },
+    buscando: { cls: "bg-surface-1 border-subtle text-ink", icon: "fa-camera" },
+    sucesso: { cls: "bg-success-soft border-success text-success", icon: "fa-circle-check" },
+    erro: { cls: "bg-danger-soft border-danger text-danger", icon: "fa-triangle-exclamation" },
   };
   const estilo = estilos[estado] || estilos.buscando;
   banner.className = `w-full mb-4 p-2.5 rounded-xl border text-[11px] font-bold text-center transition ${estilo.cls}`;
@@ -11800,13 +11804,13 @@ function ativarGPSPonto() {
       gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
 
       if (pos.coords.accuracy > 30) {
-        gpsStatus.className = "text-amber-500 font-black";
+        gpsStatus.className = "text-warning font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
       } else if (dist > GEOFENCE_RAIO_METROS) {
-        gpsStatus.className = "text-rose-500 font-black";
+        gpsStatus.className = "text-danger font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fora do Perímetro`;
       } else {
-        gpsStatus.className = "text-emerald-500 font-black";
+        gpsStatus.className = "text-success font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
       }
     },
@@ -12134,14 +12138,14 @@ function renderizarTabelaPonto(records) {
     const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
 
     const tr = document.createElement("tr");
-    tr.className = "hover:bg-brand-900/30 transition-all border-b border-brand-900/20";
+    tr.className = "hover:bg-surface-hover transition-all border-b border-subtle";
     tr.innerHTML = `
       <td class="py-3 px-4 font-mono font-bold">${formatDate(d)}</td>
       <td class="py-3 px-4 text-center font-semibold">${ent ? formatTime(ent) : "-"}</td>
-      <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
-      <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
+      <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
+      <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
       <td class="py-3 px-4 text-center font-semibold">${sai ? formatTime(sai) : "-"}</td>
-      <td class="py-3 px-4 text-center font-mono font-bold ${workedMs > 28800000 ? 'text-emerald-400' : 'text-brand-300'}">${saldoText}</td>
+      <td class="py-3 px-4 text-center font-mono font-bold ${workedMs > 28800000 ? 'text-success' : 'text-ink-muted'}">${saldoText}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -12155,8 +12159,8 @@ function renderizarTabelaPonto(records) {
   const bar = document.getElementById("ponto-balance-progress");
   if (bar) {
     bar.style.width = `${pct}%`;
-    if (pct >= 100) bar.className = "bg-emerald-500 h-3.5 rounded-full transition-all duration-500";
-    else bar.className = "bg-brand-500 h-3.5 rounded-full transition-all duration-500";
+    if (pct >= 100) bar.className = "bg-success-soft h-3.5 rounded-full transition-all duration-500";
+    else bar.className = "bg-accent-soft h-3.5 rounded-full transition-all duration-500";
   }
 
   // CLT 2h overtime limit check
@@ -12473,8 +12477,8 @@ async function carregarMetaHoraHora() {
   if (bar) {
     bar.style.width = `${pct}%`;
     bar.className = totalHoje >= esperadoAteAgora
-      ? "bg-emerald-500 h-4 rounded-full transition-all duration-500"
-      : "bg-amber-500 h-4 rounded-full transition-all duration-500";
+      ? "bg-success-soft h-4 rounded-full transition-all duration-500"
+      : "bg-warning-soft h-4 rounded-full transition-all duration-500";
   }
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
@@ -12534,18 +12538,18 @@ async function carregarMetaHoraHora() {
 
       let statusHtml, acaoHtml;
       if (venda) {
-        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900/50">✅ Total do dia: ${formatBRL(venda.valor)}</span>`;
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-success-soft text-success border border-success">✅ Total do dia: ${formatBRL(venda.valor)}</span>`;
         acaoHtml = "—";
       } else {
         const dentroDaJanela = agoraMin >= slotMin - META_JANELA_ABERTURA_ANTES_MIN
           && agoraMin <= slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN;
 
         if (agoraMin < slotMin - META_JANELA_ABERTURA_ANTES_MIN) {
-          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800">🔒 Aguardando o horário</span>`;
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-1 text-ink-muted border border-subtle">🔒 Aguardando o horário</span>`;
         } else if (dentroDaJanela) {
-          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-900/40">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN)}</span>`;
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning border border-warning">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN)}</span>`;
         } else {
-          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-900/40">⛔ Intervalo perdido</span>`;
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-danger-soft text-danger border border-danger">⛔ Intervalo perdido</span>`;
         }
 
         // Campo sempre visível (passado, presente e futuro) para o operador
@@ -12555,14 +12559,14 @@ async function carregarMetaHoraHora() {
         const inputId = `meta-slot-input-${slotMin}`;
         const desabilitado = dentroDaJanela ? "" : "disabled";
         const classeBotao = dentroDaJanela
-          ? "px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition"
-          : "px-2 py-1 bg-emerald-900 text-emerald-700 font-bold text-[10px] rounded-lg cursor-not-allowed opacity-60";
+          ? "px-2 py-1 bg-success-soft hover:bg-success-hover text-ink font-bold text-[10px] rounded-lg transition"
+          : "px-2 py-1 bg-success-soft text-success font-bold text-[10px] rounded-lg cursor-not-allowed opacity-60";
         const tituloBotao = dentroDaJanela
           ? "Confirmar o total acumulado deste intervalo"
           : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
-            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
+            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-surface-1 border border-subtle text-ink rounded-lg px-2 py-1 text-xs">
             <button type="button" ${desabilitado} title="${tituloBotao}" class="${classeBotao}" data-confirmar-slot="${slotStr}">Confirmar</button>
           </div>
         `;
@@ -12602,7 +12606,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
   const tbody = document.getElementById("ponto-relatorio-tbody");
   if (!tbody) return;
 
-  tbody.innerHTML = `<tr class="text-brand-400 text-center"><td colspan="7" class="py-8">Carregando...</td></tr>`;
+  tbody.innerHTML = `<tr class="text-ink-muted text-center"><td colspan="7" class="py-8">Carregando...</td></tr>`;
 
   try {
     const res = await fetch(`${API_BASE}/ponto/relatorio?operacao=${encodeURIComponent(operacao)}`);
@@ -12610,7 +12614,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
     const registros = (data && data.registros) || [];
 
     if (registros.length === 0) {
-      tbody.innerHTML = `<tr class="text-brand-400 text-center"><td colspan="7" class="py-8">Nenhum registro encontrado para esta operação.</td></tr>`;
+      tbody.innerHTML = `<tr class="text-ink-muted text-center"><td colspan="7" class="py-8">Nenhum registro encontrado para esta operação.</td></tr>`;
       return;
     }
 
@@ -12633,21 +12637,21 @@ async function carregarRelatorioPontoOperacao(operacao) {
       const sai = linha["SAIDA"] ? new Date(linha["SAIDA"]) : null;
 
       const tr = document.createElement("tr");
-      tr.className = "hover:bg-brand-900/30 transition-all border-b border-brand-900/20";
+      tr.className = "hover:bg-surface-hover transition-all border-b border-subtle";
       tr.innerHTML = `
         <td class="py-3 px-4 font-bold">${linha.usuario}</td>
         <td class="py-3 px-4">${linha.operacao || "—"}</td>
         <td class="py-3 px-4 font-mono">${formatDate(linha.data)}</td>
         <td class="py-3 px-4 text-center">${ent ? formatTime(ent) : "-"}</td>
-        <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
-        <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
+        <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
+        <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
         <td class="py-3 px-4 text-center">${sai ? formatTime(sai) : "-"}</td>
       `;
       tbody.appendChild(tr);
     });
   } catch (err) {
     console.error("Erro ao carregar relatório de ponto por operação:", err);
-    tbody.innerHTML = `<tr class="text-red-400 text-center"><td colspan="7" class="py-8">Erro ao carregar o relatório.</td></tr>`;
+    tbody.innerHTML = `<tr class="text-danger text-center"><td colspan="7" class="py-8">Erro ao carregar o relatório.</td></tr>`;
   }
 }
 
@@ -13264,7 +13268,7 @@ function _rtRegistrarHandlers() {
     RT.on(tipo, () => {
       if (_rtTabAtual !== "controle-ponto") return;
       // A operação em exibição é a aba destacada no filtro do relatório.
-      const abaAtiva = document.querySelector(".ponto-relatorio-tab.bg-brand-700");
+      const abaAtiva = document.querySelector(".ponto-relatorio-tab.bg-accent-soft");
       if (abaAtiva && typeof carregarRelatorioPontoOperacao === "function") {
         carregarRelatorioPontoOperacao(abaAtiva.dataset.operacao);
       }
