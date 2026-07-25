@@ -10813,6 +10813,72 @@ function inicializarAbaPonto() {
   // Run initial sync worker
   processarFilaOfflinePonto();
   window.addEventListener("online", processarFilaOfflinePonto);
+
+  // Configurar clique do banner de biometria pendente
+  const btnCadastrarBanner = document.getElementById("btn-ponto-cadastrar-biometria-banner");
+  if (btnCadastrarBanner) {
+    btnCadastrarBanner.onclick = () => {
+      CameraUniversal.open("enrollment", {
+        usuario: currentUser.nome,
+        onCapture: async (result) => {
+          if (result.status === "ENROLLED") {
+            currentUser.hasBiometricEnrolled = true;
+            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+            
+            // Oculta o banner de biometria pendente
+            const alertBanner = document.getElementById("ponto-biometria-alert");
+            if (alertBanner) alertBanner.classList.add("hidden");
+
+            // Atualiza o botão na aba de configurações se necessário
+            atualizarBotaoCadastroBiometria();
+          } else if (result.status === "REJECTED_RETRYABLE") {
+            showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          } else if (result.status === "TEMPORARILY_BLOCKED") {
+            showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          } else {
+            showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+          }
+        },
+        onCancel: (err) => {
+          if (err) {
+            console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+            showToast("Não foi possível acessar a câmera.", "erro");
+          }
+        }
+      });
+    };
+  }
+
+  // Verificar status para exibição do banner
+  atualizarStatusBiometriaPonto();
+}
+
+async function atualizarStatusBiometriaPonto() {
+  const alertBanner = document.getElementById("ponto-biometria-alert");
+  if (!alertBanner || !currentUser) return;
+
+  if (currentUser.hasBiometricEnrolled) {
+    alertBanner.classList.add("hidden");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/ponto/biometria/${encodeURIComponent(currentUser.nome)}`);
+    const data = await res.json();
+    if (data && data.embedding) {
+      currentUser.hasBiometricEnrolled = true;
+      localStorage.setItem("session_user", JSON.stringify(currentUser));
+      alertBanner.classList.add("hidden");
+    } else {
+      alertBanner.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Erro ao verificar status da biometria no banner:", err);
+    if (!currentUser.hasBiometricEnrolled) {
+      alertBanner.classList.remove("hidden");
+    }
+  }
 }
 
 function ativarCameraPonto() {

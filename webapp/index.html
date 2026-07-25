@@ -2332,6 +2332,22 @@
         </div>
       </div>
 
+      <!-- Alerta de Biometria Pendente -->
+      <div id="ponto-biometria-alert" class="p-4 mb-6 rounded-2xl bg-indigo-950/40 border border-indigo-800/60 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-900/50 flex items-center justify-center text-indigo-400">
+            <i class="fa-solid fa-face-viewfinder text-lg"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white">Biometria Facial Pendente</h4>
+            <p class="text-xs text-brand-200">Você precisa cadastrar seu rosto uma única vez antes de registrar o ponto com segurança.</p>
+          </div>
+        </div>
+        <button type="button" id="btn-ponto-cadastrar-biometria-banner" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-800 text-white text-xs font-bold rounded-xl transition shadow flex items-center gap-2">
+          <i class="fa-solid fa-camera"></i> Cadastrar Meu Rosto
+        </button>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <!-- Action / Capture Card -->
