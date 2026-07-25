@@ -17,6 +17,9 @@
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Leaflet (mapa OpenStreetMap, sem chave de API) — usado no picker de localização das operações -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- EmailJS CDN -->
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <!-- SheetJS -->
@@ -2767,6 +2770,46 @@
             </div>
           </div>
 
+          <!-- Card: Atualização do App / Cache do Service Worker (distinto do card "Gestão de Dados & Armazenamento Local" mais abaixo, que trata do backup dos dados de negócio) -->
+          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-database text-brand-500"></i> Atualização do App (Cache)
+              </h3>
+              <p class="text-xs text-muted mb-4">Se o app parecer "travado" numa versão antiga depois de uma atualização, force a atualização aqui — sem precisar desinstalar ou pedir ajuda.</p>
+
+              <div class="space-y-3">
+                <div class="p-3 rounded-xl bg-cream border border-border text-xs space-y-1.5">
+                  <div class="flex justify-between"><span class="text-muted">Registros de ponto ainda não sincronizados</span><strong id="config-ponto-offline-count">—</strong></div>
+                  <div class="flex justify-between"><span class="text-muted">Cache do app</span><strong id="config-app-cache-status">—</strong></div>
+                </div>
+
+                <button type="button" id="config-btn-forcar-atualizacao" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-arrows-rotate"></i> Forçar Atualização do App
+                </button>
+                <p class="text-[11px] text-muted">Limpa o cache local e recarrega a versão mais recente do servidor. Não apaga registros ainda não sincronizados.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Geofencing do Ponto (Líder de Operações / Owner) -->
+          <div id="config-card-geofencing" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-location-crosshairs text-brand-500"></i> Geofencing do Ponto
+            </h3>
+            <p class="text-xs text-muted mb-4">Raio de tolerância, em metros, ao redor da localização de cada operação (definida acima) para liberar a marcação de ponto. Muito baixo bloqueia colaboradoras dentro da própria loja; muito alto perde o propósito da cerca virtual.</p>
+
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div class="field sm:w-56">
+                <label class="block text-xs font-bold uppercase mb-1">Raio de Tolerância (metros)</label>
+                <input type="number" id="config-geofence-raio" min="10" max="500" step="5" value="50" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+              </div>
+              <button type="button" id="config-btn-save-geofence" class="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Raio de Tolerância
+              </button>
+            </div>
+          </div>
+
           <!-- Card: WhatsApp Lojas (Apenas Owners/Gestores) -->
           <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
@@ -2799,12 +2842,12 @@
             </div>
           </div>
 
-          <!-- Card: Localização, Horário e Meta das Operações (Líder de Operações / Owner) -->
+          <!-- Card: Localização e Horário das Operações (Líder de Operações / Owner) -->
           <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-map-location-dot text-brand-500"></i> Localização, Horário e Meta das Operações
+              <i class="fa-solid fa-map-location-dot text-brand-500"></i> Localização e Horário das Operações
             </h3>
-            <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora. <strong>A coluna "Meta Diária" abaixo não tem mais efeito nenhum no Meta Hora a Hora</strong> — a meta do dia agora vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX). Dias sem planilha importada mostram "meta não cadastrada", sem usar este valor manual.</p>
+            <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora — a meta do dia em si vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
 
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
@@ -2815,7 +2858,6 @@
                     <th class="py-2 px-2">Longitude</th>
                     <th class="py-2 px-2">Abertura</th>
                     <th class="py-2 px-2">Fechamento</th>
-                    <th class="py-2 px-2">Meta Diária (R$)</th>
                   </tr>
                 </thead>
                 <tbody id="config-operacoes-tbody" class="divide-y divide-border">
@@ -2826,7 +2868,7 @@
 
             <div class="flex justify-end gap-3 mt-4">
               <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
-                <i class="fa-solid fa-floppy-disk"></i> Salvar Localização, Horários e Metas
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Localização e Horários
               </button>
             </div>
           </div>
@@ -3015,6 +3057,20 @@
     </div>
     <div class="modal-actions modal-actions-center" style="margin-top: 18px;">
       <button type="button" id="btn-nf-conclusao-enviado" class="btn-primary">Já enviei a mensagem — Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: escolher localização da operação no mapa (Leaflet/OpenStreetMap, sem chave de API) -->
+<div id="modal-mapa-localizacao" class="modal-overlay hidden" role="dialog" aria-labelledby="mapa-localizacao-title" aria-modal="true">
+  <div class="modal" style="max-width: 600px;">
+    <h3 id="mapa-localizacao-title"><i class="fa-solid fa-map-location-dot"></i> Escolher localização — <span id="mapa-localizacao-operacao"></span></h3>
+    <p class="modal-sub">Clique no mapa no ponto exato da loja. Essa localização é usada na cerca virtual do Ponto.</p>
+    <div id="mapa-localizacao-mapa" style="width: 100%; height: 360px; border-radius: 12px; margin: 12px 0;"></div>
+    <p class="text-xs text-muted" id="mapa-localizacao-coords">Nenhum ponto selecionado ainda.</p>
+    <div class="modal-actions modal-actions-center" style="margin-top: 14px;">
+      <button type="button" id="btn-mapa-localizacao-cancelar" class="btn-secondary">Cancelar</button>
+      <button type="button" id="btn-mapa-localizacao-confirmar" class="btn-primary" disabled>Usar esta localização</button>
     </div>
   </div>
 </div>
@@ -3274,6 +3330,6 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

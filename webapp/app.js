@@ -57,16 +57,21 @@ const LOJAS_GEOLOC = {
 // em Configurações (Líder de Operações/Owner); usado no geofencing do Ponto e no
 // cálculo do Meta Hora a Hora.
 const OPERACOES_CONFIG = {
-  "Marambaia": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
-  "Icoaraci": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
-  "Mário Covas": { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 },
-  "Grão Pará": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 },
-  "ParqueShopping": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 },
-  "Parque Circuito": { abertura: "10:00", fechamento: "22:00", metaDiaria: 0 }
+  "Marambaia": { abertura: "09:00", fechamento: "22:00" },
+  "Icoaraci": { abertura: "09:00", fechamento: "22:00" },
+  "Mário Covas": { abertura: "09:00", fechamento: "22:00" },
+  "Grão Pará": { abertura: "10:00", fechamento: "22:00" },
+  "ParqueShopping": { abertura: "10:00", fechamento: "22:00" },
+  "Parque Circuito": { abertura: "10:00", fechamento: "22:00" }
 };
 
 // Unidades do Faça Amigos (mesmos rótulos de LOJAS_FA / seletor #fa-loja).
 const UNIDADES_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
+
+// Raio de tolerância (metros) da cerca virtual do Ponto. Editável em
+// Configurações (Líder de Operações/Owner); mesclado por carregarConfiguracoes()/
+// inicializarDados() como os objetos acima.
+let GEOFENCE_RAIO_METROS = 50;
 
 // Biometria facial do Registro de Ponto (face-api.js).
 const FACE_DETECTION_MIN_CONFIDENCE = 0.85; // confiança mínima do detector p/ considerar que há um rosto nítido
@@ -693,6 +698,9 @@ async function inicializarDados() {
           console.error("Erro ao sincronizar operacoesConfig do servidor:", e);
         }
       }
+      if (config.geofenceRaioMetros !== undefined) {
+        GEOFENCE_RAIO_METROS = parseInt(config.geofenceRaioMetros) || 50;
+      }
 
       // Chave mestra de notificações de eventos (default: desativada)
       localStorage.setItem(NOTIF_MASTER_KEY, notifMasterFromValue(config.notificacoes_eventos_ativas) ? "1" : "0");
@@ -1014,7 +1022,8 @@ function carregarConfiguracoes() {
     whatsappGrupos: {},
     whatsappGruposFa: {},
     operacoesGeoloc: {},
-    operacoesConfig: {}
+    operacoesConfig: {},
+    geofenceRaioMetros: 50
   });
 
   // Personalização de cor de destaque removida: o app usa a paleta fixa da
@@ -1052,6 +1061,9 @@ function carregarConfiguracoes() {
   }
   if (config.operacoesConfig) {
     Object.assign(OPERACOES_CONFIG, config.operacoesConfig);
+  }
+  if (config.geofenceRaioMetros !== undefined) {
+    GEOFENCE_RAIO_METROS = parseInt(config.geofenceRaioMetros) || 50;
   }
 }
 
@@ -9631,21 +9643,198 @@ function inicializarPainelConfiguracoes() {
       tbody.innerHTML = "";
       Object.keys(LOJAS_GEOLOC).forEach(operacao => {
         const geo = LOJAS_GEOLOC[operacao] || { lat: 0, lng: 0 };
-        const cfg = OPERACOES_CONFIG[operacao] || { abertura: "09:00", fechamento: "22:00", metaDiaria: 0 };
+        const cfg = OPERACOES_CONFIG[operacao] || { abertura: "09:00", fechamento: "22:00" };
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="py-2 px-2 font-bold">${operacao}</td>
           <td class="py-2 px-2"><input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lat" data-operacao="${operacao}" value="${geo.lat}"></td>
-          <td class="py-2 px-2"><input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lng" data-operacao="${operacao}" value="${geo.lng}"></td>
+          <td class="py-2 px-2">
+            <div class="flex items-center gap-1.5">
+              <input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lng" data-operacao="${operacao}" value="${geo.lng}">
+              <button type="button" class="btn-secondary config-op-escolher-mapa" data-operacao="${operacao}" title="Escolher localização no mapa" style="padding: 6px 8px; font-size: 11px; white-space: nowrap;">
+                <i class="fa-solid fa-map-location-dot"></i>
+              </button>
+            </div>
+          </td>
           <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-abertura" data-operacao="${operacao}" value="${cfg.abertura}"></td>
           <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-fechamento" data-operacao="${operacao}" value="${cfg.fechamento}"></td>
-          <td class="py-2 px-2"><input type="number" step="0.01" min="0" class="w-28 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-meta" data-operacao="${operacao}" value="${cfg.metaDiaria}" ${UNIDADES_FA.includes(operacao) ? "disabled title=\"Meta Hora a Hora não se aplica às unidades do Faça Amigos\"" : ""}></td>
         `;
         tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll(".config-op-escolher-mapa").forEach(btn => {
+        btn.onclick = () => abrirMapaLocalizacao(btn.dataset.operacao);
       });
     }
   }
 
+  // Mostrar card de Geofencing do Ponto para Líder de Operações/Owner
+  const cardGeofencing = document.getElementById("config-card-geofencing");
+  if (cardGeofencing) cardGeofencing.classList.toggle("hidden", !mostrarOperacoes);
+  if (mostrarOperacoes) {
+    const inputRaio = document.getElementById("config-geofence-raio");
+    if (inputRaio) inputRaio.value = GEOFENCE_RAIO_METROS;
+  }
+
+  atualizarCardArmazenamento();
+}
+
+// Card "Armazenamento & Atualização do App": mostra quantos registros de
+// ponto ainda não sincronizaram e se o Service Worker (cache offline) está
+// ativo. Puramente informativo — não força nenhuma sincronização sozinho.
+async function atualizarCardArmazenamento() {
+  const elCount = document.getElementById("config-ponto-offline-count");
+  if (elCount) {
+    try {
+      inicializarPontoDb();
+      const pendentes = await pontoDb.time_records.where("syncStatus").equals("PENDING").count();
+      elCount.textContent = pendentes;
+    } catch (e) {
+      elCount.textContent = "—";
+    }
+  }
+
+  const elCache = document.getElementById("config-app-cache-status");
+  if (elCache) {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      elCache.textContent = reg ? "Ativo (offline habilitado)" : "Não ativo neste dispositivo";
+    } else {
+      elCache.textContent = "Não suportado neste navegador";
+    }
+  }
+}
+
+const btnForcarAtualizacao = document.getElementById("config-btn-forcar-atualizacao");
+if (btnForcarAtualizacao) {
+  btnForcarAtualizacao.addEventListener("click", async () => {
+    btnForcarAtualizacao.disabled = true;
+    btnForcarAtualizacao.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Atualizando...';
+    try {
+      // Só limpa Cache Storage (arquivos estáticos) e desregistra o Service
+      // Worker — nunca IndexedDB/localStorage, para não perder registros de
+      // ponto ainda não sincronizados.
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch (e) {
+      console.error("Erro ao forçar atualização do app:", e);
+    }
+    window.location.reload();
+  });
+}
+
+// --- Picker de localização das operações no mapa (Leaflet/OpenStreetMap, sem chave de API) ---
+let mapaLocalizacaoInstance = null;
+let mapaLocalizacaoMarker = null;
+let mapaLocalizacaoOperacaoAtiva = null;
+let mapaLocalizacaoCoordsSelecionadas = null;
+
+// Os ícones padrão do Leaflet apontam para caminhos relativos que só existem
+// quando um bundler copia os assets do pacote — carregando via CDN, o pino
+// fica invisível se não apontarmos essas URLs explicitamente.
+function configurarIconesLeaflet() {
+  if (typeof L === "undefined" || L.Icon.Default.prototype._iconsConfigurados) return;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
+  });
+  L.Icon.Default.prototype._iconsConfigurados = true;
+}
+
+function selecionarPontoMapa(lat, lng) {
+  mapaLocalizacaoCoordsSelecionadas = { lat, lng };
+  if (mapaLocalizacaoMarker) {
+    mapaLocalizacaoMarker.setLatLng([lat, lng]);
+  } else {
+    mapaLocalizacaoMarker = L.marker([lat, lng], { draggable: true }).addTo(mapaLocalizacaoInstance);
+    mapaLocalizacaoMarker.on("dragend", () => {
+      const pos = mapaLocalizacaoMarker.getLatLng();
+      selecionarPontoMapa(pos.lat, pos.lng);
+    });
+  }
+  const coordsLabel = document.getElementById("mapa-localizacao-coords");
+  if (coordsLabel) coordsLabel.textContent = `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+  if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+function abrirMapaLocalizacao(operacao) {
+  if (typeof L === "undefined") {
+    showToast("Não foi possível carregar o mapa (sem conexão com o CDN). Tente novamente.", "erro");
+    return;
+  }
+  configurarIconesLeaflet();
+
+  const modal = document.getElementById("modal-mapa-localizacao");
+  const tituloOperacao = document.getElementById("mapa-localizacao-operacao");
+  const coordsLabel = document.getElementById("mapa-localizacao-coords");
+  const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+  if (!modal) return;
+
+  mapaLocalizacaoOperacaoAtiva = operacao;
+  mapaLocalizacaoCoordsSelecionadas = null;
+  if (tituloOperacao) tituloOperacao.textContent = operacao;
+  if (coordsLabel) coordsLabel.textContent = "Nenhum ponto selecionado ainda.";
+  if (btnConfirmar) btnConfirmar.disabled = true;
+
+  const latInput = document.querySelector(`.config-op-lat[data-operacao="${operacao}"]`);
+  const lngInput = document.querySelector(`.config-op-lng[data-operacao="${operacao}"]`);
+  const latAtual = latInput ? parseFloat(latInput.value) || 0 : 0;
+  const lngAtual = lngInput ? parseFloat(lngInput.value) || 0 : 0;
+  const temCoordenadas = latAtual !== 0 || lngAtual !== 0;
+  // Centro padrão quando a operação ainda não tem coordenadas: Belém/PA, onde
+  // ficam as lojas.
+  const centro = temCoordenadas ? [latAtual, lngAtual] : [-1.4558, -48.4902];
+
+  modal.classList.remove("hidden");
+
+  // O mapa precisa existir no DOM e estar visível antes de medir seu tamanho
+  // (Leaflet calcula dimensões na criação) — por isso o setTimeout após tirar
+  // o "hidden" do modal.
+  setTimeout(() => {
+    if (!mapaLocalizacaoInstance) {
+      mapaLocalizacaoInstance = L.map("mapa-localizacao-mapa");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(mapaLocalizacaoInstance);
+      mapaLocalizacaoInstance.on("click", (e) => selecionarPontoMapa(e.latlng.lat, e.latlng.lng));
+    }
+    mapaLocalizacaoInstance.setView(centro, temCoordenadas ? 17 : 13);
+    mapaLocalizacaoInstance.invalidateSize();
+
+    if (mapaLocalizacaoMarker) {
+      mapaLocalizacaoInstance.removeLayer(mapaLocalizacaoMarker);
+      mapaLocalizacaoMarker = null;
+    }
+    if (temCoordenadas) selecionarPontoMapa(latAtual, lngAtual);
+  }, 50);
+}
+
+const btnMapaLocalizacaoCancelar = document.getElementById("btn-mapa-localizacao-cancelar");
+if (btnMapaLocalizacaoCancelar) {
+  btnMapaLocalizacaoCancelar.addEventListener("click", () => {
+    document.getElementById("modal-mapa-localizacao").classList.add("hidden");
+  });
+}
+
+const btnMapaLocalizacaoConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+if (btnMapaLocalizacaoConfirmar) {
+  btnMapaLocalizacaoConfirmar.addEventListener("click", () => {
+    if (!mapaLocalizacaoCoordsSelecionadas || !mapaLocalizacaoOperacaoAtiva) return;
+    const latInput = document.querySelector(`.config-op-lat[data-operacao="${mapaLocalizacaoOperacaoAtiva}"]`);
+    const lngInput = document.querySelector(`.config-op-lng[data-operacao="${mapaLocalizacaoOperacaoAtiva}"]`);
+    if (latInput) latInput.value = mapaLocalizacaoCoordsSelecionadas.lat.toFixed(6);
+    if (lngInput) lngInput.value = mapaLocalizacaoCoordsSelecionadas.lng.toFixed(6);
+    document.getElementById("modal-mapa-localizacao").classList.add("hidden");
+    showToast('Localização escolhida no mapa. Clique em "Salvar Localização e Horários" para confirmar.', "sucesso");
+  });
 }
 
 // --- Self-enrollment biométrico (Configurações) ---
@@ -9821,10 +10010,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const operacao = input.dataset.operacao;
         const abertura = input.value || "09:00";
         const fechamentoInput = document.querySelector(`.config-op-fechamento[data-operacao="${operacao}"]`);
-        const metaInput = document.querySelector(`.config-op-meta[data-operacao="${operacao}"]`);
         const fechamento = fechamentoInput ? (fechamentoInput.value || "22:00") : "22:00";
-        const metaDiaria = metaInput ? (parseFloat(metaInput.value) || 0) : 0;
-        novoConfig[operacao] = { abertura, fechamento, metaDiaria };
+        novoConfig[operacao] = { abertura, fechamento };
       });
 
       const semCoordenadas = Object.keys(novoGeoloc).filter(op => novoGeoloc[op].lat === 0 && novoGeoloc[op].lng === 0);
@@ -9847,11 +10034,34 @@ document.addEventListener("DOMContentLoaded", () => {
         if (semCoordenadas.length > 0) {
           showToast(`Salvo! Atenção: ${semCoordenadas.join(", ")} ainda ${semCoordenadas.length > 1 ? "estão" : "está"} com coordenadas 0,0 — a cerca virtual vai bloquear a marcação de ponto até isso ser corrigido.`, "erro");
         } else {
-          showToast("Localização, horários e metas das operações salvos para todos os dispositivos!", "sucesso");
+          showToast("Localização e horários das operações salvos para todos os dispositivos!", "sucesso");
         }
       } else {
         showToast("Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar para valer nas demais colaboradoras.", "erro");
       }
+    });
+  }
+
+  const btnSaveGeofence = document.getElementById("config-btn-save-geofence");
+  if (btnSaveGeofence) {
+    btnSaveGeofence.addEventListener("click", async () => {
+      const inputRaio = document.getElementById("config-geofence-raio");
+      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
+      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
+        showToast("Informe um raio entre 10 e 500 metros.", "erro");
+        return;
+      }
+      btnSaveGeofence.disabled = true;
+      const ok = await salvarConfigAPI("geofenceRaioMetros", raio);
+      btnSaveGeofence.disabled = false;
+
+      GEOFENCE_RAIO_METROS = raio;
+      config.geofenceRaioMetros = raio;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+
+      showToast(ok
+        ? "Raio de tolerância salvo para todos os dispositivos!"
+        : "Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar.", ok ? "sucesso" : "erro");
     });
   }
 
@@ -10940,7 +11150,10 @@ function ativarCameraPonto() {
 
 async function carregarModelosFaciais() {
   if (modelosFaciaisCarregados) return;
-  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master";
+  // face-api.js-models reorganizou os pesos em subpastas por modelo, quebrando
+  // a URL "flat" antiga (404). O repo principal face-api.js ainda serve os
+  // mesmos pesos em /weights, todos no mesmo nível — ver camera-universal.js.
+  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
   await Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
     faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
@@ -11091,7 +11304,7 @@ function ativarGPSPonto() {
       if (pos.coords.accuracy > 30) {
         gpsStatus.className = "text-amber-500 font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
-      } else if (dist > 50) {
+      } else if (dist > GEOFENCE_RAIO_METROS) {
         gpsStatus.className = "text-rose-500 font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fora do Perímetro`;
       } else {
@@ -11138,7 +11351,7 @@ async function registrarMarcacaoPonto(tipo) {
     return;
   }
   
-  if (dist > 50) {
+  if (dist > GEOFENCE_RAIO_METROS) {
     showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
     return;
   }
