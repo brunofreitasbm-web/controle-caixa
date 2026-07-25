@@ -2647,9 +2647,22 @@
 
           <!-- Progresso do Dia -->
           <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg">
-            <div class="flex justify-between text-xs font-bold text-brand-200 mb-2">
+            <div class="flex justify-between items-center text-xs font-bold text-brand-200 mb-2">
               <span>Progresso de Hoje</span>
-              <span id="meta-progresso-label">R$ 0,00 / R$ 0,00</span>
+              <div class="flex items-center gap-2">
+                <span id="meta-progresso-label">R$ 0,00 / R$ 0,00</span>
+                <!-- Só Líder de Operações/Owner podem editar a meta já lançada -->
+                <button type="button" id="btn-meta-editar" class="hidden text-brand-400 hover:text-brand-200 transition" title="Editar meta de hoje">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+              </div>
+            </div>
+            <div id="meta-editar-box" class="hidden flex flex-col sm:flex-row gap-2 items-center mb-3 p-3 rounded-xl border border-brand-800/80 bg-brand-900/40">
+              <input type="number" id="meta-editar-valor" step="0.01" min="0" placeholder="Nova meta do dia (R$)" class="bg-brand-900 border border-brand-800 text-white rounded-xl p-2 text-sm w-full sm:w-48 focus:outline-none focus:border-brand-500">
+              <button type="button" id="btn-meta-editar-salvar" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar
+              </button>
+              <button type="button" id="btn-meta-editar-cancelar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition">Cancelar</button>
             </div>
             <div class="w-full bg-brand-900 rounded-full h-4 overflow-hidden border border-brand-850">
               <div id="meta-progresso-bar" class="bg-brand-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
@@ -3257,10 +3270,10 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="camera-universal.js?v=1"></script>
+<script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

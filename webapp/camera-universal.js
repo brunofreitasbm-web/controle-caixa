@@ -8,7 +8,11 @@
 // ==========================================================================
 
 const CameraUniversal = (function () {
-  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master";
+  // face-api.js-models reorganizou os pesos em subpastas por modelo (ex.:
+  // /tiny_face_detector/tiny_face_detector_model-...), então a URL "flat"
+  // antiga passou a 404. O repo principal face-api.js ainda serve os mesmos
+  // pesos em /weights, todos no mesmo nível — usamos essa fonte.
+  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
   const FACE_MIN_CONFIDENCE = 0.85; // mesmo piso usado no Registro de Ponto (app.js)
   const FACE_MIN_AREA_RATIO = 0.05; // rosto ocupando <5% do frame = "muito longe"
   const LUMINANCE_MIN = 70;         // 0-255, luma média mínima para considerar bem iluminado

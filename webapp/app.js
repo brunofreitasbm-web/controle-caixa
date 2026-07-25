@@ -4074,7 +4074,10 @@ function renderDashboard() {
 }
 
 function fotoCelula(r) {
-  if (r.fotoEnvelope) {
+  // Só renderiza <img> se fotoEnvelope for realmente uma imagem (data URI ou
+  // URL http). Qualquer outro valor (ex.: texto de erro/placeholder vindo de
+  // uma sincronização malformada) vira um GET quebrado para o servidor.
+  if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
     return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
   }
   return `<span class="no-photo">sem foto</span>`;
@@ -10745,8 +10748,16 @@ let pontoFaceDetectInterval = null;
 function inicializarPontoDb() {
   if (pontoDb) return;
   pontoDb = new Dexie("PontoEletronicoDB");
+  // v1: schema original
   pontoDb.version(1).stores({
     time_records: "id, timestamp, tipo, syncStatus",
+    offline_queue: "id, action, timestamp",
+    attachments: "id"
+  });
+  // v2: adiciona índice `usuario` em time_records, necessário para
+  // .where("usuario").equals(...) usado em atualizarHistoricoPonto e sincronização.
+  pontoDb.version(2).stores({
+    time_records: "id, timestamp, tipo, syncStatus, usuario",
     offline_queue: "id, action, timestamp",
     attachments: "id"
   });
@@ -10775,6 +10786,14 @@ function inicializarAbaPonto() {
   
   const btnPontoCadastrar = document.getElementById("btn-ponto-cadastrar-biometria");
   if (btnPontoCadastrar) {
+    // O botão usa cor inline com !important, então o estado :disabled do
+    // navegador não o "apaga" sozinho — precisamos refletir isso no estilo.
+    const desativarBtnCadastrar = () => {
+      btnPontoCadastrar.disabled = true;
+      btnPontoCadastrar.style.opacity = "0.5";
+      btnPontoCadastrar.style.cursor = "not-allowed";
+    };
+    if (currentUser && currentUser.hasBiometricEnrolled) desativarBtnCadastrar();
     btnPontoCadastrar.onclick = () => {
       CameraUniversal.open("enrollment", {
         usuario: currentUser.nome,
@@ -10783,10 +10802,11 @@ function inicializarAbaPonto() {
             currentUser.hasBiometricEnrolled = true;
             localStorage.setItem("session_user", JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
-            
-            // Oculta o banner de biometria pendente e atualiza botão
+
+            // Oculta o banner de biometria pendente, desativa o botão de captura e atualiza a aba de config
             const alertBanner = document.getElementById("ponto-biometria-alert");
             if (alertBanner) alertBanner.classList.add("hidden");
+            desativarBtnCadastrar();
             atualizarBotaoCadastroBiometria();
           } else if (result.status === "REJECTED_RETRYABLE") {
             showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
@@ -11571,6 +11591,54 @@ function prepararMetaManual(data) {
   };
 }
 
+// Meta já lançada (planilha ou manual): permite que Líder de Operações/Owner
+// a corrija sem precisar esperar a lógica de "sem meta ainda" (prepararMetaManual).
+function prepararEdicaoMeta(loja, data, valorAtual) {
+  const btnEditar = document.getElementById("btn-meta-editar");
+  const box = document.getElementById("meta-editar-box");
+  const input = document.getElementById("meta-editar-valor");
+  const btnSalvar = document.getElementById("btn-meta-editar-salvar");
+  const btnCancelar = document.getElementById("btn-meta-editar-cancelar");
+  if (!btnEditar || !box || !input || !btnSalvar || !btnCancelar) return;
+
+  const podeEditar = currentUser &&
+    (currentUser.role === "owner" || currentUser.role === "consultora_dashboard");
+  btnEditar.classList.toggle("hidden", !podeEditar);
+  box.classList.add("hidden");
+  if (!podeEditar) return;
+
+  btnEditar.onclick = () => {
+    input.value = valorAtual;
+    box.classList.remove("hidden");
+    input.focus();
+  };
+  btnCancelar.onclick = () => box.classList.add("hidden");
+  btnSalvar.onclick = async () => {
+    const valor = parseFloat(input.value);
+    if (Number.isNaN(valor) || valor <= 0) {
+      showToast("Informe um valor de meta válido.", "erro");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loja,
+          linhas: [{ data, valor, origem: "manual" }]
+        })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar meta");
+      showToast("Meta de hoje atualizada!", "sucesso");
+      box.classList.add("hidden");
+      carregarMetaHoraHora();
+    } catch (err) {
+      console.error("Erro ao editar meta:", err);
+      showToast("Erro ao salvar a meta. Tente novamente.", "erro");
+    }
+  };
+}
+
 async function carregarMetaHoraHora() {
   if (!metaOperacaoAtiva) return;
 
@@ -11594,6 +11662,7 @@ async function carregarMetaHoraHora() {
   if (conteudoEl) conteudoEl.classList.remove("hidden");
 
   const metaDiaria = metaHoje.valor || 0;
+  prepararEdicaoMeta(metaOperacaoAtiva, hoje, metaDiaria);
   const cfg = OPERACOES_CONFIG[metaOperacaoAtiva] || { abertura: "09:00", fechamento: "22:00" };
   const aberturaMin = minutosDoDiaPorHora(cfg.abertura);
   const fechamentoMin = minutosDoDiaPorHora(cfg.fechamento);

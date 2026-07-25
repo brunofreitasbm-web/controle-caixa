@@ -55,7 +55,16 @@ router.get('/mes', (req, res) => {
 
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ lancamentos: rows || [] });
+    // Garantia: o Postgres pode retornar a coluna `data` como objeto Date
+    // (dependendo do tipo inferido na criação da tabela). Normaliza para
+    // string YYYY-MM-DD para evitar colisões de fuso ao serializar o JSON.
+    const lancamentos = (rows || []).map(r => ({
+      ...r,
+      data: r.data instanceof Date
+        ? r.data.toISOString().slice(0, 10)
+        : String(r.data).slice(0, 10)
+    }));
+    res.json({ lancamentos });
   });
 });
 
@@ -73,7 +82,13 @@ router.get('/mes-todas', (req, res) => {
 
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ lancamentos: rows || [] });
+    const lancamentos = (rows || []).map(r => ({
+      ...r,
+      data: r.data instanceof Date
+        ? r.data.toISOString().slice(0, 10)
+        : String(r.data).slice(0, 10)
+    }));
+    res.json({ lancamentos });
   });
 });
 
