@@ -11847,14 +11847,26 @@ async function carregarMetaHoraHora() {
     checkpoints.push(slot);
   }
 
-  // Algoritmo de Desagregação Ponderada de Metas (Sazonalidade Semanal + Fluxo Shopping)
-  const CURVA_TRAFEGO_SHOPPING = {
-    9: 0.4, 10: 0.4, 11: 0.8, 12: 1.3, 13: 1.3, 14: 0.85, 15: 0.85, 16: 0.85, 17: 1.1, 18: 1.5, 19: 1.5, 20: 1.5, 21: 0.6
-  };
+  // Algoritmo de Desagregação Ponderada de Metas (Curva de Pareto + Sazonalidade Semanal)
+  //
+  // Regra observada no fluxo da loja: os últimos 20% do período de abertura
+  // respondem por 80% da venda do dia. Em vez de uma tabela fixa por hora do
+  // relógio (que não fazia sentido igual pra lojas com horários diferentes),
+  // o peso agora é uma densidade em degrau sobre a POSIÇÃO RELATIVA do slot
+  // dentro da janela abertura→fechamento: 0.25/unidade de tempo nos primeiros
+  // 80% do período, 4.0/unidade nos 20% finais (proporção 4:1 que reproduz o
+  // 80/20 quando integrada nos dois trechos).
+  const PARETO_CORTE_TEMPO = 0.8;  // 80% do tempo de operação...
+  const PARETO_CORTE_VENDA = 0.2;  // ...responde só por 20% da venda do dia
 
-  const obterPesoHoraMeta = (horaSlot, diaSemana) => {
-    const hora = parseInt(horaSlot.split(":")[0]);
-    const pesoBase = CURVA_TRAFEGO_SHOPPING[hora] !== undefined ? CURVA_TRAFEGO_SHOPPING[hora] : 0.85;
+  const obterPesoHoraMeta = (slotMin, diaSemana) => {
+    const duracaoTotal = fechamentoMin - aberturaMin;
+    const posicao = duracaoTotal > 0
+      ? Math.min(1, Math.max(0, (slotMin - aberturaMin) / duracaoTotal))
+      : 0;
+    const pesoBase = posicao < PARETO_CORTE_TEMPO
+      ? PARETO_CORTE_VENDA / PARETO_CORTE_TEMPO
+      : (1 - PARETO_CORTE_VENDA) / (1 - PARETO_CORTE_TEMPO);
     const diasPico = ["Sexta-feira", "Sábado", "Domingo"];
     const fatorSazonalidade = diasPico.includes(diaSemana) ? 1.6 : 1.0;
     return pesoBase * fatorSazonalidade;
@@ -11862,10 +11874,10 @@ async function carregarMetaHoraHora() {
 
   const calcularMetaProporcionalSlot = (slotMin, meta, checks, diaSemana) => {
     if (meta <= 0 || checks.length === 0) return 0;
-    const pesosDia = checks.map(s => obterPesoHoraMeta(horaStrPorMinutos(s), diaSemana));
+    const pesosDia = checks.map(s => obterPesoHoraMeta(s, diaSemana));
     const somaPesos = pesosDia.reduce((a, b) => a + b, 0);
     if (somaPesos <= 0) return meta / checks.length;
-    const pesoSlot = obterPesoHoraMeta(horaStrPorMinutos(slotMin), diaSemana);
+    const pesoSlot = obterPesoHoraMeta(slotMin, diaSemana);
     return (pesoSlot / somaPesos) * meta;
   };
 
