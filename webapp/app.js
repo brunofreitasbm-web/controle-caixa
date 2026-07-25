@@ -149,7 +149,9 @@ const DEFAULT_NOTIF_PREFS = {
   "inv-inicio": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
-  "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
+  "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
+  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 // Chave mestra de notificações de eventos (email + push). Default: desativada.
@@ -599,7 +601,9 @@ const defaultNotifRules = {
   inventario_inicio: { colab: false, lider: true, owner: true },
   inventario_conclusao: { colab: false, lider: true, owner: true },
   conferencia_nfe: { colab: false, lider: true, owner: true },
-  divergencia_caixa: { colab: false, lider: true, owner: true }
+  divergencia_caixa: { colab: false, lider: true, owner: true },
+  meta_lembrete: { colab: true, lider: false, owner: false },
+  meta_atraso: { colab: false, lider: true, owner: true }
 };
 
 function getDestinatariosNotificacao(tipo) {
@@ -609,7 +613,9 @@ function getDestinatariosNotificacao(tipo) {
     'inventario_inicio': 'inv-inicio',
     'inventario_fim': 'inv-fim',
     'envelopes': 'envelopes',
-    'divergencia': 'divergencia'
+    'divergencia': 'divergencia',
+    'meta_lembrete': 'meta-lembrete',
+    'meta_atraso': 'meta-atraso'
   };
 
   const prefKey = notifTypeMap[tipo] || tipo;
@@ -5169,6 +5175,7 @@ if (formCadastrarColab) {
     showToast(`Colaborador "${nome}" salvo com sucesso!`, "sucesso");
     formCadastrarColab.reset();
     await renderizarColaboradores();
+    await oferecerCadastroBiometriaColaborador(nome);
   };
 }
 
@@ -5811,7 +5818,9 @@ function renderNotificationTable() {
     "inv-inicio": { title: "Início de Inventário", desc: "Aviso de abertura do inventário mensal cego" },
     "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
-    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" }
+    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
+    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
+    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" }
   };
 
   const prefs = loadNotificationPrefs();
@@ -6063,7 +6072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof renderTable === 'function') renderTable();
         if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
         // Busca no servidor o que as outras pessoas já contaram nesta loja
-        sincronizarInventarioDaLoja(currentStore);
+        if (typeof sincronizarInventarioDaLoja === 'function') sincronizarInventarioDaLoja(currentStore);
         showToast(`Loja ativa alterada para Loja ${currentStore}`, 'info');
       });
     });
@@ -6071,7 +6080,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadInventoryForCurrentStore();
   // O inventário agora é compartilhado: sobe o que este aparelho tinha guardado
   // e puxa o que as outras colaboradoras já contaram.
-  iniciarSincronizacaoDoInventario();
+  if (typeof iniciarSincronizacaoDoInventario === 'function') iniciarSincronizacaoDoInventario();
 
   const btnExport = document.getElementById('btn-export');
   if (btnExport) btnExport.addEventListener('click', exportExcel);
@@ -6112,8 +6121,37 @@ function inicializarInsercaoManualInventario() {
   const inputValidade = document.getElementById("inv-manual-validade");
   const inputQuantidade = document.getElementById("inv-manual-quantidade");
   const btnAdicionar = document.getElementById("btn-inv-manual-adicionar");
+  const btnLeitorFisico = document.getElementById("btn-inv-leitor-fisico");
 
   if (!inputCodigo || !btnAdicionar) return;
+
+  // Leitor físico de código de barras: funciona como teclado, digitando o
+  // código e enviando Enter ao final. Basta focar o campo e capturar o Enter.
+  let leitorFisicoAtivo = false;
+
+  if (btnLeitorFisico) {
+    btnLeitorFisico.addEventListener("click", () => {
+      leitorFisicoAtivo = !leitorFisicoAtivo;
+      btnLeitorFisico.classList.toggle("ring-2", leitorFisicoAtivo);
+      btnLeitorFisico.classList.toggle("ring-emerald-400", leitorFisicoAtivo);
+      btnLeitorFisico.innerHTML = leitorFisicoAtivo
+        ? '<i class="fa-solid fa-circle-dot"></i> Leitor Ativo — Aguardando Leitura'
+        : '<i class="fa-solid fa-barcode"></i> Ativar Leitor Físico';
+      if (leitorFisicoAtivo) {
+        inputCodigo.focus();
+      }
+    });
+  }
+
+  inputCodigo.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (!leitorFisicoAtivo) return;
+    btnAdicionar.click();
+    if (leitorFisicoAtivo) {
+      setTimeout(() => inputCodigo.focus(), 0);
+    }
+  });
 
   // Evento de digitação no campo código/EAN para buscar descrição
   inputCodigo.addEventListener("input", () => {
@@ -9693,6 +9731,41 @@ function abrirCadastroBiometria() {
   });
 }
 
+// Oferece a captura biométrica opcional logo após o cadastro de um
+// colaborador (manual ou via DISC), reaproveitando o mesmo fluxo do
+// self-enrollment de Configurações. Se o colaborador pular, o auto-enroll
+// na primeira batida de ponto continua funcionando normalmente.
+async function oferecerCadastroBiometriaColaborador(nomeColaborador) {
+  if (!API_ONLINE || !nomeColaborador) return;
+
+  const aceitou = await showConfirm(
+    `Deseja cadastrar a biometria facial de "${nomeColaborador}" agora? Isso ajuda a validar as futuras marcações de ponto.`,
+    { icon: "🧑‍💻", title: "Cadastrar biometria agora?", confirmText: "Cadastrar agora", cancelText: "Pular por enquanto" }
+  );
+  if (!aceitou) return;
+
+  CameraUniversal.open("enrollment", {
+    usuario: nomeColaborador,
+    onCapture: async (result) => {
+      if (result.status === "ENROLLED") {
+        await showModal(`Biometria de "${nomeColaborador}" cadastrada com sucesso!`, { icon: "✅", title: "Biometria cadastrada" });
+      } else if (result.status === "REJECTED_RETRYABLE") {
+        showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+      } else if (result.status === "TEMPORARILY_BLOCKED") {
+        showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+      } else {
+        showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+      }
+    },
+    onCancel: (err) => {
+      if (err) {
+        console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+        showToast("Não foi possível acessar a câmera.", "erro");
+      }
+    }
+  });
+}
+
 // Configurações: Ouvir eventos após o carregamento da página
 document.addEventListener("DOMContentLoaded", () => {
   // Alteração do Timeout
@@ -10391,7 +10464,8 @@ async function handleDiscPdfs(files, selectedUser) {
           
           targetUser = nome;
           await carregarColaboradores();
-          
+          await oferecerCadastroBiometriaColaborador(nome);
+
           profiles[targetUser] = {
             userName: targetUser,
             d, i, s, c,

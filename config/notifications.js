@@ -21,7 +21,9 @@ function obterEmailsDestinatarios(notificationType, callback) {
       inventario_inicio: { colab: false, lider: true, owner: true },
       inventario_conclusao: { colab: false, lider: true, owner: true },
       conferencia_nfe: { colab: false, lider: true, owner: true },
-      divergencia_caixa: { colab: false, lider: true, owner: true }
+      divergencia_caixa: { colab: false, lider: true, owner: true },
+      meta_lembrete: { colab: true, lider: false, owner: false },
+      meta_atraso: { colab: false, lider: true, owner: true }
     };
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {
@@ -127,6 +129,118 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
   });
 }
 
+function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml) {
+  if (!targetEmails || targetEmails.length === 0) return;
+
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT) || 465;
+  const secure = process.env.SMTP_SECURE === 'true';
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    console.warn('Configuração de SMTP incompleta no arquivo .env. Notificação por e-mail não enviada.');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  transporter.sendMail({
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    to: targetEmails.join(', '),
+    subject,
+    text: bodyText,
+    html: bodyHtml || `<p>${bodyText.replace(/\n/g, '<br>')}</p>`
+  }, (error, info) => {
+    if (error) console.error('Erro ao enviar e-mail de notificação:', error);
+    else console.log('E-mail de notificação enviado com sucesso:', info.response);
+  });
+}
+
+// ==========================================================================
+// Meta Hora a Hora — lembrete às colaboradoras e resumo de atraso ao Líder.
+// Horários por loja duplicados aqui (mesma fonte que OPERACOES_CONFIG no
+// client, webapp/app.js) pois este módulo roda no servidor, fora do
+// navegador onde a config original vive.
+// ==========================================================================
+const OPERACOES_CONFIG_META = {
+  'Marambaia': { abertura: '09:00', fechamento: '22:00' },
+  'Icoaraci': { abertura: '09:00', fechamento: '22:00' },
+  'Mário Covas': { abertura: '09:00', fechamento: '22:00' },
+  'Grão Pará': { abertura: '10:00', fechamento: '22:00' },
+  'ParqueShopping': { abertura: '10:00', fechamento: '22:00' },
+  'Parque Circuito': { abertura: '10:00', fechamento: '22:00' }
+};
+// Unidades do Faça Amigos não usam Meta Hora a Hora.
+const UNIDADES_FA_META = ['Grão Pará', 'ParqueShopping', 'Parque Circuito'];
+const META_JANELA_CONFIRMACAO_MIN = 30;
+const META_LEMBRETE_MIN_ANTES = 10;
+
+function agoraBrasilMeta() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  }).formatToParts(new Date());
+  const obj = {};
+  partes.forEach(p => { obj[p.type] = p.value; });
+  return {
+    data: `${obj.year}-${obj.month}-${obj.day}`,
+    minutosDoDia: parseInt(obj.hour) * 60 + parseInt(obj.minute)
+  };
+}
+
+function minutosParaHoraStrMeta(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Checkpoints do dia para uma loja: 1h depois da abertura, de hora em hora
+// até o fechamento — mesma fórmula usada no client (webapp/app.js, módulo
+// Meta Hora a Hora).
+function checkpointsDoDiaMeta(loja) {
+  const cfg = OPERACOES_CONFIG_META[loja];
+  if (!cfg) return [];
+  const [ah, am] = cfg.abertura.split(':').map(Number);
+  const [fh, fm] = cfg.fechamento.split(':').map(Number);
+  const aberturaMin = ah * 60 + am;
+  const fechamentoMin = fh * 60 + fm;
+  const checkpoints = [];
+  for (let slot = aberturaMin + 60; slot <= fechamentoMin; slot += 60) {
+    checkpoints.push(slot);
+  }
+  return checkpoints;
+}
+
+function enviarLembreteMetaHoraHora(loja, horaSlot) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const title = '⏰ Meta Hora a Hora';
+    const body = `Faltam ${META_LEMBRETE_MIN_ANTES} minutos para confirmar o intervalo das ${horaSlot} na loja ${loja}.`;
+    enviarNotificacaoPushInterno(title, body, null, 'meta_lembrete');
+    obterEmailsDestinatarios('meta_lembrete', (targetEmails) => {
+      enviarEmailGenerico(targetEmails, title, body);
+    });
+  });
+}
+
+function enviarResumoAtrasoMeta(resumoPorLoja) {
+  const lojas = Object.keys(resumoPorLoja).filter(loja => resumoPorLoja[loja].length > 0);
+  if (lojas.length === 0) return;
+
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const title = '⛔ Meta Hora a Hora — Intervalos perdidos hoje';
+    const linhasTexto = lojas.map(loja => `- ${loja}: ${resumoPorLoja[loja].join(', ')}`);
+    const body = `Os intervalos abaixo ficaram sem confirmação de Meta Hora a Hora hoje:\n\n${linhasTexto.join('\n')}`;
+    enviarNotificacaoPushInterno(title, body, null, 'meta_atraso');
+    obterEmailsDestinatarios('meta_atraso', (targetEmails) => {
+      const linhasHtml = lojas.map(loja => `<li><strong>${loja}:</strong> ${resumoPorLoja[loja].join(', ')}</li>`).join('');
+      enviarEmailGenerico(targetEmails, title, body, `<p>Os intervalos abaixo ficaram sem confirmação de Meta Hora a Hora hoje:</p><ul>${linhasHtml}</ul>`);
+    });
+  });
+}
+
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) {
@@ -220,5 +334,14 @@ module.exports = {
   notificacoesEventosAtivas,
   obterEmailsDestinatarios,
   enviarEmailNotificacao,
-  enviarNotificacaoPush
+  enviarNotificacaoPush,
+  OPERACOES_CONFIG_META,
+  UNIDADES_FA_META,
+  META_JANELA_CONFIRMACAO_MIN,
+  META_LEMBRETE_MIN_ANTES,
+  agoraBrasilMeta,
+  minutosParaHoraStrMeta,
+  checkpointsDoDiaMeta,
+  enviarLembreteMetaHoraHora,
+  enviarResumoAtrasoMeta
 };

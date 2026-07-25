@@ -10,6 +10,17 @@ const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 
 const { initDb, dbAllAsync, dbGetAsync, dbRunAsync } = require('./config/database');
+const {
+  OPERACOES_CONFIG_META,
+  UNIDADES_FA_META,
+  META_JANELA_CONFIRMACAO_MIN,
+  META_LEMBRETE_MIN_ANTES,
+  agoraBrasilMeta,
+  minutosParaHoraStrMeta,
+  checkpointsDoDiaMeta,
+  enviarLembreteMetaHoraHora,
+  enviarResumoAtrasoMeta
+} = require('./config/notifications');
 
 const authRoutes = require('./routes/auth');
 const caixaRoutes = require('./routes/caixa');
@@ -156,6 +167,66 @@ if (require.main === module) {
     enviarBackupMensalSilencioso().catch(err => {
       console.error('[Backup Mensal] Erro na verificação diária:', err);
     });
+  });
+}
+
+// Meta Hora a Hora — lembrete às colaboradoras alguns minutos antes de cada
+// intervalo. Roda a cada minuto; dispara só quando "agora" bate exatamente
+// com "horário do slot - META_LEMBRETE_MIN_ANTES" (evita duplicar o aviso).
+if (require.main === module) {
+  cron.schedule('* * * * *', () => {
+    try {
+      const agora = agoraBrasilMeta();
+      Object.keys(OPERACOES_CONFIG_META).forEach(loja => {
+        if (UNIDADES_FA_META.includes(loja)) return;
+        checkpointsDoDiaMeta(loja).forEach(slotMin => {
+          if (agora.minutosDoDia === slotMin - META_LEMBRETE_MIN_ANTES) {
+            enviarLembreteMetaHoraHora(loja, minutosParaHoraStrMeta(slotMin));
+          }
+        });
+      });
+    } catch (err) {
+      console.error('[Meta Hora a Hora] Erro no job de lembrete:', err);
+    }
+  });
+}
+
+// Meta Hora a Hora — resumo de atraso para o Líder de Operação. Roda uma vez
+// por dia, logo após o fechamento mais tardio (22h), comparando os
+// checkpoints esperados com o que foi de fato confirmado em metas_vendas.
+if (require.main === module) {
+  cron.schedule('5 22 * * *', async () => {
+    try {
+      const agora = agoraBrasilMeta();
+      const resumoPorLoja = {};
+
+      for (const loja of Object.keys(OPERACOES_CONFIG_META)) {
+        if (UNIDADES_FA_META.includes(loja)) continue;
+
+        const metaHoje = await dbGetAsync(
+          'SELECT * FROM metas_diarias_lojas WHERE loja = ? AND data = ?',
+          [loja, agora.data]
+        );
+        if (!metaHoje || !['diaria', 'manual'].includes(metaHoje.origem)) continue;
+
+        const checkins = await dbAllAsync(
+          'SELECT horaslot AS "horaSlot" FROM metas_vendas WHERE operacao = ? AND data = ?',
+          [loja, agora.data]
+        );
+        const confirmados = new Set(checkins.map(c => c.horaSlot));
+
+        const perdidos = checkpointsDoDiaMeta(loja)
+          .filter(slotMin => slotMin + META_JANELA_CONFIRMACAO_MIN < agora.minutosDoDia)
+          .map(minutosParaHoraStrMeta)
+          .filter(horaSlot => !confirmados.has(horaSlot));
+
+        if (perdidos.length > 0) resumoPorLoja[loja] = perdidos;
+      }
+
+      enviarResumoAtrasoMeta(resumoPorLoja);
+    } catch (err) {
+      console.error('[Meta Hora a Hora] Erro no job de resumo de atraso:', err);
+    }
   });
 }
 
