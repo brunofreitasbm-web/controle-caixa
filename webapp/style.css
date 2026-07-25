@@ -1537,10 +1537,13 @@ tr.selected-row {
   box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
 }
 
+/* Usava a cor de LINHA como tinta — a linha é para borda e ícone, não para
+   texto. Sobre o tint de perigo isso dava 3,7:1 em qualquer aba; a tinta da
+   mesma tríade dá 9,2:1. */
 .alerta-card {
-  border-left: 5px solid var(--red);
-  background: var(--red-light);
-  color: var(--red);
+  border-left: 5px solid var(--tone-danger-line);
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
   font-weight: 500;
 }
 
@@ -2604,78 +2607,145 @@ body.tema-fa .topbar {
   --shadow-lg: 0 8px 24px rgba(28, 36, 53, 0.08);
 }
 
-/* 3. Banner do módulo. Até este refactor o seletor posicional
-      `.tab-panel > div:first-child` — cego, com !important — alcançava o
-      .fa-header-banner e o pintava com o gradiente azul-marinho do BlueDox
-      no lugar do índigo do próprio FA. Aquele seletor foi substituído por
-      .section-header; isto reproduz sua saída computada.
-      NÃO "corrigir" para o gradiente --indigo sem aprovação: seria uma
-      mudança visual num módulo declarado congelado. */
+/* 3. Identidade do módulo, dentro do sistema claro.
+      ------------------------------------------------------------
+      Até aqui o banner e os botões do Faça Amigos estavam congelados em
+      azul-marinho e teal — não por desenho, mas por dois vazamentos: o
+      seletor posicional `.tab-panel > div:first-child` sobrescrevia o
+      banner, e dois blocos `.btn-primary` concorrentes deixavam os botões
+      com o gradiente cinza-escuro de um deles.
+
+      O módulo recupera agora sua identidade coral. O banner, porém, NÃO
+      volta ao índigo escuro original: um fundo escuro com título branco
+      contradiz a diretriz do sistema. A identidade vem do coral no
+      título, na faixa de acento e nos botões, sobre a superfície clara
+      `--aqua`, que também é do próprio módulo.
+      ------------------------------------------------------------ */
+/* Tint e tinta do coral, para o módulo cumprir AAA sem abrir mão da cor.
+   --coral-ink (#8A0038) sobre --coral-tint (#FFE9F1) dá 9,1:1. Declarados
+   aqui, e não no bloco de tema do módulo: aquele bloco serve de tripwire
+   contra alteração acidental do Faça Amigos e é melhor não tocá-lo. */
+.fa-section,
+.fa-tab-panel {
+  --coral-tint: #FFE9F1;
+  --coral-tint-hover: #FFD6E6;
+  --coral-ink: #8A0038;
+}
+
 .fa-section > .fa-header-banner {
-  background: linear-gradient(135deg, #2D538E 0%, #1C2435 100%) !important;
-  border-color: #2D538E !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 15px rgba(28, 36, 53, 0.08) !important;
+  background: var(--aqua);
+  border: 1px solid var(--sky);
+  border-radius: 16px;
+  box-shadow: inset 4px 0 0 var(--coral), var(--fa-shadow-sm);
 }
 
-/* 4. Botões primários. Havia dois blocos .btn-primary com !important; o
-      gradiente escuro do primeiro fornecia background-image, que o
-      background-color do segundo não conseguia apagar — por isso os 11
-      botões do módulo renderizavam em cinza-escuro, nem coral nem teal.
-      A unificação daqueles dois blocos mudaria o FA; aqui o resultado
-      computado de então é reposto na íntegra. */
-.fa-section .btn-primary,
-.fa-tab-panel .btn-primary {
-  background-color: #00796B !important;
-  background-image: linear-gradient(135deg, #3c4d58 0%, #161c21 100%) !important;
-  color: #FFFFFF !important;
-  border: none !important;
-  border-radius: 8px !important;
-  padding: 10px 20px !important;
-  font-family: 'Outfit', sans-serif !important;
-  font-weight: 600 !important;
-  font-size: 0.88rem !important;
-  box-shadow: 0 6px 18px rgba(22, 28, 33, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+/* Os dois blobs decorativos foram desenhados para brilhar sobre fundo
+   escuro; sobre a superfície clara viram manchas. */
+.fa-section > .fa-header-banner::before,
+.fa-section > .fa-header-banner::after {
+  display: none;
 }
 
-.fa-section .btn-primary:hover,
-.fa-tab-panel .btn-primary:hover {
-  background-color: #009688 !important;
-  background-image: linear-gradient(135deg, #4d616e 0%, #27323b 100%) !important;
-  box-shadow: 0 10px 25px rgba(22, 28, 33, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+.fa-section .fa-title {
+  color: var(--indigo);
+}
+
+.fa-section .fa-subtitle {
+  /* --ink-soft (#416264) sobre --aqua dá 6,2:1, e a 13,6px isto é texto
+     normal: o piso é 7:1. Este tom escurecido mantém o verde-petróleo do
+     módulo e chega a 9:1. */
+  color: #2B4A4C;
+}
+
+.fa-section .fa-title-accent {
+  color: var(--coral-dark);
+}
+
+/* Chips das unidades: eram translúcidos sobre escuro. */
+.fa-section .fa-lojas-badge span {
+  background: var(--surface-1);
+  border: 1px solid var(--sky);
+  color: var(--indigo);
+}
+
+/* 4. Botões primários do módulo.
+      O coral puro (#F50469) sobre branco dá 4,1:1 e reprova em AAA, então
+      o preenchimento é o tint claro e o rótulo é a tinta coral escura —
+      mesma regra de tint + tinta que vale para o resto do app, com a cor
+      do Faça Amigos em vez da do sistema.
+
+      Especificidade 0,2,0: vence `.btn-primary` (0,1,0) sem !important e
+      sem depender da ordem do arquivo. Sem isto, o `.btn-primary` global,
+      que vem depois no arquivo, sobreporia a cor e o rótulo ficaria verde
+      sobre coral. */
+.fa-section .fa-btn-primary,
+.fa-tab-panel .fa-btn-primary {
+  background: var(--coral-tint);
+  background-image: none;
+  color: var(--coral-ink);
+  border: 1.5px solid var(--coral);
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+
+.fa-section .fa-btn-primary:hover,
+.fa-tab-panel .fa-btn-primary:hover {
+  background: var(--coral-tint-hover);
+  background-image: none;
+  box-shadow: inset 3px 0 0 var(--coral), var(--fa-shadow-sm);
+}
+
+/* A sub-navegação e a aba do módulo no menu usavam coral puro com rótulo
+   branco: mesmo problema de contraste, mesma solução. */
+.tab-btn.fa-tab-btn {
+  --coral-tint: #FFE9F1;
+  --coral-ink: #8A0038;
+}
+
+.fa-sub-btn.active,
+.fa-tab-btn.active,
+.tab-btn.fa-tab-btn.active {
+  background: var(--coral-tint) !important;
+  color: var(--coral-ink) !important;
+  border-color: var(--coral) !important;
+  box-shadow: inset 4px 0 0 var(--coral) !important;
+}
+
+.fa-sub-btn:hover {
+  background: var(--coral-tint);
+  color: var(--coral-ink);
 }
 
 /* 5. Componentes compartilhados que o FA reusa e que o novo sistema
       converteu para tint + tinta escura. */
 .fa-section .foto-preview-wrap .btn-mini {
-  background: rgba(185, 44, 44, 0.9) !important;
-  color: #FFFFFF !important;
-  border: none !important;
+  background: var(--tone-danger-soft) !important;
+  color: var(--tone-danger-ink) !important;
+  border: 1px solid var(--tone-danger-line) !important;
 }
 
 /* 6. Botão de WhatsApp: o FA tem preenchimento próprio (.fa-btn-whatsapp),
       sobre o qual o rótulo era branco. */
+/* O verde do WhatsApp com rótulo branco dá 1,8:1. A marca continua legível
+   pelo ícone e pela borda; o rótulo vai para tinta escura. */
 .fa-section .btn-whatsapp {
-  background-color: transparent !important;
-  color: #FFFFFF !important;
-  border: none !important;
+  background-color: #E7F8EE !important;
+  background-image: none !important;
+  color: #0B5138 !important;
+  border: 1.5px solid #128C4A !important;
 }
 
-/* 7. Herança de tinta. O antigo blanket
-      `.tab-panel:not(.fa-section *):not(.fa-tab-panel *) p/span/label/td/li
-       { color: var(--ink) !important }`
-      parecia excluir o FA, mas não excluía: `:not(.fa-section *)` remove
-      DESCENDENTES de .fa-section, e #tab-faca-amigos É .fa-section, não um
-      descendente dele. Na prática todo texto do módulo era forçado a --ink,
-      cobrindo até .fa-subtitle e .form-msg, que têm cor própria. Reproduzido
-      aqui para manter o módulo idêntico. */
-.tab-panel.fa-section p:not(.fa-title-accent),
-.tab-panel.fa-section span:not(.fa-title-accent),
-.tab-panel.fa-section label,
-.tab-panel.fa-section td,
-.tab-panel.fa-section li {
-  color: #1C2435 !important;
+.fa-section .btn-whatsapp:hover {
+  background-color: #D3F1E0 !important;
+  background-image: none !important;
 }
+
+/* 7. O blanket de tinta saiu.
+      Ele existia porque o banner do módulo era escuro: forçava `#1C2435` em
+      todo p/span/label/td/li para o texto continuar legível ali. Com o
+      banner claro não há mais superfície escura no módulo, e o token --ink
+      redeclarado no item 1 já entrega tinta escura por herança. Mantê-lo
+      seria pior que inútil: com !important, ele sobreporia a cor própria de
+      .fa-subtitle, dos chips das unidades e das mensagens de formulário. */
 
 /* A tipografia global (`body, button, input… { font-family: Inter }`) e a
    cor herdada continuam valendo para o FA exatamente como antes: os tokens
