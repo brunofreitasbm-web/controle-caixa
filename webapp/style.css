@@ -3592,14 +3592,29 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   font-weight: 600;
 }
 
+/* Caixas de seleção e radios seguem a cor de acento do sistema em vez do
+   azul padrão do navegador, que era o único ponto da interface fora da
+   paleta. `accent-color` é a propriedade certa: `color` não pinta esses
+   controles. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--edge-accent);
+}
+
 /* Placeholder e campo desabilitado: --ink-faint é o único token do sistema
    que não fecha AAA em todas as superfícies (7,2:1 no branco, 6,4:1 nas
    mais tonalizadas). Fica restrito a estes dois casos, que a WCAG 1.4.3
    trata como texto incidental, e nunca a texto de conteúdo. */
+/* !important obrigatório: o preflight do tailwind-compiled.css declara
+   `input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}` com a
+   mesma especificidade e é carregado DEPOIS deste arquivo — sem isto, todo
+   placeholder do app renderiza em #9CA3AF, que dá 2,5:1 sobre branco. */
 input::placeholder,
 textarea::placeholder {
-  color: var(--ink-faint);
-  opacity: 1;
+  color: var(--ink-faint) !important;
+  opacity: 1 !important;
 }
 
 input:disabled:not(.fa-section *),
