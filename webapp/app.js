@@ -10419,6 +10419,10 @@ async function handleDiscPdfs(files, selectedUser) {
       const textUpper = textContent.toUpperCase();
       const fileNameUpper = file.name.toUpperCase();
 
+      // Extrair os valores DISC do texto do PDF
+      const { d, i, s, c, perfilPredominante } = extrairValoresDisc(textContent);
+
+
       // Tentar identificar o colaborador pelo nome no texto do PDF ou no nome do arquivo
       let targetUser = selectedUser;
       if (!targetUser || files.length > 1) {
@@ -10551,6 +10555,49 @@ function extrairNomeDoPdf(textContent, fileName) {
 
   return "";
 }
+
+// Extrai valores do perfil DISC (D, I, S, C e Perfil Predominante) a partir do texto do PDF
+function extrairValoresDisc(textContent) {
+  let d = 25, i = 25, s = 25, c = 25;
+  
+  // Tenta extrair a partir do Gráfico Resultante primeiro
+  let targetText = textContent;
+  const idxResultante = textContent.toLowerCase().indexOf("gráfico resultante");
+  if (idxResultante !== -1) {
+    targetText = textContent.substring(idxResultante);
+  } else {
+    // Se não achar Resultante, tenta Estrutural
+    const idxEstrutural = textContent.toLowerCase().indexOf("gráfico estrutural");
+    if (idxEstrutural !== -1) {
+      targetText = textContent.substring(idxEstrutural);
+    }
+  }
+
+  const dMatch = targetText.match(/(\d+)%\s*Dominância/i);
+  const iMatch = targetText.match(/(\d+)%\s*Influência/i);
+  const sMatch = targetText.match(/(\d+)%\s*Estabilidade/i);
+  const cMatch = targetText.match(/(\d+)%\s*Conformidade/i);
+
+  if (dMatch) d = parseInt(dMatch[1]);
+  if (iMatch) i = parseInt(iMatch[1]);
+  if (sMatch) s = parseInt(sMatch[1]);
+  if (cMatch) c = parseInt(cMatch[1]);
+
+  // Se algum não foi encontrado, tenta na string inteira como fallback
+  if (!dMatch && textContent.match(/(\d+)%\s*Dominância/i)) d = parseInt(textContent.match(/(\d+)%\s*Dominância/i)[1]);
+  if (!iMatch && textContent.match(/(\d+)%\s*Influência/i)) i = parseInt(textContent.match(/(\d+)%\s*Influência/i)[1]);
+  if (!sMatch && textContent.match(/(\d+)%\s*Estabilidade/i)) s = parseInt(textContent.match(/(\d+)%\s*Estabilidade/i)[1]);
+  if (!cMatch && textContent.match(/(\d+)%\s*Conformidade/i)) c = parseInt(textContent.match(/(\d+)%\s*Conformidade/i)[1]);
+
+  let perfilPredominante = "Dominante";
+  let max = d;
+  if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+  if (s > max) { max = s; perfilPredominante = "Estável"; }
+  if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+  return { d, i, s, c, perfilPredominante };
+}
+
 
 // Abre o modal de cadastro via DISC e retorna os dados preenchidos ou null
 function obterConfirmacaoCadastroDisc(nomeDetectado, d, i, s, c, perfilPredominante) {
