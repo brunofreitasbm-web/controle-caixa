@@ -286,6 +286,7 @@ body {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
   width: 100%;
   position: relative;
   overflow-x: hidden;
@@ -298,6 +299,7 @@ body {
   flex-direction: column;
   min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
   margin-left: 270px;
   transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }

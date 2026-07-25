@@ -4944,6 +4944,20 @@ async function inscreverPushNotificacoes() {
 
     let subscription = await swReg.pushManager.getSubscription();
     if (!subscription) {
+      // O Safari só entrega push quando o app está instalado na tela de
+      // início. Chamar subscribe() fora disso falha em silêncio, e o usuário
+      // fica achando que ativou. Reenviar uma inscrição que já existe segue
+      // valendo (o bloco acima), porque não pede permissão nova.
+      if ((window.Plataforma || {}).idioma === "ios" && !(window.Plataforma || {}).ehStandalone()) {
+        console.info('Push no iOS exige o app instalado na tela de início.');
+        return;
+      }
+      // Sem pedir permissão explicitamente, o subscribe() rejeita em alguns
+      // navegadores e é bloqueado em outros por não vir de um gesto.
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        const permissao = await Notification.requestPermission();
+        if (permissao !== 'granted') return;
+      }
       const resVapid = await fetch('/api/vapidPublicKey');
       const vapidPublicKey = await resVapid.text();
 
@@ -4977,8 +4991,25 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // ==================== PWA INSTALL PROMPT ====================
+// `beforeinstallprompt` é do Chromium: o Safari nunca dispara. Sem um caminho
+// próprio, o botão de instalar ficava escondido para sempre no iPhone e no
+// iPad — justamente onde instalar na tela de início é o que habilita as
+// notificações push do iOS. O idioma detectado no <head> dá o ramo.
+const _plat = window.Plataforma || { idioma: "desktop", ehStandalone: () => false };
+
 let deferredInstallPrompt = null;
 const btnInstalarPwa = document.getElementById("btn-instalar-pwa");
+
+if (btnInstalarPwa && _plat.idioma === "ios" && !_plat.ehStandalone()) {
+  btnInstalarPwa.classList.remove("hidden");
+  btnInstalarPwa.addEventListener("click", () => {
+    showModal(
+      "Toque em Compartilhar na barra do Safari e escolha \"Adicionar à Tela de Início\". " +
+      "Instalado, o app abre em tela cheia e passa a poder enviar notificações.",
+      { icon: "📲", title: "Instalar no iPhone ou iPad" }
+    );
+  });
+}
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
