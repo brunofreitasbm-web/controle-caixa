@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { publish } = require('../config/realtime');
+const { enviarEmailGenerico } = require('../config/notifications');
+const { registrarLog } = require('../config/logger');
 
 router.post('/sync', (req, res) => {
   const records = req.body.records || [];
@@ -109,6 +111,51 @@ router.get('/relatorio', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ registros: rows || [] });
   });
+});
+
+// Envio da Folha de Ponto (PDF) para o contador. O PDF é gerado no cliente
+// (jsPDF, mesma função do download) e chega aqui já em base64 — assim não
+// precisamos duplicar a montagem do layout no servidor.
+router.post('/folha-email', (req, res) => {
+  const { email, assunto, mensagem, pdfBase64, nomeArquivo, remetente } = req.body;
+
+  if (!email || !pdfBase64) {
+    return res.status(400).json({ error: 'E-mail do contador e o PDF são obrigatórios.' });
+  }
+
+  const destinatarios = String(email)
+    .split(/[;,]/)
+    .map(e => e.trim())
+    .filter(Boolean);
+
+  if (destinatarios.length === 0) {
+    return res.status(400).json({ error: 'Nenhum e-mail válido informado.' });
+  }
+
+  // Aceita qualquer variação de data URI (o jsPDF do cliente gera algo como
+  // "data:application/pdf;filename=generated.pdf;base64,XXXX", não o
+  // "data:application/pdf;base64,XXXX" mais comum) ou o base64 puro.
+  const base64Limpo = String(pdfBase64).replace(/^data:.*?;base64,/, '');
+
+  enviarEmailGenerico(
+    destinatarios,
+    assunto || 'Folha de Ponto - Cacau Show',
+    mensagem || 'Segue em anexo a folha de ponto do período.',
+    null,
+    [{
+      filename: nomeArquivo || 'folha-de-ponto.pdf',
+      content: base64Limpo,
+      encoding: 'base64'
+    }]
+  )
+    .then(() => {
+      registrarLog(null, 'ENVIO_FOLHA_PONTO', `Folha de ponto enviada para ${destinatarios.join(', ')}`, remetente || 'Sistema');
+      res.json({ success: true, destinatarios });
+    })
+    .catch(err => {
+      console.error('Erro ao enviar folha de ponto por e-mail:', err);
+      res.status(500).json({ error: err.message || 'Falha ao enviar o e-mail.' });
+    });
 });
 
 module.exports = router;

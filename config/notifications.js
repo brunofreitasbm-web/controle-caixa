@@ -129,8 +129,14 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
   });
 }
 
-function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml) {
-  if (!targetEmails || targetEmails.length === 0) return;
+// `attachments` segue o formato do nodemailer ([{ filename, content, encoding }]).
+// Retorna Promise para quem precisa saber se o envio deu certo (ex.: a rota de
+// folha de ponto responde ao Owner com sucesso/erro); os chamadores antigos que
+// ignoram o retorno continuam funcionando igual.
+function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml, attachments) {
+  if (!targetEmails || targetEmails.length === 0) {
+    return Promise.reject(new Error('Nenhum destinatário informado.'));
+  }
 
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT) || 465;
@@ -140,19 +146,28 @@ function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml) {
 
   if (!host || !user || !pass) {
     console.warn('Configuração de SMTP incompleta no arquivo .env. Notificação por e-mail não enviada.');
-    return;
+    return Promise.reject(new Error('SMTP não configurado no servidor.'));
   }
 
   const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
-  transporter.sendMail({
+  const mailOptions = {
     from: `"Controle de Caixa Cacau Show" <${user}>`,
     to: targetEmails.join(', '),
     subject,
     text: bodyText,
     html: bodyHtml || `<p>${bodyText.replace(/\n/g, '<br>')}</p>`
-  }, (error, info) => {
-    if (error) console.error('Erro ao enviar e-mail de notificação:', error);
-    else console.log('E-mail de notificação enviado com sucesso:', info.response);
+  };
+  if (attachments && attachments.length) mailOptions.attachments = attachments;
+
+  return new Promise((resolve, reject) => {
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Erro ao enviar e-mail de notificação:', error);
+        return reject(error);
+      }
+      console.log('E-mail de notificação enviado com sucesso:', info.response);
+      resolve(info);
+    });
   });
 }
 
@@ -334,6 +349,7 @@ module.exports = {
   notificacoesEventosAtivas,
   obterEmailsDestinatarios,
   enviarEmailNotificacao,
+  enviarEmailGenerico,
   enviarNotificacaoPush,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,

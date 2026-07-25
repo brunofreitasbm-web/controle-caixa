@@ -144,7 +144,7 @@ router.get('/colaboradores', (req, res) => {
 });
 
 router.post('/colaboradores', (req, res) => {
-  const { nome, role } = req.body;
+  const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao } = req.body;
   if (!nome || !role) {
     return res.status(400).json({ error: 'Nome e Perfil (role) são obrigatórios.' });
   }
@@ -152,8 +152,16 @@ router.post('/colaboradores', (req, res) => {
   const criadoEm = new Date().toISOString();
 
   db.run(
-    'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO UPDATE SET role = ?',
-    [nomeTrim, role, criadoEm, role],
+    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, criadoEm)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(nome) DO UPDATE SET
+       role = excluded.role,
+       unidade = excluded.unidade,
+       cpf = excluded.cpf,
+       dataNascimento = excluded.dataNascimento,
+       telefone = excluded.telefone,
+       dataAdmissao = excluded.dataAdmissao`,
+    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, nome: nomeTrim, role });

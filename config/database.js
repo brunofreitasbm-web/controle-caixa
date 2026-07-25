@@ -31,7 +31,9 @@ const camelCaseMap = {
   hasbiometricenrolled: 'hasBiometricEnrolled',
   tentativasfalhas: 'tentativasFalhas',
   bloqueadoate: 'bloqueadoAte',
-  ultimatentativaem: 'ultimaTentativaEm'
+  ultimatentativaem: 'ultimaTentativaEm',
+  datanascimento: 'dataNascimento',
+  dataadmissao: 'dataAdmissao'
 };
 
 function normalizeRow(row) {
@@ -451,6 +453,35 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE colaboradores ADD COLUMN hasBiometricEnrolled INTEGER DEFAULT 0', [], () => resolve());
+        });
+      });
+
+      // Dados pessoais do colaborador (Cadastro de Colaboradores em Configurações)
+      // — usados na Folha de Ponto (nome/CPF do trabalhador) e no filtro por
+      // unidade, que antes só existia "emprestado" do Módulo RH (perfis DISC).
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN unidade TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN cpf TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN dataNascimento TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN telefone TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN dataAdmissao TEXT', [], () => resolve());
         });
       });
 

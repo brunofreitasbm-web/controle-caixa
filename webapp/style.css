@@ -3567,28 +3567,115 @@ body.tema-fa .topbar {
   letter-spacing: 0.5px;
 }
 
-.disc-badge-d {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+/* Módulo RH/DISC: cores vivas e consistentes por letra, usadas em badges,
+   tabela, gráficos SVG (radar, mapa de talentos, distribuição) e nos cards
+   de insight. Definidas como var() pra JS conseguir ler o mesmo hex exato
+   via getComputedStyle e pintar o SVG sem duplicar a paleta em dois lugares. */
+:root {
+  --disc-d: #ef4444; /* Dominância — vermelho */
+  --disc-i: #f59e0b; /* Influência — âmbar/dourado */
+  --disc-s: #10b981; /* Estabilidade — verde-esmeralda */
+  --disc-c: #6366f1; /* Conformidade — índigo */
 }
 
-.disc-badge-i {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: #b45309;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
+/* Badges com fundo sólido vivo + texto branco (era um fundo quase transparente
+   com texto escuro — baixo contraste no tema escuro do módulo). */
+.disc-badge-d { background-color: var(--disc-d) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
+.disc-badge-i { background-color: var(--disc-i) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
+.disc-badge-s { background-color: var(--disc-s) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
+.disc-badge-c { background-color: var(--disc-c) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
 
-.disc-badge-s {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
+/* ---- Classes utilitárias que o Módulo RH usa mas o build estático do
+   Tailwind (webapp/tailwind-compiled.css, sem CLI/config no projeto) nunca
+   compilou — ficavam transparentes/invisíveis. Ver commit da correção
+   equivalente no filtro de Inventário para o mesmo diagnóstico. */
+.bg-red-950\/20 { background-color: #450a0a33 !important; }
+.bg-amber-950\/20 { background-color: #451a0333 !important; }
+.bg-emerald-950\/20 { background-color: #022c2233 !important; }
+.bg-indigo-950\/20 { background-color: #1e1b4b33 !important; }
+.border-red-900\/40 { border-color: #7f1d1d66 !important; }
+.border-amber-900\/40 { border-color: #78350f66 !important; }
+.border-emerald-900\/40 { border-color: #064e3b66 !important; }
+.border-indigo-900\/40 { border-color: #312e8166 !important; }
+.bg-red-500 { background-color: #ef4444 !important; }
+.bg-amber-500 { background-color: #f59e0b !important; }
+.bg-emerald-500 { background-color: #10b981 !important; }
+.text-red-300 { color: #fca5a5 !important; }
+.text-amber-300 { color: #fcd34d !important; }
+.text-emerald-300 { color: #6ee7b7 !important; }
 
-.disc-badge-c {
-  background-color: rgba(99, 102, 241, 0.15);
-  color: #4f46e5;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+/* ---- Componentes novos do Módulo RH: gráficos SVG e cards de análise ---- */
+.rh-chart-card {
+  background: #0F1420B3;
+  border: 1px solid #1F2A3D;
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+.rh-chart-card h4 {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #B9C6DE;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+.rh-chart-card p.rh-chart-sub {
+  font-size: 0.68rem;
+  color: #6C7C99;
+  margin-bottom: 0.75rem;
+}
+.rh-empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #6C7C99;
+  font-size: 0.75rem;
+}
+.rh-sales-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.rh-sales-badge-alto { background-color: #10b981 !important; color: #fff !important; }
+.rh-sales-badge-moderado { background-color: #f59e0b !important; color: #fff !important; }
+.rh-sales-badge-baixo { background-color: #4A5568 !important; color: #fff !important; }
+.rh-talent-dot {
+  cursor: pointer;
+  transition: r 0.15s ease, opacity 0.15s ease;
+}
+.rh-talent-dot:hover {
+  opacity: 0.85;
+}
+.rh-perfil-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 9, 16, 0.75);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.rh-perfil-modal {
+  background: #0F1420;
+  border: 1px solid #1F2A3D;
+  border-radius: 1.25rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 
 /* ==========================================================================

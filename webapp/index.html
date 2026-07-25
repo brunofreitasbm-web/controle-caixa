@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -349,10 +349,8 @@
         <span class="tab-text">Controle de Ponto</span>
       </button>
 
-      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores">
-        <span class="tab-icon"><i class="fa-solid fa-users-gear" style="color: #6366f1;"></i></span>
-        <span class="tab-text">Colaboradores</span>
-      </button>
+      <!-- "Colaboradores" saiu do menu lateral: agora é um submenu dentro de
+           Configurações (card lançador, mesmo padrão da Auditoria de Ações). -->
     </nav>
 
     <div class="sidebar-footer">
@@ -1309,11 +1307,29 @@
         <!-- Form Cadastro de Colaborador -->
         <form id="form-cadastrar-colaborador" class="form-card-inner" style="margin-top: 16px; margin-bottom: 24px; padding: 18px; background: var(--bg-card-alt, rgba(0,0,0,0.03)); border-radius: 12px; border: 1px solid var(--border-color, rgba(0,0,0,0.1));">
           <h3 style="margin-top:0; margin-bottom: 14px; font-size: 1.1rem;"><i class="fa-solid fa-user-plus"></i> Cadastrar / Atualizar Colaborador</h3>
-          <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
+
+          <h4 style="margin: 0 0 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7;">Dados Pessoais</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
             <div class="field">
               <label for="colab-nome">Nome do Colaborador *</label>
               <input type="text" id="colab-nome" placeholder="Ex: Maria" required>
             </div>
+            <div class="field">
+              <label for="colab-cpf">CPF</label>
+              <input type="text" id="colab-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
+            </div>
+            <div class="field">
+              <label for="colab-nascimento">Data de Nascimento</label>
+              <input type="date" id="colab-nascimento">
+            </div>
+            <div class="field">
+              <label for="colab-telefone">Telefone</label>
+              <input type="tel" id="colab-telefone" placeholder="(91) 90000-0000">
+            </div>
+          </div>
+
+          <h4 style="margin: 18px 0 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7;">Vínculo &amp; Acesso</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
             <div class="field">
               <label for="colab-role">Perfil / Função *</label>
               <select id="colab-role" required>
@@ -1324,11 +1340,33 @@
               </select>
             </div>
             <div class="field">
+              <label for="colab-unidade">Unidade / Loja</label>
+              <select id="colab-unidade">
+                <option value="">Não definida</option>
+                <optgroup label="Cacau Show">
+                  <option value="9175">9175 - Marambaia</option>
+                  <option value="9201">9201 - Mário Covas</option>
+                  <option value="4304">4304 - Icoaraci</option>
+                </optgroup>
+                <optgroup label="FaçaAmigos">
+                  <option value="fa-parque">FaçaAmigos - Parque Circuito</option>
+                  <option value="fa-playground">FaçaAmigos - ParqueShopping</option>
+                  <option value="fa-grao-para">FaçaAmigos - Grão-Pará</option>
+                </optgroup>
+                <option value="all">Todas as Lojas (Geral)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="colab-admissao">Data de Admissão</label>
+              <input type="date" id="colab-admissao">
+            </div>
+            <div class="field">
               <label for="colab-pin">PIN Inicial (4 dígitos - Opcional)</label>
               <input type="password" id="colab-pin" inputmode="numeric" maxlength="4" placeholder="Deixe em branco para criar no login">
             </div>
           </div>
-          <div style="margin-top: 16px; text-align: right;">
+          <div style="margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; align-items: center;">
+            <button type="button" id="btn-limpar-form-colab" class="btn-secondary">Limpar</button>
             <button type="submit" class="btn-primary">Salvar Colaborador</button>
           </div>
         </form>
@@ -1341,6 +1379,7 @@
                 <th>Nome</th>
                 <th>Perfil / Função</th>
                 <th>Status do PIN</th>
+                <th>Unidade / Loja</th>
                 <th style="text-align: right;">Ações</th>
               </tr>
             </thead>
@@ -2279,36 +2318,54 @@
       <div id="rh-subtab-dashboard" class="rh-subtab-panel hidden space-y-6">
         <!-- Cards de Visão Geral DISC -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="glass-card p-4 rounded-xl border border-red-900/40 bg-red-950/20 text-center">
+          <div class="glass-card p-4 rounded-xl border border-red-900/40 bg-red-950/20 text-center" style="border-top: 3px solid var(--disc-d);">
             <div class="text-2xl font-bold text-red-400" id="stat-disc-d">0</div>
             <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Dominância (D)</div>
             <div class="text-[9px] text-brand-400 mt-0.5">Execução & Liderança</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-amber-900/40 bg-amber-950/20 text-center">
+          <div class="glass-card p-4 rounded-xl border border-amber-900/40 bg-amber-950/20 text-center" style="border-top: 3px solid var(--disc-i);">
             <div class="text-2xl font-bold text-amber-400" id="stat-disc-i">0</div>
             <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Influência (I)</div>
             <div class="text-[9px] text-brand-400 mt-0.5">Comunicação & Vendas</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-center">
+          <div class="glass-card p-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-center" style="border-top: 3px solid var(--disc-s);">
             <div class="text-2xl font-bold text-emerald-400" id="stat-disc-s">0</div>
             <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Estabilidade (S)</div>
             <div class="text-[9px] text-brand-400 mt-0.5">Planejamento & Suporte</div>
           </div>
-          <div class="glass-card p-4 rounded-xl border border-indigo-900/40 bg-indigo-950/20 text-center">
+          <div class="glass-card p-4 rounded-xl border border-indigo-900/40 bg-indigo-950/20 text-center" style="border-top: 3px solid var(--disc-c);">
             <div class="text-2xl font-bold text-indigo-400" id="stat-disc-c">0</div>
             <div class="text-[10px] text-brand-300 uppercase tracking-wider font-extrabold mt-1">Conformidade (C)</div>
             <div class="text-[9px] text-brand-400 mt-0.5">Processos & Detalhes</div>
           </div>
         </div>
 
-        <!-- Distribuição Visual por Unidade -->
-        <div class="card space-y-4">
-          <h3 class="font-bold text-sm text-brand-200 flex items-center gap-2">
-            <i class="fa-solid fa-chart-bar text-indigo-400"></i> Distribuição Comportamental da Equipe
-          </h3>
-          <div id="rh-dashboard-bars-container" class="space-y-4">
-            <!-- Barras de progresso por traço -->
+        <!-- Gráfico Azimutal + Distribuição -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rh-chart-card">
+            <h4><i class="fa-solid fa-compass"></i> Gráfico Azimutal — Perfil Médio da Equipe</h4>
+            <p class="rh-chart-sub">Média dos 4 traços comportamentais da seleção atual (atualiza sozinho a cada perfil adicionado/editado).</p>
+            <div id="rh-radar-container"></div>
           </div>
+          <div class="rh-chart-card">
+            <h4><i class="fa-solid fa-chart-pie"></i> Distribuição de Perfis Predominantes</h4>
+            <p class="rh-chart-sub">Quantas pessoas têm cada traço como predominante.</p>
+            <div id="rh-distribuicao-container"></div>
+          </div>
+        </div>
+
+        <!-- Mapa de Talentos -->
+        <div class="rh-chart-card">
+          <h4><i class="fa-solid fa-map-location-dot"></i> Mapa de Talentos</h4>
+          <p class="rh-chart-sub">Posicionamento de cada colaborador(a) por ritmo de trabalho (rápido/assertivo × cauteloso/reflexivo) e foco (tarefa × pessoas). Clique num ponto para ver o perfil completo.</p>
+          <div id="rh-talentos-container" style="display:flex; justify-content:center;"></div>
+        </div>
+
+        <!-- Ranking de Aptidão Comercial -->
+        <div class="rh-chart-card">
+          <h4><i class="fa-solid fa-trophy"></i> Ranking de Aptidão Comercial</h4>
+          <p class="rh-chart-sub">Estimativa heurística com base no perfil DISC (peso maior em Influência e Dominância) — cruze sempre com o desempenho real de vendas antes de decidir.</p>
+          <div id="rh-ranking-vendas-container" class="space-y-2"></div>
         </div>
       </div>
 
@@ -2526,9 +2583,14 @@
           <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
             <div class="p-4 bg-brand-950 border-b border-brand-900 flex justify-between items-center">
               <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-list mr-1"></i> Histórico Mensal</h3>
-              <button type="button" id="btn-ponto-pdf" class="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-file-pdf"></i> Gerar Espelho de Ponto
-              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-ponto-pdf" class="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-file-pdf"></i> Gerar Espelho de Ponto
+                </button>
+                <button type="button" id="btn-ponto-email-contador" class="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition" title="Envia a folha de ponto (PDF) por e-mail para o contador cadastrado em Configurações">
+                  <i class="fa-solid fa-paper-plane"></i> Enviar ao Contador
+                </button>
+              </div>
             </div>
             
             <div class="overflow-x-auto">
@@ -2944,6 +3006,49 @@
             </div>
           </button>
 
+          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
+               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
+               então a visibilidade já é controlada por tabsPermitidas. -->
+          <button type="button" class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-users-gear"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
+          <!-- Card: Dados do Contador (emissão mensal da Folha de Ponto) — Owner -->
+          <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-file-invoice text-brand-500"></i> Dados do Contador (Folha de Ponto)
+            </h3>
+            <p class="text-xs text-muted mb-4">E-mail para onde a Folha de Ponto em PDF é enviada. O envio é feito por você, pelo botão <strong>"Enviar ao Contador"</strong> na aba Controle de Ponto — nada é disparado automaticamente.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="field">
+                <label class="block text-xs font-bold uppercase mb-1" for="config-contador-nome">Nome / Escritório</label>
+                <input type="text" id="config-contador-nome" placeholder="Ex: Contabilidade Silva" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+              </div>
+              <div class="field">
+                <label class="block text-xs font-bold uppercase mb-1" for="config-contador-email">E-mail do Contador *</label>
+                <input type="email" id="config-contador-email" placeholder="contador@escritorio.com.br" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+              </div>
+            </div>
+            <p class="text-[11px] text-muted mt-2">Para enviar a mais de um destinatário, separe os e-mails por vírgula.</p>
+
+            <div class="flex justify-end mt-4">
+              <button type="button" id="config-btn-save-contador" class="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Dados do Contador
+              </button>
+            </div>
+          </div>
+
           <!-- Card: Manutenção & Dados -->
           <div class="card p-6 rounded-2xl border border-border md:col-span-2">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
@@ -3333,6 +3438,6 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>

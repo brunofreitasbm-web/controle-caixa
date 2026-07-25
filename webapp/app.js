@@ -4900,7 +4900,16 @@ async function carregarColaboradores() {
       const res = await fetch(`${API_BASE}/colaboradores`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        USERS = data.map(c => ({ nome: c.nome, role: c.role, hasBiometricEnrolled: !!c.hasBiometricEnrolled }));
+        USERS = data.map(c => ({
+          nome: c.nome,
+          role: c.role,
+          hasBiometricEnrolled: !!c.hasBiometricEnrolled,
+          unidade: c.unidade || "",
+          cpf: c.cpf || "",
+          dataNascimento: c.dataNascimento || "",
+          telefone: c.telefone || "",
+          dataAdmissao: c.dataAdmissao || ""
+        }));
         localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
 
         // FORÇAR ATUALIZAÇÃO DO ROLE SE MUDOU NO BANCO
@@ -4973,9 +4982,19 @@ async function renderizarColaboradores() {
     owner: "background: rgba(76, 175, 80, 0.12); color: #2e7d32;"
   };
 
+  const unidadeLabels = {
+    "9175": "9175 - Marambaia",
+    "9201": "9201 - Mário Covas",
+    "4304": "4304 - Icoaraci",
+    "fa-parque": "FA - Parque Circuito",
+    "fa-playground": "FA - ParqueShopping",
+    "fa-grao-para": "FA - Grão-Pará",
+    "all": "Todas as Lojas"
+  };
+
   tbody.innerHTML = "";
   if (USERS.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px;">Nenhum colaborador encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum colaborador encontrado.</td></tr>`;
     return;
   }
 
@@ -4988,6 +5007,7 @@ async function renderizarColaboradores() {
 
     const labelRole = roleLabels[u.role] || u.role;
     const styleBadge = roleStyles[u.role] || "background: rgba(0,0,0,0.06); color: #333;";
+    const labelUnidade = unidadeLabels[u.unidade] || "—";
     const btnResetarBiometriaHtml = u.hasBiometricEnrolled
       ? `<button class="btn-mini-outline btn-resetar-biometria" data-nome="${u.nome}" style="margin-right: 6px;">🧑‍💻 Resetar Biometria</button>`
       : "";
@@ -4996,13 +5016,19 @@ async function renderizarColaboradores() {
       <td><strong>${u.nome}</strong></td>
       <td><span style="padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; display: inline-block; ${styleBadge}">${labelRole}</span></td>
       <td>${statusPinHtml}</td>
+      <td>${labelUnidade}</td>
       <td style="text-align: right; white-space: nowrap;">
+        <button class="btn-mini-outline btn-editar-colab" data-nome="${u.nome}" style="margin-right: 6px;">📝 Editar</button>
         <button class="btn-mini-outline btn-alterar-pin" data-nome="${u.nome}" style="margin-right: 6px;">✏️ Alterar PIN</button>
         ${btnResetarBiometriaHtml}
         <button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: #d9534f; border-color: #d9534f;">🗑️ Excluir</button>
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".btn-editar-colab").forEach(btn => {
+    btn.onclick = () => preencherFormColaboradorParaEdicao(btn.dataset.nome);
   });
 
   tbody.querySelectorAll(".btn-alterar-pin").forEach(btn => {
@@ -5142,6 +5168,29 @@ async function excluirColaborador(nome) {
   await renderizarColaboradores();
 }
 
+// Preenche o formulário com os dados de um colaborador já cadastrado —
+// reaproveita o mesmo form de cadastro pra edição (o backend já faz upsert
+// por nome via ON CONFLICT, então "salvar" com o nome existente atualiza).
+function preencherFormColaboradorParaEdicao(nome) {
+  const u = USERS.find(x => x.nome === nome);
+  if (!u) return;
+  document.getElementById("colab-nome").value = u.nome;
+  document.getElementById("colab-cpf").value = u.cpf || "";
+  document.getElementById("colab-nascimento").value = u.dataNascimento || "";
+  document.getElementById("colab-telefone").value = u.telefone || "";
+  document.getElementById("colab-role").value = u.role;
+  document.getElementById("colab-unidade").value = u.unidade || "";
+  document.getElementById("colab-admissao").value = u.dataAdmissao || "";
+  document.getElementById("colab-pin").value = "";
+  document.getElementById("form-cadastrar-colaborador").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast(`Editando ${nome} — altere os campos e clique em "Salvar Colaborador".`, "info");
+}
+
+const btnLimparFormColab = document.getElementById("btn-limpar-form-colab");
+if (btnLimparFormColab) {
+  btnLimparFormColab.onclick = () => document.getElementById("form-cadastrar-colaborador").reset();
+}
+
 const formCadastrarColab = document.getElementById("form-cadastrar-colaborador");
 if (formCadastrarColab) {
   formCadastrarColab.onsubmit = async (e) => {
@@ -5149,6 +5198,11 @@ if (formCadastrarColab) {
     const nome = document.getElementById("colab-nome").value.trim();
     const role = document.getElementById("colab-role").value;
     const pin = document.getElementById("colab-pin").value.trim();
+    const unidade = document.getElementById("colab-unidade").value;
+    const cpf = document.getElementById("colab-cpf").value.trim();
+    const dataNascimento = document.getElementById("colab-nascimento").value;
+    const telefone = document.getElementById("colab-telefone").value.trim();
+    const dataAdmissao = document.getElementById("colab-admissao").value;
 
     if (!nome) {
       showToast("Informe o nome do colaborador.", "erro");
@@ -5160,12 +5214,14 @@ if (formCadastrarColab) {
       return;
     }
 
+    const payload = { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao };
+
     if (API_ONLINE) {
       try {
         const res = await fetch(`${API_BASE}/colaboradores`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nome, role })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.error) {
@@ -5183,8 +5239,8 @@ if (formCadastrarColab) {
       }
     } else {
       const idx = USERS.findIndex(u => u.nome === nome);
-      if (idx >= 0) USERS[idx].role = role;
-      else USERS.push({ nome, role });
+      if (idx >= 0) Object.assign(USERS[idx], payload);
+      else USERS.push(payload);
       localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
       if (pin) {
         pins[nome] = pin;
@@ -9666,6 +9722,17 @@ function inicializarPainelConfiguracoes() {
     if (inputRaio) inputRaio.value = GEOFENCE_RAIO_METROS;
   }
 
+  // Card "Dados do Contador" (envio manual da Folha de Ponto) — Owner
+  const cardContador = document.getElementById("config-card-contador");
+  const mostrarContador = currentUser.role === "owner";
+  if (cardContador) cardContador.classList.toggle("hidden", !mostrarContador);
+  if (mostrarContador) {
+    const inputNome = document.getElementById("config-contador-nome");
+    const inputEmail = document.getElementById("config-contador-email");
+    if (inputNome) inputNome.value = config.contadorNome || "";
+    if (inputEmail) inputEmail.value = config.contadorEmail || "";
+  }
+
   atualizarCardArmazenamento();
 }
 
@@ -10056,6 +10123,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const btnSaveContador = document.getElementById("config-btn-save-contador");
+  if (btnSaveContador) {
+    btnSaveContador.addEventListener("click", async () => {
+      const inputNome = document.getElementById("config-contador-nome");
+      const inputEmail = document.getElementById("config-contador-email");
+      const nomeContador = inputNome ? inputNome.value.trim() : "";
+      const emailContador = inputEmail ? inputEmail.value.trim() : "";
+
+      if (!emailContador) {
+        showToast("Informe ao menos um e-mail do contador.", "erro");
+        return;
+      }
+
+      btnSaveContador.disabled = true;
+      const okNome = await salvarConfigAPI("contadorNome", nomeContador);
+      const okEmail = await salvarConfigAPI("contadorEmail", emailContador);
+      btnSaveContador.disabled = false;
+
+      config.contadorNome = nomeContador;
+      config.contadorEmail = emailContador;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+
+      showToast((okNome && okEmail)
+        ? "Dados do contador salvos!"
+        : "Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar.", (okNome && okEmail) ? "sucesso" : "erro");
+    });
+  }
+
   // Exportar Backup JSON
   const btnExport = document.getElementById("config-btn-export");
   if (btnExport) {
@@ -10145,6 +10240,200 @@ document.addEventListener("DOMContentLoaded", () => {
 // =========================================================================
 // --- MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC (EXCLUSIVO OWNER) ---
 // =========================================================================
+
+// Mesma paleta das var() em style.css (:root) — duplicada em hex aqui porque
+// os gráficos são SVG gerados via string, mais simples que ler getComputedStyle
+// pra cada desenho.
+const DISC_COLORS = { d: "#ef4444", i: "#f59e0b", s: "#10b981", c: "#6366f1" };
+const DISC_LABELS = { d: "Dominância", i: "Influência", s: "Estabilidade", c: "Conformidade" };
+const DISC_PERFIL_POR_LETRA = { d: "Dominante", i: "Influenciador", s: "Estável", c: "Conforme" };
+
+// Heurística de aptidão comercial: em vendas consultivas de varejo (a
+// realidade das lojas Cacau Show/FaçaAmigos), Influência (rapport, simpatia,
+// venda de adicionais) pesa mais, seguida de Dominância (iniciativa pra
+// abordar e fechar). Estabilidade e Conformidade contribuem menos pro
+// impulso comercial, mas não são descartadas (consistência de atendimento e
+// aderência a processos/promoções também importam). NÃO é um veredito
+// científico absoluto — é um apoio de leitura rápida pro Owner, sempre
+// cruzar com desempenho real de vendas antes de decidir.
+function calcularAptidaoVendas(prof) {
+  const score = Math.round((prof.i || 0) * 0.40 + (prof.d || 0) * 0.30 + (prof.s || 0) * 0.15 + (prof.c || 0) * 0.15);
+  if (score >= 68) return { score, nivel: "alto", label: "Alto Potencial Comercial" };
+  if (score >= 50) return { score, nivel: "moderado", label: "Potencial Comercial Moderado" };
+  return { score, nivel: "baixo", label: "Perfil de Suporte/Backoffice" };
+}
+
+// Gráfico Azimutal (radar de 4 eixos D-I-S-C), SVG puro sem dependência
+// externa. Retorna uma string HTML pronta pra innerHTML.
+function gerarSvgRadarDisc(valores, size = 260) {
+  const cx = size / 2, cy = size / 2;
+  const raioMax = size / 2 - 44;
+  const eixos = [
+    { key: "d", label: "D", angulo: -90 },
+    { key: "i", label: "I", angulo: 0 },
+    { key: "s", label: "S", angulo: 90 },
+    { key: "c", label: "C", angulo: 180 }
+  ];
+  const paraXY = (angGraus, r) => {
+    const rad = (angGraus * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+
+  const grades = [0.25, 0.5, 0.75, 1].map(frac => {
+    const pontos = eixos.map(e => paraXY(e.angulo, raioMax * frac).join(",")).join(" ");
+    return `<polygon points="${pontos}" fill="none" stroke="#1F2A3D" stroke-width="1"/>`;
+  }).join("");
+
+  const linhasEixo = eixos.map(e => {
+    const [x, y] = paraXY(e.angulo, raioMax);
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#1F2A3D" stroke-width="1"/>`;
+  }).join("");
+
+  const pontosPerfil = eixos.map(e => {
+    const v = Math.max(0, Math.min(100, valores[e.key] || 0));
+    const [x, y] = paraXY(e.angulo, raioMax * (v / 100));
+    return { x, y, v, ...e };
+  });
+
+  const poligonoPerfil = pontosPerfil.map(p => `${p.x},${p.y}`).join(" ");
+
+  const marcadores = pontosPerfil.map(p =>
+    `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${DISC_COLORS[p.key]}" stroke="#0F1420" stroke-width="1.5"/>`
+  ).join("");
+
+  const rotulos = eixos.map(e => {
+    const [x, y] = paraXY(e.angulo, raioMax + 26);
+    const v = Math.round(valores[e.key] || 0);
+    return `
+      <text x="${x}" y="${y - 6}" text-anchor="middle" font-size="13" font-weight="800" fill="${DISC_COLORS[e.key]}">${e.label}</text>
+      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#8DA0C4">${v}%</text>
+    `;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;">
+      ${grades}
+      ${linhasEixo}
+      <polygon points="${poligonoPerfil}" fill="#4A7FD340" stroke="#4A7FD3" stroke-width="2"/>
+      ${marcadores}
+      ${rotulos}
+    </svg>
+  `;
+}
+
+// Donut de distribuição: quantas pessoas têm cada letra como predominante.
+function gerarSvgDistribuicaoDisc(counts, size = 190) {
+  const total = (counts.d || 0) + (counts.i || 0) + (counts.s || 0) + (counts.c || 0);
+  if (total === 0) {
+    return `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+  const cx = size / 2, cy = size / 2, r = size / 2 - 16, circ = 2 * Math.PI * r;
+  const ordem = [["d", "Dominante"], ["i", "Influenciador"], ["s", "Estável"], ["c", "Conforme"]];
+  let acumulado = 0;
+  const arcos = ordem.map(([key]) => {
+    const val = counts[key] || 0;
+    if (val === 0) return "";
+    const comprimento = (val / total) * circ;
+    const arco = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${DISC_COLORS[key]}" stroke-width="24" stroke-dasharray="${comprimento} ${circ - comprimento}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    acumulado += comprimento;
+    return arco;
+  }).join("");
+
+  const legenda = ordem.map(([key, label]) => {
+    const val = counts[key] || 0;
+    const pct = Math.round((val / total) * 100);
+    return `
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:#B9C6DE;">
+        <span style="width:10px;height:10px;border-radius:3px;background:${DISC_COLORS[key]};display:inline-block;flex-shrink:0;"></span>
+        <span>${label}: <strong style="color:#fff">${val}</strong> <span style="color:#6C7C99">(${pct}%)</span></span>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
+      <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+        ${arcos}
+        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${total}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#6C7C99" letter-spacing="1">PESSOAS</text>
+      </svg>
+      <div style="display:flex;flex-direction:column;gap:8px;">${legenda}</div>
+    </div>
+  `;
+}
+
+// Mapa de Talentos: cada colaborador(a) plotado por ritmo (eixo Y: rápido/
+// assertivo D+I no topo × cauteloso/reflexivo S+C embaixo) e foco (eixo X:
+// tarefa D+C à esquerda × pessoas I+S à direita) — os 4 quadrantes resultam
+// exatamente nas 4 letras do DISC. Clicar num ponto abre o perfil completo.
+function gerarSvgMapaTalentos(pessoas, size = 360) {
+  if (!pessoas.length) {
+    return `<div class="rh-empty-state"><i class="fa-solid fa-map-location-dot"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+  const pad = 26;
+  const area = size - pad * 2;
+  const meio = area / 2;
+  const cx = size / 2, cy = size / 2;
+
+  const quadrantes = [
+    { x: pad, y: pad, cor: DISC_COLORS.d, letra: "D" },
+    { x: pad + meio, y: pad, cor: DISC_COLORS.i, letra: "I" },
+    { x: pad + meio, y: pad + meio, cor: DISC_COLORS.s, letra: "S" },
+    { x: pad, y: pad + meio, cor: DISC_COLORS.c, letra: "C" }
+  ];
+  const fundos = quadrantes.map(q => `<rect x="${q.x}" y="${q.y}" width="${meio}" height="${meio}" fill="${q.cor}14"/>`).join("");
+  const letrasQuadrante = quadrantes.map(q =>
+    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}22">${q.letra}</text>`
+  ).join("");
+
+  const eixos = `
+    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#2A3550" stroke-width="1"/>
+    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#2A3550" stroke-width="1"/>
+  `;
+
+  const rotulosExtremos = `
+    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#6C7C99">◀ Foco em Tarefa</text>
+    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#6C7C99">Foco em Pessoas ▶</text>
+    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">▲ Ritmo Rápido/Assertivo</text>
+    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">Ritmo Cauteloso/Reflexivo ▼</text>
+  `;
+
+  // Distribui pontos que caem muito próximos (mesmo perfil arredondado) num
+  // pequeno leque, pra não ficarem um em cima do outro e sumirem.
+  const posicoesUsadas = [];
+  const pontos = pessoas.map(p => {
+    const diffX = (p.i + p.s) - (p.d + p.c);
+    const diffY = (p.d + p.i) - (p.s + p.c);
+    const xNorm = (diffX + 200) / 400;
+    const yNorm = (diffY + 200) / 400;
+    let px = pad + xNorm * area;
+    let py = pad + (1 - yNorm) * area;
+
+    const colisao = posicoesUsadas.find(pos => Math.hypot(pos.px - px, pos.py - py) < 14);
+    if (colisao) {
+      colisao.n = (colisao.n || 1) + 1;
+      const ang = colisao.n * 2.4;
+      px += Math.cos(ang) * 10;
+      py += Math.sin(ang) * 10;
+    } else {
+      posicoesUsadas.push({ px, py, n: 1 });
+    }
+
+    const cor = DISC_COLORS[p.dominante] || "#94A3B8";
+    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#0F1420" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;" id="rh-talentos-svg">
+      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#0B0F18"/>
+      ${fundos}
+      ${letrasQuadrante}
+      ${eixos}
+      ${rotulosExtremos}
+      ${pontos}
+    </svg>
+  `;
+}
 
 const DISC_PROFILES_KEY = "cacaushow_disc_profiles_v1";
 
@@ -10279,6 +10568,9 @@ function renderRhTable() {
         <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1" title="Enviar convite via WhatsApp">
           <i class="fa-brands fa-whatsapp"></i> Convidar
         </a>
+        <button class="px-2 py-1 rounded bg-brand-900 hover:bg-brand-800 border border-brand-700 text-brand-200 text-[10px] font-bold btn-ver-perfil-disc" data-user="${c.nome}" title="Ver radar e aptidão comercial">
+          <i class="fa-solid fa-chart-simple"></i> Perfil
+        </button>
         <button class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 text-[10px] font-bold btn-edit-disc" data-user="${c.nome}" title="Ajustar valores DISC">
           <i class="fa-solid fa-pen"></i> Ajustar
         </button>
@@ -10348,6 +10640,11 @@ function renderRhTable() {
     });
   });
 
+  // Event Listeners para abrir o perfil individual (radar + aptidão comercial)
+  document.querySelectorAll(".btn-ver-perfil-disc").forEach(btn => {
+    btn.addEventListener("click", () => abrirPerfilIndividualRh(btn.dataset.user));
+  });
+
   // Event Listeners para remoção do Módulo RH
   document.querySelectorAll(".btn-remove-rh-disc").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -10369,142 +10666,318 @@ function renderRhTable() {
   });
 }
 
-function renderRhDashboard() {
+const RH_STORE_TITULOS = {
+  "all": "Geral (Todas as Unidades)",
+  "9175": "Loja 9175 — Marambaia",
+  "9201": "Loja 9201 — Mário Covas",
+  "4304": "Loja 4304 — Icoaraci",
+  "fa-parque": "FaçaAmigos — Parque Circuito",
+  "fa-playground": "FaçaAmigos — Playground",
+  "fa-grao-para": "FaçaAmigos — Grão-Pará"
+};
+
+// Funil único de leitura dos dados pro Dashboard/Insights/Mapa de Talentos —
+// aplica o mesmo filtro de loja e exclusão que a tabela usa, então tudo que
+// consome essa lista fica automaticamente sincronizado quando um perfil é
+// adicionado/editado/removido (todo caminho de escrita chama renderRhModulo()
+// no final, que rechama renderRhDashboard()/renderRhInsights()).
+function obterPessoasFiltradasRh() {
   const profiles = loadDiscProfiles();
   const filterStore = document.getElementById("rh-store-filter")?.value || "all";
   const colabs = obterListaColaboradores();
+  const letraPorPerfil = { "Dominante": "d", "Influenciador": "i", "Estável": "s", "Conforme": "c" };
 
-  let sumD = 0, sumI = 0, sumS = 0, sumC = 0, total = 0;
-
-  colabs.forEach(c => {
-    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25 };
-    if (prof && prof.excludedFromRh) return; // Ignorar no Dashboard do RH
+  return colabs.reduce((acc, c) => {
+    const prof = profiles[c.nome];
+    if (prof && prof.excludedFromRh) return acc;
 
     const store = getStoreForColab(c.nome);
-    if (filterStore !== "all" && store !== "all" && store !== filterStore) return;
+    if (filterStore !== "all" && store !== "all" && store !== filterStore) return acc;
 
-    sumD += prof.d || 0;
-    sumI += prof.i || 0;
-    sumS += prof.s || 0;
-    sumC += prof.c || 0;
-    total++;
-  });
+    const d = prof ? (prof.d || 0) : 25;
+    const i = prof ? (prof.i || 0) : 25;
+    const s = prof ? (prof.s || 0) : 25;
+    const cVal = prof ? (prof.c || 0) : 25;
+    const perfilPredominante = prof ? prof.perfilPredominante : "Equilibrado";
 
-  const avgD = total ? Math.round(sumD / total) : 0;
-  const avgI = total ? Math.round(sumI / total) : 0;
-  const avgS = total ? Math.round(sumS / total) : 0;
-  const avgC = total ? Math.round(sumC / total) : 0;
+    acc.push({
+      nome: c.nome,
+      d, i, s, c: cVal,
+      perfilPredominante,
+      dominante: letraPorPerfil[perfilPredominante] || null,
+      store,
+      temLaudo: !!prof && prof.dataAtualizacao !== undefined
+    });
+    return acc;
+  }, []);
+}
+
+function renderRhDashboard() {
+  const pessoas = obterPessoasFiltradasRh();
+  const total = pessoas.length;
+
+  const somaD = pessoas.reduce((s, p) => s + p.d, 0);
+  const somaI = pessoas.reduce((s, p) => s + p.i, 0);
+  const somaS = pessoas.reduce((s, p) => s + p.s, 0);
+  const somaC = pessoas.reduce((s, p) => s + p.c, 0);
+  const avgD = total ? Math.round(somaD / total) : 0;
+  const avgI = total ? Math.round(somaI / total) : 0;
+  const avgS = total ? Math.round(somaS / total) : 0;
+  const avgC = total ? Math.round(somaC / total) : 0;
 
   const elD = document.getElementById("stat-disc-d");
   const elI = document.getElementById("stat-disc-i");
   const elS = document.getElementById("stat-disc-s");
   const elC = document.getElementById("stat-disc-c");
-
   if (elD) elD.textContent = `${avgD}%`;
   if (elI) elI.textContent = `${avgI}%`;
   if (elS) elS.textContent = `${avgS}%`;
   if (elC) elC.textContent = `${avgC}%`;
 
-  const containerBars = document.getElementById("rh-dashboard-bars-container");
-  if (containerBars) {
-    containerBars.innerHTML = `
-      <div class="space-y-1">
-        <div class="flex justify-between text-xs font-bold text-red-300">
-          <span>Dominância (Execução & Decisão)</span>
-          <span>${avgD}%</span>
+  // Gráfico Azimutal — perfil médio da seleção atual
+  const radarContainer = document.getElementById("rh-radar-container");
+  if (radarContainer) {
+    radarContainer.innerHTML = total
+      ? gerarSvgRadarDisc({ d: avgD, i: avgI, s: avgS, c: avgC })
+      : `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+
+  // Distribuição de perfis predominantes
+  const distContainer = document.getElementById("rh-distribuicao-container");
+  if (distContainer) {
+    const counts = { d: 0, i: 0, s: 0, c: 0 };
+    pessoas.forEach(p => { if (p.dominante) counts[p.dominante]++; });
+    distContainer.innerHTML = gerarSvgDistribuicaoDisc(counts);
+  }
+
+  // Mapa de Talentos
+  const talentosContainer = document.getElementById("rh-talentos-container");
+  if (talentosContainer) {
+    talentosContainer.innerHTML = gerarSvgMapaTalentos(pessoas);
+    talentosContainer.querySelectorAll(".rh-talent-dot").forEach(dot => {
+      dot.addEventListener("click", () => abrirPerfilIndividualRh(dot.dataset.nome));
+    });
+  }
+
+  // Ranking de Aptidão Comercial
+  const rankingContainer = document.getElementById("rh-ranking-vendas-container");
+  if (rankingContainer) {
+    if (!total) {
+      rankingContainer.innerHTML = `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+    } else {
+      const ranking = pessoas
+        .map(p => ({ ...p, aptidao: calcularAptidaoVendas(p) }))
+        .sort((a, b) => b.aptidao.score - a.aptidao.score);
+
+      rankingContainer.innerHTML = ranking.map((p, idx) => `
+        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:#131A28;cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
+          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:#6C7C99;">${idx + 1}º</span>
+          <span style="width:28px;height:28px;border-radius:50%;background:${DISC_COLORS[p.dominante] || '#4A5568'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0;">${(p.dominante || '?').toUpperCase()}</span>
+          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#E4EAF5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
+          <div style="flex:2;min-width:60px;">
+            <div style="width:100%;background:#1F2A3D;border-radius:999px;height:8px;overflow:hidden;">
+              <div style="width:${p.aptidao.score}%;height:100%;background:${p.aptidao.nivel === 'alto' ? '#10b981' : p.aptidao.nivel === 'moderado' ? '#f59e0b' : '#4A5568'};border-radius:999px;"></div>
+            </div>
+          </div>
+          <span class="rh-sales-badge rh-sales-badge-${p.aptidao.nivel}">${p.aptidao.score}%</span>
         </div>
-        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
-          <div class="bg-red-500 h-3 rounded-full transition-all duration-500" style="width: ${avgD}%"></div>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <div class="flex justify-between text-xs font-bold text-amber-300">
-          <span>Influência (Comunicação & Vendas)</span>
-          <span>${avgI}%</span>
-        </div>
-        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
-          <div class="bg-amber-500 h-3 rounded-full transition-all duration-500" style="width: ${avgI}%"></div>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <div class="flex justify-between text-xs font-bold text-emerald-300">
-          <span>Estabilidade (Planejamento & Consistência)</span>
-          <span>${avgS}%</span>
-        </div>
-        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
-          <div class="bg-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${avgS}%"></div>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <div class="flex justify-between text-xs font-bold text-indigo-300">
-          <span>Conformidade (Processos & Rigor Técnico)</span>
-          <span>${avgC}%</span>
-        </div>
-        <div class="w-full bg-brand-900 rounded-full h-3 overflow-hidden border border-brand-800">
-          <div class="bg-indigo-500 h-3 rounded-full transition-all duration-500" style="width: ${avgC}%"></div>
-        </div>
-      </div>
-    `;
+      `).join("");
+
+      rankingContainer.querySelectorAll(".rh-ranking-row").forEach(row => {
+        row.addEventListener("click", () => abrirPerfilIndividualRh(row.dataset.nome));
+      });
+    }
   }
 }
 
+// Gera texto de insight variando com os números reais da seleção atual —
+// nada aqui é hardcoded, tudo recalcula a cada chamada (loja filtrada, novo
+// perfil importado, edição manual etc.), porque renderRhModulo() sempre
+// rechama esta função depois de qualquer escrita nos dados.
 function renderRhInsights() {
   const container = document.getElementById("rh-insights-container");
   if (!container) return;
 
   const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const storeTitle = RH_STORE_TITULOS[filterStore] || "Seleção Atual";
+  const pessoas = obterPessoasFiltradasRh();
+  const total = pessoas.length;
 
-  let storeTitle = "Geral (Todas as Unidades)";
-  if (filterStore === "9175") storeTitle = "Loja 9175 - Marambaia";
-  else if (filterStore === "9201") storeTitle = "Loja 9201 - Mário Covas";
-  else if (filterStore === "4304") storeTitle = "Loja 4304 - Icoaraci";
-  else if (filterStore === "fa-parque") storeTitle = "Faça Amigos - Parque Circuito";
-  else if (filterStore === "fa-playground") storeTitle = "Faça Amigos - Playground";
-  else if (filterStore === "fa-grao-para") storeTitle = "Faça Amigos - Grão-Pará";
-
-  container.innerHTML = `
-    <!-- Card 1: Perfil da Equipe -->
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-        <i class="fa-solid fa-bullseye text-base"></i> Diagnóstico da Unidade
+  if (!total) {
+    container.innerHTML = `
+      <div class="glass-card p-6 rounded-2xl border border-brand-800 bg-brand-950/70 md:col-span-3 text-center">
+        <i class="fa-solid fa-user-plus text-2xl text-indigo-400 mb-2"></i>
+        <p class="text-xs text-brand-300">Nenhum colaborador com perfil DISC nesta seleção ainda. Importe um laudo em PDF ou envie o convite por WhatsApp na aba "Perfis &amp; Upload" para começar a ver os insights aqui.</p>
       </div>
-      <div class="text-xs text-brand-200 font-bold">${storeTitle}</div>
+    `;
+    return;
+  }
+
+  const somaD = pessoas.reduce((s, p) => s + p.d, 0);
+  const somaI = pessoas.reduce((s, p) => s + p.i, 0);
+  const somaS = pessoas.reduce((s, p) => s + p.s, 0);
+  const somaC = pessoas.reduce((s, p) => s + p.c, 0);
+  const medias = { d: somaD / total, i: somaI / total, s: somaS / total, c: somaC / total };
+
+  const counts = { d: 0, i: 0, s: 0, c: 0 };
+  pessoas.forEach(p => { if (p.dominante) counts[p.dominante]++; });
+
+  const letraMaisComum = Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a, "d");
+  const letraMenosComum = Object.keys(medias).reduce((a, b) => medias[b] < medias[a] ? b : a, "d");
+
+  const ranking = pessoas.map(p => ({ ...p, aptidao: calcularAptidaoVendas(p) })).sort((a, b) => b.aptidao.score - a.aptidao.score);
+  const mediaAptidao = Math.round(ranking.reduce((s, p) => s + p.aptidao.score, 0) / total);
+  const topVendas = ranking[0];
+  const precisaCoaching = ranking.filter(p => p.aptidao.nivel === "baixo");
+
+  // --- Card 1: Diagnóstico de Composição ---
+  const cardDiagnostico = `
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_COLORS[letraMaisComum]}">
+        <i class="fa-solid fa-bullseye text-base"></i> Diagnóstico de Composição
+      </div>
+      <div class="text-xs text-brand-200 font-bold">${storeTitle} · ${total} pessoa${total > 1 ? "s" : ""}</div>
       <p class="text-xs text-brand-300 leading-relaxed">
-        A equipe apresenta forte traço de <strong>Influência (I)</strong> e <strong>Conformidade (C)</strong>. Excelente equilíbrio entre atendimento comunicativo ao cliente e atenção rigorosa ao caixa e inventário.
+        O traço predominante da equipe é <strong style="color:${DISC_COLORS[letraMaisComum]}">${DISC_LABELS[letraMaisComum]} (${letraMaisComum.toUpperCase()})</strong>,
+        presente em ${counts[letraMaisComum]} de ${total} pessoa${total > 1 ? "s" : ""}. A média geral é
+        D ${Math.round(medias.d)}% · I ${Math.round(medias.i)}% · S ${Math.round(medias.s)}% · C ${Math.round(medias.c)}%.
       </p>
       <div class="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-300 text-[11px]">
-        <i class="fa-solid fa-circle-check"></i> **Ponto Forte:** Baixo índice de divergências e alta satisfação de atendimento.
-      </div>
-    </div>
-
-    <!-- Card 2: Alertas de Formação de Time -->
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
-        <i class="fa-solid fa-triangle-exclamation text-base"></i> Oportunidade de Equilíbrio
-      </div>
-      <div class="text-xs text-brand-200 font-bold">Desenvolvimento & Liderança</div>
-      <p class="text-xs text-brand-300 leading-relaxed">
-        Recomenda-se incentivar a autonomia e tomada de decisão ágil <strong>(Dominância D)</strong> em horários de pico ou grandes campanhas promocionais.
-      </p>
-      <div class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-900/60 text-amber-300 text-[11px]">
-        <i class="fa-solid fa-lightbulb"></i> **Sugestão:** Treinamentos de liderança situacional para as consultoras de fechamento.
-      </div>
-    </div>
-
-    <!-- Card 3: Perfil Ideal para Novas Contratações -->
-    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
-      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-        <i class="fa-solid fa-user-plus text-base"></i> Perfil para Próxima Vaga
-      </div>
-      <div class="text-xs text-brand-200 font-bold">Perfil Alvo para Seleção</div>
-      <p class="text-xs text-brand-300 leading-relaxed">
-        Para manter a equipe complementar nesta loja, priorize candidatas com alto traço <strong>I (Influenciador)</strong> para vendas proativas de adicionais e panetones/chocolates em datas comemorativas.
-      </p>
-      <div class="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-900/60 text-indigo-300 text-[11px]">
-        <i class="fa-solid fa-award"></i> **Fit Cultural:** Foco em simpatia, extroversão e organização de balcão.
+        <i class="fa-solid fa-circle-check"></i> <strong>Ponto forte:</strong> equipe com perfil predominante bem definido facilita treinamentos direcionados em vez de genéricos.
       </div>
     </div>
   `;
+
+  // --- Card 2: Lacuna / oportunidade de contratação ---
+  const cardLacuna = `
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_COLORS[letraMenosComum]}">
+        <i class="fa-solid fa-triangle-exclamation text-base"></i> Lacuna de Perfil
+      </div>
+      <div class="text-xs text-brand-200 font-bold">Traço menos presente: ${DISC_LABELS[letraMenosComum]} (${letraMenosComum.toUpperCase()})</div>
+      <p class="text-xs text-brand-300 leading-relaxed">
+        A média de <strong style="color:${DISC_COLORS[letraMenosComum]}">${DISC_LABELS[letraMenosComum]}</strong> é a mais baixa do grupo (${Math.round(medias[letraMenosComum])}%).
+        ${letraMenosComum === "d" ? "Times com pouco D tendem a demorar mais pra tomar decisão em horário de pico ou vitrine promocional." : ""}
+        ${letraMenosComum === "i" ? "Times com pouco I abordam menos o cliente de forma proativa, perdendo venda de adicionais." : ""}
+        ${letraMenosComum === "s" ? "Times com pouco S tendem a ter mais variação de humor/ritmo no atendimento ao longo do dia." : ""}
+        ${letraMenosComum === "c" ? "Times com pouco C tendem a ter mais divergência de caixa/inventário por falta de rigor em processo." : ""}
+      </p>
+      <div class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-900/60 text-amber-300 text-[11px]">
+        <i class="fa-solid fa-lightbulb"></i> <strong>Sugestão:</strong> priorize esse traço na próxima contratação, ou reforce com treinamento situacional quem já está na equipe.
+      </div>
+    </div>
+  `;
+
+  // --- Card 3: Prontidão comercial ---
+  const cardVendas = `
+    <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3">
+      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+        <i class="fa-solid fa-chart-line text-base"></i> Prontidão Comercial
+      </div>
+      <div class="text-xs text-brand-200 font-bold">Aptidão comercial média: ${mediaAptidao}%</div>
+      <p class="text-xs text-brand-300 leading-relaxed">
+        ${topVendas ? `<strong style="color:${DISC_COLORS[topVendas.dominante] || '#fff'}">${topVendas.nome}</strong> lidera o ranking de aptidão comercial (${topVendas.aptidao.score}%) — considere pra referência de mentoria de venda de adicionais.` : ""}
+        ${precisaCoaching.length > 0 ? ` ${precisaCoaching.length} pessoa${precisaCoaching.length > 1 ? "s" : ""} com perfil mais voltado a suporte/backoffice do que abordagem comercial direta — pode ser melhor aproveitada em conferência, estoque ou apoio de caixa.` : " Toda a equipe atual tem algum grau de aptidão comercial pelo perfil DISC."}
+      </p>
+      <div class="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-900/60 text-indigo-300 text-[11px]">
+        <i class="fa-solid fa-award"></i> <strong>Fit ideal p/ próxima vaga de vendas:</strong> priorize candidatas com <strong>I</strong> alto e <strong>D</strong> moderado — combinação associada a mais iniciativa comercial nesta heurística.
+      </div>
+    </div>
+  `;
+
+  const cards = [cardDiagnostico, cardLacuna, cardVendas];
+
+  // --- Card 4 (só aparece com "Todas as Lojas"): comparativo entre unidades ---
+  if (filterStore === "all") {
+    const porLoja = {};
+    pessoas.forEach(p => {
+      if (p.store === "all") return; // pessoas sem loja fixa (ex.: Owner) não entram no comparativo
+      if (!porLoja[p.store]) porLoja[p.store] = [];
+      porLoja[p.store].push(p);
+    });
+    const lojasComGente = Object.keys(porLoja).filter(k => porLoja[k].length > 0);
+
+    if (lojasComGente.length >= 2) {
+      const comparativo = lojasComGente.map(lojaKey => {
+        const grupo = porLoja[lojaKey];
+        const aptidoes = grupo.map(p => calcularAptidaoVendas(p).score);
+        const media = Math.round(aptidoes.reduce((a, b) => a + b, 0) / grupo.length);
+        return { lojaKey, media, qtd: grupo.length };
+      }).sort((a, b) => b.media - a.media);
+
+      const melhor = comparativo[0];
+      const pior = comparativo[comparativo.length - 1];
+
+      cards.push(`
+        <div class="glass-card p-5 rounded-2xl border border-brand-800 bg-brand-950/70 space-y-3 md:col-span-3">
+          <div class="flex items-center gap-2 text-indigo-300 font-bold text-sm">
+            <i class="fa-solid fa-store text-base"></i> Comparativo entre Unidades — Prontidão Comercial
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${comparativo.map(c => `
+              <div class="p-3 rounded-xl bg-brand-900/40 border border-brand-800/80 text-center">
+                <div class="text-[10px] text-brand-400 uppercase font-bold tracking-wide">${(RH_STORE_TITULOS[c.lojaKey] || c.lojaKey).replace(/^Loja \d+ — /, "").replace(/^FaçaAmigos — /, "FA · ")}</div>
+                <div class="text-xl font-black mt-1" style="color:${c.lojaKey === melhor.lojaKey ? '#10b981' : c.lojaKey === pior.lojaKey ? '#f59e0b' : '#E4EAF5'}">${c.media}%</div>
+                <div class="text-[10px] text-brand-500">${c.qtd} pessoa${c.qtd > 1 ? "s" : ""}</div>
+              </div>
+            `).join("")}
+          </div>
+          <p class="text-xs text-brand-300 leading-relaxed">
+            <strong style="color:#10b981">${RH_STORE_TITULOS[melhor.lojaKey] || melhor.lojaKey}</strong> tem a composição mais orientada a vendas (${melhor.media}%).
+            <strong style="color:#f59e0b">${RH_STORE_TITULOS[pior.lojaKey] || pior.lojaKey}</strong> é a que mais se beneficiaria de reforço em Influência/Dominância na equipe (${pior.media}%).
+          </p>
+        </div>
+      `);
+    }
+  }
+
+  container.innerHTML = cards.join("");
+}
+
+// Modal com o perfil individual completo (radar + aptidão comercial) —
+// aberto a partir de um clique no Mapa de Talentos ou no Ranking Comercial.
+function abrirPerfilIndividualRh(nome) {
+  const profiles = loadDiscProfiles();
+  const prof = profiles[nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
+  const aptidao = calcularAptidaoVendas(prof);
+  const letraPorPerfil = { "Dominante": "d", "Influenciador": "i", "Estável": "s", "Conforme": "c" };
+  const letra = letraPorPerfil[prof.perfilPredominante];
+  const cor = DISC_COLORS[letra] || "#4A5568";
+
+  const existente = document.getElementById("rh-perfil-modal-overlay");
+  if (existente) existente.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "rh-perfil-modal-overlay";
+  overlay.className = "rh-perfil-modal-overlay";
+  overlay.innerHTML = `
+    <div class="rh-perfil-modal">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div>
+          <h3 style="font-size:1rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
+            <span style="width:34px;height:34px;border-radius:50%;background:${cor};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${(letra || "?").toUpperCase()}</span>
+            ${nome}
+          </h3>
+          <span class="disc-badge disc-badge-${letra || 'c'}" style="margin-top:6px;">${prof.perfilPredominante}</span>
+        </div>
+        <button id="rh-perfil-modal-fechar" style="background:#1F2A3D;border:none;color:#B9C6DE;width:28px;height:28px;border-radius:50%;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>
+      <div id="rh-perfil-modal-radar"></div>
+      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#131A28;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:#B9C6DE;font-weight:700;">Aptidão Comercial (heurística DISC)</span>
+        <span class="rh-sales-badge rh-sales-badge-${aptidao.nivel}">${aptidao.label} · ${aptidao.score}%</span>
+      </div>
+      <p style="font-size:10.5px;color:#6C7C99;margin-top:10px;line-height:1.5;">
+        Estimativa com base no perfil DISC (peso maior pra Influência e Dominância, típico de vendas consultivas de varejo). Não substitui avaliação de desempenho real — use como apoio de leitura rápida.
+      </p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById("rh-perfil-modal-radar").innerHTML = gerarSvgRadarDisc({ d: prof.d, i: prof.i, s: prof.s, c: prof.c }, 220);
+
+  const fechar = () => overlay.remove();
+  document.getElementById("rh-perfil-modal-fechar").addEventListener("click", fechar);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) fechar(); });
 }
 
 // Modal de edição manual de DISC
@@ -11010,6 +11483,8 @@ function inicializarAbaPonto() {
 
   // PDF report listener
   document.getElementById("btn-ponto-pdf").onclick = exportarEspelhoPontoPDF;
+  const btnPontoEmailContador = document.getElementById("btn-ponto-email-contador");
+  if (btnPontoEmailContador) btnPontoEmailContador.onclick = enviarFolhaPontoPorEmailContador;
 
   // Relatório por Operação (Líder de Operações/Owner)
   const relatorioTabs = document.querySelectorAll(".ponto-relatorio-tab");
@@ -12111,40 +12586,46 @@ async function carregarRelatorioPontoOperacao(operacao) {
   }
 }
 
-async function exportarEspelhoPontoPDF() {
-  if (!currentUser) return;
+// Monta o PDF do Espelho de Ponto e devolve o `doc` do jsPDF (sem salvar) —
+// reaproveitado tanto pelo download direto quanto pelo envio por e-mail ao
+// contador, pra não duplicar o layout em dois lugares.
+async function gerarDocEspelhoPontoPDF() {
   const { jsPDF } = window.jspdf;
-  
+
   inicializarPontoDb();
   const records = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
-  
+
   const doc = new jsPDF();
-  
+
   // Colors & Styles
   doc.setFillColor(74, 18, 26); // Burgundy primary color
   doc.rect(0, 0, 210, 40, "F");
-  
+
   doc.setTextColor(255, 255, 255);
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(22);
   doc.text("ESPELHO DE PONTO ELETRÔNICO", 15, 18);
-  
+
   doc.setFontSize(10);
   doc.setFont("Helvetica", "normal");
   doc.text(`Portaria 671/2021 MTP - Identificação e Controle de Jornada`, 15, 28);
   doc.text(`Emissão: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`, 150, 28);
 
-  // Colaborador Info
+  // Colaborador Info — dados pessoais, sem a unidade/loja (a folha de ponto
+  // identifica o trabalhador, não onde ele bateu ponto naquele dia).
   doc.setTextColor(51, 51, 51);
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(12);
   doc.text("DADOS DO TRABALHADOR", 15, 52);
-  
+
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(10);
   doc.text(`Nome do Colaborador: ${currentUser.nome}`, 15, 60);
   doc.text(`Cargo / Função: ${currentUser.role.toUpperCase()}`, 15, 66);
-  doc.text(`Operação / Loja Ativa: Loja ${getLojaNomePorCodigo(currentStore)}`, 15, 72);
+  doc.text(`CPF: ${currentUser.cpf || "Não informado"}`, 15, 72);
+  if (currentUser.dataAdmissao) {
+    doc.text(`Data de Admissão: ${formatDate(new Date(currentUser.dataAdmissao + "T12:00:00"))}`, 110, 72);
+  }
 
   // Table header
   doc.setFillColor(240, 240, 240);
@@ -12225,7 +12706,64 @@ async function exportarEspelhoPontoPDF() {
   doc.text("Assinatura do Colaborador(a)", 40, y);
   doc.text("Assinatura Cacau Show / Gestor", 135, y);
 
-  doc.save(`Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`);
+  const nomeArquivo = `Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`;
+  return { doc, nomeArquivo };
+}
+
+async function exportarEspelhoPontoPDF() {
+  if (!currentUser) return;
+  const { doc, nomeArquivo } = await gerarDocEspelhoPontoPDF();
+  doc.save(nomeArquivo);
+}
+
+// Gera a mesma Folha de Ponto e manda por e-mail pro contador cadastrado em
+// Configurações — clique manual, sem agendamento automático no servidor.
+async function enviarFolhaPontoPorEmailContador() {
+  if (!currentUser) return;
+
+  const emailContador = (config && config.contadorEmail) || "";
+  if (!emailContador) {
+    showModal("Nenhum e-mail de contador cadastrado ainda. Configure em Configurações → Dados do Contador antes de enviar.", { icon: "⚠️", title: "Contador não configurado" });
+    return;
+  }
+
+  const btn = document.getElementById("btn-ponto-email-contador");
+  const textoOriginal = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Enviando...`;
+  }
+
+  try {
+    const { doc, nomeArquivo } = await gerarDocEspelhoPontoPDF();
+    const pdfBase64 = doc.output("datauristring");
+    const mesReferencia = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    const res = await fetch(`${API_BASE}/ponto/folha-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailContador,
+        assunto: `Folha de Ponto — ${currentUser.nome} — ${mesReferencia}`,
+        mensagem: `Olá! Segue em anexo a folha de ponto de ${currentUser.nome} referente a ${mesReferencia}.`,
+        pdfBase64,
+        nomeArquivo,
+        remetente: currentUser.nome
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+
+    showToast(`Folha de ponto enviada para ${emailContador}!`, "sucesso");
+  } catch (err) {
+    console.error("Erro ao enviar folha de ponto por e-mail:", err);
+    showToast("Não foi possível enviar por e-mail. Verifique o e-mail do contador em Configurações.", "erro");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+    }
+  }
 }
 
 
