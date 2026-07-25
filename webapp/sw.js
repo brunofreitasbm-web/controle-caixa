@@ -5,6 +5,7 @@ const ASSETS_TO_CACHE = [
   '/style.css',
   '/tailwind-compiled.css',
   '/app.js',
+  '/realtime.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -40,6 +41,13 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // O canal de tempo real é uma conexão longa (text/event-stream). Deixamos
+  // passar direto: qualquer intermediação do Service Worker atrapalha o fluxo
+  // contínuo de eventos.
+  if (event.request.url.includes('/api/events')) {
+    return;
+  }
+
   if (event.request.url.includes('/api/ponto') || event.request.url.includes('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() => {
