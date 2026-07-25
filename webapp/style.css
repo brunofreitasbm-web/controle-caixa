@@ -112,6 +112,31 @@
 .border-brand-700\/60 { border-color: #24406C99 !important; }
 .border-brand-700\/80 { border-color: #24406Ccc !important; }
 .border-brand-800\/60 { border-color: #1F2A3D99 !important; }
+
+/* tailwind-compiled.css é um build estático (sem CLI/tooling no projeto —
+   ver package.json), então só tem as classes que existiam no HTML na hora
+   da compilação. Cores vivas de status (botões de filtro do inventário,
+   badges de Crítico/Alerta/No Prazo e o fundo das linhas da tabela) usam
+   classes que nunca foram compiladas, então ficavam transparentes. Valores
+   idênticos à paleta padrão do Tailwind (red-600, orange-500, green-600). */
+.bg-red-600 { background-color: #dc2626 !important; }
+.bg-orange-500 { background-color: #f97316 !important; }
+.bg-green-600 { background-color: #16a34a !important; }
+.bg-red-600\/20 { background-color: #dc262633 !important; }
+.bg-orange-500\/15 { background-color: #f9731626 !important; }
+.bg-green-600\/10 { background-color: #16a34a1a !important; }
+.hover\:bg-red-500:hover { background-color: #ef4444 !important; }
+.hover\:bg-orange-400:hover { background-color: #fb923c !important; }
+.hover\:bg-green-500:hover { background-color: #22c55e !important; }
+
+/* Indicador de filtro selecionado: os botões agora são sempre coloridos
+   (pedido do usuário), então o estado ativo precisa de outro sinal visual
+   — um anel branco — em vez de trocar a cor de fundo. Usa box-shadow em
+   camadas em vez das utilities .ring-* do Tailwind, que também nunca
+   foram compiladas neste build estático. */
+.filtro-ativo {
+  box-shadow: 0 0 0 2px #0F1420, 0 0 0 4px #ffffff !important;
+}
 .border-brand-800\/80 { border-color: #1F2A3Dcc !important; }
 .border-brand-900\/50 { border-color: #1C243580 !important; }
 .border-brand-900\/60 { border-color: #1C243599 !important; }

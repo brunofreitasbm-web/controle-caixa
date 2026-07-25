@@ -8194,33 +8194,21 @@ function renderTable() {
   const btnOrange = document.getElementById('filter-orange');
   const btnGreen = document.getElementById('filter-green');
 
+  // Botões sempre com fundo vivo/sólido (pedido do usuário — o estilo antigo
+  // com fundo escuro translúcido lia como "off-white" apagado). O estado
+  // selecionado agora se mostra por um anel branco, não por mudar a cor.
+  const anelAtivo = "filtro-ativo";
   if (btnAll) {
-    if (currentFilter === 'all') {
-      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md";
-    } else {
-      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-950 text-brand-300 border border-brand-800/40 hover:bg-brand-800 hover:text-white";
-    }
+    btnAll.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-brand-700 text-white shadow-md ${currentFilter === 'all' ? anelAtivo : ''}`;
   }
   if (btnRed) {
-    if (currentFilter === 'red') {
-      btnRed.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-red-600 text-white border border-red-600 shadow-md shadow-red-600/30";
-    } else {
-      btnRed.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-red-950/40 text-red-400 border border-red-500/40 hover:bg-red-600 hover:text-white";
-    }
+    btnRed.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-red-600 text-white shadow-md hover:bg-red-500 ${currentFilter === 'red' ? anelAtivo : ''}`;
   }
   if (btnOrange) {
-    if (currentFilter === 'orange') {
-      btnOrange.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-500 text-white border border-orange-500 shadow-md shadow-orange-500/30";
-    } else {
-      btnOrange.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-950/40 text-orange-400 border border-orange-500/40 hover:bg-orange-500 hover:text-white";
-    }
+    btnOrange.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-orange-500 text-white shadow-md hover:bg-orange-400 ${currentFilter === 'orange' ? anelAtivo : ''}`;
   }
   if (btnGreen) {
-    if (currentFilter === 'green') {
-      btnGreen.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-green-600 text-white border border-green-600 shadow-md shadow-green-600/30";
-    } else {
-      btnGreen.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-green-950/40 text-green-400 border border-green-500/40 hover:bg-green-600 hover:text-white";
-    }
+    btnGreen.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-green-600 text-white shadow-md hover:bg-green-500 ${currentFilter === 'green' ? anelAtivo : ''}`;
   }
 
   products.sort((a, b) => {
@@ -8251,15 +8239,18 @@ function renderTable() {
   });
 
   filteredProducts.forEach(p => {
-    let rowBorder = 'border-l-4 border-l-green-500 bg-green-950/5';
+    // Mesma família de cor vivo dos botões de filtro (vermelho/laranja/verde),
+    // não mais o tom escuro/translúcido antigo — pedido explícito pra ficar
+    // intuitivo bater o olho na linha e já saber o status.
+    let rowBorder = 'border-l-4 border-l-green-500 bg-green-600/10';
     let urgentSignal = '';
 
     if (p.daysRemaining !== null) {
       if (p.daysRemaining <= 20) {
-        rowBorder = 'border-l-4 border-l-red-500 bg-red-950/30';
+        rowBorder = 'border-l-4 border-l-red-500 bg-red-600/20';
         urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">Crítico</span>`;
       } else if (p.daysRemaining <= 40) {
-        rowBorder = 'border-l-4 border-l-orange-500 bg-orange-950/20';
+        rowBorder = 'border-l-4 border-l-orange-500 bg-orange-500/15';
         urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-orange-500 text-white">Alerta</span>`;
       } else {
         urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-green-600 text-white">No Prazo</span>`;
@@ -11338,6 +11329,34 @@ function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
   return R * c; // in meters
 }
 
+// Recorta o frame do vídeo pro aspect-ratio 3:4 (retrato) igual ao que o
+// object-fit:cover já faz na tela — sem isso a foto salva vinha na orientação
+// nativa da webcam (geralmente paisagem), mesmo com o quadro exibido em pé.
+function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  const aspectAtual = vw / vh;
+  if (aspectAtual > aspectAlvo) {
+    // Vídeo mais largo que o alvo: corta as laterais.
+    sw = vh * aspectAlvo;
+    sx = (vw - sw) / 2;
+  } else if (aspectAtual < aspectAlvo) {
+    // Vídeo mais alto/estreito que o alvo: corta topo/base.
+    sh = vw / aspectAlvo;
+    sy = (vh - sh) / 2;
+  }
+
+  const targetWidth = 480;
+  canvas.width = targetWidth;
+  canvas.height = Math.round(targetWidth / aspectAlvo);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
 async function registrarMarcacaoPonto(tipo) {
   if (!pontoGpsCoords) {
     showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
@@ -11371,12 +11390,11 @@ async function registrarMarcacaoPonto(tipo) {
   const canvas = document.getElementById("ponto-canvas");
   
   if (pontoStream && video && canvas) {
-    const ctx = canvas.getContext("2d");
-    canvas.width = Math.min(video.videoWidth, 640);
-    canvas.height = Math.min(video.videoHeight, 480);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    // Compress client side quality 80% WebP/JPEG
-    photoBase64 = canvas.toDataURL("image/jpeg", 0.8);
+    photoBase64 = capturarFrameRetrato(video, canvas);
+    if (!photoBase64) {
+      showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+      return;
+    }
   } else {
     showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
     return;
