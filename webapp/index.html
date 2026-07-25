@@ -7,7 +7,135 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#F4F6FA">
 <meta name="description" content="HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos">
+<meta name="apple-mobile-web-app-title" content="HuB Operações">
 <title>HuB Operações</title>
+
+<!-- ===================================================================
+     DETECÇÃO DE PLATAFORMA — inline e antes de tudo, de propósito.
+     -------------------------------------------------------------------
+     Roda aqui, e não no fim do app.js, porque o layout depende do
+     resultado: executada depois, a página pintaria com a casca errada e
+     se corrigiria em seguida, à vista do usuário (FOUC).
+
+     São DOIS eixos, não um. Derivar tudo do user-agent é o erro comum:
+       · idioma   (ios | android | desktop) — qual convenção seguir.
+                  Vem da plataforma.
+       · densidade (compact | expanded)     — se cabe barra lateral fixa
+                  ou barra inferior. Vem do viewport.
+     Um iPad em paisagem é ios + expanded: convenções da Apple COM barra
+     lateral persistente. Um Android em "modo desktop" continua android,
+     mas expanded. Separar os eixos também é o que protege o layout de um
+     user-agent falsificado — a densidade nunca depende dele.
+     =================================================================== */ -->
+<script>
+(function () {
+  var d = document.documentElement;
+  var ua = navigator.userAgent || "";
+  var uaPlat = (navigator.userAgentData && navigator.userAgentData.platform) || "";
+
+  function idioma() {
+    // A ordem importa, e não é a intuitiva. Client Hints parece a fonte mais
+    // confiável, mas `userAgentData.platform` só existe em contexto seguro,
+    // nunca reporta "iOS" (Safari não implementa UA-CH) e descreve a
+    // plataforma REAL do host — então usá-lo primeiro curto-circuita para
+    // "desktop" antes de qualquer evidência de iOS ser considerada.
+    // Portanto: sinais positivos de móvel primeiro, Client Hints só depois,
+    // para desempatar entre Android e desktop.
+
+    // 1) Evidência direta no user-agent.
+    if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+    // 2) iPadOS 13+ (e iPhone em "solicitar site para computador") se declaram
+    //    "Macintosh". O que os distingue de um Mac de verdade é ter tela
+    //    sensível ao toque: Mac reporta maxTouchPoints 0 — trackpad não conta.
+    //    O limiar é > 0, e não > 1: um iPad real reporta 5, mas a emulação do
+    //    Chromium reporta 1, e um caminho que não dá para testar é um caminho
+    //    que quebra sem ninguém perceber. O portão /Macintosh/ evita falso
+    //    positivo em notebook Windows com tela de toque.
+    if (/Macintosh/.test(ua) && (navigator.maxTouchPoints > 0 || "ontouchend" in document)) return "ios";
+    if (/Android/i.test(ua)) return "android";
+
+    // 3) Client Hints por último, e só como desempate: é o único sinal que
+    //    sobrevive ao "solicitar site para computador" do Chrome Android, que
+    //    reescreve o user-agent mas não reescreve o platform.
+    if (uaPlat === "Android") return "android";
+
+    return "desktop";
+  }
+
+  // Sobrescrita manual, só para o harness de teste e depuração:
+  // ?plat=ios|android|desktop
+  function forcado() {
+    var m = /[?&]plat=(ios|android|desktop)\b/.exec(location.search);
+    return m ? m[1] : null;
+  }
+
+  // 1024px, e não 900: os breakpoints do tailwind-compiled.css (congelado)
+  // são 640/768/1024. Alinhar a troca da barra lateral ao `lg:` faz a coluna
+  // de conteúdo perder os 270px da barra exatamente quando as grades do
+  // Tailwind se expandem — em 900px, a faixa 900–1023 ficava com coluna
+  // estreita presa em grades `md:`. Também é o mínimo honesto: 270 de barra
+  // + 640 de coluna útil + 64 de respiro = 974.
+  var mqExpandido = window.matchMedia("(min-width: 1024px)");
+  var mqGrosso = window.matchMedia("(pointer: coarse)");
+  var mqStandalone = window.matchMedia("(display-mode: standalone)");
+
+  var ID = forcado() || idioma();
+
+  function aplicar() {
+    var densidade = mqExpandido.matches ? "expanded" : "compact";
+    var standalone = mqStandalone.matches || navigator.standalone === true;
+
+    // Escreve só quando muda: evita invalidar estilo a cada pixel de resize.
+    if (d.dataset.idiom !== ID) d.dataset.idiom = ID;
+    if (d.dataset.density !== densidade) d.dataset.density = densidade;
+    if (d.dataset.pointer !== (mqGrosso.matches ? "coarse" : "fine")) {
+      d.dataset.pointer = mqGrosso.matches ? "coarse" : "fine";
+    }
+    if (d.dataset.standalone !== String(standalone)) d.dataset.standalone = String(standalone);
+
+    var c = d.classList;
+    c.toggle("idiom-ios", ID === "ios");
+    c.toggle("idiom-android", ID === "android");
+    c.toggle("idiom-desktop", ID === "desktop");
+    c.toggle("density-compact", densidade === "compact");
+    c.toggle("density-expanded", densidade === "expanded");
+    c.toggle("is-standalone", standalone);
+  }
+
+  aplicar();
+
+  // Só a densidade muda em tempo de execução (girar o aparelho, redimensionar
+  // a janela). O idioma é fixo na sessão. rAF colapsa a rajada de eventos de
+  // resize num único recálculo por quadro.
+  var agendado = false;
+  function reavaliar() {
+    if (agendado) return;
+    agendado = true;
+    requestAnimationFrame(function () {
+      agendado = false;
+      var antes = d.dataset.density;
+      aplicar();
+      if (d.dataset.density !== antes) {
+        document.dispatchEvent(new CustomEvent("platformchange", {
+          detail: { idioma: ID, density: d.dataset.density, standalone: d.dataset.standalone === "true" }
+        }));
+      }
+    });
+  }
+  window.addEventListener("resize", reavaliar, { passive: true });
+  window.addEventListener("orientationchange", reavaliar, { passive: true });
+  if (mqExpandido.addEventListener) mqExpandido.addEventListener("change", reavaliar);
+  if (mqStandalone.addEventListener) mqStandalone.addEventListener("change", reavaliar);
+
+  // Exposto para o app.js decidir comportamento (instalação PWA, push,
+  // câmera) sem repetir a detecção.
+  window.Plataforma = {
+    idioma: ID,
+    ehCompacto: function () { return !mqExpandido.matches; },
+    ehStandalone: function () { return mqStandalone.matches || navigator.standalone === true; }
+  };
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">

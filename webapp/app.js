@@ -1701,7 +1701,78 @@ function ativarTab(tabName) {
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
+  observarTituloDaSecao(tabName);
 }
+
+// ==========================================================================
+// TÍTULO GRANDE (iOS) / TOP APP BAR COM ELEVAÇÃO (Material)
+// --------------------------------------------------------------------------
+// Os dois idiomas precisam da mesma informação: o cabeçalho da seção ainda
+// está visível? O iOS usa para trocar o título grande pelo título da barra; o
+// Material, para levantar a top app bar.
+//
+// Um único IntersectionObserver, reapontado a cada troca de aba e sempre
+// desconectado antes — sem vazamento e sem listener de scroll, que forçaria
+// leitura de layout a cada quadro.
+// ==========================================================================
+let observadorTitulo = null;
+
+function observarTituloDaSecao(tabName) {
+  if (observadorTitulo) { observadorTitulo.disconnect(); observadorTitulo = null; }
+  document.documentElement.classList.remove("title-collapsed");
+
+  const painel = document.getElementById("tab-" + tabName);
+  if (!painel || typeof IntersectionObserver === "undefined") return;
+
+  // 16 painéis abrem com .section-header; o Faça Amigos abre com o próprio
+  // banner. Qualquer um dos dois serve de sentinela.
+  const alvo = painel.querySelector(".section-header, .fa-header-banner");
+  if (!alvo) return;
+
+  const alturaBarra = parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue("--barra-superior-altura")
+  , 10) || 64;
+
+  observadorTitulo = new IntersectionObserver(entradas => {
+    document.documentElement.classList.toggle("title-collapsed", !entradas[0].isIntersecting);
+  }, { rootMargin: `-${alturaBarra}px 0px 0px 0px`, threshold: 0 });
+
+  observadorTitulo.observe(alvo);
+}
+
+// ==========================================================================
+// RIPPLE (Material)
+// --------------------------------------------------------------------------
+// Um único listener delegado no documento, e não um por elemento: o app cria
+// botões dinamicamente o tempo todo (tabelas, cards, barra inferior), e
+// registrar por elemento significaria reanexar a cada render.
+// ==========================================================================
+document.addEventListener("pointerdown", e => {
+  if (!document.documentElement.classList.contains("idiom-android")) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const alvo = e.target.closest("button, .quick-action-item, .bottom-nav-btn, .tab-btn, .seg-btn");
+  // .notifications-wrapper é excluído de propósito: o ripple exige
+  // overflow:hidden no alvo, e isso recortaria o dropdown de notificações.
+  if (!alvo || alvo.closest(".notifications-wrapper") || alvo.disabled) return;
+
+  alvo.classList.add("ripple-alvo");
+  const r = alvo.getBoundingClientRect();
+  const d = Math.max(r.width, r.height);
+  const onda = document.createElement("span");
+  onda.className = "ripple-efeito";
+  onda.style.width = onda.style.height = d + "px";
+  onda.style.left = (e.clientX - r.left - d / 2) + "px";
+  onda.style.top = (e.clientY - r.top - d / 2) + "px";
+  alvo.appendChild(onda);
+  onda.addEventListener("animationend", () => onda.remove());
+}, { passive: true });
+
+// Ao voltar para a densidade expandida a gaveta perde o sentido: se ficasse
+// aberta, apareceria sobreposta à barra lateral já persistente.
+document.addEventListener("platformchange", e => {
+  if (e.detail && e.detail.density === "expanded") fecharSidebarMobile();
+});
 
 // --- Controle da Sidebar Mobile ---
 const sidebarEl = document.getElementById("sidebar");
@@ -1848,14 +1919,31 @@ function renderMenuRapido() {
     });
   }
 
+  // A barra inferior recebe no máximo 4 destinos + "Mais"; a grade da barra
+  // lateral continua com a lista inteira. O perfil consultora_dashboard tem 9
+  // atalhos, e nove destinos numa barra de 390px dão ~43px cada — abaixo do
+  // mínimo de toque das duas plataformas (44pt na HIG, 48dp no Material) e
+  // muito além do limite de destinos que ambas recomendam. "Mais" abre a
+  // gaveta, que já contém todos os itens.
+  const NAV_MAX = 4;
   const bottomNav = document.getElementById("bottom-nav");
   if (bottomNav) {
     bottomNav.innerHTML = "";
-    itens.forEach(item => {
+    const cabem = itens.length > NAV_MAX ? itens.slice(0, NAV_MAX) : itens;
+    cabem.forEach(item => {
       const btn = criarBotao(item, "bottom-nav-btn");
-      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span>${item.label}`;
+      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span><span class="nav-rotulo">${item.label}</span>`;
       bottomNav.appendChild(btn);
     });
+    if (itens.length > NAV_MAX) {
+      const btnMais = document.createElement("button");
+      btnMais.className = "bottom-nav-btn";
+      btnMais.type = "button";
+      btnMais.setAttribute("aria-label", "Mais opções de navegação");
+      btnMais.innerHTML = `<span class="nav-icon"><i class="fa-solid fa-ellipsis"></i></span><span class="nav-rotulo">Mais</span>`;
+      btnMais.addEventListener("click", abrirSidebarMobile);
+      bottomNav.appendChild(btnMais);
+    }
   }
 }
 

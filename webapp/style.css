@@ -1561,27 +1561,7 @@ tr.selected-row {
    MOBILE RESPONSIVENESS
    ========================================================================== */
 @media (max-width: 768px) {
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 16px;
-    gap: 14px;
-  }
-  .brand {
-    justify-content: center;
-  }
-  .tabs {
-    width: 100%;
-  }
-  .tabs .tab-btn {
-    flex: 1;
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    text-align: center;
-  }
   .user-box {
-    justify-content: center;
-    flex-wrap: wrap;
     gap: 8px;
   }
   
@@ -2053,98 +2033,109 @@ button:focus-visible,
 /* ==========================================================================
    BOTTOM NAVIGATION (Mobile PWA — #7)
    ========================================================================== */
-.bottom-nav {
+.bottom-nav,
+.fab {
   display: none;
 }
 
-@media (max-width: 768px) {
-  .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--paper);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
-    z-index: 100;
-    padding: 6px 0;
-    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-    justify-content: space-around;
-    align-items: center;
-  }
+/* ==========================================================================
+   CASCA COMPACTA — barra inferior e ação flutuante
+   --------------------------------------------------------------------------
+   Amarradas à densidade, e não a 768px como antes: é o que fecha o vão de
+   769–900px em que existia hambúrguer e nenhuma barra de navegação.
+   O desenho de cada uma (proporções, indicador, presença do FAB) é definido
+   pelo idioma da plataforma, mais abaixo — aqui fica só o que é comum.
+   ========================================================================== */
+.density-compact .bottom-nav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface-1);
+  border-top: 1px solid var(--edge-subtle);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  justify-content: space-around;
+  align-items: stretch;
+}
 
-  .bottom-nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 12px;
-    transition: var(--transition);
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.65rem;
-    font-weight: 600;
-    min-width: 56px;
-  }
+.density-compact .bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  padding: 0 4px;
+}
 
-  .bottom-nav-btn .nav-icon {
-    font-size: 1.3rem;
-    line-height: 1;
-  }
+.density-compact .bottom-nav-btn .nav-icon {
+  line-height: 1;
+  flex-shrink: 0;
+}
 
-  .bottom-nav-btn.active {
-    color: var(--wine);
-    background: rgba(74, 18, 26, 0.06);
-  }
+/* O rótulo pode ser longo ("Metas Hora a Hora"): trunca em vez de empurrar os
+   vizinhos e desalinhar a barra. Aplicado ao rótulo, e não ao botão, para não
+   cortar o ícone junto. */
+.density-compact .bottom-nav-btn .nav-rotulo {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  .bottom-nav-btn.active .nav-icon {
-    transform: scale(1.1);
-  }
+.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+}
 
-  /* Hide header tabs on mobile when bottom nav exists */
-  .tabs {
-    display: none !important;
-  }
+.density-compact .fab {
+  position: fixed;
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border: 1.5px solid var(--edge-accent);
+  font-size: 1.6rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
 
-  /* FAB — Floating Action Button */
-  .fab {
-    position: fixed;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-    right: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--tone-accent-soft);
-    color: var(--tone-accent-ink);
-    border: 1.5px solid var(--edge-accent);
-    font-size: 1.6rem;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(74, 18, 26, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 101;
-    transition: var(--transition);
-  }
+.density-compact .fab:active {
+  transform: scale(0.94);
+}
 
-  .fab:hover, .fab:active {
-    transform: scale(1.1);
-    box-shadow: 0 8px 25px rgba(74, 18, 26, 0.45);
-  }
+/* Espaço para a barra inferior não cobrir o fim do conteúdo nem os toasts. */
+.density-compact main {
+  padding-bottom: calc(var(--nav-inferior-altura, 64px) + 24px + env(safe-area-inset-bottom, 0px));
+}
 
-  main {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  }
+.density-compact #toast-container {
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+}
 
-  /* Toast ajustado para não sobrepor bottom nav */
-  #toast-container {
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  }
+/* Na densidade expandida a navegação é a barra lateral: nenhuma das duas
+   peças flutuantes deve aparecer, em nenhum idioma. */
+.density-expanded .bottom-nav,
+.density-expanded .fab {
+  display: none !important;
 }
 
 /* ==========================================================================
@@ -3079,43 +3070,55 @@ body.tema-fa .topbar {
 }
 
 /* ============================================================
-   RESPONSIVIDADE: SIDEBAR MOBILE (≤ 900px)
+   CASCA DE NAVEGAÇÃO — comandada por densidade, não por media query
+   ------------------------------------------------------------
+   Antes havia dois pontos de corte em desacordo: a barra lateral virava
+   gaveta em 900px, mas a barra inferior só aparecia em 768px. Entre 769 e
+   900px o usuário ficava com hambúrguer e NENHUMA barra de navegação.
+
+   Agora existe um único ponto estrutural (900px), lido pelo script de
+   detecção no <head> e publicado como `density-compact` / `density-expanded`
+   no <html>. Ler a densidade da classe, e não da media query, faz o CSS e o
+   JS concordarem sobre qual casca está no ar — e torna a emulação de
+   dispositivo testável, porque basta trocar a classe.
    ============================================================ */
-@media (max-width: 900px) {
-  .app-main {
-    margin-left: 0;
-  }
+.density-compact .app-main {
+  margin-left: 0;
+}
 
-  .sidebar {
-    transform: translateX(-100%);
-    width: 285px;
-  }
+/* Sem nenhuma classe de densidade — script de detecção bloqueado ou com erro —
+   o app cai no layout de barra lateral persistente, que é o de hoje. Degradar
+   para o layout atual, nunca para um layout quebrado. */
 
-  .sidebar.open {
-    transform: translateX(0);
-  }
+.density-compact .sidebar {
+  transform: translateX(-100%);
+  width: 285px;
+}
 
-  .sidebar-close-btn {
-    display: flex;
-  }
+.density-compact .sidebar.open {
+  transform: translateX(0);
+}
 
-  .hamburger-btn {
-    display: flex;
-  }
+.density-compact .sidebar-close-btn {
+  display: flex;
+}
 
-  .topbar-brand-mobile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+.density-compact .hamburger-btn {
+  display: flex;
+}
 
-  .topbar {
-    padding: 12px 16px;
-  }
+.density-compact .topbar-brand-mobile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-  main {
-    padding: 16px 12px;
-  }
+.density-compact .topbar {
+  padding: 12px 16px;
+}
+
+.density-compact main {
+  padding: 16px 12px;
 }
 
 /* ============================================================
@@ -3773,16 +3776,6 @@ button:disabled:not(.fa-section *) {
   border: 2px solid var(--tone-danger-line) !important;
 }
 
-/* Device identification and spacing adjustments (Safe areas) */
-body.device-ios .topbar {
-  padding-top: env(safe-area-inset-top);
-  min-height: calc(70px + env(safe-area-inset-top));
-}
-
-body.device-ios .sidebar {
-  padding-top: env(safe-area-inset-top);
-}
-
 /* ===================================================================
    CONTROLE DE PONTO — botões de marcação
    -------------------------------------------------------------------
@@ -3863,4 +3856,379 @@ body.device-ios .sidebar {
 #tab-controle-ponto button:focus-visible {
   outline: 3px solid var(--edge-focus);
   outline-offset: 2px;
+}
+
+/* ==========================================================================
+   IDIOMAS DE PLATAFORMA
+   --------------------------------------------------------------------------
+   A paleta é a mesma nos três — os tokens do design system claro não mudam
+   aqui. O que muda é convenção: proporções da navegação, forma dos controles,
+   apresentação dos modais e curvas de movimento.
+
+   Todas as regras são prefixadas por `.idiom-*` no <html>, o que dá
+   especificidade 0,2,0 e vence qualquer utilitário de uma classe do
+   tailwind-compiled.css sem precisar de !important.
+
+   Cuidado deliberado: nenhuma regra de idioma define `display` em elemento
+   que o JS controla por `.hidden` (#bottom-nav, #fab-novo-registro, os 17
+   .tab-panel, #btn-instalar-pwa). `.hidden` é `display:none !important` e
+   continua ganhando — mas depender disso seria frágil.
+   ========================================================================== */
+
+:root {
+  --nav-inferior-altura: 64px;
+  --barra-superior-altura: 70px;
+  --motion-padrao: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   iOS — Human Interface Guidelines
+   ========================================================================== */
+
+.idiom-ios {
+  --nav-inferior-altura: 49px;   /* 49pt, a altura de tab bar da HIG */
+  --barra-superior-altura: 44px;
+  --motion-padrao: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --motion-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Barra de abas translúcida. O desfoque é o que dá a sensação de iOS; sem
+   suporte, cai para superfície opaca em vez de virar um vidro cinza ilegível. */
+.idiom-ios.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-top: 0.5px solid rgba(11, 18, 32, 0.14);
+  box-shadow: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .idiom-ios.density-compact .bottom-nav {
+    background: var(--surface-1);
+  }
+}
+
+.idiom-ios.density-compact .bottom-nav-btn {
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.idiom-ios.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 22px;
+}
+
+/* Na HIG o item ativo é tinta, não pílula: o realce em bloco atrás do ícone é
+   vocabulário do Material. */
+.idiom-ios.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-line);
+  background: transparent;
+}
+
+/* Em tablets uma barra de 5 itens esticada de borda a borda fica absurda:
+   centraliza e limita a largura de cada destino. */
+@media (min-width: 600px) {
+  .idiom-ios.density-compact .bottom-nav {
+    justify-content: center;
+  }
+  .idiom-ios.density-compact .bottom-nav-btn {
+    flex: 0 1 110px;
+  }
+}
+
+/* Barra superior translúcida, no mesmo idioma da inferior. */
+.idiom-ios .topbar {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 0.5px solid rgba(11, 18, 32, 0.14);
+  box-shadow: none;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Título grande. Fora do topo, o cabeçalho de seção perde a moldura de card e
+   vira um título de 34px — o padrão de large title da HIG. Nenhuma marcação
+   nova: reaproveita o .section-header que já existe em 16 painéis. */
+.idiom-ios.density-compact .section-header {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 12px;
+  /* Desfaz a virada para linha em >=768px: um chip ao lado de um título de
+     34px não é large title, é um cabeçalho apertado. */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.idiom-ios.density-compact .section-header h2 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.08;
+}
+
+/* O título da barra superior só aparece quando o título grande sai de vista —
+   é a troca que a HIG faz ao rolar. A classe vem do IntersectionObserver. */
+.idiom-ios.density-compact .topbar-title {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s var(--motion-padrao), transform 0.22s var(--motion-padrao);
+}
+
+.idiom-ios.density-compact.title-collapsed .topbar-title {
+  opacity: 1;
+  transform: none;
+}
+
+/* Modais como sheet: sobem de baixo, com alça. */
+.idiom-ios.density-compact .modal-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.idiom-ios.density-compact .modal {
+  width: 100%;
+  max-width: none;
+  border-radius: 14px 14px 0 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: sheetSobe 0.35s var(--motion-sheet) forwards;
+}
+
+.idiom-ios.density-compact .modal::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--edge-default);
+  margin: -8px auto 16px;
+}
+
+@keyframes sheetSobe {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Controle segmentado no desenho iOS: trilho fechado e pastilha branca. */
+.idiom-ios .segmented {
+  background: var(--surface-3);
+  border: none;
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.idiom-ios .seg-btn {
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.idiom-ios .seg-btn.active {
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Resposta ao toque por opacidade — a HIG não tem ripple. */
+.idiom-ios button:active,
+.idiom-ios .tab-btn:active,
+.idiom-ios .bottom-nav-btn:active,
+.idiom-ios .quick-action-item:active {
+  opacity: 0.55;
+  transition: opacity 0s;
+}
+
+/* Rolagem com inércia; contenção para o toque na gaveta e no sheet não
+   arrastar a página atrás. */
+.idiom-ios #main-content,
+.idiom-ios .table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.idiom-ios .sidebar,
+.idiom-ios .modal {
+  overscroll-behavior: contain;
+}
+
+/* A HIG não tem botão de ação flutuante: a ação primária mora na barra de
+   abas ou na barra superior. */
+.idiom-ios .fab {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Android — Material 3
+   ========================================================================== */
+
+.idiom-android {
+  --nav-inferior-altura: 80px;   /* 80dp, a altura de navigation bar do M3 */
+  --barra-superior-altura: 64px;
+  --motion-padrao: cubic-bezier(0.2, 0, 0, 1);          /* emphasized */
+  --motion-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* O Material usa elevação, não translucidez: superfície opaca com sombra. */
+.idiom-android.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-1);
+  border-top: none;
+  box-shadow: 0 -1px 3px rgba(11, 18, 32, 0.08);
+}
+
+.idiom-android.density-compact .bottom-nav-btn {
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  position: relative;
+  padding-top: 12px;
+}
+
+.idiom-android.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 20px;
+  position: relative;
+  z-index: 1;
+  /* espaço para a pílula indicadora respirar em volta do ícone */
+  padding: 4px 20px;
+}
+
+/* Indicador em pílula atrás do ÍCONE — não atrás do rótulo. É a diferença
+   visual mais concreta entre a navigation bar do M3 e a tab bar da HIG. */
+.idiom-android.density-compact .bottom-nav-btn .nav-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: var(--tone-accent-soft);
+  transform: scaleX(0.4);
+  opacity: 0;
+  transition: transform 0.2s var(--motion-padrao), opacity 0.2s var(--motion-padrao);
+  z-index: -1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active .nav-icon::before {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+  font-weight: 600;
+  background: transparent;
+}
+
+/* Top app bar: título à esquerda, elevação ao rolar. */
+.idiom-android .topbar {
+  box-shadow: none;
+  transition: box-shadow 0.2s var(--motion-padrao), background-color 0.2s var(--motion-padrao);
+}
+
+.idiom-android.title-collapsed .topbar {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+
+/* FAB do M3 tem canto de 16dp — não é círculo. */
+.idiom-android.density-compact .fab {
+  border-radius: 16px;
+}
+
+/* Ripple. O elemento é criado pelo JS e removido ao fim da animação. */
+.idiom-android .ripple-alvo {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-efeito {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: rippleExpande 0.55s var(--motion-decel);
+  background-color: rgba(11, 18, 32, 0.12);
+  pointer-events: none;
+}
+
+@keyframes rippleExpande {
+  to { transform: scale(3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ripple-efeito { display: none; }
+  .idiom-ios.density-compact .modal { animation: none; }
+}
+
+/* ==========================================================================
+   Desktop
+   ========================================================================== */
+
+/* Estados de hover só onde existe ponteiro fino: em tela de toque o hover
+   "gruda" depois do toque e o elemento fica preso no estado ativo. */
+@media (hover: hover) and (pointer: fine) {
+  .kpi-item:hover,
+  .logo-dot:hover,
+  .quick-action-item:hover i {
+    transform: translateY(-2px);
+  }
+}
+
+.idiom-desktop.density-expanded main {
+  padding: 24px 32px;
+}
+
+/* Anel de foco visível em toda a navegação por teclado — o desktop é o único
+   idioma em que ela é o caminho principal. */
+.idiom-desktop a:focus-visible,
+.idiom-desktop button:focus-visible,
+.idiom-desktop input:focus-visible,
+.idiom-desktop select:focus-visible,
+.idiom-desktop textarea:focus-visible,
+.idiom-desktop [tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Comum aos dois idiomas de toque
+   ========================================================================== */
+
+/* Área segura lateral: em paisagem, num aparelho com recorte, o conteúdo
+   ficaria embaixo da moldura. */
+.density-compact .topbar,
+.density-compact main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* O indicador de tempo real é posicionado por cssText inline no
+   realtime.js (bottom:10px). Na densidade compacta ele cairia em cima da
+   barra de navegação; o !important é necessário para vencer o estilo inline. */
+.density-compact #rt-indicator {
+  bottom: calc(var(--nav-inferior-altura) + 12px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* A sub-navegação do Faça Amigos tem 6 botões com flex:1 e nowrap: em 390px
+   cada um fica com ~55px e o texto estoura. É o único ponto DENTRO de um
+   painel que precisa de regra por densidade. */
+.density-compact .fa-subnav {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.density-compact .fa-subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.density-compact .fa-sub-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
 }
