@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=10">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -172,6 +172,7 @@
   </div>
 
   <div class="camera-universal-header">
+    <span class="camera-universal-header-title"><i class="fa-solid fa-face-viewfinder mr-1"></i> Biometria Facial</span>
     <button type="button" id="camera-universal-close" class="camera-universal-close" aria-label="Fechar câmera">
       <i class="fa-solid fa-xmark"></i>
     </button>
@@ -2374,7 +2375,7 @@
             </div>
 
             <!-- Camera / Photo Viewport -->
-            <div class="w-full aspect-[4/3] bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center">
+            <div class="w-full bg-black rounded-xl overflow-hidden border border-brand-800 relative mb-4 flex items-center justify-center" style="aspect-ratio:3/4; max-height:360px;">
               <video id="ponto-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
               <canvas id="ponto-canvas" class="w-full h-full object-cover hidden"></canvas>
               <div id="ponto-camera-placeholder" class="text-center p-4">
@@ -2401,6 +2402,10 @@
 
             <button type="button" id="btn-ponto-ativar-cam" class="w-full py-2 bg-brand-800 hover:bg-brand-700 text-brand-100 font-bold rounded-xl text-xs transition mb-4">
               <i class="fa-solid fa-video mr-1"></i> Ativar Câmera
+            </button>
+
+            <button type="button" id="btn-ponto-cadastrar-biometria" class="w-full py-2 font-bold rounded-xl transition mb-4" style="background-color:#4338ca !important;color:#ffffff !important;font-size:0.75rem;">
+              <i class="fa-solid fa-face-viewfinder mr-1"></i> Capturar Biometria Inicial
             </button>
 
             <!-- Punch In/Out Action buttons -->

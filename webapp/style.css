@@ -2551,7 +2551,10 @@ body.tema-fa .topbar {
   background: #000;
   z-index: 9999;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
 
 .camera-universal-overlay.hidden {
   display: none;
@@ -2579,14 +2582,16 @@ body.tema-fa .topbar {
   justify-content: center;
 }
 
+/* Oval/ellipse do rosto: proporcão portrait (mais alto que largo) */
 .camera-universal-mask-frame {
   border-radius: 50%;
   border: 4px solid #ef4444;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
-  transition: border-color 0.2s ease;
-  width: min(62vmin, 340px);
-  height: min(82vmin, 440px);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  width: clamp(200px, 68vw, 300px);
+  height: clamp(260px, 88vw, 390px);
 }
+
 
 .camera-universal-mask-rect .camera-universal-mask-frame {
   border-radius: 16px;
@@ -2608,10 +2613,23 @@ body.tema-fa .topbar {
 
 .camera-universal-header {
   position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  right: 12px;
-  z-index: 2;
+  top: max(14px, env(safe-area-inset-top));
+  left: 14px;
+  right: 14px;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+
+.camera-universal-header-title {
+  color: rgba(255,255,255,0.85);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 
 .camera-universal-close {
   width: 48px;
@@ -2627,44 +2645,57 @@ body.tema-fa .topbar {
 .camera-universal-status {
   position: absolute;
   left: 50%;
-  bottom: 140px;
+  bottom: 160px;
   transform: translateX(-50%);
   max-width: 90vw;
-  padding: 10px 18px;
+  padding: 10px 22px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   color: #fff;
   font-weight: 700;
-  font-size: clamp(0.8rem, 3.5vw, 0.95rem);
+  font-size: clamp(0.85rem, 4vw, 1rem);
   text-align: center;
-  z-index: 2;
+  z-index: 3;
+  white-space: nowrap;
 }
+
 
 .camera-universal-actions {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: max(32px, env(safe-area-inset-bottom));
   display: flex;
   justify-content: center;
-  z-index: 2;
+  z-index: 3;
 }
 
 .camera-universal-capture-btn {
-  min-width: 48px;
-  min-height: 48px;
-  padding: 14px 32px;
-  border-radius: 999px;
-  border: none;
+  min-width: 72px;
+  min-height: 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.4);
   background: #10b981;
   color: #fff;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(16,185,129,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+
+.camera-universal-capture-btn:active {
+  transform: scale(0.93);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.4);
+}
+
 
 .camera-universal-capture-btn:disabled {
   background: #6b7280;
@@ -3730,3 +3761,96 @@ body.device-ios .sidebar {
   padding-top: env(safe-area-inset-top);
 }
 
+/* Fix point tab button contrast and colors */
+#tab-controle-ponto #btn-ponto-ativar-cam {
+  background-color: var(--wine) !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-ativar-cam:hover {
+  background-color: var(--wine-light) !important;
+}
+
+#tab-controle-ponto #btn-ponto-entrada {
+  background-color: #065f46 !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-entrada:hover {
+  background-color: #047857 !important;
+}
+
+#tab-controle-ponto #btn-ponto-saida-int {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-saida-int:hover {
+  background-color: #b45309 !important;
+}
+
+#tab-controle-ponto #btn-ponto-retorno-int {
+  background-color: #b45309 !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-retorno-int:hover {
+  background-color: #78350f !important;
+}
+
+#tab-controle-ponto #btn-ponto-saida {
+  background-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-saida:hover {
+  background-color: #9f1239 !important;
+}
+
+#tab-controle-ponto #btn-ponto-cadastrar-biometria {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto #btn-ponto-cadastrar-biometria:hover {
+  background-color: #4338ca !important;
+}
+
+/* ===================================================================
+   PONTO — força cor de texto BRANCO nos botões coloridos, vencendo
+   a regra genérica ".text-xs { color: var(--ink) !important }" que
+   se aplica a qualquer elemento com text-xs dentro do painel de ponto.
+   Usar seletores com dupla ID garante especificidade máxima.
+   =================================================================== */
+#tab-controle-ponto button#btn-ponto-ativar-cam,
+#tab-controle-ponto button#btn-ponto-cadastrar-biometria,
+#tab-controle-ponto button#btn-ponto-entrada,
+#tab-controle-ponto button#btn-ponto-saida-int,
+#tab-controle-ponto button#btn-ponto-retorno-int,
+#tab-controle-ponto button#btn-ponto-saida {
+  color: #ffffff !important;
+}
+
+#tab-controle-ponto button#btn-ponto-ativar-cam {
+  background-color: #2D538E !important;
+}
+
+#tab-controle-ponto button#btn-ponto-cadastrar-biometria {
+  background-color: #4338ca !important;
+}
+
+#tab-controle-ponto button#btn-ponto-entrada {
+  background-color: #065f46 !important;
+}
+
+#tab-controle-ponto button#btn-ponto-saida-int {
+  background-color: #d97706 !important;
+}
+
+#tab-controle-ponto button#btn-ponto-retorno-int {
+  background-color: #b45309 !important;
+}
+
+#tab-controle-ponto button#btn-ponto-saida {
+  background-color: #be123c !important;
+}

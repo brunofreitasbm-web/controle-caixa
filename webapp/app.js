@@ -10772,6 +10772,40 @@ function inicializarAbaPonto() {
 
   // Setup listeners
   document.getElementById("btn-ponto-ativar-cam").onclick = ativarCameraPonto;
+  
+  const btnPontoCadastrar = document.getElementById("btn-ponto-cadastrar-biometria");
+  if (btnPontoCadastrar) {
+    btnPontoCadastrar.onclick = () => {
+      CameraUniversal.open("enrollment", {
+        usuario: currentUser.nome,
+        onCapture: async (result) => {
+          if (result.status === "ENROLLED") {
+            currentUser.hasBiometricEnrolled = true;
+            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+            
+            // Oculta o banner de biometria pendente e atualiza botão
+            const alertBanner = document.getElementById("ponto-biometria-alert");
+            if (alertBanner) alertBanner.classList.add("hidden");
+            atualizarBotaoCadastroBiometria();
+          } else if (result.status === "REJECTED_RETRYABLE") {
+            showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          } else if (result.status === "TEMPORARILY_BLOCKED") {
+            showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          } else {
+            showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+          }
+        },
+        onCancel: (err) => {
+          if (err) {
+            console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+            showToast("Não foi possível acessar a câmera.", "erro");
+          }
+        }
+      });
+    };
+  }
+
   document.getElementById("btn-ponto-entrada").onclick = () => registrarMarcacaoPonto("ENTRADA");
   document.getElementById("btn-ponto-saida-int").onclick = () => registrarMarcacaoPonto("SAIDA_INTERVALO");
   document.getElementById("btn-ponto-retorno-int").onclick = () => registrarMarcacaoPonto("RETORNO_INTERVALO");
