@@ -12402,7 +12402,16 @@ async function carregarMetaHoraHora() {
   const vendasPorSlot = {};
   vendas.forEach(v => { vendasPorSlot[v.horaSlot] = v; });
 
-  const totalHoje = vendas.reduce((soma, v) => soma + (v.valor || 0), 0);
+  // O valor digitado em cada intervalo é o TOTAL acumulado de vendas do dia
+  // até aquele horário (não o valor vendido só naquela hora) — por isso o
+  // total do dia é o valor do intervalo mais recente confirmado, nunca a
+  // soma de todos os intervalos (o que multiplicaria a mesma venda várias vezes).
+  const vendasOrdenadas = [...vendas].sort(
+    (a, b) => minutosDoDiaPorHora(a.horaSlot) - minutosDoDiaPorHora(b.horaSlot)
+  );
+  const totalHoje = vendasOrdenadas.length > 0
+    ? (vendasOrdenadas[vendasOrdenadas.length - 1].valor || 0)
+    : 0;
   const now = new Date();
   const agoraMin = now.getHours() * 60 + now.getMinutes();
 
@@ -12416,6 +12425,15 @@ async function carregarMetaHoraHora() {
       const pctHora = (agoraMin - (slotMin - 60)) / 60;
       esperadoAteAgora += metaSlot * pctHora;
     }
+  });
+
+  // Meta acumulada até cada checkpoint (para comparar com o valor acumulado
+  // que o(a) colaborador(a) digita em cada intervalo).
+  const metaAcumuladaPorSlot = {};
+  let acumuladoMeta = 0;
+  checkpoints.forEach(slotMin => {
+    acumuladoMeta += calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+    metaAcumuladaPorSlot[slotMin] = acumuladoMeta;
   });
 
   // Progresso do dia
@@ -12462,9 +12480,8 @@ async function carregarMetaHoraHora() {
     for (let i = encerrados.length - 1; i >= 0; i--) {
       const slotMin = encerrados[i];
       const slotStr = horaStrPorMinutos(slotMin);
-      const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
       const venda = vendasPorSlot[slotStr];
-      if (venda && venda.valor >= metaSlot) streak++;
+      if (venda && venda.valor >= metaAcumuladaPorSlot[slotMin]) streak++;
       else break;
     }
     if (streak >= 2) {
@@ -12486,7 +12503,7 @@ async function carregarMetaHoraHora() {
 
       let statusHtml, acaoHtml;
       if (venda) {
-        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900/50">✅ Confirmado: ${formatBRL(venda.valor)}</span>`;
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900/50">✅ Total do dia: ${formatBRL(venda.valor)}</span>`;
         acaoHtml = "—";
       } else if (agoraMin < slotMin) {
         statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-900 text-brand-300 border border-brand-800">🔒 Aguardando o horário</span>`;
@@ -12496,7 +12513,7 @@ async function carregarMetaHoraHora() {
         const inputId = `meta-slot-input-${slotMin}`;
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
-            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="R$" class="w-20 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
+            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
             <button type="button" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition" data-confirmar-slot="${slotStr}">Confirmar</button>
           </div>
         `;
@@ -12505,7 +12522,9 @@ async function carregarMetaHoraHora() {
         acaoHtml = "—";
       }
 
-      const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+      // Meta ACUMULADA até este intervalo — é isso que se compara com o
+      // valor acumulado que o(a) colaborador(a) digita, não a meta da hora isolada.
+      const metaSlot = metaAcumuladaPorSlot[slotMin];
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="py-2 px-4 font-mono font-bold">${inicioIntervalo}–${slotStr}</td>

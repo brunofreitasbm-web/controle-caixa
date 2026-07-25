@@ -2753,14 +2753,14 @@
           <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-brand-900 bg-brand-950/40">
             <div class="p-4 bg-brand-950 border-b border-brand-900">
               <h3 class="text-xs font-extrabold uppercase text-brand-300 tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Hora a Hora</h3>
-              <p class="text-[11px] text-brand-400 mt-1">O primeiro intervalo do dia começa 1h após a abertura. Cada intervalo só pode ser confirmado até 30 minutos depois do horário.</p>
+              <p class="text-[11px] text-brand-400 mt-1">O primeiro intervalo do dia começa 1h após a abertura. Cada intervalo só pode ser confirmado até 30 minutos depois do horário. Em cada intervalo, informe o <strong>total acumulado de vendas do dia até aquele horário</strong> — não o valor vendido só naquela hora.</p>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
                     <th class="py-3 px-4">Intervalo</th>
-                    <th class="py-3 px-4 text-right">Meta</th>
+                    <th class="py-3 px-4 text-right">Meta Acumulada</th>
                     <th class="py-3 px-4 text-center">Status</th>
                     <th class="py-3 px-4 text-right">Ação</th>
                   </tr>
@@ -3438,6 +3438,6 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=25"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
