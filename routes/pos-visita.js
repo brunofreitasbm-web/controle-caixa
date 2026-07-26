@@ -1,25 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const XLSX = require('xlsx');
 const { db, normalizeRow } = require('../config/database');
 
-// Importação vinda do Make.com (relatório de vendas diário). Protegida por
-// um secret simples via header, no mesmo padrão do CRON_SECRET em server.js —
-// evita dar a credencial de produção do Postgres para o Make.
-router.post('/importar', (req, res) => {
+const upload = multer({ storage: multer.memoryStorage() });
+
+function checarSecret(req, res) {
   const secretEsperado = process.env.POS_VISITA_IMPORT_SECRET;
-  if (secretEsperado) {
-    const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${secretEsperado}`) {
-      return res.status(401).json({ error: 'Não autorizado.' });
-    }
+  if (!secretEsperado) return true;
+  const auth = req.headers['authorization'];
+  if (auth !== `Bearer ${secretEsperado}`) {
+    res.status(401).json({ error: 'Não autorizado.' });
+    return false;
   }
+  return true;
+}
 
-  const { registros } = req.body;
-  if (!Array.isArray(registros)) {
-    return res.status(400).json({ error: 'Campo "registros" (array) é obrigatório.' });
-  }
-
-  // Defesa extra: mesmo que o Make já filtre, só aceita quem ficou mais de 1h.
+// Insere os registros elegíveis (>60min) no banco, deduplicando por
+// (dataSessao, numeroCliente, crianca). Usado tanto pela importação já
+// estruturada (JSON) quanto pela importação direta da planilha (XLSX).
+function inserirRegistros(registros) {
   const elegiveis = registros.filter(r => Number(r.tempoTotalMinutos) > 60);
   const criadoEm = new Date().toISOString();
 
@@ -43,8 +44,110 @@ router.post('/importar', (req, res) => {
     }));
   });
 
-  promise.then(() => {
-    res.json({ success: true, recebidos: registros.length, elegiveis: elegiveis.length, inseridos });
+  return promise.then(() => ({ elegiveis: elegiveis.length, inseridos }));
+}
+
+// Importação vinda do Make.com já como JSON estruturado (caso o cenário
+// converta a planilha lá dentro). Protegida por header Authorization.
+router.post('/importar', (req, res) => {
+  if (!checarSecret(req, res)) return;
+
+  const { registros } = req.body;
+  if (!Array.isArray(registros)) {
+    return res.status(400).json({ error: 'Campo "registros" (array) é obrigatório.' });
+  }
+
+  inserirRegistros(registros).then(({ elegiveis, inseridos }) => {
+    res.json({ success: true, recebidos: registros.length, elegiveis, inseridos });
+  });
+});
+
+// --------------------------------------------------------------------------
+// Importação direta do arquivo .xlsx: o Make só baixa o e-mail e repassa o
+// arquivo bruto (multipart/form-data, campo "planilha") — quem interpreta a
+// planilha é este servidor, usando a lib xlsx. Evita ter que montar
+// conversão de XLSX dentro do Make (não existe módulo nativo pra isso).
+// --------------------------------------------------------------------------
+
+// Normaliza um cabeçalho de coluna pra comparação tolerante a acento/caixa/
+// espaço (ex.: "Número Cliente", "numero_cliente" e "NumeroCliente" batem).
+function normalizarChave(txt) {
+  return String(txt || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+const CANDIDATOS_COLUNA = {
+  data: ['data', 'datasessao'],
+  cliente: ['cliente', 'responsavel', 'nomeresponsavel'],
+  numeroCliente: ['numerocliente', 'telefone', 'telefonecliente', 'whatsapp', 'numero'],
+  tempoTotalMinutos: ['tempototalsession', 'tempototalminutos', 'tempototal', 'duracao', 'tempodesessao'],
+  crianca: ['crianca', 'nomecrianca']
+};
+
+function acharValor(linhaNormalizada, campo) {
+  for (const candidato of CANDIDATOS_COLUNA[campo]) {
+    if (linhaNormalizada[candidato] !== undefined) return linhaNormalizada[candidato];
+  }
+  return undefined;
+}
+
+function normalizarTelefone(valor) {
+  let digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '';
+  // Assume DDI 55 (Brasil) quando o número vier só com DDD+número (10-11 dígitos).
+  if (digitos.length <= 11) digitos = `55${digitos}`;
+  return digitos;
+}
+
+function normalizarTempoMinutos(valor) {
+  if (typeof valor === 'number') return Math.round(valor);
+  const texto = String(valor || '').trim();
+  const comDoisPontos = texto.match(/^(\d+):(\d{2})$/); // formato "h:mm"
+  if (comDoisPontos) return parseInt(comDoisPontos[1], 10) * 60 + parseInt(comDoisPontos[2], 10);
+  const numeros = texto.match(/\d+/);
+  return numeros ? parseInt(numeros[0], 10) : 0;
+}
+
+function normalizarData(valor) {
+  if (valor instanceof Date) return valor.toISOString().slice(0, 10);
+  const texto = String(valor || '').trim();
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // "dd/mm/aaaa"
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return texto.slice(0, 10);
+}
+
+router.post('/importar-planilha', upload.single('planilha'), (req, res) => {
+  if (!checarSecret(req, res)) return;
+  if (!req.file) {
+    return res.status(400).json({ error: 'Arquivo "planilha" (multipart/form-data) é obrigatório.' });
+  }
+
+  let linhas;
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const primeiraAba = workbook.SheetNames[0];
+    linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: null });
+  } catch (err) {
+    return res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
+  }
+
+  const registros = linhas.map(linha => {
+    const linhaNormalizada = {};
+    Object.keys(linha).forEach(chave => { linhaNormalizada[normalizarChave(chave)] = linha[chave]; });
+
+    return {
+      dataSessao: normalizarData(acharValor(linhaNormalizada, 'data')),
+      cliente: String(acharValor(linhaNormalizada, 'cliente') || '').trim(),
+      numeroCliente: normalizarTelefone(acharValor(linhaNormalizada, 'numeroCliente')),
+      crianca: String(acharValor(linhaNormalizada, 'crianca') || '').trim(),
+      tempoTotalMinutos: normalizarTempoMinutos(acharValor(linhaNormalizada, 'tempoTotalMinutos'))
+    };
+  });
+
+  inserirRegistros(registros).then(({ elegiveis, inseridos }) => {
+    res.json({ success: true, linhasNaPlanilha: linhas.length, elegiveis, inseridos });
   });
 });
 
