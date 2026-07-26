@@ -2907,6 +2907,41 @@
         <p id="an-import-msg" class="form-msg mt-2" role="status"></p>
       </div>
 
+      <!-- Resumo do cadastro: total importado + conferência dos dados lidos
+           do PDF, pro operador validar se o parser leu tudo corretamente. -->
+      <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Total de crianças já cadastradas no sistema — use para conferir se o PDF foi importado por completo">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div class="flex items-center gap-6">
+            <div>
+              <div class="text-2xl font-extrabold text-white" id="an-total-cadastrados">0</div>
+              <div class="text-[11px] text-brand-400">crianças cadastradas</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-amber-400" id="an-total-hoje">0</div>
+              <div class="text-[11px] text-brand-400">aniversariantes hoje</div>
+            </div>
+          </div>
+          <button type="button" id="an-btn-conferir" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Mostra a lista completa do que foi lido do PDF (nome, data de nascimento e telefone) para conferência">
+            <i class="fa-solid fa-list-check"></i> Conferir cadastros
+          </button>
+        </div>
+        <div id="an-conferencia" class="hidden mt-4 pt-4 border-t border-brand-800/60">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="text-left text-brand-400">
+                  <th class="py-1 pr-3">Criança</th>
+                  <th class="py-1 pr-3">Nascimento</th>
+                  <th class="py-1 pr-3">Responsável</th>
+                  <th class="py-1">Telefone</th>
+                </tr>
+              </thead>
+              <tbody id="an-conferencia-corpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div id="an-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
         <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
         <p class="text-sm font-bold text-brand-200">Nenhum aniversariante hoje. 🎂</p>
@@ -3579,6 +3614,6 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

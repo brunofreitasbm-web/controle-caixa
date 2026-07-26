@@ -12661,7 +12661,52 @@ function renderAniversarios() {
     });
   }
 
+  const btnConferir = document.getElementById("an-btn-conferir");
+  if (btnConferir && !btnConferir.dataset.bound) {
+    btnConferir.dataset.bound = "1";
+    btnConferir.onclick = alternarConferenciaAniversarios;
+  }
+
   carregarAniversarios();
+}
+
+// Mostra/esconde a tabela com tudo que foi lido do PDF, pro operador
+// conferir se os dados vieram certos (nome, data e telefone).
+async function alternarConferenciaAniversarios() {
+  const painel = document.getElementById("an-conferencia");
+  const corpo = document.getElementById("an-conferencia-corpo");
+  if (!painel || !corpo) return;
+
+  if (!painel.classList.contains("hidden")) {
+    painel.classList.add("hidden");
+    return;
+  }
+
+  painel.classList.remove("hidden");
+  corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Carregando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/cadastrados`);
+    if (!res.ok) throw new Error("Falha ao carregar cadastros");
+    const { registros } = await res.json();
+
+    if (!registros || registros.length === 0) {
+      corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Nenhum cadastro importado ainda.</td></tr>`;
+      return;
+    }
+
+    corpo.innerHTML = registros.map(r => `
+      <tr class="border-t border-brand-900/60">
+        <td class="py-1 pr-3 font-semibold">${r.nomeCrianca}</td>
+        <td class="py-1 pr-3">${formatarDataBr(r.dataNascimento)}</td>
+        <td class="py-1 pr-3">${r.nomeResponsavel}</td>
+        <td class="py-1">${r.telefone}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Erro ao carregar conferência de cadastros:", err);
+    corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-red-400">Erro ao carregar os cadastros.</td></tr>`;
+  }
 }
 
 // Aceita um ou vários PDFs de uma vez (FileList do input ou do drag & drop).
@@ -12683,6 +12728,13 @@ async function importarPdfsAniversario(arquivos) {
     showToast("Cadastro de aniversários importado!", "sucesso");
     document.getElementById("an-input-arquivo").value = "";
     carregarAniversarios();
+
+    // Se a conferência já estava aberta, recarrega pra mostrar o que entrou.
+    const conferencia = document.getElementById("an-conferencia");
+    if (conferencia && !conferencia.classList.contains("hidden")) {
+      conferencia.classList.add("hidden");
+      alternarConferenciaAniversarios();
+    }
   } catch (err) {
     console.error("Erro ao importar PDF(s) de aniversários:", err);
     msg.textContent = err.message || "Erro ao importar.";
@@ -12698,23 +12750,31 @@ async function carregarAniversarios() {
   try {
     const res = await fetch(`${API_BASE}/aniversarios/hoje`);
     if (!res.ok) throw new Error("Falha ao carregar aniversariantes");
-    const { registros } = await res.json();
+    const { registros, totalCadastrados } = await res.json();
+
+    const doDia = registros || [];
+    const totalEl = document.getElementById("an-total-cadastrados");
+    const hojeEl = document.getElementById("an-total-hoje");
+    if (totalEl) totalEl.textContent = totalCadastrados || 0;
+    if (hojeEl) hojeEl.textContent = doDia.length;
+
+    // Fora do bloco condicional de propósito: com a fila vazia o badge
+    // precisa ser zerado, e não manter o número da carga anterior.
+    atualizarBadgeAniversarios(doDia.filter(r => !r.jaEnviadoEsteAno).length);
 
     lista.innerHTML = "";
-    if (!registros || registros.length === 0) {
+    if (doDia.length === 0) {
       vazio.classList.remove("hidden");
       return;
     }
     vazio.classList.add("hidden");
 
     let primeiroHabilitavelJaEncontrado = false;
-    registros.forEach(registro => {
+    doDia.forEach(registro => {
       const habilitado = !registro.jaEnviadoEsteAno && !primeiroHabilitavelJaEncontrado;
       if (!registro.jaEnviadoEsteAno) primeiroHabilitavelJaEncontrado = true;
       lista.appendChild(criarCardAniversario(registro, habilitado));
     });
-
-    atualizarBadgeAniversarios(registros.filter(r => !r.jaEnviadoEsteAno).length);
   } catch (err) {
     console.error("Erro ao carregar aniversariantes:", err);
     showToast("Erro ao carregar os aniversariantes de hoje.", "erro");

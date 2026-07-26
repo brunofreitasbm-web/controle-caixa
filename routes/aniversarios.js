@@ -228,8 +228,25 @@ router.get('/hoje', (req, res) => {
         };
       });
 
-    res.json({ data: hoje.toISOString().slice(0, 10), registros: doDia });
+    res.json({
+      data: hoje.toISOString().slice(0, 10),
+      registros: doDia,
+      totalCadastrados: (rows || []).length
+    });
   });
+});
+
+// Lista completa dos cadastros, pro operador conferir se o PDF foi lido
+// corretamente (nomes, datas e telefones) sem precisar mexer no banco.
+router.get('/cadastrados', (req, res) => {
+  db.all(
+    `SELECT * FROM aniversarios_registros ORDER BY nomeCrianca ASC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ registros: (rows || []).map(normalizeRow) });
+    }
+  );
 });
 
 router.post('/marcar-enviado', (req, res) => {
