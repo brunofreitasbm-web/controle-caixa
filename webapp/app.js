@@ -6136,9 +6136,36 @@ function setupPinDotsEventHandlers() {
       }
       setup.input.addEventListener("input", () => {
         updatePinDots(setup.input, setup.dots);
+        autoSubmitPinSeCompleto(setup.input);
       });
     }
   });
+}
+
+// Assim que o PIN (4 dígitos) é digitado, envia sozinho — sem precisar de
+// Enter nem clicar em "Entrar". No cadastro de PIN novo, só envia quando os
+// dois campos (PIN + confirmação) já estiverem completos.
+function autoSubmitPinSeCompleto(input) {
+  if (input.value.trim().length !== 4) return;
+
+  if (input.id === "session-pin") {
+    document.getElementById("session-unlock").click();
+    return;
+  }
+
+  if (input.id === "login-pin") {
+    const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
+    if (ehCriacao) {
+      if (loginPinConfirmInput.value.trim().length === 4) loginEntrarBtn.click();
+    } else {
+      loginEntrarBtn.click();
+    }
+    return;
+  }
+
+  if (input.id === "login-pin-confirm") {
+    if (loginPinInput.value.trim().length === 4) loginEntrarBtn.click();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
