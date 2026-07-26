@@ -153,7 +153,12 @@ function upsertAniversario(registro) {
 // Aceita 1 ou vários PDFs no mesmo upload (o Bruno pediu pra poder importar
 // mais de um relatório de uma vez — cada arquivo processado e somado ao
 // resultado final).
-router.post('/importar-pdf', upload.array('arquivos', 20), async (req, res) => {
+//
+// upload.any() de propósito, em vez de .array('arquivos'): um navegador com
+// o app.js antigo em cache ainda envia o campo no singular ("arquivo"), e
+// .array() rejeitaria isso com um erro do multer que o Express devolve como
+// página HTML de 500 — quebrando o front, que espera JSON.
+router.post('/importar-pdf', upload.any(), async (req, res) => {
   const arquivos = req.files && req.files.length ? req.files : (req.file ? [req.file] : []);
   if (arquivos.length === 0) {
     return res.status(400).json({ error: 'Pelo menos um arquivo PDF é obrigatório.' });
@@ -241,6 +246,15 @@ router.post('/marcar-enviado', (req, res) => {
       res.json({ success: true });
     }
   );
+});
+
+// Sem isto, um erro no meio do upload (multer, PDF corrompido, etc.) cai no
+// handler padrão do Express, que responde com uma página HTML — e o front,
+// esperando JSON, quebra com "Unexpected token '<'" em vez de mostrar o erro.
+router.use((err, req, res, next) => {
+  console.error('[Aniversários] Erro na requisição:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message || 'Erro ao processar a requisição.' });
 });
 
 module.exports = router;
