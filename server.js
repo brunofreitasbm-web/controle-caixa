@@ -19,7 +19,10 @@ const {
   minutosParaHoraStrMeta,
   checkpointsDoDiaMeta,
   enviarLembreteMetaHoraHora,
-  enviarResumoAtrasoMeta
+  enviarResumoAtrasoMeta,
+  obterEmailsDestinatarios,
+  enviarEmailGenerico,
+  enviarNotificacaoPush
 } = require('./config/notifications');
 
 const authRoutes = require('./routes/auth');
@@ -35,6 +38,7 @@ const metasLojasRoutes = require('./routes/metas-lojas');
 const metasRoutes = require('./routes/metas');
 const realtimeRoutes = require('./routes/realtime');
 const inventarioRoutes = require('./routes/inventario');
+const iaRoutes = require('./routes/ia');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +54,7 @@ app.use(express.static(path.join(__dirname, 'webapp')));
 // middleware de parsing/roteamento mais pesado.
 app.use('/api', realtimeRoutes);
 app.use('/api', inventarioRoutes);
+app.use('/api', iaRoutes);
 app.use('/api', authRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', financeiroRoutes);
@@ -185,7 +190,25 @@ if (require.main === module) {
         if (UNIDADES_FA_META.includes(loja)) return;
         checkpointsDoDiaMeta(loja).forEach(slotMin => {
           if (agora.minutosDoDia === slotMin - META_LEMBRETE_MIN_ANTES) {
-            enviarLembreteMetaHoraHora(loja, minutosParaHoraStrMeta(slotMin));
+            const horaSlot = minutosParaHoraStrMeta(slotMin);
+
+            // Copiloto (IA — item 6): troca o lembrete genérico por uma
+            // instrução com o ritmo do dia. Qualquer falha cai no lembrete
+            // original, que continua sendo o comportamento garantido.
+            const { gerarAvisoCopiloto } = require('./services/ia-copiloto');
+            gerarAvisoCopiloto({ loja, data: agora.data, horaSlot })
+              .then(({ texto }) => {
+                enviarNotificacaoPush(`⏰ Meta ${horaSlot} — ${loja}`, texto, null, 'meta_lembrete');
+                obterEmailsDestinatarios('meta_lembrete', (emails) => {
+                  if (emails && emails.length) {
+                    enviarEmailGenerico(emails, `Meta Hora a Hora — ${horaSlot} — ${loja}`, texto).catch(() => {});
+                  }
+                });
+              })
+              .catch(err => {
+                console.error('[Copiloto] Falha, usando lembrete padrão:', err.message);
+                enviarLembreteMetaHoraHora(loja, horaSlot);
+              });
           }
         });
       });
@@ -232,6 +255,46 @@ if (require.main === module) {
       console.error('[Meta Hora a Hora] Erro no job de resumo de atraso:', err);
     }
   });
+}
+
+// ==========================================================================
+// BRIEFING DIÁRIO DO GESTOR (IA — item 2)
+// ==========================================================================
+// Roda às 7h de Brasília e entrega ao Owner e ao Líder de Operação o resumo
+// do dia anterior. Reaproveita o cache de services/ia.js: como a rota
+// /api/ia/briefing usa a mesma chave, abrir a tela depois do cron não gera
+// uma segunda chamada ao provedor.
+if (require.main === module) {
+  cron.schedule('0 7 * * *', async () => {
+    try {
+      const { gerarBriefing } = require('./services/ia-briefing');
+      const { briefing } = await gerarBriefing();
+
+      const linhas = [
+        briefing.manchete,
+        '',
+        briefing.vendas,
+        '',
+        'ALERTAS:',
+        ...briefing.alertas.map(a => `- ${a}`),
+        '',
+        'PRIORIDADES DE HOJE:',
+        ...briefing.prioridades.map((p, i) => `${i + 1}. ${p}`),
+        '',
+        briefing.fechamento || ''
+      ].join('\n');
+
+      enviarNotificacaoPush('Briefing do dia', briefing.manchete, null, 'briefing_diario');
+
+      obterEmailsDestinatarios('briefing_diario', (emails) => {
+        if (!emails || emails.length === 0) return;
+        enviarEmailGenerico(emails, 'Briefing diário da operação', linhas)
+          .catch(err => console.error('[Briefing] Falha ao enviar e-mail:', err.message));
+      });
+    } catch (err) {
+      console.error('[Briefing] Erro no job diário:', err);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
 }
 
 // Inicializar banco de dados e iniciar servidor

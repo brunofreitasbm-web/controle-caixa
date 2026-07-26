@@ -447,6 +447,17 @@ function initDb(onSuccess) {
           criadoEm TEXT,
           atualizadoEm TEXT,
           UNIQUE(nomeCrianca, nomeResponsavel)
+        )`,
+        // Cache das respostas de IA (services/ia.js). Briefing do dia, coach
+        // da competência e auditoria de boletos custam cota e mudam pouco
+        // dentro da janela — gerar uma vez e reusar mantém o uso dentro da
+        // camada gratuita. expiraEm é epoch em ms (BIGINT: um timestamp em ms
+        // não cabe no INTEGER de 4 bytes do Postgres).
+        `CREATE TABLE IF NOT EXISTS ia_cache (
+          chave TEXT PRIMARY KEY,
+          valor TEXT,
+          criadoEm TEXT,
+          expiraEm BIGINT
         )`
       ];
 
