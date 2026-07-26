@@ -1,98 +1,30 @@
-# Roteiro Make.com — Pós-Visita FaçaAmigos (1h/2h)
+# Automação Make.com — Pós-Visita FaçaAmigos (1h/2h)
 
-Automação que lê o "RELATÓRIO DE VENDAS" recebido por e-mail todo dia (entre ~21h30 e 22h30), extrai as sessões em que a criança ficou mais de 1h no playground, e envia esses registros para o Controle-Caixa, onde o operador dispara as mensagens de WhatsApp no dia seguinte (10h-12h).
+Este documento descreve o cenário **já construído e ativo** na sua conta Make (`Integration Gmail`, id 5764127, time "My Team"). Ele lê o "RELATÓRIO DE VENDAS" recebido por e-mail todo dia (~21h30-22h30), baixa a planilha, e envia pro Controle-Caixa — que filtra quem ficou mais de 1h e monta a fila de disparo de WhatsApp que o operador usa entre 10h-12h no dia seguinte.
 
-Monte um cenário no Make.com com os módulos abaixo, na ordem indicada.
+## O cenário (4 módulos)
 
-## 1. Trigger — Watch e-mails (Gmail)
+1. **Gmail → Watch emails**: filtra `from: suporte@safeplay.com.br`, `subject: RELATÓRIO DE VENDAS`, label "Safeplay". Agendado para checar a cada 15 min, só na janela 21h30-22h30 (todo dia).
+2. **RegExp → Match pattern (Advanced)**: extrai a primeira URL (`https?://...`) do corpo do e-mail.
+3. **HTTP → Get a file**: baixa o arquivo apontado pela URL extraída.
+4. **HTTP → Make a request**: `POST` do arquivo baixado (corpo bruto, `Content-Type: application/octet-stream`) para `https://controle-caixa-4u0w.onrender.com/api/pos-visita/importar-planilha-raw`, com header `Authorization: Bearer 5d6ec1c08b2465d6f1f1f521fb6c159e87dbf046691a99d7`.
 
-- Módulo: **Gmail → Watch emails** (ou o app de e-mail que a caixa `brunofreitasbm@gmail.com` usa).
-- Pasta/label: Inbox.
-- Filtro do próprio módulo (ou um filtro logo depois, no Router/Filter do Make):
-  - `From` contém `suporte@safeplay.com.br`
-  - `Subject` contém `RELATÓRIO DE VENDAS`
-- Agendamento do cenário: como o e-mail chega historicamente entre 21h30 e 22h30, configure o schedule do cenário para rodar a cada 15 minutos **apenas nessa janela** (ex. das 21h15 às 23h00). Não precisa rodar o dia inteiro — isso economiza operações do Make.
+O parse da planilha (colunas `data`/`cliente`/`numero_cliente`/`tempo_total_session`/`crianca`, tolerante a variação de nome/formato) e o filtro de `>60 min` acontecem **no servidor**, não no Make — não existe módulo nativo de XLSX no Make, então é mais simples e mais barato (em operações) deixar o Make só repassar o arquivo bruto.
 
-## 2. Extrair o link de download
+## ⚠️ Risco conhecido: o link expira em 10 minutos
 
-- Módulo: **Tools → Set variable** (ou direto num campo de texto do módulo seguinte) usando uma função regex sobre o corpo do e-mail (`{{1.textPlain}}` ou `{{1.textHtml}}`), por exemplo:
-  ```
-  {{match(1.textPlain; "https?://[^\s\"']+")}}
-  ```
-- Guarde o resultado numa variável, ex. `link_planilha`.
+O link do relatório é uma URL assinada da AWS S3 com `X-Amz-Expires=600` (10 minutos) a partir do momento em que é gerado. O plano **Free** do Make só permite checar a caixa de entrada a cada **15 minutos** (não existe gatilho instantâneo/webhook para Gmail no Make) — então existe uma janela real em que o link pode expirar antes do Make conseguir baixá-lo.
 
-## 3. Baixar o arquivo .xlsx
+Decisão do Bruno (25/07/2026): manter assim por enquanto e monitorar pelo histórico de execuções do Make. Se as importações começarem a falhar com frequência, a solução mais confiável é o upgrade para o plano **Core** do Make (~US$9/mês), que libera checagem a cada 1 minuto — folga suficiente dentro da janela de 10 minutos.
 
-- Módulo: **HTTP → Get a file**.
-- URL: `{{link_planilha}}`.
-- Método: GET.
-- Isso retorna o arquivo binário `sales-xxxxxx.xlsx` para o próximo módulo.
+## Como conferir se rodou certo
 
-## 4. Ler as linhas da planilha
+1. No Make, abra o cenário "Integration Gmail" → aba **History**.
+2. Depois das 22h30, confira se teve uma execução com sucesso (bolinha verde).
+3. Se der erro, abra a execução e veja em qual módulo parou — geralmente será no módulo 3 (Get a file) se o link já tiver expirado.
+4. No Controle-Caixa, abra o menu **Pós-visita 1h/2h** no dia seguinte de manhã e confira se a fila foi populada.
 
-Duas alternativas (use a que estiver disponível na sua conta Make):
+## Secret configurado
 
-**Opção A — módulo nativo de planilha do Make**, se disponível na sua conta (ex. um módulo de "Spreadsheet"/"Excel" que aceita um arquivo binário e devolve linhas). Aponte a saída do HTTP (passo 3) como entrada.
-
-**Opção B — upload temporário + leitura**, se a conta não tiver um módulo direto de XLSX:
-1. **Google Sheets → Upload a file** (ou OneDrive/Google Drive), convertendo o .xlsx enviado no passo 3 para uma planilha do Google.
-2. **Google Sheets → Search Rows**, lendo a planilha recém-criada e devolvendo as linhas como um array de objetos.
-3. Opcional: um módulo para excluir o arquivo temporário depois de processado, mantendo o Drive limpo.
-
-Cada linha deve expor os campos: `data`, `cliente`, `numero_cliente`, `tempo_total_session` (em minutos), `crianca`.
-
-## 5. Filtrar por tempo > 60 minutos
-
-- Módulo: **Filter** (ou a condição de filtro logo na saída do iterador do passo 4).
-- Condição: `tempo_total_session` **Maior que** `60`.
-
-## 6. Agregar as linhas filtradas num array
-
-- Módulo: **Array Aggregator**, agregando a saída filtrada do passo 5 num único array JSON, no formato:
-  ```json
-  [
-    {
-      "dataSessao": "2026-07-25",
-      "cliente": "Nome do Responsável",
-      "numeroCliente": "5591999998888",
-      "crianca": "Nome da Criança",
-      "tempoTotalMinutos": 95
-    }
-  ]
-  ```
-- Atenção ao campo `numeroCliente`: deve conter só dígitos, no formato internacional `55` + DDD + número (sem espaços, traços ou parênteses), porque o Controle-Caixa usa esse valor direto para montar o link do WhatsApp (`wa.me/<numero>`). Se a planilha vier com o telefone formatado (ex. `(91) 99999-8888`), normalize com uma função `replace`/regex antes de agregar.
-
-## 7. Enviar para o Controle-Caixa
-
-- Módulo: **HTTP → Make a request**.
-- Método: `POST`.
-- URL: `https://controle-caixa-4u0w.onrender.com/api/pos-visita/importar`
-- Headers:
-  - `Content-Type: application/json`
-  - `Authorization: Bearer 5d6ec1c08b2465d6f1f1f521fb6c159e87dbf046691a99d7`
-
-  *(esse é o valor de `POS_VISITA_IMPORT_SECRET` — já está configurado no `.env` local; falta adicionar essa mesma variável no Render, veja a seção 9 abaixo)*
-- Body (raw JSON):
-  ```json
-  { "registros": {{7.array}} }
-  ```
-  (referenciando o array agregado no passo 6)
-
-O endpoint já faz a deduplicação (não duplica registro se o cenário rodar de novo para o mesmo dia/cliente/criança) e um filtro extra de segurança (só aceita `tempoTotalMinutos > 60`).
-
-## 8. Configurar o secret no Render (passo a passo)
-
-O servidor só aceita o `POST /importar` se o header `Authorization` bater com a variável de ambiente `POS_VISITA_IMPORT_SECRET` — sem isso configurado no Render, o endpoint aceita qualquer chamada (menos seguro, mas não quebra nada). Pra ativar a proteção:
-
-1. Acesse [dashboard.render.com](https://dashboard.render.com) e entre no serviço `controle-caixa-4u0w`.
-2. No menu lateral do serviço, clique em **Environment**.
-3. Clique em **Add Environment Variable**.
-4. Key: `POS_VISITA_IMPORT_SECRET` / Value: `5d6ec1c08b2465d6f1f1f521fb6c159e87dbf046691a99d7` (mesmo valor já usado no header do Make e salvo no `.env` local).
-5. Salve — o Render reinicia o serviço sozinho aplicando a variável nova.
-6. Confirme que voltou a responder acessando `https://controle-caixa-4u0w.onrender.com` normalmente depois do restart.
-
-## 9. Tratamento de erro / observações
-
-- Adicione um **Error Handler** no módulo HTTP do passo 3 e do passo 7: se o download falhar ou o Controle-Caixa não responder 200, envie uma notificação (e-mail ou Slack) para o Bruno avisando que a importação do dia falhou.
-- Se o e-mail não chegar na janela esperada (21h30-22h30), o cenário simplesmente não encontra nada para processar nessa execução — não é necessário tratamento especial, mas vale um alerta caso o Bruno queira ser avisado quando 2-3 dias seguidos não chegar relatório nenhum.
-- Teste o cenário rodando manualmente ("Run once") com um e-mail antigo antes de deixar o agendamento automático ativo, para confirmar que o parsing do XLSX e o POST final estão funcionando.
+- `.env` local do Controle-Caixa já tem `POS_VISITA_IMPORT_SECRET=5d6ec1c08b2465d6f1f1f521fb6c159e87dbf046691a99d7`.
+- **Falta confirmar** se essa mesma variável está configurada no Render (dashboard.render.com → serviço `controle-caixa-4u0w` → Environment → `POS_VISITA_IMPORT_SECRET`). Sem ela lá, o endpoint aceita chamadas sem autenticação (funciona, mas sem a proteção do secret).
