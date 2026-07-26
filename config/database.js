@@ -39,7 +39,8 @@ const camelCaseMap = {
   numerocliente: 'numeroCliente',
   tempototalminutos: 'tempoTotalMinutos',
   mensagemenviada: 'mensagemEnviada',
-  mensagemenviadaem: 'mensagemEnviadaEm'
+  mensagemenviadaem: 'mensagemEnviadaEm',
+  jacontactadoantes: 'jaContactadoAntes'
 };
 
 function normalizeRow(row) {

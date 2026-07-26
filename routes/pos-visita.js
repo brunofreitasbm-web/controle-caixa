@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const XLSX = require('xlsx');
 const { db, normalizeRow } = require('../config/database');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -17,16 +16,15 @@ function checarSecret(req, res) {
   return true;
 }
 
-// Insere os registros elegíveis (>60min) no banco, deduplicando por
-// (dataSessao, numeroCliente, crianca). Usado tanto pela importação já
-// estruturada (JSON) quanto pela importação direta da planilha (XLSX).
+// Insere todos os registros da importação (sem filtro de tempo — o Bruno
+// pediu para considerar qualquer duração, não só >1h), deduplicando por
+// (dataSessao, numeroCliente, crianca).
 function inserirRegistros(registros) {
-  const elegiveis = registros.filter(r => Number(r.tempoTotalMinutos) > 60);
   const criadoEm = new Date().toISOString();
 
   let promise = Promise.resolve();
   let inseridos = 0;
-  elegiveis.forEach(r => {
+  registros.forEach(r => {
     const { dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos } = r;
     if (!dataSessao || !cliente || !numeroCliente || !crianca) return;
     const id = `${dataSessao}_${numeroCliente}_${crianca}`;
@@ -35,7 +33,7 @@ function inserirRegistros(registros) {
         `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
          VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(dataSessao, numeroCliente, crianca) DO NOTHING`,
-        [id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm],
+        [id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos || 0, criadoEm],
         (err) => {
           if (!err) inseridos++;
           resolve();
@@ -44,59 +42,54 @@ function inserirRegistros(registros) {
     }));
   });
 
-  return promise.then(() => ({ elegiveis: elegiveis.length, inseridos }));
+  return promise.then(() => ({ inseridos }));
 }
 
-// Importação vinda do Make.com já como JSON estruturado (caso o cenário
-// converta a planilha lá dentro). Protegida por header Authorization.
-router.post('/importar', (req, res) => {
-  if (!checarSecret(req, res)) return;
-
-  const { registros } = req.body;
-  if (!Array.isArray(registros)) {
-    return res.status(400).json({ error: 'Campo "registros" (array) é obrigatório.' });
-  }
-
-  inserirRegistros(registros).then(({ elegiveis, inseridos }) => {
-    res.json({ success: true, recebidos: registros.length, elegiveis, inseridos });
-  });
-});
-
 // --------------------------------------------------------------------------
-// Importação direta do arquivo .xlsx: o Make só baixa o e-mail e repassa o
-// arquivo bruto (multipart/form-data, campo "planilha") — quem interpreta a
-// planilha é este servidor, usando a lib xlsx. Evita ter que montar
-// conversão de XLSX dentro do Make (não existe módulo nativo pra isso).
+// Importação manual do "Relatório Operacional do Dia anterior" (CSV, 1
+// arquivo por dia). Colunas fixas por posição (o arquivo não tem cabeçalho
+// confiável pra usar nome): K = responsável, L = telefone, N = tempo total
+// (minutos), P = nome da criança. Linha 1 é cabeçalho e é ignorada.
 // --------------------------------------------------------------------------
 
-// Normaliza um cabeçalho de coluna pra comparação tolerante a acento/caixa/
-// espaço (ex.: "Número Cliente", "numero_cliente" e "NumeroCliente" batem).
-function normalizarChave(txt) {
-  return String(txt || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
+const COLUNA = { cliente: 10, telefone: 11, tempoTotal: 13, crianca: 15 }; // K, L, N, P (0-indexado)
 
-const CANDIDATOS_COLUNA = {
-  data: ['data', 'datasessao'],
-  cliente: ['cliente', 'responsavel', 'nomeresponsavel'],
-  numeroCliente: ['numerocliente', 'telefone', 'telefonecliente', 'whatsapp', 'numero'],
-  tempoTotalMinutos: ['tempototalsession', 'tempototalminutos', 'tempototal', 'duracao', 'tempodesessao'],
-  crianca: ['crianca', 'nomecrianca']
-};
+// Parser de CSV simples, tolerante a campos entre aspas e detecta o
+// delimitador (",", ";" ou tab) pela linha de cabeçalho — relatórios
+// brasileiros costumam usar ";" porque "," é separador decimal.
+function parsearCSV(texto) {
+  const linhas = texto.split(/\r\n|\r|\n/).filter(l => l.length > 0);
+  if (linhas.length === 0) return [];
 
-function acharValor(linhaNormalizada, campo) {
-  for (const candidato of CANDIDATOS_COLUNA[campo]) {
-    if (linhaNormalizada[candidato] !== undefined) return linhaNormalizada[candidato];
+  const candidatos = [',', ';', '\t'];
+  const delimitador = candidatos.reduce((melhor, d) =>
+    (linhas[0].split(d).length > linhas[0].split(melhor).length ? d : melhor), candidatos[0]);
+
+  function parsearLinha(linha) {
+    const campos = [];
+    let atual = '';
+    let dentroDeAspas = false;
+    for (let i = 0; i < linha.length; i++) {
+      const c = linha[i];
+      if (c === '"') {
+        dentroDeAspas = !dentroDeAspas;
+      } else if (c === delimitador && !dentroDeAspas) {
+        campos.push(atual);
+        atual = '';
+      } else {
+        atual += c;
+      }
+    }
+    campos.push(atual);
+    return campos.map(c => c.trim().replace(/^"|"$/g, ''));
   }
-  return undefined;
+
+  return linhas.map(parsearLinha);
 }
 
 function normalizarTelefone(valor) {
   let digitos = String(valor || '').replace(/\D/g, '');
   if (!digitos) return '';
-  // Assume DDI 55 (Brasil) quando o número vier só com DDD+número (10-11 dígitos).
   if (digitos.length <= 11) digitos = `55${digitos}`;
   return digitos;
 }
@@ -104,85 +97,59 @@ function normalizarTelefone(valor) {
 function normalizarTempoMinutos(valor) {
   if (typeof valor === 'number') return Math.round(valor);
   const texto = String(valor || '').trim();
-  const comDoisPontos = texto.match(/^(\d+):(\d{2})$/); // formato "h:mm"
+  const comDoisPontos = texto.match(/^(\d+):(\d{2})$/);
   if (comDoisPontos) return parseInt(comDoisPontos[1], 10) * 60 + parseInt(comDoisPontos[2], 10);
   const numeros = texto.match(/\d+/);
   return numeros ? parseInt(numeros[0], 10) : 0;
 }
 
-function normalizarData(valor) {
-  if (valor instanceof Date) return valor.toISOString().slice(0, 10);
-  const texto = String(valor || '').trim();
-  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // "dd/mm/aaaa"
-  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
-  return texto.slice(0, 10);
-}
-
-// Lê o buffer de um .xlsx, mapeia as colunas (tolerante a variação de nome) e
-// insere os registros elegíveis. Compartilhado pelas duas rotas de import
-// (multipart e raw) — a única diferença entre elas é como o Express extrai
-// o buffer do corpo da requisição.
-function processarPlanilhaBuffer(buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-  const primeiraAba = workbook.SheetNames[0];
-  const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: null });
-
-  const registros = linhas.map(linha => {
-    const linhaNormalizada = {};
-    Object.keys(linha).forEach(chave => { linhaNormalizada[normalizarChave(chave)] = linha[chave]; });
-
-    return {
-      dataSessao: normalizarData(acharValor(linhaNormalizada, 'data')),
-      cliente: String(acharValor(linhaNormalizada, 'cliente') || '').trim(),
-      numeroCliente: normalizarTelefone(acharValor(linhaNormalizada, 'numeroCliente')),
-      crianca: String(acharValor(linhaNormalizada, 'crianca') || '').trim(),
-      tempoTotalMinutos: normalizarTempoMinutos(acharValor(linhaNormalizada, 'tempoTotalMinutos'))
-    };
-  });
-
-  return inserirRegistros(registros).then(({ elegiveis, inseridos }) => ({
-    linhasNaPlanilha: linhas.length, elegiveis, inseridos
-  }));
-}
-
-router.post('/importar-planilha', upload.single('planilha'), (req, res) => {
+router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
   if (!checarSecret(req, res)) return;
   if (!req.file) {
-    return res.status(400).json({ error: 'Arquivo "planilha" (multipart/form-data) é obrigatório.' });
+    return res.status(400).json({ error: 'Arquivo CSV é obrigatório.' });
+  }
+  const dataSessao = req.body.dataSessao;
+  if (!dataSessao || !/^\d{4}-\d{2}-\d{2}$/.test(dataSessao)) {
+    return res.status(400).json({ error: 'Campo "dataSessao" (YYYY-MM-DD) é obrigatório.' });
   }
 
-  try {
-    processarPlanilhaBuffer(req.file.buffer).then(resultado => res.json({ success: true, ...resultado }));
-  } catch (err) {
-    res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
-  }
+  const texto = req.file.buffer.toString('utf8');
+  const linhas = parsearCSV(texto).slice(1); // linha 1 é cabeçalho
+
+  const registros = linhas
+    .filter(cols => cols.length > COLUNA.crianca)
+    .map(cols => ({
+      dataSessao,
+      cliente: (cols[COLUNA.cliente] || '').trim(),
+      numeroCliente: normalizarTelefone(cols[COLUNA.telefone]),
+      crianca: (cols[COLUNA.crianca] || '').trim(),
+      tempoTotalMinutos: normalizarTempoMinutos(cols[COLUNA.tempoTotal])
+    }));
+
+  inserirRegistros(registros).then(({ inseridos }) => {
+    res.json({ success: true, linhasNoArquivo: linhas.length, inseridos });
+  });
 });
 
-// Variante que recebe o arquivo como corpo binário puro (Content-Type:
-// application/octet-stream), usada pelo Make quando o passthrough de binário
-// via multipart/form-data não valida corretamente entre módulos HTTP.
-router.post('/importar-planilha-raw', express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
-  if (!checarSecret(req, res)) return;
-  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-    return res.status(400).json({ error: 'Corpo da requisição vazio ou inválido.' });
-  }
-
-  try {
-    processarPlanilhaBuffer(req.body).then(resultado => res.json({ success: true, ...resultado }));
-  } catch (err) {
-    res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
-  }
-});
-
-// Fila de pendentes: não filtra por dia exato — o relatório chega à noite e
-// é disparado só na manhã seguinte, então "pendente" é o filtro certo.
+// Fila de pendentes: sinaliza (jaContactadoAntes) quando o mesmo responsável
+// + criança já receberam mensagem em outro dia, pra evitar duplicidade.
 router.get('/pendentes', (req, res) => {
   db.all(
-    `SELECT * FROM pos_visita_registros WHERE mensagemEnviada = 0 OR mensagemEnviada IS NULL ORDER BY dataSessao ASC, criadoEm ASC`,
+    `SELECT p.*,
+       EXISTS (
+         SELECT 1 FROM pos_visita_registros q
+         WHERE q.numeroCliente = p.numeroCliente AND q.crianca = p.crianca AND q.mensagemEnviada = 1
+       ) AS "jaContactadoAntes"
+     FROM pos_visita_registros p
+     WHERE p.mensagemEnviada = 0 OR p.mensagemEnviada IS NULL
+     ORDER BY p.dataSessao ASC, p.criadoEm ASC`,
     [],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ registros: (rows || []).map(normalizeRow) });
+      const normalizados = (rows || []).map(normalizeRow).map(r => ({
+        ...r, jaContactadoAntes: r.jaContactadoAntes === true || r.jaContactadoAntes === 1
+      }));
+      res.json({ registros: normalizados });
     }
   );
 });
@@ -201,6 +168,27 @@ router.post('/marcar-enviada', (req, res) => {
       res.json({ success: true });
     }
   );
+});
+
+// Relatório automático: quantos foram importados e quantos já foram
+// encaminhados, referente ao dia mais recente com registros na base.
+router.get('/relatorio', (req, res) => {
+  db.get(`SELECT MAX(dataSessao) AS "ultimaData" FROM pos_visita_registros`, [], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const ultimaData = row && row.ultimaData;
+    if (!ultimaData) return res.json({ data: null, importados: 0, enviados: 0 });
+
+    db.all(
+      `SELECT mensagemEnviada FROM pos_visita_registros WHERE dataSessao = ?`,
+      [ultimaData],
+      (err2, rows) => {
+        if (err2) return res.status(500).json({ error: err2.message });
+        const importados = (rows || []).length;
+        const enviados = (rows || []).filter(r => Number(r.mensagemEnviada || r.mensagemenviada) === 1).length;
+        res.json({ data: String(ultimaData).slice(0, 10), importados, enviados });
+      }
+    );
+  });
 });
 
 module.exports = router;

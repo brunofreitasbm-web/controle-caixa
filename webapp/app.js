@@ -101,9 +101,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "pos-visita", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "pos-visita", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1328,7 +1328,7 @@ function iniciarModuloBase(moduloOpcional) {
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1375,7 +1375,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
   ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
-   "group-metas", "group-meta-hora-hora", "group-pos-visita", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
+   "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -12289,8 +12289,8 @@ function inicializarMetaHoraHora() {
 }
 
 // ==========================================================================
-// Pós-visita 1h/2h (FaçaAmigos) — fila de disparo de WhatsApp para
-// responsáveis cuja criança ficou mais de 1h no playground.
+// PÓS-VISITA (FaçaAmigos) — importação manual do relatório operacional do
+// dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
 // ==========================================================================
 const POS_VISITA_COOLDOWN_MS = 5000;
 
@@ -12300,7 +12300,77 @@ function renderPosVisita() {
     btnAtualizar.dataset.bound = "1";
     btnAtualizar.onclick = () => carregarPosVisita();
   }
+
+  const inputData = document.getElementById("pv-import-data");
+  if (inputData && !inputData.value) {
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    inputData.value = ontem.toISOString().slice(0, 10);
+  }
+
+  const btnImportar = document.getElementById("pv-btn-importar");
+  if (btnImportar && !btnImportar.dataset.bound) {
+    btnImportar.dataset.bound = "1";
+    btnImportar.onclick = importarCsvPosVisita;
+  }
+
   carregarPosVisita();
+  carregarRelatorioPosVisita();
+}
+
+async function importarCsvPosVisita() {
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  const inputData = document.getElementById("pv-import-data");
+  const msg = document.getElementById("pv-import-msg");
+  const btn = document.getElementById("pv-btn-importar");
+
+  const arquivo = inputArquivo.files[0];
+  if (!arquivo) {
+    msg.textContent = "Selecione o arquivo CSV.";
+    return;
+  }
+  if (!inputData.value) {
+    msg.textContent = "Informe a data do relatório.";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+  formData.append("dataSessao", inputData.value);
+
+  btn.disabled = true;
+  msg.textContent = "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/importar-csv`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    msg.textContent = `${json.inseridos} de ${json.linhasNoArquivo} linha(s) importada(s).`;
+    showToast("Relatório importado com sucesso!", "sucesso");
+    inputArquivo.value = "";
+    carregarPosVisita();
+    carregarRelatorioPosVisita();
+  } catch (err) {
+    console.error("Erro ao importar CSV da Pós-visita:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o CSV.", "erro");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function carregarRelatorioPosVisita() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/relatorio`);
+    if (!res.ok) throw new Error("Falha ao carregar relatório");
+    const relatorio = await res.json();
+
+    document.getElementById("pv-relatorio-importados").textContent = relatorio.importados;
+    document.getElementById("pv-relatorio-enviados").textContent = relatorio.enviados;
+    document.getElementById("pv-relatorio-data").textContent = relatorio.data ? `(${formatarDataBr(relatorio.data)})` : "";
+  } catch (err) {
+    console.error("Erro ao carregar relatório de pós-visita:", err);
+  }
 }
 
 async function carregarPosVisita() {
@@ -12335,15 +12405,19 @@ function criarCardPosVisita(registro, habilitado) {
   card.dataset.id = registro.id;
 
   const dataFormatada = formatarDataBr(registro.dataSessao);
+  const avisoDuplicidade = registro.jaContactadoAntes
+    ? `<p class="text-[11px] text-amber-400 mt-1 font-bold" data-tip="Esse responsável e essa criança já receberam mensagem em outro dia — confira antes de enviar de novo">⚠️ Já contactado(a) anteriormente</p>`
+    : '';
 
   card.innerHTML = `
     <div>
       <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
       <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.cliente}</p>
       <p class="text-[11px] text-brand-400 mt-0.5">${dataFormatada} · ${registro.tempoTotalMinutos} min no playground</p>
+      ${avisoDuplicidade}
     </div>
     <div class="flex flex-col items-end gap-1">
-      <button type="button" class="pv-btn-enviar px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-2" ${habilitado ? "" : "disabled"}>
+      <button type="button" class="pv-btn-enviar px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-2" ${habilitado ? "" : "disabled"} data-tip="Abre o WhatsApp com uma mensagem carinhosa já pronta para esse responsável">
         <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
       </button>
       <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden"></span>
@@ -12371,7 +12445,8 @@ function dispararMensagemPosVisita(registro, card) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: registro.id })
-  }).catch(err => console.error("Erro ao marcar mensagem como enviada:", err));
+  }).then(() => carregarRelatorioPosVisita())
+    .catch(err => console.error("Erro ao marcar mensagem como enviada:", err));
 
   // Deixa a confirmação visível por um instante e então some da fila.
   setTimeout(() => {

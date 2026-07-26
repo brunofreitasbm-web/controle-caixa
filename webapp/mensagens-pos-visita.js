@@ -1,6 +1,7 @@
-// Mensagens de pós-visita FaçaAmigos — disparadas quando a criança fica mais
-// de 1h no playground. Tom: carinhoso, acolhedor, nunca corporativo; reforça
-// o benefício físico/emocional do gasto de energia saudável.
+// Mensagens de pós-visita FaçaAmigos — disparadas para os responsáveis de
+// toda criança que visitou o playground (sem filtro de tempo de permanência).
+// Tom: carinhoso, acolhedor, nunca corporativo; reforça o benefício
+// físico/emocional do gasto de energia saudável.
 //
 // Em vez de 240 strings fixas (redundantes e difíceis de manter), a mensagem
 // final é composta por 3 blocos combinados: saudação (10) x pergunta sobre
