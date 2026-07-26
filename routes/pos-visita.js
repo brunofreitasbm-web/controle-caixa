@@ -160,13 +160,17 @@ router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
   const registros = linhas
     .filter(cols => cols.length > COLUNA.crianca)
     .map(cols => {
-      const diffPeriodo = calcularDiferencaPeriodo(cols[COLUNA.periodo]);
+      // N (tempo total, formato H:MM:SS) é a fonte principal — confirmada
+      // pelo Bruno. O cálculo pela diferença do período (M) só entra como
+      // reserva, se por algum motivo N vier vazio/ilegível naquela linha.
+      const tempoDeN = normalizarTempoMinutos(cols[COLUNA.tempoTotal]);
+      const tempoTotalMinutos = tempoDeN > 0 ? tempoDeN : (calcularDiferencaPeriodo(cols[COLUNA.periodo]) || 0);
       return {
         dataSessao: normalizarDataLinha(cols[COLUNA.data], dataSessao),
         cliente: (cols[COLUNA.cliente] || '').trim(),
         numeroCliente: normalizarTelefone(cols[COLUNA.telefone]),
         crianca: (cols[COLUNA.crianca] || '').trim(),
-        tempoTotalMinutos: diffPeriodo !== null ? diffPeriodo : normalizarTempoMinutos(cols[COLUNA.tempoTotal])
+        tempoTotalMinutos
       };
     });
 
