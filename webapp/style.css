@@ -4039,6 +4039,27 @@ body.device-ios .sidebar {
   position: relative;
 }
 
+/* Badge piscante de aniversariantes pendentes, ao lado do texto do menu. */
+.an-badge {
+  margin-left: auto;
+  background: #f97316;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  animation: an-badge-piscar 1.4s ease-in-out infinite;
+}
+@keyframes an-badge-piscar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.88); }
+}
+
 /* Fila da Pós-visita: grade responsiva de 1 a 6 colunas em vez de lista
    1-card-por-linha — melhor aproveitamento de tela em telas largas. */
 .pv-grid {

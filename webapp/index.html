@@ -348,6 +348,7 @@
       <button class="tab-btn hidden" id="tab-btn-aniversarios" data-tab="aniversarios" role="tab" aria-selected="false" aria-controls="tab-aniversarios" data-tip="Importa o cadastro de crianças (PDF) e dispara parabéns no WhatsApp no dia do aniversário">
         <span class="tab-icon"><i class="fa-solid fa-cake-candles" style="color: #f97316;"></i></span>
         <span class="tab-text">ANIVERSÁRIOS</span>
+        <span id="an-badge" class="an-badge hidden" data-tip="Aniversariantes de hoje que ainda não foram parabenizados">0</span>
       </button>
       <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
         <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
@@ -2897,10 +2898,10 @@
         <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
           <i class="fa-solid fa-file-pdf"></i> Importar Cadastro de Crianças (PDF)
         </h3>
-        <div id="an-dropzone" class="rounded-2xl border-2 border-dashed border-brand-700 p-8 text-center cursor-pointer transition hover:border-brand-500" data-tip="Arraste o PDF aqui ou clique para escolher o arquivo — atualiza os registros existentes e adiciona os novos">
+        <div id="an-dropzone" class="rounded-2xl border-2 border-dashed border-brand-700 p-8 text-center cursor-pointer transition hover:border-brand-500" data-tip="Arraste um ou vários PDFs aqui ou clique para escolher — atualiza os registros existentes e adiciona os novos">
           <i class="fa-solid fa-cloud-arrow-up text-2xl text-brand-400 mb-2 block"></i>
-          <p class="text-xs text-brand-300">Arraste o PDF aqui ou clique para escolher o arquivo</p>
-          <input type="file" id="an-input-arquivo" accept=".pdf,application/pdf" class="hidden">
+          <p class="text-xs text-brand-300">Arraste um ou vários PDFs aqui ou clique para escolher</p>
+          <input type="file" id="an-input-arquivo" accept=".pdf,application/pdf" multiple class="hidden">
         </div>
         <p id="an-import-msg" class="form-msg mt-2" role="status"></p>
       </div>

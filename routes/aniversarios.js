@@ -150,25 +150,33 @@ function upsertAniversario(registro) {
   });
 }
 
-router.post('/importar-pdf', upload.single('arquivo'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Arquivo PDF é obrigatório.' });
+// Aceita 1 ou vários PDFs no mesmo upload (o Bruno pediu pra poder importar
+// mais de um relatório de uma vez — cada arquivo processado e somado ao
+// resultado final).
+router.post('/importar-pdf', upload.array('arquivos', 20), async (req, res) => {
+  const arquivos = req.files && req.files.length ? req.files : (req.file ? [req.file] : []);
+  if (arquivos.length === 0) {
+    return res.status(400).json({ error: 'Pelo menos um arquivo PDF é obrigatório.' });
   }
 
-  let linhas;
-  try {
-    linhas = await extrairLinhasPDF(req.file.buffer);
-  } catch (err) {
-    return res.status(400).json({ error: `Falha ao ler o PDF: ${err.message}` });
-  }
-
+  let linhasNoArquivo = 0;
   const registros = [];
   const linhasNaoIdentificadas = [];
-  linhas.forEach(linha => {
-    const registro = parsearLinhaAniversario(linha);
-    if (registro) registros.push(registro);
-    else if (/\d{4}/.test(linha)) linhasNaoIdentificadas.push(linha); // só reporta linhas que pareciam ter dado
-  });
+  const arquivosComErro = [];
+
+  for (const arquivo of arquivos) {
+    try {
+      const linhas = await extrairLinhasPDF(arquivo.buffer);
+      linhasNoArquivo += linhas.length;
+      linhas.forEach(linha => {
+        const registro = parsearLinhaAniversario(linha);
+        if (registro) registros.push(registro);
+        else if (/\d{4}/.test(linha)) linhasNaoIdentificadas.push(linha); // só reporta linhas que pareciam ter dado
+      });
+    } catch (err) {
+      arquivosComErro.push({ nome: arquivo.originalname, erro: err.message });
+    }
+  }
 
   try {
     for (const registro of registros) {
@@ -176,7 +184,9 @@ router.post('/importar-pdf', upload.single('arquivo'), async (req, res) => {
     }
     res.json({
       success: true,
-      linhasNoArquivo: linhas.length,
+      arquivosProcessados: arquivos.length - arquivosComErro.length,
+      arquivosComErro,
+      linhasNoArquivo,
       importados: registros.length,
       duvidosos: registros.filter(r => !r.confiavel).length,
       linhasNaoIdentificadas

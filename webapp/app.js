@@ -1289,6 +1289,8 @@ function entrarNoApp() {
 
   ajustarCardsModulos();
 
+  if (currentUser.role === "owner") buscarContagemAniversariosPendentes();
+
   const ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
   if (ultimoModulo) {
     iniciarModuloBase(ultimoModulo);
@@ -12317,22 +12319,75 @@ function inicializarMetaHoraHora() {
 }
 
 // ==========================================================================
+// ANTI-BANIMENTO — compartilhado por qualquer tela que dispare WhatsApp em
+// sequência (Pós-visita, Aniversários): intervalo aleatório (nunca fixo)
+// entre cada disparo, e uma pausa longa a cada bloco de mensagens, pra
+// reduzir o padrão repetitivo que o WhatsApp usa pra detectar disparo em
+// massa e evitar o número ser bloqueado.
+// ==========================================================================
+const ENVIO_COOLDOWN_MIN_MS = 10000;
+const ENVIO_COOLDOWN_MAX_MS = 20000;
+const ENVIO_PAUSA_LONGA_MIN_MS = 8 * 60 * 1000;
+const ENVIO_PAUSA_LONGA_MAX_MS = 12 * 60 * 1000;
+
+function envioSortearMs(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function novoEstadoAntiBanimento() {
+  return { envios: 0, proximaPausaEm: 20 + Math.floor(Math.random() * 11) }; // bloco de 20 a 30
+}
+
+// Habilita o botão do próximo card da lista depois de um intervalo (curto,
+// aleatório) ou de uma pausa longa (a cada bloco de 20-30 envios), mostrando
+// uma contagem regressiva no elemento de mensagem correspondente.
+function habilitarProximoComAntiBanimento(cardAtual, estado, seletorBtn, seletorMsg) {
+  const proximo = cardAtual.nextElementSibling;
+  if (!proximo) return;
+  const proximoBtn = proximo.querySelector(seletorBtn);
+  const cooldownMsg = proximo.querySelector(seletorMsg);
+  if (!proximoBtn || proximoBtn.disabled === false) return;
+
+  const ehPausaLonga = estado.envios >= estado.proximaPausaEm;
+  const duracaoMs = ehPausaLonga
+    ? envioSortearMs(ENVIO_PAUSA_LONGA_MIN_MS, ENVIO_PAUSA_LONGA_MAX_MS)
+    : envioSortearMs(ENVIO_COOLDOWN_MIN_MS, ENVIO_COOLDOWN_MAX_MS);
+
+  if (ehPausaLonga) {
+    estado.envios = 0;
+    estado.proximaPausaEm = 20 + Math.floor(Math.random() * 11);
+  }
+
+  let restanteMs = duracaoMs;
+  cooldownMsg.classList.remove("hidden");
+
+  const formatar = (ms) => {
+    const totalSeg = Math.ceil(ms / 1000);
+    if (totalSeg <= 60) return `Aguarde ${totalSeg}s...`;
+    const min = Math.floor(totalSeg / 60);
+    const seg = totalSeg % 60;
+    return `Pausa de segurança: ${min}min ${String(seg).padStart(2, "0")}s...`;
+  };
+  cooldownMsg.textContent = formatar(restanteMs);
+
+  const passo = 1000;
+  const intervalo = setInterval(() => {
+    restanteMs -= passo;
+    if (restanteMs <= 0) {
+      clearInterval(intervalo);
+      proximoBtn.disabled = false;
+      cooldownMsg.classList.add("hidden");
+    } else {
+      cooldownMsg.textContent = formatar(restanteMs);
+    }
+  }, passo);
+}
+
+// ==========================================================================
 // PÓS-VISITA (FaçaAmigos) — importação manual do relatório operacional do
 // dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
 // ==========================================================================
-// Anti-banimento: intervalo aleatório (nunca fixo) entre cada disparo, e uma
-// pausa longa a cada bloco de mensagens — reduz o padrão repetitivo que o
-// WhatsApp usa pra detectar disparo em massa.
-const POS_VISITA_COOLDOWN_MIN_MS = 10000;
-const POS_VISITA_COOLDOWN_MAX_MS = 20000;
-const POS_VISITA_PAUSA_LONGA_MIN_MS = 8 * 60 * 1000;
-const POS_VISITA_PAUSA_LONGA_MAX_MS = 12 * 60 * 1000;
-let posVisitaEnviosDesdeUltimaPausa = 0;
-let posVisitaProximaPausaEm = 20 + Math.floor(Math.random() * 11); // 20 a 30
-
-function posVisitaSortearMs(min, max) {
-  return min + Math.floor(Math.random() * (max - min + 1));
-}
+let posVisitaEstadoAntiBan = novoEstadoAntiBanimento();
 
 function renderPosVisita() {
   const btnAtualizar = document.getElementById("pv-btn-atualizar");
@@ -12483,8 +12538,8 @@ function dispararMensagemPosVisita(registro, card) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-check"></i> Mensagem encaminhada';
 
-  posVisitaEnviosDesdeUltimaPausa += 1;
-  habilitarProximoCardPosVisita(card);
+  posVisitaEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, posVisitaEstadoAntiBan, ".pv-btn-enviar", ".pv-cooldown-msg");
 
   fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
     method: "POST",
@@ -12504,52 +12559,6 @@ function dispararMensagemPosVisita(registro, card) {
   }, 1500);
 }
 
-// Evita disparos em sequência rápida (risco de bloqueio do número no
-// WhatsApp): o botão do próximo card só habilita depois de um intervalo
-// aleatório (10-20s, nunca fixo); a cada bloco de 20-30 mensagens, insere
-// uma pausa longa (8-12min) antes de liberar o próximo envio.
-function habilitarProximoCardPosVisita(cardAtual) {
-  const proximo = cardAtual.nextElementSibling;
-  if (!proximo) return;
-  const proximoBtn = proximo.querySelector(".pv-btn-enviar");
-  const cooldownMsg = proximo.querySelector(".pv-cooldown-msg");
-  if (!proximoBtn || proximoBtn.disabled === false) return;
-
-  const ehPausaLonga = posVisitaEnviosDesdeUltimaPausa >= posVisitaProximaPausaEm;
-  const duracaoMs = ehPausaLonga
-    ? posVisitaSortearMs(POS_VISITA_PAUSA_LONGA_MIN_MS, POS_VISITA_PAUSA_LONGA_MAX_MS)
-    : posVisitaSortearMs(POS_VISITA_COOLDOWN_MIN_MS, POS_VISITA_COOLDOWN_MAX_MS);
-
-  if (ehPausaLonga) {
-    posVisitaEnviosDesdeUltimaPausa = 0;
-    posVisitaProximaPausaEm = 20 + Math.floor(Math.random() * 11); // sorteia o próximo bloco (20-30)
-  }
-
-  let restanteMs = duracaoMs;
-  cooldownMsg.classList.remove("hidden");
-
-  const formatar = (ms) => {
-    const totalSeg = Math.ceil(ms / 1000);
-    if (totalSeg <= 60) return `Aguarde ${totalSeg}s...`;
-    const min = Math.floor(totalSeg / 60);
-    const seg = totalSeg % 60;
-    return `Pausa de segurança: ${min}min ${String(seg).padStart(2, "0")}s...`;
-  };
-  cooldownMsg.textContent = formatar(restanteMs);
-
-  const passo = 1000;
-  const intervalo = setInterval(() => {
-    restanteMs -= passo;
-    if (restanteMs <= 0) {
-      clearInterval(intervalo);
-      proximoBtn.disabled = false;
-      cooldownMsg.classList.add("hidden");
-    } else {
-      cooldownMsg.textContent = formatar(restanteMs);
-    }
-  }, passo);
-}
-
 function formatarDataBr(dataIso) {
   if (!dataIso) return "";
   const [ano, mes, dia] = String(dataIso).slice(0, 10).split("-");
@@ -12561,6 +12570,36 @@ function formatarDataBr(dataIso) {
 // ANIVERSÁRIOS (FaçaAmigos) — importação do cadastro de crianças (PDF) e
 // disparo de parabéns no WhatsApp para quem faz aniversário hoje.
 // ==========================================================================
+let aniversarioEstadoAntiBan = novoEstadoAntiBanimento();
+
+// Badge piscante ao lado de "ANIVERSÁRIOS" no menu: mostra quantos
+// aniversariantes de hoje ainda não foram parabenizados. Atualiza no login
+// (pra aparecer mesmo sem abrir a aba) e vai debitando a cada envio.
+async function buscarContagemAniversariosPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgeAniversarios((registros || []).filter(r => !r.jaEnviadoEsteAno).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de aniversariantes pendentes:", err);
+  }
+}
+
+function atualizarBadgeAniversarios(quantidade) {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgeAniversarios() {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgeAniversarios(atual);
+}
+
 function renderAniversarios() {
   const btnAtualizar = document.getElementById("an-btn-atualizar");
   if (btnAtualizar && !btnAtualizar.dataset.bound) {
@@ -12581,36 +12620,39 @@ function renderAniversarios() {
     dropzone.addEventListener("drop", (e) => {
       e.preventDefault();
       dropzone.classList.remove("border-brand-500");
-      if (e.dataTransfer.files[0]) importarPdfAniversario(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length) importarPdfsAniversario(e.dataTransfer.files);
     });
     inputArquivo.addEventListener("change", () => {
-      if (inputArquivo.files[0]) importarPdfAniversario(inputArquivo.files[0]);
+      if (inputArquivo.files.length) importarPdfsAniversario(inputArquivo.files);
     });
   }
 
   carregarAniversarios();
 }
 
-async function importarPdfAniversario(arquivo) {
+// Aceita um ou vários PDFs de uma vez (FileList do input ou do drag & drop).
+async function importarPdfsAniversario(arquivos) {
   const msg = document.getElementById("an-import-msg");
   const formData = new FormData();
-  formData.append("arquivo", arquivo);
+  Array.from(arquivos).forEach(arquivo => formData.append("arquivos", arquivo));
 
-  msg.textContent = "Importando...";
+  msg.textContent = arquivos.length > 1 ? `Importando ${arquivos.length} arquivos...` : "Importando...";
   try {
     const res = await fetch(`${API_BASE}/aniversarios/importar-pdf`, { method: "POST", body: formData });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Falha ao importar");
 
-    msg.textContent = `${json.importados} de ${json.linhasNoArquivo} linha(s) importada(s)` +
-      (json.duvidosos ? ` (${json.duvidosos} com nomes incertos — confira)` : "") + ".";
+    const arquivosTexto = arquivos.length > 1 ? ` de ${json.arquivosProcessados} arquivo(s)` : "";
+    msg.textContent = `${json.importados} registro(s) importado(s)${arquivosTexto}` +
+      (json.duvidosos ? ` (${json.duvidosos} com nomes incertos — confira)` : "") +
+      (json.arquivosComErro && json.arquivosComErro.length ? ` — ${json.arquivosComErro.length} arquivo(s) com erro` : "") + ".";
     showToast("Cadastro de aniversários importado!", "sucesso");
     document.getElementById("an-input-arquivo").value = "";
     carregarAniversarios();
   } catch (err) {
-    console.error("Erro ao importar PDF de aniversários:", err);
+    console.error("Erro ao importar PDF(s) de aniversários:", err);
     msg.textContent = err.message || "Erro ao importar.";
-    showToast("Erro ao importar o PDF.", "erro");
+    showToast("Erro ao importar o(s) PDF(s).", "erro");
   }
 }
 
@@ -12631,14 +12673,21 @@ async function carregarAniversarios() {
     }
     vazio.classList.add("hidden");
 
-    registros.forEach(registro => lista.appendChild(criarCardAniversario(registro)));
+    let primeiroHabilitavelJaEncontrado = false;
+    registros.forEach(registro => {
+      const habilitado = !registro.jaEnviadoEsteAno && !primeiroHabilitavelJaEncontrado;
+      if (!registro.jaEnviadoEsteAno) primeiroHabilitavelJaEncontrado = true;
+      lista.appendChild(criarCardAniversario(registro, habilitado));
+    });
+
+    atualizarBadgeAniversarios(registros.filter(r => !r.jaEnviadoEsteAno).length);
   } catch (err) {
     console.error("Erro ao carregar aniversariantes:", err);
     showToast("Erro ao carregar os aniversariantes de hoje.", "erro");
   }
 }
 
-function criarCardAniversario(registro) {
+function criarCardAniversario(registro, habilitado) {
   const card = document.createElement("div");
   card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
   card.dataset.id = registro.id;
@@ -12651,9 +12700,10 @@ function criarCardAniversario(registro) {
       <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.nomeResponsavel}</p>
     </div>
     <div class="flex flex-col gap-1">
-      <button type="button" class="an-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${jaEnviado ? "disabled" : ""} data-tip="Abre o WhatsApp com uma mensagem de parabéns já pronta para esse responsável">
+      <button type="button" class="an-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${(jaEnviado || !habilitado) ? "disabled" : ""} data-tip="Abre o WhatsApp com uma mensagem de parabéns já pronta para esse responsável">
         <i class="fa-brands fa-whatsapp"></i> ${jaEnviado ? "Parabéns já enviado" : "Enviar Parabéns no WhatsApp"}
       </button>
+      <span class="an-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
     </div>
   `;
 
@@ -12673,6 +12723,11 @@ function dispararParabensAniversario(registro, card) {
 
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns já enviado';
+
+  aniversarioEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, aniversarioEstadoAntiBan, ".an-btn-enviar", ".an-cooldown-msg");
+
+  decrementarBadgeAniversarios();
 
   fetch(`${API_BASE}/aniversarios/marcar-enviado`, {
     method: "POST",
