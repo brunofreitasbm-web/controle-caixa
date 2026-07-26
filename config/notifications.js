@@ -14,24 +14,65 @@ function notificacoesEventosAtivas(callback) {
   });
 }
 
+// ==========================================================================
+// Tipos de notificação — tradução entre servidor e tela de Configurações.
+// ==========================================================================
+// O servidor chama as notificações por nomes "longos" (meta_lembrete,
+// conferencia_nfe, divergencia_caixa...), mas a tabela de Configurações grava
+// as regras em `notificacoes_config` usando as chaves da tela (meta-lembrete,
+// nfe, divergencia...). Sem traduzir de um lado para o outro,
+// `rules[notificationType]` dava sempre undefined e todo tipo caía no default
+// — ou seja, nenhum toggle da tela tinha efeito de fato.
+//
+// Este mapa é o espelho de `notifTypeMap` em webapp/app.js
+// (getDestinatariosNotificacao). Chaves da tela passam direto, então os dois
+// jeitos de nomear funcionam.
+const CHAVE_PREF_POR_TIPO = {
+  envelopes: 'envelopes',
+  inventario_inicio: 'inv-inicio',
+  inventario_fim: 'inv-fim',
+  inventario_conclusao: 'inv-fim',
+  conferencia_nfe: 'nfe',
+  nfe: 'nfe',
+  divergencia: 'divergencia',
+  divergencia_caixa: 'divergencia',
+  meta_lembrete: 'meta-lembrete',
+  meta_atraso: 'meta-atraso'
+};
+
+// Regras válidas enquanto Configurações nunca foi salvo. Espelha
+// DEFAULT_NOTIF_PREFS em webapp/app.js, para a tela e o servidor concordarem
+// também no estado inicial.
+const REGRAS_PADRAO = {
+  'envelopes': { colab: true, lider: true, owner: true },
+  'inv-inicio': { colab: true, lider: true, owner: true },
+  'inv-fim': { colab: true, lider: true, owner: true },
+  'nfe': { colab: true, lider: true, owner: true },
+  'divergencia': { colab: true, lider: true, owner: true },
+  'meta-lembrete': { colab: true, lider: false, owner: false },
+  'meta-atraso': { colab: false, lider: true, owner: true }
+};
+
+// Tipos que não têm linha na tabela de Configurações (hoje só
+// briefing_diario) não têm o que consultar: seguem no destino histórico.
+const REGRA_SEM_LINHA_NA_TELA = { colab: false, lider: true, owner: true };
+
+function regrasDoTipo(rules, notificationType) {
+  const chave = CHAVE_PREF_POR_TIPO[notificationType] || notificationType;
+  const salvas = rules && typeof rules === 'object' ? rules[chave] : null;
+  return salvas || REGRAS_PADRAO[chave] || REGRA_SEM_LINHA_NA_TELA;
+}
+
 function obterEmailsDestinatarios(notificationType, callback) {
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
-    let rules = {
-      envelopes: { colab: false, lider: true, owner: true },
-      inventario_inicio: { colab: false, lider: true, owner: true },
-      inventario_conclusao: { colab: false, lider: true, owner: true },
-      conferencia_nfe: { colab: false, lider: true, owner: true },
-      divergencia_caixa: { colab: false, lider: true, owner: true },
-      meta_lembrete: { colab: true, lider: false, owner: false },
-      meta_atraso: { colab: false, lider: true, owner: true }
-    };
+    let rules = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {
         rules = JSON.parse(rowConfig.valor);
       } catch (e) {}
     }
 
-    const typeRules = rules[notificationType] || { colab: false, lider: true, owner: true };
+    const typeRules = regrasDoTipo(rules, notificationType);
     const enabledRoles = [];
     if (typeRules.colab) enabledRoles.push('consultora', 'consultora_fa');
     if (typeRules.lider) enabledRoles.push('consultora_dashboard');
@@ -311,9 +352,12 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
       // acabava mandando para todo mundo.
       let regrasAplicadas = false;
 
-      if (notificationType && rules) {
+      // Antes isto exigia `rules` carregado: sem `notificacoes_config` no
+      // banco, o filtro por perfil era pulado inteiro e o push ia para todas
+      // as inscrições. Agora as regras padrão valem sempre.
+      if (notificationType) {
         const enabledRoles = [];
-        const typeRules = rules[notificationType] || { colab: false, lider: true, owner: true };
+        const typeRules = regrasDoTipo(rules, notificationType);
         if (typeRules.colab) enabledRoles.push('consultora', 'consultora_fa');
         if (typeRules.lider) enabledRoles.push('consultora_dashboard');
         if (typeRules.owner) enabledRoles.push('owner');
