@@ -89,6 +89,47 @@ que não usam cache por serem sempre únicos).
 - **10 min antes de cada intervalo** (`server.js`) — copiloto de Meta Hora a
   Hora, substituindo o lembrete genérico. Falha volta ao lembrete original.
 
+Os dois vivem em `cron.schedule` internos (pacote `node-cron`), que só
+disparam com o processo Node rodando. **No plano gratuito do Render isso não
+é garantido** — ver seção seguinte.
+
+## Plano gratuito do Render: por que precisa de um pingador externo
+
+A instância grátis do Render hiberna após ~15 minutos sem tráfego HTTP. Não
+existe timer interno capaz de "acordar" o processo sozinho — se o `cron`
+das 7h disparar com a instância dormindo, ele simplesmente não roda.
+
+A solução é `GET /api/cron/ia-tick`, protegido pelo mesmo `CRON_SECRET` já
+usado em `/api/cron/backup-mensal`. Ele faz duas coisas a cada chamada:
+
+1. Mantém a instância acordada (a chamada HTTP em si é o que evita a
+   hibernação).
+2. Verifica o que está pendente — briefing do dia, copiloto de algum
+   intervalo — e dispara.
+
+`marcarSeNovo()` (`services/ia.js`) impede duplicidade: mesmo que o
+pingador bata várias vezes dentro da janela de um mesmo intervalo, ou que o
+cron interno e o tick concorram no mesmo dia, cada disparo sai uma vez só.
+Por isso pingar com mais frequência que o necessário é inofensivo.
+
+### Configurar o pingador (uma vez, grátis)
+
+1. Defina `CRON_SECRET` nas variáveis de ambiente do Render (um valor
+   qualquer, só você e o pingador precisam saber).
+2. Em um serviço de ping grátis — **cron-job.org** é o mais simples, sem
+   necessidade de cartão — crie uma tarefa:
+   - URL: `https://<seu-app>.onrender.com/api/cron/ia-tick`
+   - Método: `GET`
+   - Header: `Authorization: Bearer <o mesmo valor de CRON_SECRET>`
+   - Intervalo: **a cada 10 minutos**
+3. Pronto. O primeiro ping depois de um período de hibernação pode demorar
+   20–50s para responder (a instância "acordando") — normal no plano
+   gratuito; configure o timeout do pingador para pelo menos 30s.
+
+Sem isso configurado, o app funciona normalmente, mas o briefing das 7h e o
+copiloto de meta só disparam nos momentos em que a instância já estiver
+acordada por outro motivo (alguém usando o app naquele minuto).
+
 ## Travas de qualidade
 
 Cada serviço tem uma trava determinística que descarta saída ruim:
