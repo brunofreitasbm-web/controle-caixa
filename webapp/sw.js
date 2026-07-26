@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v25'; // v25: multi-upload de PDF, anti-banimento e badge de aniversários — força atualização nos dispositivos já instalados
+const CACHE_NAME = 'ponto-pwa-v26'; // v26: badge de pendentes na Pós-visita — força atualização nos dispositivos já instalados
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

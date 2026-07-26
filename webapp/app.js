@@ -1289,8 +1289,6 @@ function entrarNoApp() {
 
   ajustarCardsModulos();
 
-  if (currentUser.role === "owner") buscarContagemAniversariosPendentes();
-
   const ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
   if (ultimoModulo) {
     iniciarModuloBase(ultimoModulo);
@@ -1383,6 +1381,11 @@ function iniciarModuloBase(moduloOpcional) {
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
   });
+
+  // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
+  // pra que o operador veja o número piscando assim que entra no módulo.
+  if (tabsPermitidas.includes("pos-visita")) buscarContagemPosVisitaPendentes();
+  if (tabsPermitidas.includes("aniversarios")) buscarContagemAniversariosPendentes();
 
   // Menu rápido (grade desktop + barra mobile), curado por perfil
   renderMenuRapido();
@@ -12389,6 +12392,34 @@ function habilitarProximoComAntiBanimento(cardAtual, estado, seletorBtn, seletor
 // ==========================================================================
 let posVisitaEstadoAntiBan = novoEstadoAntiBanimento();
 
+// Badge piscante ao lado de "PÓS-VISITA" no menu: mostra quantas mensagens
+// ainda estão pendentes de envio. Atualiza no login (pra aparecer mesmo sem
+// abrir a aba) e vai debitando a cada envio.
+async function buscarContagemPosVisitaPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgePosVisita((registros || []).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de pós-visita pendentes:", err);
+  }
+}
+
+function atualizarBadgePosVisita(quantidade) {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgePosVisita() {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgePosVisita(atual);
+}
+
 function renderPosVisita() {
   const btnAtualizar = document.getElementById("pv-btn-atualizar");
   if (btnAtualizar && !btnAtualizar.dataset.bound) {
@@ -12483,6 +12514,7 @@ async function carregarPosVisita() {
     const { registros } = await res.json();
 
     lista.innerHTML = "";
+    atualizarBadgePosVisita((registros || []).length);
     if (!registros || registros.length === 0) {
       vazio.classList.remove("hidden");
       return;
@@ -12540,6 +12572,8 @@ function dispararMensagemPosVisita(registro, card) {
 
   posVisitaEstadoAntiBan.envios += 1;
   habilitarProximoComAntiBanimento(card, posVisitaEstadoAntiBan, ".pv-btn-enviar", ".pv-cooldown-msg");
+
+  decrementarBadgePosVisita();
 
   fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
     method: "POST",

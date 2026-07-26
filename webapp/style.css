@@ -4060,6 +4060,11 @@ body.device-ios .sidebar {
   50% { opacity: 0.45; transform: scale(0.88); }
 }
 
+/* Mesmo badge, na cor do WhatsApp para a Pós-visita. */
+.pv-badge {
+  background: #25D366;
+}
+
 /* Fila da Pós-visita: grade responsiva de 1 a 6 colunas em vez de lista
    1-card-por-linha — melhor aproveitamento de tela em telas largas. */
 .pv-grid {
