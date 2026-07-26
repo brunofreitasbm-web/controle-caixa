@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v32'; // v32: painel Insights IA (insights-ia.js)
+const CACHE_NAME = 'ponto-pwa-v33'; // v33: atalho direto do Insights IA (sidebar + barra rápida)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

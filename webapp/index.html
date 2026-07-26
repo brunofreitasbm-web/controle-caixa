@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -285,12 +285,16 @@
       <!-- Insights IA — painel gerencial concentrado (Owner e Líder de
            Operações). Todos os cartões são de leitura: nenhum altera boleto,
            bonificação, escala ou meta. Ver docs/IA.md -->
+      <!-- Grupo de item único: o cabeçalho é um atalho direto (data-tab), abre a
+           aba num clique em vez de expandir um acordeão com uma opção só. -->
       <div class="sidebar-group collapsed" id="group-insights-ia">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Análises geradas por IA a partir dos dados do sistema">
+        <button class="sidebar-group-header is-direct" data-tab="insights-ia" data-tip="Briefing do dia, auditoria de boletos, coach de conversão, escala e copiloto de meta">
           <span class="group-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
           <span class="group-title">Insights IA</span>
-          <span class="group-chevron">▼</span>
+          <span class="group-arrow"><i class="fa-solid fa-arrow-right"></i></span>
         </button>
+        <!-- Mantido no DOM (hidden): é ele que carrega a permissão do perfil e
+             faz o grupo inteiro sumir para quem não tem acesso. -->
         <div class="sidebar-group-content">
           <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, auditoria de boletos, coach de conversão, escala e copiloto de meta">
             <span class="tab-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
@@ -3719,6 +3723,6 @@
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
-<script src="app.js?v=33"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>
