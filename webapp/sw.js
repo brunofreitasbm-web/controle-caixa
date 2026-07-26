@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v27'; // v27: contador de cadastros e conferência de aniversários — força atualização nos dispositivos já instalados
+const CACHE_NAME = 'ponto-pwa-v28'; // v28: 1500 mensagens de aniversário — força atualização nos dispositivos já instalados
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
