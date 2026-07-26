@@ -316,6 +316,23 @@
         </div>
       </div>
 
+      <!-- Pós-visita 1h/2h: fila de disparo de WhatsApp para responsáveis
+           cuja criança ficou mais de 1h no playground (dados importados
+           diariamente via Make.com a partir do relatório de vendas). -->
+      <div class="sidebar-group collapsed" id="group-pos-visita">
+        <button class="sidebar-group-header" aria-expanded="false">
+          <span class="group-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
+          <span class="group-title">Pós-visita 1h/2h</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-pos-visita" data-tab="pos-visita" role="tab" aria-selected="false" aria-controls="tab-pos-visita">
+            <span class="tab-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
+            <span class="tab-text">Pós-visita 1h/2h</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Meta do Faça Amigos: abre a aba FA já na sub-aba de bonificação -->
       <div class="sidebar-group collapsed" id="group-fa-meta">
         <button class="sidebar-group-header" aria-expanded="false">
@@ -2805,6 +2822,30 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: PÓS-VISITA 1H/2H (FaçaAmigos) ===================== -->
+    <section id="tab-pos-visita" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-pos-visita">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-comment-dots" style="color: #25D366;"></i> Pós-visita 1h/2h
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Fila diária de crianças que ficaram mais de 1h no playground, importada automaticamente do relatório de vendas. Clique em "Enviar mensagem" pra abrir o WhatsApp já com o número e o texto prontos.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="pv-btn-atualizar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+            <i class="fa-solid fa-rotate"></i> Atualizar
+          </button>
+        </div>
+      </div>
+
+      <div id="pv-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
+        <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
+        <p class="text-sm font-bold text-brand-200">Nenhuma mensagem pendente — fila em dia! 💙</p>
+      </div>
+
+      <div id="pv-lista" class="space-y-3"></div>
+    </section>
+
     <!-- ===================== ABA: CONFIGURAÇÕES (TODOS OS PERFIS, ADVANCED SECTIONS POR PERFIL) ===================== -->
     <section id="tab-configuracoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-configuracoes">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
@@ -3463,6 +3504,7 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
+<script src="mensagens-pos-visita.js?v=1"></script>
 <script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->

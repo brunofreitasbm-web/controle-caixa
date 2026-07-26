@@ -34,7 +34,12 @@ const camelCaseMap = {
   bloqueadoate: 'bloqueadoAte',
   ultimatentativaem: 'ultimaTentativaEm',
   datanascimento: 'dataNascimento',
-  dataadmissao: 'dataAdmissao'
+  dataadmissao: 'dataAdmissao',
+  datasessao: 'dataSessao',
+  numerocliente: 'numeroCliente',
+  tempototalminutos: 'tempoTotalMinutos',
+  mensagemenviada: 'mensagemEnviada',
+  mensagemenviadaem: 'mensagemEnviadaEm'
 };
 
 function normalizeRow(row) {
@@ -406,6 +411,21 @@ function initDb(onSuccess) {
           atualizadoEm TEXT,
           criadoEm TEXT,
           UNIQUE(loja, codProduto)
+        )`,
+        // Pós-visita 1h/2h (FaçaAmigos): fila de disparo de WhatsApp para
+        // responsáveis cuja criança ficou mais de 1h no playground, importada
+        // diariamente via Make.com a partir do relatório de vendas por e-mail.
+        `CREATE TABLE IF NOT EXISTS pos_visita_registros (
+          id TEXT PRIMARY KEY,
+          dataSessao TEXT NOT NULL,
+          cliente TEXT NOT NULL,
+          numeroCliente TEXT NOT NULL,
+          crianca TEXT NOT NULL,
+          tempoTotalMinutos INTEGER NOT NULL,
+          mensagemEnviada INTEGER DEFAULT 0,
+          mensagemEnviadaEm TEXT,
+          criadoEm TEXT,
+          UNIQUE(dataSessao, numeroCliente, crianca)
         )`
       ];
 

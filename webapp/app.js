@@ -101,9 +101,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "pos-visita", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "pos-visita", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1375,7 +1375,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
   ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
-   "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
+   "group-metas", "group-meta-hora-hora", "group-pos-visita", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1635,7 +1635,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto", "pos-visita"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1699,6 +1699,7 @@ function ativarTab(tabName) {
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
+  if (tabName === "pos-visita") renderPosVisita();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -12285,6 +12286,134 @@ function inicializarMetaHoraHora() {
   }
 
   carregarMetaHoraHora();
+}
+
+// ==========================================================================
+// Pós-visita 1h/2h (FaçaAmigos) — fila de disparo de WhatsApp para
+// responsáveis cuja criança ficou mais de 1h no playground.
+// ==========================================================================
+const POS_VISITA_COOLDOWN_MS = 5000;
+
+function renderPosVisita() {
+  const btnAtualizar = document.getElementById("pv-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => carregarPosVisita();
+  }
+  carregarPosVisita();
+}
+
+async function carregarPosVisita() {
+  const lista = document.getElementById("pv-lista");
+  const vazio = document.getElementById("pv-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) throw new Error("Falha ao carregar fila");
+    const { registros } = await res.json();
+
+    lista.innerHTML = "";
+    if (!registros || registros.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    registros.forEach((registro, index) => {
+      lista.appendChild(criarCardPosVisita(registro, index === 0));
+    });
+  } catch (err) {
+    console.error("Erro ao carregar fila de pós-visita:", err);
+    showToast("Erro ao carregar a fila de pós-visita.", "erro");
+  }
+}
+
+function criarCardPosVisita(registro, habilitado) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const dataFormatada = formatarDataBr(registro.dataSessao);
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.cliente}</p>
+      <p class="text-[11px] text-brand-400 mt-0.5">${dataFormatada} · ${registro.tempoTotalMinutos} min no playground</p>
+    </div>
+    <div class="flex flex-col items-end gap-1">
+      <button type="button" class="pv-btn-enviar px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-2" ${habilitado ? "" : "disabled"}>
+        <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
+      </button>
+      <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden"></span>
+    </div>
+  `;
+
+  const btn = card.querySelector(".pv-btn-enviar");
+  btn.onclick = () => dispararMensagemPosVisita(registro, card);
+
+  return card;
+}
+
+function dispararMensagemPosVisita(registro, card) {
+  const btn = card.querySelector(".pv-btn-enviar");
+  const mensagem = gerarMensagemPosVisita(registro.cliente, registro.crianca);
+  const url = `https://wa.me/${registro.numeroCliente}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Mensagem encaminhada';
+
+  habilitarProximoCardPosVisita(card);
+
+  fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar mensagem como enviada:", err));
+
+  // Deixa a confirmação visível por um instante e então some da fila.
+  setTimeout(() => {
+    card.remove();
+    const lista = document.getElementById("pv-lista");
+    const vazio = document.getElementById("pv-vazio");
+    if (lista && vazio && lista.children.length === 0) {
+      vazio.classList.remove("hidden");
+    }
+  }, 1500);
+}
+
+// Evita disparos em sequência rápida (risco de bloqueio do número no
+// WhatsApp): o botão do próximo card só habilita 5s depois do clique atual.
+function habilitarProximoCardPosVisita(cardAtual) {
+  const proximo = cardAtual.nextElementSibling;
+  if (!proximo) return;
+  const proximoBtn = proximo.querySelector(".pv-btn-enviar");
+  const cooldownMsg = proximo.querySelector(".pv-cooldown-msg");
+  if (!proximoBtn || proximoBtn.disabled === false) return;
+
+  let restante = Math.ceil(POS_VISITA_COOLDOWN_MS / 1000);
+  cooldownMsg.classList.remove("hidden");
+  cooldownMsg.textContent = `Aguarde ${restante}s...`;
+
+  const intervalo = setInterval(() => {
+    restante -= 1;
+    if (restante <= 0) {
+      clearInterval(intervalo);
+      proximoBtn.disabled = false;
+      cooldownMsg.classList.add("hidden");
+    } else {
+      cooldownMsg.textContent = `Aguarde ${restante}s...`;
+    }
+  }, 1000);
+}
+
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "";
+  const [ano, mes, dia] = String(dataIso).slice(0, 10).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
 }
 
 async function confirmarIntervaloMeta(horaSlot, valor) {

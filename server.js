@@ -29,6 +29,7 @@ const pontoRoutes = require('./routes/ponto');
 const pontoBiometriaRoutes = require('./routes/ponto-biometria');
 const vendasRoutes = require('./routes/vendas');
 const faBonificacaoRoutes = require('./routes/fa-bonificacao');
+const posVisitaRoutes = require('./routes/pos-visita');
 const metasLojasRoutes = require('./routes/metas-lojas');
 const metasRoutes = require('./routes/metas');
 const realtimeRoutes = require('./routes/realtime');
@@ -56,6 +57,7 @@ app.use('/api/ponto', pontoRoutes);
 app.use('/api/ponto', pontoBiometriaRoutes);
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/fa-bonificacao', faBonificacaoRoutes);
+app.use('/api/pos-visita', posVisitaRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 
 // ==========================================================================
