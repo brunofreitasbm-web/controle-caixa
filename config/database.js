@@ -40,7 +40,10 @@ const camelCaseMap = {
   tempototalminutos: 'tempoTotalMinutos',
   mensagemenviada: 'mensagemEnviada',
   mensagemenviadaem: 'mensagemEnviadaEm',
-  jacontactadoantes: 'jaContactadoAntes'
+  jacontactadoantes: 'jaContactadoAntes',
+  nomecrianca: 'nomeCrianca',
+  nomeresponsavel: 'nomeResponsavel',
+  mensagemenviadaano: 'mensagemEnviadaAno'
 };
 
 function normalizeRow(row) {
@@ -427,6 +430,23 @@ function initDb(onSuccess) {
           mensagemEnviadaEm TEXT,
           criadoEm TEXT,
           UNIQUE(dataSessao, numeroCliente, crianca)
+        )`,
+        // Aniversários (FaçaAmigos): cadastro de crianças importado de PDF,
+        // usado para disparar parabéns no WhatsApp no dia do aniversário.
+        // Chave (nomeCrianca, nomeResponsavel) permite reimportar o mesmo
+        // relatório todo dia sem duplicar — só atualiza os dados.
+        `CREATE TABLE IF NOT EXISTS aniversarios_registros (
+          id TEXT PRIMARY KEY,
+          nomeCrianca TEXT NOT NULL,
+          dataNascimento TEXT NOT NULL,
+          documento TEXT,
+          nomeResponsavel TEXT NOT NULL,
+          telefone TEXT NOT NULL,
+          mensagemEnviadaAno INTEGER,
+          mensagemEnviadaEm TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT,
+          UNIQUE(nomeCrianca, nomeResponsavel)
         )`
       ];
 

@@ -1328,7 +1328,7 @@ function iniciarModuloBase(moduloOpcional) {
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1635,7 +1635,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto", "pos-visita"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1700,6 +1700,7 @@ function ativarTab(tabName) {
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   if (tabName === "pos-visita") renderPosVisita();
+  if (tabName === "aniversarios") renderAniversarios();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
 }
@@ -12554,6 +12555,130 @@ function formatarDataBr(dataIso) {
   const [ano, mes, dia] = String(dataIso).slice(0, 10).split("-");
   if (!ano || !mes || !dia) return dataIso;
   return `${dia}/${mes}/${ano}`;
+}
+
+// ==========================================================================
+// ANIVERSÁRIOS (FaçaAmigos) — importação do cadastro de crianças (PDF) e
+// disparo de parabéns no WhatsApp para quem faz aniversário hoje.
+// ==========================================================================
+function renderAniversarios() {
+  const btnAtualizar = document.getElementById("an-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => carregarAniversarios();
+  }
+
+  const dropzone = document.getElementById("an-dropzone");
+  const inputArquivo = document.getElementById("an-input-arquivo");
+  if (dropzone && !dropzone.dataset.bound) {
+    dropzone.dataset.bound = "1";
+    dropzone.addEventListener("click", () => inputArquivo.click());
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("border-brand-500");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("border-brand-500"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("border-brand-500");
+      if (e.dataTransfer.files[0]) importarPdfAniversario(e.dataTransfer.files[0]);
+    });
+    inputArquivo.addEventListener("change", () => {
+      if (inputArquivo.files[0]) importarPdfAniversario(inputArquivo.files[0]);
+    });
+  }
+
+  carregarAniversarios();
+}
+
+async function importarPdfAniversario(arquivo) {
+  const msg = document.getElementById("an-import-msg");
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+
+  msg.textContent = "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/importar-pdf`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    msg.textContent = `${json.importados} de ${json.linhasNoArquivo} linha(s) importada(s)` +
+      (json.duvidosos ? ` (${json.duvidosos} com nomes incertos — confira)` : "") + ".";
+    showToast("Cadastro de aniversários importado!", "sucesso");
+    document.getElementById("an-input-arquivo").value = "";
+    carregarAniversarios();
+  } catch (err) {
+    console.error("Erro ao importar PDF de aniversários:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o PDF.", "erro");
+  }
+}
+
+async function carregarAniversarios() {
+  const lista = document.getElementById("an-lista");
+  const vazio = document.getElementById("an-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) throw new Error("Falha ao carregar aniversariantes");
+    const { registros } = await res.json();
+
+    lista.innerHTML = "";
+    if (!registros || registros.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    registros.forEach(registro => lista.appendChild(criarCardAniversario(registro)));
+  } catch (err) {
+    console.error("Erro ao carregar aniversariantes:", err);
+    showToast("Erro ao carregar os aniversariantes de hoje.", "erro");
+  }
+}
+
+function criarCardAniversario(registro) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const jaEnviado = registro.jaEnviadoEsteAno;
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🎂 ${registro.nomeCrianca} <span class="text-brand-400 font-normal">— completa ${registro.idade} anos</span></p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.nomeResponsavel}</p>
+    </div>
+    <div class="flex flex-col gap-1">
+      <button type="button" class="an-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${jaEnviado ? "disabled" : ""} data-tip="Abre o WhatsApp com uma mensagem de parabéns já pronta para esse responsável">
+        <i class="fa-brands fa-whatsapp"></i> ${jaEnviado ? "Parabéns já enviado" : "Enviar Parabéns no WhatsApp"}
+      </button>
+    </div>
+  `;
+
+  if (!jaEnviado) {
+    const btn = card.querySelector(".an-btn-enviar");
+    btn.onclick = () => dispararParabensAniversario(registro, card);
+  }
+
+  return card;
+}
+
+function dispararParabensAniversario(registro, card) {
+  const btn = card.querySelector(".an-btn-enviar");
+  const mensagem = gerarMensagemAniversario(registro.nomeResponsavel, registro.nomeCrianca, registro.idade);
+  const url = `https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns já enviado';
+
+  fetch(`${API_BASE}/aniversarios/marcar-enviado`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar parabéns como enviado:", err));
 }
 
 async function confirmarIntervaloMeta(horaSlot, valor) {
