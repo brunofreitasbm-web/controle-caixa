@@ -118,20 +118,14 @@ function normalizarData(valor) {
   return texto.slice(0, 10);
 }
 
-router.post('/importar-planilha', upload.single('planilha'), (req, res) => {
-  if (!checarSecret(req, res)) return;
-  if (!req.file) {
-    return res.status(400).json({ error: 'Arquivo "planilha" (multipart/form-data) é obrigatório.' });
-  }
-
-  let linhas;
-  try {
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
-    const primeiraAba = workbook.SheetNames[0];
-    linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: null });
-  } catch (err) {
-    return res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
-  }
+// Lê o buffer de um .xlsx, mapeia as colunas (tolerante a variação de nome) e
+// insere os registros elegíveis. Compartilhado pelas duas rotas de import
+// (multipart e raw) — a única diferença entre elas é como o Express extrai
+// o buffer do corpo da requisição.
+function processarPlanilhaBuffer(buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const primeiraAba = workbook.SheetNames[0];
+  const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: null });
 
   const registros = linhas.map(linha => {
     const linhaNormalizada = {};
@@ -146,9 +140,38 @@ router.post('/importar-planilha', upload.single('planilha'), (req, res) => {
     };
   });
 
-  inserirRegistros(registros).then(({ elegiveis, inseridos }) => {
-    res.json({ success: true, linhasNaPlanilha: linhas.length, elegiveis, inseridos });
-  });
+  return inserirRegistros(registros).then(({ elegiveis, inseridos }) => ({
+    linhasNaPlanilha: linhas.length, elegiveis, inseridos
+  }));
+}
+
+router.post('/importar-planilha', upload.single('planilha'), (req, res) => {
+  if (!checarSecret(req, res)) return;
+  if (!req.file) {
+    return res.status(400).json({ error: 'Arquivo "planilha" (multipart/form-data) é obrigatório.' });
+  }
+
+  try {
+    processarPlanilhaBuffer(req.file.buffer).then(resultado => res.json({ success: true, ...resultado }));
+  } catch (err) {
+    res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
+  }
+});
+
+// Variante que recebe o arquivo como corpo binário puro (Content-Type:
+// application/octet-stream), usada pelo Make quando o passthrough de binário
+// via multipart/form-data não valida corretamente entre módulos HTTP.
+router.post('/importar-planilha-raw', express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
+  if (!checarSecret(req, res)) return;
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ error: 'Corpo da requisição vazio ou inválido.' });
+  }
+
+  try {
+    processarPlanilhaBuffer(req.body).then(resultado => res.json({ success: true, ...resultado }));
+  } catch (err) {
+    res.status(400).json({ error: `Falha ao ler a planilha: ${err.message}` });
+  }
 });
 
 // Fila de pendentes: não filtra por dia exato — o relatório chega à noite e
