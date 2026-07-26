@@ -3736,26 +3736,45 @@ body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .tab-btn {
 }
 
 /* Contrast enhancement: bind backgrounds and text properties to theme variables */
-.card:not(.fa-section *):not(.fa-tab-panel *), 
-.form-card:not(.fa-section *):not(.fa-tab-panel *), 
-.table-wrap:not(.fa-section *):not(.fa-tab-panel *), 
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *), 
-aside:not(.fa-section *):not(.fa-tab-panel *), 
-header:not(.fa-section *):not(.fa-tab-panel *) {
+.card:not(.fa-section *):not(.fa-tab-panel *),
+.form-card:not(.fa-section *):not(.fa-tab-panel *),
+.table-wrap:not(.fa-section *):not(.fa-tab-panel *),
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *),
+aside:not(.fa-section *):not(.fa-tab-panel *),
+header:not(.fa-section *):not(.fa-tab-panel *),
+.glass-card {
   color: var(--ink);
 }
 
-.card:not(.fa-section *):not(.fa-tab-panel *) p, 
-.card:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-300):not(.text-brand-200), 
-.card:not(.fa-section *):not(.fa-tab-panel *) td, 
-.card:not(.fa-section *):not(.fa-tab-panel *) label, 
+.card:not(.fa-section *):not(.fa-tab-panel *) p,
+.card:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-300):not(.text-brand-200),
+.card:not(.fa-section *):not(.fa-tab-panel *) td,
+.card:not(.fa-section *):not(.fa-tab-panel *) label,
 .card:not(.fa-section *):not(.fa-tab-panel *) li,
 .tab-panel:not(.fa-section *):not(.fa-tab-panel *) p:not(.text-white):not(.text-brand-100):not(.text-brand-200):not(.text-brand-300):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400),
 .tab-panel:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-200):not(.text-brand-300):not(.text-brand-100):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400):not(.fa-title-accent),
 .tab-panel:not(.fa-section *):not(.fa-tab-panel *) label,
 .tab-panel:not(.fa-section *):not(.fa-tab-panel *) td,
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) li {
+.tab-panel:not(.fa-section *):not(.fa-tab-panel *) li,
+/* .glass-card virou padrão "claro" em todo o sistema (Meta Hora a Hora, RH,
+   Ponto, Pós-visita) — mesmo critério do .card acima, mas sem excluir FA,
+   já que agora o pedido é cobrir o sistema inteiro, sem exceção. */
+.glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4,
+.glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]),
+.glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not(.tab-icon):not(.group-icon),
+.glass-card label,
+.glass-card td,
+.glass-card li,
+.glass-card div:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]) {
   color: var(--ink) !important;
+}
+
+/* Fundo/borda do glass-card: mesmo tratamento do .card (fundo claro/branco,
+   borda suave), independente das classes bg-brand-9xx/95x aplicadas no HTML. */
+.glass-card {
+  background-color: var(--paper) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
 }
 
 /* Secondary descriptions, subtitles and statuses contrast adjustment */

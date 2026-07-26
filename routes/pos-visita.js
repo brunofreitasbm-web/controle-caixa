@@ -5,17 +5,6 @@ const { db, normalizeRow } = require('../config/database');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-function checarSecret(req, res) {
-  const secretEsperado = process.env.POS_VISITA_IMPORT_SECRET;
-  if (!secretEsperado) return true;
-  const auth = req.headers['authorization'];
-  if (auth !== `Bearer ${secretEsperado}`) {
-    res.status(401).json({ error: 'Não autorizado.' });
-    return false;
-  }
-  return true;
-}
-
 // Insere todos os registros da importação (sem filtro de tempo — o Bruno
 // pediu para considerar qualquer duração, não só >1h), deduplicando por
 // (dataSessao, numeroCliente, crianca).
@@ -104,7 +93,6 @@ function normalizarTempoMinutos(valor) {
 }
 
 router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
-  if (!checarSecret(req, res)) return;
   if (!req.file) {
     return res.status(400).json({ error: 'Arquivo CSV é obrigatório.' });
   }

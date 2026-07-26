@@ -12308,29 +12308,28 @@ function renderPosVisita() {
     inputData.value = ontem.toISOString().slice(0, 10);
   }
 
-  const btnImportar = document.getElementById("pv-btn-importar");
-  if (btnImportar && !btnImportar.dataset.bound) {
-    btnImportar.dataset.bound = "1";
-    btnImportar.onclick = importarCsvPosVisita;
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  if (inputArquivo && !inputArquivo.dataset.bound) {
+    inputArquivo.dataset.bound = "1";
+    inputArquivo.onchange = importarCsvPosVisita;
   }
 
   carregarPosVisita();
   carregarRelatorioPosVisita();
 }
 
+// Dispara assim que o operador escolhe o arquivo — sem botão extra, sem
+// clique a mais. A lista de pendentes já aparece atualizada logo em seguida.
 async function importarCsvPosVisita() {
   const inputArquivo = document.getElementById("pv-import-arquivo");
   const inputData = document.getElementById("pv-import-data");
   const msg = document.getElementById("pv-import-msg");
-  const btn = document.getElementById("pv-btn-importar");
 
   const arquivo = inputArquivo.files[0];
-  if (!arquivo) {
-    msg.textContent = "Selecione o arquivo CSV.";
-    return;
-  }
+  if (!arquivo) return;
   if (!inputData.value) {
-    msg.textContent = "Informe a data do relatório.";
+    msg.textContent = "Informe a data do relatório antes de escolher o arquivo.";
+    inputArquivo.value = "";
     return;
   }
 
@@ -12338,7 +12337,7 @@ async function importarCsvPosVisita() {
   formData.append("arquivo", arquivo);
   formData.append("dataSessao", inputData.value);
 
-  btn.disabled = true;
+  inputArquivo.disabled = true;
   msg.textContent = "Importando...";
   try {
     const res = await fetch(`${API_BASE}/pos-visita/importar-csv`, { method: "POST", body: formData });
@@ -12355,7 +12354,7 @@ async function importarCsvPosVisita() {
     msg.textContent = err.message || "Erro ao importar.";
     showToast("Erro ao importar o CSV.", "erro");
   } finally {
-    btn.disabled = false;
+    inputArquivo.disabled = false;
   }
 }
 
