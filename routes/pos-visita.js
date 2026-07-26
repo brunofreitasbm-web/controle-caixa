@@ -21,7 +21,7 @@ function inserirRegistros(registros) {
       db.run(
         `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(dataSessao, numeroCliente, crianca) DO NOTHING`,
+         ON CONFLICT(dataSessao, numeroCliente, crianca) DO UPDATE SET tempoTotalMinutos = excluded.tempoTotalMinutos`,
         [id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos || 0, criadoEm],
         (err) => {
           if (!err) inseridos++;
@@ -37,11 +37,13 @@ function inserirRegistros(registros) {
 // --------------------------------------------------------------------------
 // Importação manual do "Relatório Operacional do Dia anterior" (CSV, 1
 // arquivo por dia). Colunas fixas por posição (o arquivo não tem cabeçalho
-// confiável pra usar nome): K = responsável, L = telefone, N = tempo total
-// (minutos), P = nome da criança. Linha 1 é cabeçalho e é ignorada.
+// confiável pra usar nome): F = data da visita, K = responsável, L =
+// telefone, M = período (ex. "14:32 - 15:47", usado para calcular a
+// permanência por diferença), N = tempo total (fallback, formato H:MM:SS),
+// P = nome da criança. Linha 1 é cabeçalho e é ignorada.
 // --------------------------------------------------------------------------
 
-const COLUNA = { cliente: 10, telefone: 11, tempoTotal: 13, crianca: 15 }; // K, L, N, P (0-indexado)
+const COLUNA = { data: 5, cliente: 10, telefone: 11, periodo: 12, tempoTotal: 13, crianca: 15 }; // F, K, L, M, N, P (0-indexado)
 
 // Parser de CSV simples, tolerante a campos entre aspas e detecta o
 // delimitador (",", ";" ou tab) pela linha de cabeçalho — relatórios
@@ -83,13 +85,64 @@ function normalizarTelefone(valor) {
   return digitos;
 }
 
+// Tempo total (coluna N), formato "H:MM:SS" ou "H:MM" — o parsing anterior
+// só reconhecia "H:MM" e caía num fallback que pegava só o primeiro dígito
+// (por isso todo mundo aparecia com 0 ou 1 minuto: pegava só a hora de
+// "0:47:32", por exemplo). Também aceita fração de dia do Excel (ex.
+// "0.0659722" exportado de uma célula de hora sem formatação) e horas
+// decimais (ex. "1.5" = 1h30).
 function normalizarTempoMinutos(valor) {
-  if (typeof valor === 'number') return Math.round(valor);
-  const texto = String(valor || '').trim();
-  const comDoisPontos = texto.match(/^(\d+):(\d{2})$/);
-  if (comDoisPontos) return parseInt(comDoisPontos[1], 10) * 60 + parseInt(comDoisPontos[2], 10);
+  if (typeof valor === 'number') {
+    // Fração de dia do Excel (célula de horário salva como número puro).
+    if (valor > 0 && valor < 1) return Math.round(valor * 24 * 60);
+    return Math.round(valor);
+  }
+  const texto = String(valor || '').trim().replace(',', '.');
+
+  const comSegundos = texto.match(/^(\d+):(\d{2}):(\d{2})$/);
+  if (comSegundos) {
+    return parseInt(comSegundos[1], 10) * 60 + parseInt(comSegundos[2], 10) + Math.round(parseInt(comSegundos[3], 10) / 60);
+  }
+  const comMinutos = texto.match(/^(\d+):(\d{2})$/);
+  if (comMinutos) return parseInt(comMinutos[1], 10) * 60 + parseInt(comMinutos[2], 10);
+
+  const decimal = texto.match(/^\d*\.\d+$/);
+  if (decimal) {
+    const num = parseFloat(texto);
+    return num > 0 && num < 1 ? Math.round(num * 24 * 60) : Math.round(num * 60);
+  }
+
   const numeros = texto.match(/\d+/);
   return numeros ? parseInt(numeros[0], 10) : 0;
+}
+
+// Período (coluna M), ex. "14:32 - 15:47" ou "14:32:10 às 15:47:22" — extrai
+// os dois horários encontrados no texto e calcula a diferença em minutos.
+// É a fonte mais confiável de tempo de permanência (pedido do Bruno); a
+// coluna N só entra como fallback quando o período não dá pra calcular.
+function calcularDiferencaPeriodo(valor) {
+  const texto = String(valor || '');
+  const horarios = [...texto.matchAll(/(\d{1,2}):(\d{2})(?::(\d{2}))?/g)];
+  if (horarios.length < 2) return null;
+
+  const paraMinutos = (m) => parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (m[3] ? parseInt(m[3], 10) / 60 : 0);
+  const inicio = paraMinutos(horarios[0]);
+  const fim = paraMinutos(horarios[1]);
+  let diferenca = fim - inicio;
+  if (diferenca < 0) diferenca += 24 * 60; // cruzou a meia-noite
+  return Math.round(diferenca);
+}
+
+// Data da visita (coluna F): aceita "dd/mm/aaaa" (com ou sem hora junto) ou
+// "aaaa-mm-dd". A data escolhida no upload é só o valor padrão exibido pro
+// operador — o que vai pro banco é sempre a data real de cada linha do CSV.
+function normalizarDataLinha(valor, dataFallback) {
+  const texto = String(valor || '').trim();
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  return dataFallback;
 }
 
 router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
@@ -106,13 +159,16 @@ router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
 
   const registros = linhas
     .filter(cols => cols.length > COLUNA.crianca)
-    .map(cols => ({
-      dataSessao,
-      cliente: (cols[COLUNA.cliente] || '').trim(),
-      numeroCliente: normalizarTelefone(cols[COLUNA.telefone]),
-      crianca: (cols[COLUNA.crianca] || '').trim(),
-      tempoTotalMinutos: normalizarTempoMinutos(cols[COLUNA.tempoTotal])
-    }));
+    .map(cols => {
+      const diffPeriodo = calcularDiferencaPeriodo(cols[COLUNA.periodo]);
+      return {
+        dataSessao: normalizarDataLinha(cols[COLUNA.data], dataSessao),
+        cliente: (cols[COLUNA.cliente] || '').trim(),
+        numeroCliente: normalizarTelefone(cols[COLUNA.telefone]),
+        crianca: (cols[COLUNA.crianca] || '').trim(),
+        tempoTotalMinutos: diffPeriodo !== null ? diffPeriodo : normalizarTempoMinutos(cols[COLUNA.tempoTotal])
+      };
+    });
 
   inserirRegistros(registros).then(({ inseridos }) => {
     res.json({ success: true, linhasNoArquivo: linhas.length, inseridos });
@@ -159,24 +215,23 @@ router.post('/marcar-enviada', (req, res) => {
 });
 
 // Relatório automático: quantos foram importados e quantos já foram
-// encaminhados, referente ao dia mais recente com registros na base.
+// encaminhados no mês (padrão: mês atual; aceita ?mes=YYYY-MM pra consultar
+// outro mês).
 router.get('/relatorio', (req, res) => {
-  db.get(`SELECT MAX(dataSessao) AS "ultimaData" FROM pos_visita_registros`, [], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const ultimaData = row && row.ultimaData;
-    if (!ultimaData) return res.json({ data: null, importados: 0, enviados: 0 });
+  const mes = (req.query.mes && /^\d{4}-\d{2}$/.test(req.query.mes))
+    ? req.query.mes
+    : new Date().toISOString().slice(0, 7);
 
-    db.all(
-      `SELECT mensagemEnviada FROM pos_visita_registros WHERE dataSessao = ?`,
-      [ultimaData],
-      (err2, rows) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        const importados = (rows || []).length;
-        const enviados = (rows || []).filter(r => Number(r.mensagemEnviada || r.mensagemenviada) === 1).length;
-        res.json({ data: String(ultimaData).slice(0, 10), importados, enviados });
-      }
-    );
-  });
+  db.all(
+    `SELECT mensagemEnviada FROM pos_visita_registros WHERE dataSessao LIKE ?`,
+    [`${mes}%`],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      const importados = (rows || []).length;
+      const enviados = (rows || []).filter(r => Number(r.mensagemEnviada || r.mensagemenviada) === 1).length;
+      res.json({ mes, importados, enviados });
+    }
+  );
 });
 
 module.exports = router;

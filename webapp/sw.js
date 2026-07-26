@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v22';
+const CACHE_NAME = 'ponto-pwa-v23'; // v23: novo logo/ícones do FaçaAmigos — força atualização nos dispositivos já instalados
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

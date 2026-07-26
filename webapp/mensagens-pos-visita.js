@@ -1,41 +1,56 @@
-// Mensagens de pós-visita FaçaAmigos — disparadas para os responsáveis de
-// toda criança que visitou o playground (sem filtro de tempo de permanência).
-// Tom: carinhoso, acolhedor, nunca corporativo; reforça o benefício
-// físico/emocional do gasto de energia saudável.
+// Mensagens de pós-visita do Playground FaçaAmigos — disparadas para os
+// responsáveis de toda criança que visitou o espaço. Tom: carinhoso,
+// acolhedor, cheio de emojis, nunca corporativo. Sempre pergunta o que a
+// criança achou do espaço, agradece a visita, reforça que não somos "só
+// mais um parquinho de shopping" (atividades lúdicas sem telas, pensadas
+// pro desenvolvimento infantil, com um diferencial do FaçaAmigos citado) e
+// termina com um convite sutil (subliminar) pra próxima visita + o link do
+// site, encaixado como continuação natural da frase, não como propaganda.
 //
-// Em vez de 240 strings fixas (redundantes e difíceis de manter), a mensagem
-// final é composta por 3 blocos combinados: saudação (10) x pergunta sobre
-// sono/energia (8) x fechamento (3) = 240 combinações diferentes, sorteadas
-// aleatoriamente a cada clique em "Enviar mensagem".
+// Em vez de 700 strings fixas (repetitivas e difíceis de manter), a
+// mensagem final combina 4 blocos — saudação (10) × pergunta (10) ×
+// diferencial (7) × fechamento com link (2) = 1.400 combinações possíveis,
+// sorteadas aleatoriamente a cada clique em "Enviar mensagem".
 
 const SAUDACOES = [
-  "Bom dia, {{nome_responsavel}}! 🧩 Esperamos que você esteja tendo um ótimo dia.",
-  "Oi, {{nome_responsavel}}! ✨ Passando aqui pra deixar um carinho hoje.",
-  "Bom dia, {{nome_responsavel}}! 💙 Tudo bem por aí?",
-  "Oii, {{nome_responsavel}}! 🧩 Chegando com uma perguntinha de mãe e pai pra você.",
-  "Bom dia! ✨ Aqui é do FaçaAmigos, {{nome_responsavel}}, tudo certo hoje?",
-  "Oi, {{nome_responsavel}}! 💙 Passando pra saber como estão as coisas por aí.",
-  "Bom dia, {{nome_responsavel}}! 🧩 Esperamos que a semana esteja leve.",
-  "Oi, tudo bem, {{nome_responsavel}}? ✨ Estamos com saudade da turminha por aqui.",
-  "Bom dia! 💙 {{nome_responsavel}}, viemos com aquela pergunta clássica de todo dia.",
-  "Oi, {{nome_responsavel}}! 🧩 Esperamos que você tenha descansado bem também."
+  "Bom dia, {{nome_responsavel}}! 🧩💙 Passando aqui com o coração cheio depois da visita do(a) {{nome_crianca}} ontem.",
+  "Oii, {{nome_responsavel}}! ✨ Ainda estamos sorrindo aqui de lembrar do(a) {{nome_crianca}} brincando com a gente.",
+  "Bom dia! 🎈 {{nome_responsavel}}, que alegria receber o(a) {{nome_crianca}} no nosso espaço!",
+  "Oi, {{nome_responsavel}}! 🥰 Só passando pra dizer o quanto foi bom ter o(a) {{nome_crianca}} por aqui.",
+  "Bom dia, {{nome_responsavel}}! 🌈 A equipe do Playground ainda comenta do sorriso do(a) {{nome_crianca}}.",
+  "Oii! 💙 {{nome_responsavel}}, viemos com todo carinho falar sobre a visitinha do(a) {{nome_crianca}}.",
+  "Bom dia, {{nome_responsavel}}! 🎨 Foi um prazer enorme ter o(a) {{nome_crianca}} brincando com a gente.",
+  "Oi, tudo bem, {{nome_responsavel}}? 🧸 Passando pra dar notícias frescas da diversão do(a) {{nome_crianca}} por aqui.",
+  "Bom dia! 🦋 {{nome_responsavel}}, a turminha sentiu falta do(a) {{nome_crianca}} assim que a visita acabou!",
+  "Oii, {{nome_responsavel}}! ✨💙 Chegando com carinho pra saber como está o(a) {{nome_crianca}} depois da nossa brincadeira."
 ];
 
 const PERGUNTAS = [
-  "Passando para fazer aquela perguntinha clássica de mãe e pai: o(a) {{nome_crianca}} dormiu bem essa noite? 😴",
-  "Depois de tanta energia gasta brincando por aqui, o(a) {{nome_crianca}} caiu no sono rapidinho ontem? 😴",
-  "Como foi a noite do(a) {{nome_crianca}}? Aposto que aquele gasto de energia saudável ajudou a dormir tranquilo(a). 💤",
-  "Ficamos curiosos: o(a) {{nome_crianca}} acordou disposto(a) hoje, depois de brincar tanto por aqui? ☀️",
-  "O(A) {{nome_crianca}} deu aquele sinal de sono cedinho ontem à noite? Brincadeira também cansa (no bom sentido!). 😴",
-  "Será que o(a) {{nome_crianca}} teve uma noite tranquila depois de tanta diversão aqui no playground? 💤",
-  "Aquela energia toda solta nos brinquedos rendeu uma noite de sono gostosa pro(a) {{nome_crianca}}? 😴",
-  "Como está o(a) {{nome_crianca}} hoje? Esperamos que tenha descansado bem depois de brincar tanto com a gente. ☀️"
+  "O que ele(a) achou do nosso espaço? Adoraríamos saber! 😊",
+  "Ele(a) contou pra vocês como foi o dia por aqui? Ficamos curiosos pra saber o que mais marcou! 🌟",
+  "Queremos muito saber: o que ele(a) mais curtiu na visita? 🎉",
+  "Adoramos receber o(a) {{nome_crianca}} — será que ele(a) já contou o que achou por aqui? 💭",
+  "Ficamos com aquela vontade de saber: qual foi a parte favorita dele(a) na visita? 🥰",
+  "Nos conta: o que o(a) {{nome_crianca}} achou do nosso cantinho? Toda opinião da turminha vale ouro pra gente! 💛",
+  "Será que rolou algum comentário em casa sobre a visita? Adoraríamos saber o que ficou marcado! 😄",
+  "O(A) {{nome_crianca}} pareceu bem à vontade por aqui — o que vocês acharam da experiência? 🌼",
+  "Ficamos na expectativa: o que ele(a) mais gostou de fazer com a gente? 🎈",
+  "Adoramos ter recebido vocês — nos conta o que achou do nosso espaço, viu? 💙"
+];
+
+const DIFERENCIAIS = [
+  "Sabia que, no tempo que passou aqui, nossos profissionais desenvolveram uma atividade lúdica especial, longe de telas? Aqui no Playground FaçaAmigos, cada brincadeira é pensada pro desenvolvimento da criança — a gente não é só mais um parquinho de shopping. 🧩✨",
+  "Enquanto ele(a) brincava, nossa equipe conduzia atividades lúdicas sem telas, voltadas pro desenvolvimento infantil — esse é o nosso jeito de fazer diferente de um parquinho comum. 💙🎨",
+  "No Playground FaçaAmigos cada minuto de brincadeira tem intenção: nossos profissionais criam atividades lúdicas, sem telas, pensadas pro desenvolvimento de cada criança. Não somos só um espacinho de shopping — somos muito mais que isso. 🌈",
+  "Uma coisa que nos deixa orgulhosos: enquanto os pequenos brincam, a equipe conduz atividades lúdicas longe das telas, pensadas com carinho pro desenvolvimento deles. É esse o diferencial do FaçaAmigos. 🧸💛",
+  "Cada visita ao FaçaAmigos é recheada de atividades lúdicas sem tela nenhuma, sempre com foco no desenvolvimento infantil — muito além do que um parquinho comum de shopping oferece. ✨🧩",
+  "Aqui a brincadeira tem propósito: nossos profissionais desenvolvem atividades lúdicas, sem telas, voltadas pro desenvolvimento de cada criança que passa por nós. Esse é o coração do Playground FaçaAmigos. 💙",
+  "Enquanto a turminha se diverte, a gente cuida de cada detalhe: atividades lúdicas, sem telas, pensadas pro desenvolvimento infantil. Não é só um parquinho — é um espaço feito com propósito. 🌟🎈"
 ];
 
 const FECHAMENTOS = [
-  "Ficamos muito felizes em ver a energia e o sorriso dele(a) por aqui — isso faz toda a diferença no desenvolvimento e no bem-estar. Esperamos vocês de novo em breve! 💙",
-  "Esses momentos de brincadeira livre fazem tão bem pro corpo e pra cabecinha das crianças. Contamos com a visita de vocês outra vez em breve! ✨",
-  "Foi um prazer receber essa alegria toda no nosso espaço. Até a próxima aventura por aqui! 🧩💙"
+  "Já estamos com saudade e torcendo pela próxima visitinha! Se bater aquela vontade de matar a saudade da turminha, dá uma espiadinha aqui: sl1nk.com/facaamigosbelem 💙✨",
+  "Guardamos um cantinho especial esperando pela volta do(a) {{nome_crianca}} — dá uma olhada nas novidades por aqui: institutofacaamigos.com.br/playground/index.html 🧩💛"
 ];
 
 function preencher(texto, nomeResponsavel, nomeCrianca) {
@@ -47,7 +62,8 @@ function preencher(texto, nomeResponsavel, nomeCrianca) {
 function gerarMensagemPosVisita(nomeResponsavel, nomeCrianca) {
   const saudacao = SAUDACOES[Math.floor(Math.random() * SAUDACOES.length)];
   const pergunta = PERGUNTAS[Math.floor(Math.random() * PERGUNTAS.length)];
+  const diferencial = DIFERENCIAIS[Math.floor(Math.random() * DIFERENCIAIS.length)];
   const fechamento = FECHAMENTOS[Math.floor(Math.random() * FECHAMENTOS.length)];
-  const bruto = `${saudacao} ${pergunta} ${fechamento}`;
+  const bruto = `${saudacao} ${pergunta} ${diferencial} ${fechamento}`;
   return preencher(bruto, nomeResponsavel, nomeCrianca);
 }

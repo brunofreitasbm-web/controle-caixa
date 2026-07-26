@@ -12292,7 +12292,19 @@ function inicializarMetaHoraHora() {
 // PÓS-VISITA (FaçaAmigos) — importação manual do relatório operacional do
 // dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
 // ==========================================================================
-const POS_VISITA_COOLDOWN_MS = 5000;
+// Anti-banimento: intervalo aleatório (nunca fixo) entre cada disparo, e uma
+// pausa longa a cada bloco de mensagens — reduz o padrão repetitivo que o
+// WhatsApp usa pra detectar disparo em massa.
+const POS_VISITA_COOLDOWN_MIN_MS = 10000;
+const POS_VISITA_COOLDOWN_MAX_MS = 20000;
+const POS_VISITA_PAUSA_LONGA_MIN_MS = 8 * 60 * 1000;
+const POS_VISITA_PAUSA_LONGA_MAX_MS = 12 * 60 * 1000;
+let posVisitaEnviosDesdeUltimaPausa = 0;
+let posVisitaProximaPausaEm = 20 + Math.floor(Math.random() * 11); // 20 a 30
+
+function posVisitaSortearMs(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
 
 function renderPosVisita() {
   const btnAtualizar = document.getElementById("pv-btn-atualizar");
@@ -12366,7 +12378,12 @@ async function carregarRelatorioPosVisita() {
 
     document.getElementById("pv-relatorio-importados").textContent = relatorio.importados;
     document.getElementById("pv-relatorio-enviados").textContent = relatorio.enviados;
-    document.getElementById("pv-relatorio-data").textContent = relatorio.data ? `(${formatarDataBr(relatorio.data)})` : "";
+    const label = document.getElementById("pv-relatorio-data");
+    if (label && relatorio.mes) {
+      const [ano, mesNum] = relatorio.mes.split("-");
+      const nomeMes = new Date(Number(ano), Number(mesNum) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      label.textContent = `(${nomeMes})`;
+    }
   } catch (err) {
     console.error("Erro ao carregar relatório de pós-visita:", err);
   }
@@ -12400,7 +12417,7 @@ async function carregarPosVisita() {
 
 function criarCardPosVisita(registro, habilitado) {
   const card = document.createElement("div");
-  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3";
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
   card.dataset.id = registro.id;
 
   const dataFormatada = formatarDataBr(registro.dataSessao);
@@ -12415,11 +12432,11 @@ function criarCardPosVisita(registro, habilitado) {
       <p class="text-[11px] text-brand-400 mt-0.5">${dataFormatada} · ${registro.tempoTotalMinutos} min no playground</p>
       ${avisoDuplicidade}
     </div>
-    <div class="flex flex-col items-end gap-1">
-      <button type="button" class="pv-btn-enviar px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-2" ${habilitado ? "" : "disabled"} data-tip="Abre o WhatsApp com uma mensagem carinhosa já pronta para esse responsável">
+    <div class="flex flex-col gap-1">
+      <button type="button" class="pv-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${habilitado ? "" : "disabled"} data-tip="Abre o WhatsApp com uma mensagem carinhosa já pronta para esse responsável">
         <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
       </button>
-      <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden"></span>
+      <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
     </div>
   `;
 
@@ -12438,6 +12455,7 @@ function dispararMensagemPosVisita(registro, card) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-check"></i> Mensagem encaminhada';
 
+  posVisitaEnviosDesdeUltimaPausa += 1;
   habilitarProximoCardPosVisita(card);
 
   fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
@@ -12459,7 +12477,9 @@ function dispararMensagemPosVisita(registro, card) {
 }
 
 // Evita disparos em sequência rápida (risco de bloqueio do número no
-// WhatsApp): o botão do próximo card só habilita 5s depois do clique atual.
+// WhatsApp): o botão do próximo card só habilita depois de um intervalo
+// aleatório (10-20s, nunca fixo); a cada bloco de 20-30 mensagens, insere
+// uma pausa longa (8-12min) antes de liberar o próximo envio.
 function habilitarProximoCardPosVisita(cardAtual) {
   const proximo = cardAtual.nextElementSibling;
   if (!proximo) return;
@@ -12467,20 +12487,39 @@ function habilitarProximoCardPosVisita(cardAtual) {
   const cooldownMsg = proximo.querySelector(".pv-cooldown-msg");
   if (!proximoBtn || proximoBtn.disabled === false) return;
 
-  let restante = Math.ceil(POS_VISITA_COOLDOWN_MS / 1000);
-  cooldownMsg.classList.remove("hidden");
-  cooldownMsg.textContent = `Aguarde ${restante}s...`;
+  const ehPausaLonga = posVisitaEnviosDesdeUltimaPausa >= posVisitaProximaPausaEm;
+  const duracaoMs = ehPausaLonga
+    ? posVisitaSortearMs(POS_VISITA_PAUSA_LONGA_MIN_MS, POS_VISITA_PAUSA_LONGA_MAX_MS)
+    : posVisitaSortearMs(POS_VISITA_COOLDOWN_MIN_MS, POS_VISITA_COOLDOWN_MAX_MS);
 
+  if (ehPausaLonga) {
+    posVisitaEnviosDesdeUltimaPausa = 0;
+    posVisitaProximaPausaEm = 20 + Math.floor(Math.random() * 11); // sorteia o próximo bloco (20-30)
+  }
+
+  let restanteMs = duracaoMs;
+  cooldownMsg.classList.remove("hidden");
+
+  const formatar = (ms) => {
+    const totalSeg = Math.ceil(ms / 1000);
+    if (totalSeg <= 60) return `Aguarde ${totalSeg}s...`;
+    const min = Math.floor(totalSeg / 60);
+    const seg = totalSeg % 60;
+    return `Pausa de segurança: ${min}min ${String(seg).padStart(2, "0")}s...`;
+  };
+  cooldownMsg.textContent = formatar(restanteMs);
+
+  const passo = 1000;
   const intervalo = setInterval(() => {
-    restante -= 1;
-    if (restante <= 0) {
+    restanteMs -= passo;
+    if (restanteMs <= 0) {
       clearInterval(intervalo);
       proximoBtn.disabled = false;
       cooldownMsg.classList.add("hidden");
     } else {
-      cooldownMsg.textContent = `Aguarde ${restante}s...`;
+      cooldownMsg.textContent = formatar(restanteMs);
     }
-  }, 1000);
+  }, passo);
 }
 
 function formatarDataBr(dataIso) {

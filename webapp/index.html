@@ -8,9 +8,10 @@
 <meta name="theme-color" content="#1C2435">
 <meta name="description" content="HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos">
 <title>HuB Operações</title>
-<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="icons/icon-192.png?v=2">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css?v=13">
 <!-- Tailwind CSS estático compilado localmente -->
@@ -2833,7 +2834,7 @@
         </h3>
         <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div class="field">
-            <label for="pv-import-data" data-tip="Data do relatório que está sendo importado (normalmente o dia anterior, já vem preenchida)">Data do relatório</label>
+            <label for="pv-import-data" data-tip="É só uma referência visual (vem com o dia anterior preenchido) — a data real de cada visita é lida direto da coluna do CSV">Data do relatório (referência)</label>
             <input type="date" id="pv-import-data">
           </div>
           <div class="field">
@@ -2847,9 +2848,9 @@
       </div>
 
       <!-- Quadro de relatório automático -->
-      <div id="pv-relatorio" class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Contagem automática de quantos registros foram importados e quantas mensagens já foram enviadas no último dia importado">
+      <div id="pv-relatorio" class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Contagem automática de quantos registros foram importados e quantas mensagens já foram enviadas no mês atual">
         <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <i class="fa-solid fa-chart-simple"></i> Relatório do dia <span id="pv-relatorio-data" class="text-brand-400 font-normal normal-case"></span>
+          <i class="fa-solid fa-chart-simple"></i> Relatório do mês <span id="pv-relatorio-data" class="text-brand-400 font-normal normal-case"></span>
         </h3>
         <div class="flex items-center gap-6">
           <div>
@@ -2868,7 +2869,7 @@
         <p class="text-sm font-bold text-brand-200">Nenhuma mensagem pendente — fila em dia! 💙</p>
       </div>
 
-      <div id="pv-lista" class="space-y-3"></div>
+      <div id="pv-lista" class="pv-grid"></div>
     </section>
 
     <!-- ===================== ABA: CONFIGURAÇÕES (TODOS OS PERFIS, ADVANCED SECTIONS POR PERFIL) ===================== -->
