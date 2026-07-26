@@ -128,6 +128,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "historico", icon: "fa-receipt", label: "Histórico" },
     { tab: "importacoes", icon: "fa-file-import", label: "Importações" },
     { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
   consultora_fa: [
     { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope" },
@@ -137,6 +138,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA" },
     { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
 };
 
@@ -1669,6 +1671,12 @@ function ativarTab(tabName) {
     activeBtn.setAttribute("tabindex", "0");
   }
 
+  // Cabeçalhos que são atalho direto (grupo de item único, ex.: Insights IA)
+  // também precisam refletir a aba aberta.
+  document.querySelectorAll(".sidebar-group-header.is-direct").forEach(h => {
+    h.classList.toggle("active", h.dataset.tab === tabName);
+  });
+
   const activePanel = document.getElementById("tab-" + tabName);
   if (activePanel) {
     activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
@@ -1774,6 +1782,13 @@ document.addEventListener("keydown", (e) => {
 // vários grupos ficam abertos ao mesmo tempo).
 document.querySelectorAll(".sidebar-group-header").forEach(header => {
   header.addEventListener("click", () => {
+    // Grupo de item único (ex.: Insights IA): o cabeçalho vira atalho direto —
+    // abre a aba no primeiro clique, sem acordeão.
+    if (header.dataset.tab) {
+      ativarTab(header.dataset.tab);
+      return;
+    }
+
     const group = header.closest(".sidebar-group");
     if (!group) return;
     const isExpanded = group.classList.contains("expanded");

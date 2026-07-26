@@ -410,6 +410,20 @@ body {
   transform: rotate(-90deg);
 }
 
+/* Cabeçalho que é atalho direto (grupo de item único, ex.: Insights IA):
+   abre a aba num clique, então não mostra chevron nem o conteúdo do grupo. */
+.sidebar-group-header.is-direct .group-arrow {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.sidebar-group-header.is-direct:hover .group-arrow,
+.sidebar-group-header.is-direct.active .group-arrow {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
 .sidebar-group-content {
   display: flex;
   flex-direction: column;
@@ -1994,6 +2008,14 @@ button:focus-visible,
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     justify-content: space-around;
     align-items: center;
+    /* Perfis com muitos atalhos (Líder, Owner com Insights IA) não cabem numa
+       tela estreita: a barra rola na horizontal em vez de cortar os últimos. */
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .bottom-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .bottom-nav-btn {
@@ -2012,6 +2034,8 @@ button:focus-visible,
     font-size: 0.65rem;
     font-weight: 600;
     min-width: 56px;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .bottom-nav-btn .nav-icon {
@@ -3849,7 +3873,7 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
 }
 
 /* Active navigation item indicator */
-.tab-btn.active, .sidebar-group-header[aria-expanded="true"] {
+.tab-btn.active, .sidebar-group-header[aria-expanded="true"], .sidebar-group-header.is-direct.active {
   background: var(--sidebar-active-bg) !important;
   color: var(--sidebar-active-text) !important;
   font-weight: 600;
