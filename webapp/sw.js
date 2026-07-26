@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v34'; // v34: network-first no app shell + reload automatico apos deploy
+const CACHE_NAME = 'ponto-pwa-v35'; // v35: network-first no app shell + reload automatico apos deploy + instalacao resiliente a asset ausente
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -32,7 +32,18 @@ self.addEventListener('install', event => {
   ehAtualizacaoDeVersao = !!self.registration.active;
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // cache.addAll() é tudo-ou-nada: se UM único asset da lista faltar
+      // (404) ou a rede falhar num deles, a promise inteira rejeita e
+      // NENHUM asset é cacheado — foi o que aconteceu quando icon-180.png
+      // ficou referenciado aqui sem o arquivo existir. cache.add() individual
+      // com allSettled isola a falha: um asset ausente vira um aviso no
+      // console, os demais continuam sendo cacheados normalmente.
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => cache.add(url).catch(err => {
+          console.warn('[SW] Falha ao pre-cachear (ignorado):', url, err.message);
+          throw err;
+        }))
+      );
     }).then(() => self.skipWaiting())
   );
 });
