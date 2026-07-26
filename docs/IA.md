@@ -42,7 +42,7 @@ mudar `IA_PROVIDER` e informar a chave correspondente
 ## As quatro regras
 
 1. **A IA sugere, o humano aprova.** Nenhum endpoint de IA escreve em tabela
-   de negócio. A auditoria de boletos não baixa boleto; o coach não altera
+   de negócio. O briefing não baixa boleto; o coach não altera
    bonificação; a escala não muda jornada.
 2. **Todo uso tem fallback.** Se a API cair ou a cota estourar, a
    funcionalidade continua com o comportamento determinístico anterior.
@@ -73,7 +73,6 @@ prosa ("sua conversaoAtualPercent de 36.4").
 |---|---|---|
 | 1 | `GET /api/ia/coach?usuario&unidade&competencia` | `ia-coach.js` |
 | 2 | `GET /api/ia/briefing?data` | `ia-briefing.js` |
-| 3 | `GET /api/ia/boletos/auditoria?data` | `ia-boletos.js` |
 | 4 | `GET /api/ia/escala?loja&data&janela` | `ia-escala.js` |
 | 5 | `POST /api/ia/mensagem` | `ia-mensagens.js` |
 | 6 | `GET /api/ia/copiloto?loja&horaSlot&data` | `ia-copiloto.js` |

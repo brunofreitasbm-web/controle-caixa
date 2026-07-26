@@ -12,7 +12,6 @@ const router = express.Router();
 const { iaHabilitada, PROVEDOR } = require('../services/ia');
 const { gerarCoach } = require('../services/ia-coach');
 const { gerarBriefing } = require('../services/ia-briefing');
-const { gerarAuditoriaBoletos } = require('../services/ia-boletos');
 const { gerarEscala } = require('../services/ia-escala');
 const { mensagemAniversario, mensagemPosVisita } = require('../services/ia-mensagens');
 const { gerarAvisoCopiloto } = require('../services/ia-copiloto');
@@ -73,27 +72,6 @@ router.get('/ia/briefing', async (req, res) => {
     res.json(resultado);
   } catch (err) {
     console.error('[IA Briefing] Erro:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// --------------------------------------------------------------------------
-// ITEM 3 — Auditoria de divergência de boletos
-// GET /api/ia/boletos/auditoria[?data=YYYY-MM-DD][&forcar=true]
-// Somente leitura: não baixa, não exclui e não altera nenhum boleto.
-// --------------------------------------------------------------------------
-router.get('/ia/boletos/auditoria', async (req, res) => {
-  const { data, forcar } = req.query;
-
-  if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    return res.status(400).json({ error: 'Data deve estar no formato YYYY-MM-DD.' });
-  }
-
-  try {
-    const resultado = await gerarAuditoriaBoletos({ dataRef: data || null, forcar: forcar === 'true' });
-    res.json(resultado);
-  } catch (err) {
-    console.error('[IA Boletos] Erro:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -105,44 +105,6 @@ function iaMoeda(v) {
 }
 
 // --------------------------------------------------------------------------
-// ITEM 3 — Auditoria de boletos
-// --------------------------------------------------------------------------
-async function iaCarregarBoletos(forcar = false) {
-  const el = document.getElementById("ia-boletos-conteudo");
-  if (!el) return;
-  el.innerHTML = iaSpinner("Auditando os boletos...");
-
-  try {
-    const { auditoria, relatorio } = await iaBuscar(`/ia/boletos/auditoria${forcar ? "?forcar=true" : ""}`);
-
-    const cards = relatorio.achados.map(a => `
-      <div class="ia-achado ia-sev-${iaEscapar(a.severidade || "media")}">
-        <div class="ia-achado-topo">
-          <span class="ia-sev-tag">${iaEscapar((a.severidade || "media").toUpperCase())}</span>
-          <strong>${iaEscapar(a.titulo)}</strong>
-        </div>
-        <p class="ia-achado-detalhe">${iaEscapar(a.detalhe)}</p>
-        <p class="ia-achado-acao"><i class="fa-solid fa-arrow-right"></i> ${iaEscapar(a.acao)}</p>
-      </div>`).join("");
-
-    el.innerHTML = `
-      ${iaSelo(relatorio._fonte, relatorio._cache)}
-      <div class="ia-metricas">
-        <div class="ia-metrica"><span class="ia-metrica-num">${auditoria.totalAbertos}</span><span class="ia-metrica-lbl">em aberto</span></div>
-        <div class="ia-metrica ia-metrica-alerta"><span class="ia-metrica-num">${auditoria.vencidos.length}</span><span class="ia-metrica-lbl">vencidos</span></div>
-        <div class="ia-metrica ia-metrica-alerta"><span class="ia-metrica-num">${auditoria.duplicidade.length}</span><span class="ia-metrica-lbl">possíveis duplicados</span></div>
-        <div class="ia-metrica"><span class="ia-metrica-num">${iaMoeda(auditoria.valorEmRiscoDuplicidade)}</span><span class="ia-metrica-lbl">risco de pagar 2x</span></div>
-      </div>
-      <p class="ia-texto">${iaEscapar(relatorio.resumo)}</p>
-      ${cards || '<p class="ia-texto">Nenhuma divergência encontrada.</p>'}
-      ${relatorio.conclusao ? `<p class="ia-fechamento">${iaEscapar(relatorio.conclusao)}</p>` : ""}
-      <p class="ia-rodape-aviso"><i class="fa-solid fa-lock"></i> Esta análise não altera nenhum boleto. A baixa continua sendo feita por você na aba Boletos.</p>`;
-  } catch (err) {
-    el.innerHTML = iaErro(`Não foi possível auditar os boletos: ${err.message}`);
-  }
-}
-
-// --------------------------------------------------------------------------
 // ITEM 1 — Coach de conversão
 // --------------------------------------------------------------------------
 async function iaCarregarCoach(forcar = false) {
@@ -320,8 +282,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   liga("ia-briefing-atualizar", () => iaCarregarBriefing(true));
-  liga("ia-boletos-carregar", () => iaCarregarBoletos(false));
-  liga("ia-boletos-atualizar", () => iaCarregarBoletos(true));
   liga("ia-coach-carregar", () => iaCarregarCoach(false));
   liga("ia-coach-atualizar", () => iaCarregarCoach(true));
   liga("ia-escala-carregar", () => iaCarregarEscala(false));

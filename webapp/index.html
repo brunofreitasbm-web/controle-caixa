@@ -288,7 +288,7 @@
       <!-- Grupo de item único: o cabeçalho é um atalho direto (data-tab), abre a
            aba num clique em vez de expandir um acordeão com uma opção só. -->
       <div class="sidebar-group collapsed" id="group-insights-ia">
-        <button class="sidebar-group-header is-direct" data-tab="insights-ia" data-tip="Briefing do dia, auditoria de boletos, coach de conversão, escala e copiloto de meta">
+        <button class="sidebar-group-header is-direct" data-tab="insights-ia" data-tip="Briefing do dia, coach de conversão, escala e copiloto de meta">
           <span class="group-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
           <span class="group-title">Insights IA</span>
           <span class="group-arrow"><i class="fa-solid fa-arrow-right"></i></span>
@@ -296,7 +296,7 @@
         <!-- Mantido no DOM (hidden): é ele que carrega a permissão do perfil e
              faz o grupo inteiro sumir para quem não tem acesso. -->
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, auditoria de boletos, coach de conversão, escala e copiloto de meta">
+          <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, coach de conversão, escala e copiloto de meta">
             <span class="tab-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
             <span class="tab-text">Insights IA</span>
           </button>
@@ -1478,19 +1478,6 @@
           </div>
           <p class="ia-card-sub">Vendas de ontem contra a meta, envelopes parados, boletos vencendo e conversão do FaçaAmigos. Enviado automaticamente às 7h.</p>
           <div id="ia-briefing-conteudo"></div>
-        </div>
-
-        <!-- Auditoria de boletos -->
-        <div class="ia-card">
-          <div class="ia-card-topo">
-            <h3><i class="fa-solid fa-file-invoice-dollar"></i> Auditoria de boletos</h3>
-            <div class="flex gap-2">
-              <button id="ia-boletos-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-magnifying-glass-dollar"></i> Auditar</button>
-              <button id="ia-boletos-atualizar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-arrows-rotate"></i> Refazer</button>
-            </div>
-          </div>
-          <p class="ia-card-sub">Procura risco de pagamento em duplicidade, atraso, parcela faltando e valor fora do padrão da série.</p>
-          <div id="ia-boletos-conteudo"></div>
         </div>
 
         <!-- Coach de conversão -->
