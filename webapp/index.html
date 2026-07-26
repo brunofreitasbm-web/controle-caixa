@@ -8,12 +8,12 @@
 <meta name="theme-color" content="#1C2435">
 <meta name="description" content="HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos">
 <title>HuB Operações</title>
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2">
-<link rel="apple-touch-icon" href="icons/icon-192.png?v=2">
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
+<link rel="manifest" href="manifest.json?v=3">
+<link rel="stylesheet" href="style.css?v=17">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -278,6 +278,23 @@
           <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos" data-tip="Confere se os boletos pagos batem com o extrato">
             <span class="tab-icon"><i class="fa-solid fa-calculator text-brand-500"></i></span>
             <span class="tab-text">Auditoria Boletos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Insights IA — painel gerencial concentrado (Owner e Líder de
+           Operações). Todos os cartões são de leitura: nenhum altera boleto,
+           bonificação, escala ou meta. Ver docs/IA.md -->
+      <div class="sidebar-group collapsed" id="group-insights-ia">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Análises geradas por IA a partir dos dados do sistema">
+          <span class="group-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="group-title">Insights IA</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, auditoria de boletos, coach de conversão, escala e copiloto de meta">
+            <span class="tab-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <span class="tab-text">Insights IA</span>
           </button>
         </div>
       </div>
@@ -752,7 +769,7 @@
           <span class="fa-logo-icon">🧡</span>
           <div>
             <h2 class="fa-title">Faça<span class="fa-title-accent">Amigos</span></h2>
-            <p class="fa-subtitle">Controle de Caixa &mdash; Parque Shopping</p>
+            <p class="fa-subtitle">Playground Inclusivo e Circuito</p>
           </div>
         </div>
         <div class="fa-lojas-badge">
@@ -1432,6 +1449,90 @@
     </section>
 
     <!-- ===================== ABA: IMPORTAÇÕES (UPLOADS CENTRALIZADOS) ===================== -->
+    <!-- ================================================================
+         INSIGHTS IA — painel gerencial (Owner e Líder de Operações)
+         Lógica em insights-ia.js. Todos os cartões são somente leitura.
+         ================================================================ -->
+    <section id="tab-insights-ia" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-insights-ia">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-brand-300"></i> Insights IA
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">Análises geradas a partir dos dados que já estão no sistema. A IA sugere — nenhuma ação é executada sem você.</p>
+          </div>
+          <div id="ia-status-linha"></div>
+        </div>
+
+        <!-- Briefing do dia -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-mug-hot"></i> Briefing do dia</h3>
+            <button id="ia-briefing-atualizar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-arrows-rotate"></i> Atualizar</button>
+          </div>
+          <p class="ia-card-sub">Vendas de ontem contra a meta, envelopes parados, boletos vencendo e conversão do FaçaAmigos. Enviado automaticamente às 7h.</p>
+          <div id="ia-briefing-conteudo"></div>
+        </div>
+
+        <!-- Auditoria de boletos -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-file-invoice-dollar"></i> Auditoria de boletos</h3>
+            <div class="flex gap-2">
+              <button id="ia-boletos-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-magnifying-glass-dollar"></i> Auditar</button>
+              <button id="ia-boletos-atualizar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-arrows-rotate"></i> Refazer</button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Procura risco de pagamento em duplicidade, atraso, parcela faltando e valor fora do padrão da série.</p>
+          <div id="ia-boletos-conteudo"></div>
+        </div>
+
+        <!-- Coach de conversão -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-medal"></i> Coach de conversão (FaçaAmigos)</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-coach-colaboradora" class="ia-select"></select>
+              <button id="ia-coach-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+              <button id="ia-coach-atualizar" class="btn-secondary btn-mini-outline" title="Ignora o cache e gera de novo"><i class="fa-solid fa-arrows-rotate"></i></button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Onde a conversão está, quanto falta para a próxima faixa e em que dia da semana o desempenho cai.</p>
+          <div id="ia-coach-conteudo"></div>
+        </div>
+
+        <!-- Escala inteligente -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-users-gear"></i> Escala inteligente</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-escala-loja" class="ia-select"></select>
+              <button id="ia-escala-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Horários que concentram venda e horários ociosos, para realocar equipe. Exige histórico mínimo de 14 dias de Meta Hora a Hora.</p>
+          <div id="ia-escala-conteudo"></div>
+        </div>
+
+        <!-- Copiloto Meta Hora a Hora -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-gauge-high"></i> Copiloto Meta Hora a Hora</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-copiloto-loja" class="ia-select"></select>
+              <select id="ia-copiloto-hora" class="ia-select"></select>
+              <button id="ia-copiloto-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Ver aviso</button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Prévia do aviso que a consultora recebe 10 minutos antes de cada intervalo, com o ritmo necessário para bater a meta.</p>
+          <div id="ia-copiloto-conteudo"></div>
+        </div>
+
+      </div>
+    </section>
+
     <section id="tab-importacoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-importacoes">
       <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
         <div>
@@ -2960,102 +3061,98 @@
             <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-sliders text-brand-300"></i> Painel de Configurações
             </h2>
-            <p class="text-xs text-brand-100 mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
+            <p class="text-xs text-brand-100 mt-1">Tudo que define como a operação roda: lojas, ponto, canais de aviso, pessoas e integridade dos dados.</p>
           </div>
-          <div>
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest">Ajustes do HuB</span>
+          <div class="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-950 border border-brand-800 text-brand-200 uppercase tracking-widest self-start md:self-end">Ajustes do HuB</span>
+            <div class="relative w-full md:w-72">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-brand-300 text-xs"></i>
+              <input type="search" id="config-busca" placeholder="Buscar ajuste (ex: ponto, e-mail, backup)"
+                class="w-full bg-brand-950/60 border border-brand-800 rounded-xl py-2 pl-8 pr-3 text-white placeholder:text-brand-300/70 text-xs focus:outline-none focus:border-gold transition">
+            </div>
           </div>
         </div>
 
-        <!-- Grid de Configurações -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <!-- Card: Segurança & Sessão -->
-          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
-            <div>
-              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-shield-halved text-brand-500"></i> Segurança & Sessão
+        <!-- Grid de Configurações. Ordem pensada para Líder de Operações/Owner:
+             primeiro o que afeta a operação inteira (prontidão, lojas, canais,
+             pessoas), depois o que é do próprio usuário/dispositivo. -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="config-grid">
+
+          <!-- Card: Prontidão da Operação — checklist do que ainda falta configurar (Líder/Owner) -->
+          <div id="config-card-prontidao" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="prontidao checklist pendencias status operacao diagnostico">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-brand-500"></i> Prontidão da Operação
               </h3>
-              <p class="text-xs text-muted mb-4">Gerencie as regras de expiração e altere seus dados de autenticação rápida.</p>
-              
-              <div class="space-y-4">
-                <div class="field">
-                  <label class="block text-xs font-bold uppercase mb-1">Tempo Limite por Inatividade</label>
-                  <select id="config-timeout-select" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
-                    <option value="300">5 minutos</option>
-                    <option value="900">15 minutos</option>
-                    <option value="1800">30 minutos</option>
-                    <option value="3600">1 hora</option>
-                    <option value="0">Nunca bloquear</option>
-                  </select>
-                </div>
-                
-                <div class="flex flex-col sm:flex-row gap-2 pt-2">
-                  <button type="button" id="config-btn-change-pin" class="flex-1 py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-key"></i> Alterar meu PIN
-                  </button>
-                  <button type="button" id="config-btn-logout" class="flex-1 py-2.5 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-right-from-bracket"></i> Sair / Mudar Usuário
-                  </button>
-                </div>
-
-                <div class="pt-2">
-                  <button type="button" id="config-btn-cadastrar-biometria" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 hidden">
-                    <i class="fa-solid fa-face-viewfinder"></i> Cadastrar Biometria
-                  </button>
-                  <p id="config-biometria-status" class="text-[11px] text-muted mt-2 hidden"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Card: Atualização do App / Cache do Service Worker (distinto do card "Gestão de Dados & Armazenamento Local" mais abaixo, que trata do backup dos dados de negócio) -->
-          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
-            <div>
-              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-database text-brand-500"></i> Atualização do App (Cache)
-              </h3>
-              <p class="text-xs text-muted mb-4">Se o app parecer "travado" numa versão antiga depois de uma atualização, force a atualização aqui — sem precisar desinstalar ou pedir ajuda.</p>
-
-              <div class="space-y-3">
-                <div class="p-3 rounded-xl bg-cream border border-border text-xs space-y-1.5">
-                  <div class="flex justify-between"><span class="text-muted">Registros de ponto ainda não sincronizados</span><strong id="config-ponto-offline-count">—</strong></div>
-                  <div class="flex justify-between"><span class="text-muted">Cache do app</span><strong id="config-app-cache-status">—</strong></div>
-                </div>
-
-                <button type="button" id="config-btn-forcar-atualizacao" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                  <i class="fa-solid fa-arrows-rotate"></i> Forçar Atualização do App
+              <div class="flex items-center gap-2">
+                <span id="config-prontidao-resumo" class="px-3 py-1 rounded-full text-[10px] font-bold border border-border whitespace-nowrap">Verificando…</span>
+                <button type="button" id="config-btn-revalidar-prontidao" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2">
+                  <i class="fa-solid fa-rotate"></i> Revalidar
                 </button>
-                <p class="text-[11px] text-muted">Limpa o cache local e recarrega a versão mais recente do servidor. Não apaga registros ainda não sincronizados.</p>
               </div>
             </div>
+            <p class="text-xs text-muted mb-4">O que ainda falta configurar para o Hub rodar sem tropeço. Cada pendência aqui vira problema no dia a dia da loja.</p>
+            <ul id="config-prontidao-lista" class="space-y-2 text-xs"></ul>
           </div>
 
-          <!-- Card: Geofencing do Ponto (Líder de Operações / Owner) -->
-          <div id="config-card-geofencing" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-location-crosshairs text-brand-500"></i> Geofencing do Ponto
-            </h3>
-            <p class="text-xs text-muted mb-4">Raio de tolerância, em metros, ao redor da localização de cada operação (definida acima) para liberar a marcação de ponto. Muito baixo bloqueia colaboradoras dentro da própria loja; muito alto perde o propósito da cerca virtual.</p>
+          <!-- Card: Localização, Horário e Cerca Virtual das Operações (Líder de Operações / Owner).
+               O antigo card separado "Geofencing do Ponto" foi compactado para cá: o raio de
+               tolerância só faz sentido junto das coordenadas que ele delimita. -->
+          <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="operacoes lojas localizacao latitude longitude horario abertura fechamento geofencing cerca virtual raio ponto metas">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-operacoes">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot text-brand-500"></i> Operações: Localização, Horário e Cerca Virtual
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
 
-            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
-              <div class="field sm:w-56">
-                <label class="block text-xs font-bold uppercase mb-1">Raio de Tolerância (metros)</label>
-                <input type="number" id="config-geofence-raio" min="10" max="500" step="5" value="50" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+            <div id="config-corpo-operacoes" class="config-corpo hidden mt-3">
+            <p class="text-xs text-muted mb-4">Localização e horário alimentam a marcação de ponto e o Meta Hora a Hora — a meta do dia em si vem da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th class="py-2 px-2">Operação</th>
+                    <th class="py-2 px-2">Latitude</th>
+                    <th class="py-2 px-2">Longitude</th>
+                    <th class="py-2 px-2">Abertura</th>
+                    <th class="py-2 px-2">Fechamento</th>
+                  </tr>
+                </thead>
+                <tbody id="config-operacoes-tbody" class="divide-y divide-border">
+                  <!-- Gerado dinamicamente no JS (uma linha por operação) -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Cerca virtual do ponto: uma linha só, ao lado do botão de salvar. -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-border">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-location-crosshairs text-brand-500 text-xs"></i>
+                <label for="config-geofence-raio" class="text-xs font-bold whitespace-nowrap">Raio da cerca do ponto</label>
+                <input type="number" id="config-geofence-raio" min="10" max="500" step="5" value="50" class="w-24 bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold transition">
+                <span class="text-[11px] text-muted">metros — muito baixo bloqueia quem está dentro da loja; muito alto anula a cerca.</span>
               </div>
-              <button type="button" id="config-btn-save-geofence" class="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
-                <i class="fa-solid fa-floppy-disk"></i> Salvar Raio de Tolerância
+              <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Operações
               </button>
+            </div>
             </div>
           </div>
 
           <!-- Card: WhatsApp Lojas (Apenas Owners/Gestores) -->
-          <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-brands fa-whatsapp text-emerald-500"></i> Links dos Grupos de WhatsApp das Lojas
-            </h3>
+          <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="whatsapp grupos links lojas avisos relatorios">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-whatsapp">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp text-emerald-500"></i> Links dos Grupos de WhatsApp das Lojas
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
+
+            <div id="config-corpo-whatsapp" class="config-corpo hidden mt-3">
             <p class="text-xs text-muted mb-4">Configure os links de convite para os relatórios serem enviados diretamente para os grupos corretos de cada filial.</p>
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Cacau Show -->
               <div class="space-y-3 p-4 rounded-xl bg-cream border border-border">
@@ -3079,41 +3176,11 @@
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Links do WhatsApp
               </button>
             </div>
-          </div>
-
-          <!-- Card: Localização e Horário das Operações (Líder de Operações / Owner) -->
-          <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-map-location-dot text-brand-500"></i> Localização e Horário das Operações
-            </h3>
-            <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora — a meta do dia em si vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
-
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr class="border-b border-border uppercase tracking-wider font-bold">
-                    <th class="py-2 px-2">Operação</th>
-                    <th class="py-2 px-2">Latitude</th>
-                    <th class="py-2 px-2">Longitude</th>
-                    <th class="py-2 px-2">Abertura</th>
-                    <th class="py-2 px-2">Fechamento</th>
-                  </tr>
-                </thead>
-                <tbody id="config-operacoes-tbody" class="divide-y divide-border">
-                  <!-- Gerado dinamicamente no JS (uma linha por operação) -->
-                </tbody>
-              </table>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-4">
-              <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
-                <i class="fa-solid fa-floppy-disk"></i> Salvar Localização e Horários
-              </button>
             </div>
           </div>
 
           <!-- Card: Configurações de Notificações -->
-          <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2">
+          <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2" data-config-busca="notificacoes alertas email push regras perfis">
             <div class="flex items-center justify-between mb-4">
               <div>
                 <h3 class="text-base font-bold flex items-center gap-2">
@@ -3165,43 +3232,16 @@
             </div>
           </div>
 
-          <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
-          <button type="button" class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
-            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
-              <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-user-shield"></i></span>
-                <div class="text-left">
-                  <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
-                  <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
-                </div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
-            </div>
-          </button>
-
-          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
-               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
-               então a visibilidade já é controlada por tabsPermitidas. -->
-          <button type="button" class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
-            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
-              <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-users-gear"></i></span>
-                <div class="text-left">
-                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
-                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
-                </div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
-            </div>
-          </button>
-
           <!-- Card: Dados do Contador (emissão mensal da Folha de Ponto) — Owner -->
-          <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-file-invoice text-brand-500"></i> Dados do Contador (Folha de Ponto)
-            </h3>
+          <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="contador contabilidade folha de ponto email pdf">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-contador">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-brand-500"></i> Dados do Contador (Folha de Ponto)
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
+
+            <div id="config-corpo-contador" class="config-corpo hidden mt-3">
             <p class="text-xs text-muted mb-4">E-mail para onde a Folha de Ponto em PDF é enviada. O envio é feito por você, pelo botão <strong>"Enviar ao Contador"</strong> na aba Controle de Ponto — nada é disparado automaticamente.</p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3221,15 +3261,74 @@
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Dados do Contador
               </button>
             </div>
+            </div>
+          </div>
+
+          <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
+          <button type="button" class="tab-btn hidden" data-config-busca="auditoria log acoes historico" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-user-shield"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
+          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
+               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
+               então a visibilidade já é controlada por tabsPermitidas. -->
+          <button type="button" class="tab-btn hidden" data-config-busca="colaboradores equipe cadastro pin perfil unidade pessoas" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-users-gear"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
+          <!-- Card: Segurança & Sessão (compacto — tudo numa linha só) -->
+          <div class="card p-5 rounded-2xl border border-border" data-config-busca="seguranca sessao pin senha timeout inatividade logout sair biometria">
+            <h3 class="text-sm font-bold flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-shield-halved text-brand-500"></i> Segurança & Sessão
+            </h3>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="config-timeout-select" title="Tempo limite por inatividade" class="flex-1 min-w-[9rem] bg-paper border border-border rounded-xl p-2 text-ink text-xs focus:outline-none focus:border-gold transition">
+                <option value="300">Bloquear em 5 min</option>
+                <option value="900">Bloquear em 15 min</option>
+                <option value="1800">Bloquear em 30 min</option>
+                <option value="3600">Bloquear em 1 hora</option>
+                <option value="0">Nunca bloquear</option>
+              </select>
+              <button type="button" id="config-btn-change-pin" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2" title="Alterar meu PIN">
+                <i class="fa-solid fa-key"></i> PIN
+              </button>
+              <button type="button" id="config-btn-cadastrar-biometria" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2 hidden" title="Cadastrar biometria facial">
+                <i class="fa-solid fa-face-viewfinder"></i> Biometria
+              </button>
+              <button type="button" id="config-btn-logout" class="py-2 px-3 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center gap-2" title="Sair / mudar usuário">
+                <i class="fa-solid fa-right-from-bracket"></i> Sair
+              </button>
+            </div>
+            <p id="config-biometria-status" class="text-[11px] text-muted mt-2 hidden"></p>
           </div>
 
           <!-- Card: Manutenção & Dados -->
-          <div class="card p-6 rounded-2xl border border-border md:col-span-2">
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2" data-config-busca="dados backup exportar importar limpar reset armazenamento local perfil de configuracoes">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
               <i class="fa-solid fa-database text-brand-500"></i> Gestão de Dados & Armazenamento Local
             </h3>
             <p class="text-xs text-muted mb-4">Exporte backups de segurança, importe dados existentes ou redefina o banco local em caso de inconsistência persistente.</p>
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <!-- Exportar -->
               <div class="p-4 rounded-xl bg-cream border border-border flex flex-col justify-between">
@@ -3270,7 +3369,7 @@
           </div>
 
           <!-- Card: Informações do Sistema -->
-          <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper">
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper" data-config-busca="versao sistema usuario conexao atualizar cache">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-border">
                 <i class="fa-solid fa-circle-info text-brand-500 text-lg"></i>
@@ -3280,7 +3379,7 @@
                 <span class="block text-[10px] text-muted">Ambiente de Operações e Recebimentos Integrados</span>
               </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 flex-wrap justify-end">
               <div class="text-right">
                 <span class="block text-[10px] text-muted">Usuário Ativo</span>
                 <span class="block text-xs font-bold" id="config-user-info">-</span>
@@ -3288,6 +3387,11 @@
               <div class="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-950/10 border border-emerald-800/30 text-emerald-700" id="config-connection-badge">
                 Conectado
               </div>
+              <!-- Antigo card "Atualização do App (Cache)": virou este botão discreto no rodapé.
+                   Limpa só o Cache Storage e o Service Worker — nunca IndexedDB/localStorage. -->
+              <button type="button" id="config-btn-forcar-atualizacao" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2" title="Limpa o cache do app e recarrega a versão mais recente. Não apaga registros ainda não sincronizados.">
+                <i class="fa-solid fa-arrows-rotate"></i> Atualizar App
+              </button>
             </div>
           </div>
 
@@ -3614,6 +3718,7 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=30"></script>
+<script src="insights-ia.js?v=1"></script>
+<script src="app.js?v=33"></script>
 </body>
 </html>

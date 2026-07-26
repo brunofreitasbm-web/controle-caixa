@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v28'; // v28: 1500 mensagens de aniversário — força atualização nos dispositivos já instalados
+const CACHE_NAME = 'ponto-pwa-v32'; // v32: painel Insights IA (insights-ia.js)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,8 +6,12 @@ const ASSETS_TO_CACHE = [
   '/tailwind-compiled.css',
   '/app.js',
   '/realtime.js',
+  '/insights-ia.js',
   '/manifest.json',
   '/favicon.ico',
+  '/icons/favicon-16.png',
+  '/icons/favicon-32.png',
+  '/icons/icon-180.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/vendor/html5-qrcode.min.js',
@@ -42,7 +46,20 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Resposta de último recurso: sem ela, um respondWith que resolve para
+// undefined estoura "Failed to convert value to 'Response'".
+function respostaOffline() {
+  return new Response(
+    JSON.stringify({ offline: true, erro: 'Sem conexão com o servidor.' }),
+    { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'application/json' } }
+  );
+}
+
 self.addEventListener('fetch', event => {
+  // Só GET passa pelo cache. POST/PUT/DELETE não podem ser armazenados
+  // (cache.put lança) e devem ir direto para a rede.
+  if (event.request.method !== 'GET') return;
+
   // O canal de tempo real é uma conexão longa (text/event-stream). Deixamos
   // passar direto: qualquer intermediação do Service Worker atrapalha o fluxo
   // contínuo de eventos.
@@ -52,8 +69,12 @@ self.addEventListener('fetch', event => {
 
   if (event.request.url.includes('/api/ponto') || event.request.url.includes('/api/')) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(event.request);
+      fetch(event.request).catch(async () => {
+        // caches.match devolve undefined quando não há cópia — e respondWith(undefined)
+        // vira "Failed to convert value to 'Response'" no console. Devolvemos uma
+        // resposta 503 explícita para o app cair no fluxo offline dele.
+        const cached = await caches.match(event.request);
+        return cached || respostaOffline();
       })
     );
     return;
@@ -73,7 +94,9 @@ self.addEventListener('fetch', event => {
       }
       // Sem cache e sem rede (servidor fora do ar/offline): antes rejeitava sem
       // catch, virando "Uncaught (in promise) TypeError: Failed to fetch" no console.
-      return fetch(event.request).catch(() => caches.match('/index.html'));
+      return fetch(event.request)
+        .catch(() => caches.match('/index.html'))
+        .then(res => res || respostaOffline());
     })
   );
 });

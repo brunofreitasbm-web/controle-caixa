@@ -101,9 +101,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -558,11 +558,16 @@ function carregarJSON(key, fallback) {
 const offlineBanner = document.getElementById("offline-banner");
 
 async function checkApiConnection() {
-  const endpoints = [
-    API_BASE,
-    "http://localhost:5000/api",
-    "http://127.0.0.1:5000/api"
-  ];
+  // Os fallbacks de localhost só fazem sentido quando o próprio app está sendo
+  // aberto localmente (arquivo ou servidor de desenvolvimento). Num domínio
+  // hospedado (Render, etc.) o navegador bloqueia a tentativa por política de
+  // acesso ao "loopback address space" e enche o console de erro de CORS.
+  const ehAmbienteLocal = window.location.protocol === "file:" ||
+    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+
+  const endpoints = ehAmbienteLocal
+    ? [API_BASE, "http://localhost:5000/api", "http://127.0.0.1:5000/api"]
+    : [API_BASE];
 
   for (const ep of endpoints) {
     try {
@@ -1374,7 +1379,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
+  ["group-controle-caixa", "group-logistica", "group-boletos", "group-insights-ia", "group-importacoes",
    "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -1640,7 +1645,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1672,6 +1677,13 @@ function ativarTab(tabName) {
 
   if (tabName === "configuracoes") {
     inicializarPainelConfiguracoes();
+  }
+
+  // Painel Insights IA (insights-ia.js). Popula os seletores e carrega o
+  // briefing; os demais cartões ficam sob demanda para não gastar seis
+  // requisições da cota gratuita só por abrir a aba.
+  if (tabName === "insights-ia" && typeof inicializarInsightsIA === "function") {
+    inicializarInsightsIA();
   }
 
   // Sync bottom nav + grade de atalhos (#7). Quando duas pílulas apontam pro
@@ -9837,9 +9849,8 @@ function inicializarPainelConfiguracoes() {
     }
   }
 
-  // Mostrar card de Geofencing do Ponto para Líder de Operações/Owner
-  const cardGeofencing = document.getElementById("config-card-geofencing");
-  if (cardGeofencing) cardGeofencing.classList.toggle("hidden", !mostrarOperacoes);
+  // O raio da cerca virtual mora dentro do próprio card de Operações (ele
+  // delimita justamente as coordenadas da tabela acima).
   if (mostrarOperacoes) {
     const inputRaio = document.getElementById("config-geofence-raio");
     if (inputRaio) inputRaio.value = GEOFENCE_RAIO_METROS;
@@ -9856,33 +9867,150 @@ function inicializarPainelConfiguracoes() {
     if (inputEmail) inputEmail.value = config.contadorEmail || "";
   }
 
-  atualizarCardArmazenamento();
+  // Card "Prontidão da Operação" (Líder de Operações / Owner)
+  const cardProntidao = document.getElementById("config-card-prontidao");
+  if (cardProntidao) cardProntidao.classList.toggle("hidden", !mostrarOperacoes);
+  if (mostrarOperacoes) renderProntidaoOperacao();
+
+  aplicarFiltroConfiguracoes();
 }
 
-// Card "Armazenamento & Atualização do App": mostra quantos registros de
-// ponto ainda não sincronizaram e se o Service Worker (cache offline) está
-// ativo. Puramente informativo — não força nenhuma sincronização sozinho.
-async function atualizarCardArmazenamento() {
-  const elCount = document.getElementById("config-ponto-offline-count");
-  if (elCount) {
-    try {
-      inicializarPontoDb();
-      const pendentes = await pontoDb.time_records.where("syncStatus").equals("PENDING").count();
-      elCount.textContent = pendentes;
-    } catch (e) {
-      elCount.textContent = "—";
-    }
-  }
+// --------------------------------------------------------------------------
+// Prontidão da Operação: checklist do que ainda falta configurar. Lê o estado
+// real já carregado (coordenadas, links, contador, notificações) — nenhuma
+// chamada nova ao servidor.
+// --------------------------------------------------------------------------
+function calcularPendenciasOperacao() {
+  const itens = [];
 
-  const elCache = document.getElementById("config-app-cache-status");
-  if (elCache) {
-    if ("serviceWorker" in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration();
-      elCache.textContent = reg ? "Ativo (offline habilitado)" : "Não ativo neste dispositivo";
-    } else {
-      elCache.textContent = "Não suportado neste navegador";
-    }
+  const semCoords = Object.keys(LOJAS_GEOLOC).filter(op => {
+    const g = LOJAS_GEOLOC[op] || {};
+    return !g.lat || !g.lng;
+  });
+  itens.push({
+    ok: semCoords.length === 0,
+    titulo: "Localização das operações",
+    okTexto: "Todas as operações têm coordenadas definidas.",
+    pendenteTexto: `Sem coordenadas: ${semCoords.join(", ")} — a cerca virtual bloqueia a marcação de ponto nessas operações.`
+  });
+
+  const semHorario = Object.keys(LOJAS_GEOLOC).filter(op => {
+    const c = OPERACOES_CONFIG[op];
+    return !c || !c.abertura || !c.fechamento;
+  });
+  itens.push({
+    ok: semHorario.length === 0,
+    titulo: "Horário de funcionamento",
+    okTexto: "Abertura e fechamento definidos em todas as operações.",
+    pendenteTexto: `Sem horário: ${semHorario.join(", ")} — o Meta Hora a Hora fica sem base de cálculo.`
+  });
+
+  const raioOk = GEOFENCE_RAIO_METROS >= 10 && GEOFENCE_RAIO_METROS <= 500;
+  itens.push({
+    ok: raioOk,
+    titulo: "Cerca virtual do ponto",
+    okTexto: `Raio de tolerância em ${GEOFENCE_RAIO_METROS} metros.`,
+    pendenteTexto: "Raio de tolerância fora da faixa recomendada (10 a 500 metros)."
+  });
+
+  const gruposTodos = { ...WHATSAPP_GRUPOS, ...WHATSAPP_GRUPOS_FA };
+  const semGrupo = Object.keys(gruposTodos).filter(loja => {
+    const v = (gruposTodos[loja] || "").trim();
+    return !v.startsWith("https://chat.whatsapp.com/");
+  });
+  itens.push({
+    ok: semGrupo.length === 0,
+    titulo: "Grupos de WhatsApp",
+    okTexto: "Todas as lojas com link de grupo válido.",
+    pendenteTexto: `Sem link válido: ${semGrupo.join(", ")} — os avisos dessas lojas não têm para onde ir.`
+  });
+
+  itens.push({
+    ok: !!(config.contadorEmail || "").trim(),
+    titulo: "E-mail do contador",
+    okTexto: `Folha de Ponto vai para ${config.contadorEmail}.`,
+    pendenteTexto: "Sem e-mail cadastrado — não dá para enviar a Folha de Ponto ao contador."
+  });
+
+  itens.push({
+    ok: loadNotifMasterEnabled(),
+    titulo: "Notificações de eventos",
+    okTexto: "Alertas de eventos ativos.",
+    pendenteTexto: "Chave mestra desligada — nenhum alerta de evento está sendo enviado."
+  });
+
+  return itens;
+}
+
+function renderProntidaoOperacao() {
+  const lista = document.getElementById("config-prontidao-lista");
+  const resumo = document.getElementById("config-prontidao-resumo");
+  if (!lista) return;
+
+  const itens = calcularPendenciasOperacao();
+  const pendentes = itens.filter(i => !i.ok);
+
+  lista.innerHTML = itens.map(i => `
+    <li class="flex items-start gap-2 p-2 rounded-lg ${i.ok ? "" : "bg-amber-950/10 border border-amber-800/30"}">
+      <i class="fa-solid ${i.ok ? "fa-circle-check text-emerald-600" : "fa-triangle-exclamation text-amber-600"} mt-0.5"></i>
+      <span>
+        <strong class="block">${i.titulo}</strong>
+        <span class="text-muted">${i.ok ? i.okTexto : i.pendenteTexto}</span>
+      </span>
+    </li>
+  `).join("");
+
+  if (resumo) {
+    const tudoOk = pendentes.length === 0;
+    resumo.textContent = tudoOk ? "Tudo configurado" : `${pendentes.length} pendência${pendentes.length > 1 ? "s" : ""}`;
+    resumo.className = `px-3 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap ${
+      tudoOk ? "bg-emerald-950/10 border-emerald-800/30 text-emerald-700" : "bg-amber-950/10 border-amber-800/30 text-amber-700"
+    }`;
   }
+}
+
+
+// --------------------------------------------------------------------------
+// Busca dentro do painel: filtra os cards pelo texto visível + as palavras-chave
+// em data-config-busca. Cards ocultos por perfil continuam ocultos.
+// --------------------------------------------------------------------------
+function aplicarFiltroConfiguracoes() {
+  const input = document.getElementById("config-busca");
+  const grid = document.getElementById("config-grid");
+  if (!input || !grid) return;
+
+  const termo = input.value.trim().toLowerCase();
+  // Sem acentos, para "operacoes" achar "Operações".
+  const RE_ACENTOS = new RegExp("[\\u0300-\\u036f]", "g");
+  const normalizar = (s) => s.normalize("NFD").replace(RE_ACENTOS, "").toLowerCase();
+  const alvo = normalizar(termo);
+
+  Array.from(grid.children).forEach(card => {
+    // Sem termo: devolve o card ao controle de visibilidade original (perfil).
+    if (!alvo) {
+      if (card.dataset.configOculto === "1") card.classList.add("hidden");
+      else if (card.dataset.configOculto === "0") card.classList.remove("hidden");
+      delete card.dataset.configOculto;
+      return;
+    }
+
+    // Guarda o estado original de visibilidade na primeira filtragem.
+    if (card.dataset.configOculto === undefined) {
+      card.dataset.configOculto = card.classList.contains("hidden") ? "1" : "0";
+    }
+    if (card.dataset.configOculto === "1") return; // oculto por perfil: nunca reaparece na busca
+
+    const texto = normalizar(`${card.dataset.configBusca || ""} ${card.textContent || ""}`);
+    const casa = texto.includes(alvo);
+    card.classList.toggle("hidden", !casa);
+
+    // Card recolhido que deu match: abre sozinho, senão a busca "acha" algo que
+    // continua escondido dentro do card.
+    if (casa) {
+      const toggle = card.querySelector(".config-toggle");
+      if (toggle && toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+    }
+  });
 }
 
 const btnForcarAtualizacao = document.getElementById("config-btn-forcar-atualizacao");
@@ -10169,6 +10297,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
       showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
     });
   }
@@ -10197,21 +10326,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const semCoordenadas = Object.keys(novoGeoloc).filter(op => novoGeoloc[op].lat === 0 && novoGeoloc[op].lng === 0);
 
+      // O raio da cerca virtual agora é salvo junto (mesmo card).
+      const inputRaio = document.getElementById("config-geofence-raio");
+      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
+      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
+        showToast("Informe um raio de cerca entre 10 e 500 metros.", "erro");
+        return;
+      }
+
       btnSaveOperacoes.disabled = true;
       // Persiste no backend (tabela `configuracoes`, cadastro centralizado — vale
       // para todos os dispositivos/colaboradoras, não só para quem salvou), com
       // fallback local se a API estiver offline no momento do salvamento.
       const okGeoloc = await salvarConfigAPI("operacoesGeoloc", JSON.stringify(novoGeoloc));
       const okConfig = await salvarConfigAPI("operacoesConfig", JSON.stringify(novoConfig));
+      const okRaio = await salvarConfigAPI("geofenceRaioMetros", raio);
       btnSaveOperacoes.disabled = false;
 
       Object.assign(LOJAS_GEOLOC, novoGeoloc);
       Object.assign(OPERACOES_CONFIG, novoConfig);
+      GEOFENCE_RAIO_METROS = raio;
       config.operacoesGeoloc = novoGeoloc;
       config.operacoesConfig = novoConfig;
+      config.geofenceRaioMetros = raio;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
 
-      if (okGeoloc && okConfig) {
+      if (okGeoloc && okConfig && okRaio) {
         if (semCoordenadas.length > 0) {
           showToast(`Salvo! Atenção: ${semCoordenadas.join(", ")} ainda ${semCoordenadas.length > 1 ? "estão" : "está"} com coordenadas 0,0 — a cerca virtual vai bloquear a marcação de ponto até isso ser corrigido.`, "erro");
         } else {
@@ -10223,28 +10364,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const btnSaveGeofence = document.getElementById("config-btn-save-geofence");
-  if (btnSaveGeofence) {
-    btnSaveGeofence.addEventListener("click", async () => {
-      const inputRaio = document.getElementById("config-geofence-raio");
-      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
-      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
-        showToast("Informe um raio entre 10 e 500 metros.", "erro");
-        return;
-      }
-      btnSaveGeofence.disabled = true;
-      const ok = await salvarConfigAPI("geofenceRaioMetros", raio);
-      btnSaveGeofence.disabled = false;
+  // Busca do painel (filtra os cards conforme se digita)
+  const inputBuscaConfig = document.getElementById("config-busca");
+  if (inputBuscaConfig) {
+    inputBuscaConfig.addEventListener("input", aplicarFiltroConfiguracoes);
+  }
 
-      GEOFENCE_RAIO_METROS = raio;
-      config.geofenceRaioMetros = raio;
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-
-      showToast(ok
-        ? "Raio de tolerância salvo para todos os dispositivos!"
-        : "Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar.", ok ? "sucesso" : "erro");
+  // Prontidão da Operação: revalidar sob demanda
+  const btnRevalidarProntidao = document.getElementById("config-btn-revalidar-prontidao");
+  if (btnRevalidarProntidao) {
+    btnRevalidarProntidao.addEventListener("click", () => {
+      renderProntidaoOperacao();
+      showToast("Checklist de prontidão atualizado.", "sucesso");
     });
   }
+
+  // Cards recolhíveis do painel (Operações, WhatsApp, Contador)
+  document.querySelectorAll(".config-toggle").forEach(botao => {
+    botao.addEventListener("click", () => {
+      const corpo = document.getElementById(botao.getAttribute("aria-controls"));
+      if (!corpo) return;
+      const abrindo = corpo.classList.contains("hidden");
+      corpo.classList.toggle("hidden", !abrindo);
+      botao.setAttribute("aria-expanded", String(abrindo));
+      const icone = botao.querySelector(".config-toggle-icon");
+      if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+    });
+  });
 
   const btnSaveContador = document.getElementById("config-btn-save-contador");
   if (btnSaveContador) {
@@ -10267,6 +10413,7 @@ document.addEventListener("DOMContentLoaded", () => {
       config.contadorNome = nomeContador;
       config.contadorEmail = emailContador;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
 
       showToast((okNome && okEmail)
         ? "Dados do contador salvos!"
@@ -12391,6 +12538,9 @@ function habilitarProximoComAntiBanimento(cardAtual, estado, seletorBtn, seletor
 // dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
 // ==========================================================================
 let posVisitaEstadoAntiBan = novoEstadoAntiBanimento();
+// Fila em tela, guardada para repor o buffer de mensagens da IA conforme os
+// envios avançam (ver preBuscarMensagemIA).
+let posVisitaFilaAtual = [];
 
 // Badge piscante ao lado de "PÓS-VISITA" no menu: mostra quantas mensagens
 // ainda estão pendentes de envio. Atualiza no login (pra aparecer mesmo sem
@@ -12524,10 +12674,61 @@ async function carregarPosVisita() {
     registros.forEach((registro, index) => {
       lista.appendChild(criarCardPosVisita(registro, index === 0));
     });
+
+    // Personalização por IA (item 5): busca as primeiras em segundo plano.
+    posVisitaFilaAtual = registros;
+    abastecerBufferMensagensIA(registros, r => ({
+      tipo: "pos-visita",
+      nomeResponsavel: r.cliente,
+      nomeCrianca: r.crianca,
+      tempoTotalMinutos: r.tempoTotalMinutos
+    }));
   } catch (err) {
     console.error("Erro ao carregar fila de pós-visita:", err);
     showToast("Erro ao carregar a fila de pós-visita.", "erro");
   }
+}
+
+// ==========================================================================
+// MENSAGENS PERSONALIZADAS POR IA (item 5 — ver docs/IA.md)
+// ==========================================================================
+// O envio abre o WhatsApp com window.open DENTRO do clique. Se a mensagem
+// fosse pedida à IA no momento do clique, o `await` quebraria o gesto do
+// usuário e o navegador bloquearia o popup. Por isso a mensagem é buscada
+// ANTES, em segundo plano, e guardada no próprio registro.
+//
+// A pré-busca é limitada a um pequeno buffer à frente: a fila do servidor
+// serializa as chamadas e a cota gratuita é limitada — disparar 50 pré-buscas
+// ao abrir a tela gastaria a cota do dia sem necessidade.
+// ==========================================================================
+const IA_MSG_BUFFER = 3;
+
+function preBuscarMensagemIA(registro, corpo) {
+  if (registro._iaMensagem !== undefined) return Promise.resolve(); // já buscada ou em curso
+  registro._iaMensagem = null;
+
+  return fetch(`${API_BASE}/ia/mensagem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo)
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.mensagem) registro._iaMensagem = data.mensagem;
+    })
+    .catch(err => {
+      // Silencioso de propósito: sem mensagem da IA, o envio usa o template
+      // sorteado e o usuário não percebe diferença de fluxo.
+      console.warn("Pré-busca de mensagem por IA falhou:", err.message);
+    });
+}
+
+// Mantém o buffer abastecido conforme a fila anda.
+function abastecerBufferMensagensIA(registros, montarCorpo) {
+  (registros || [])
+    .filter(r => r._iaMensagem === undefined)
+    .slice(0, IA_MSG_BUFFER)
+    .forEach(r => preBuscarMensagemIA(r, montarCorpo(r)));
 }
 
 function criarCardPosVisita(registro, habilitado) {
@@ -12563,7 +12764,10 @@ function criarCardPosVisita(registro, habilitado) {
 
 function dispararMensagemPosVisita(registro, card) {
   const btn = card.querySelector(".pv-btn-enviar");
-  const mensagem = gerarMensagemPosVisita(registro.cliente, registro.crianca);
+  // Mensagem personalizada pela IA quando já chegou; senão, o sorteio de
+  // template de sempre. Nunca espera aqui: o window.open abaixo precisa
+  // continuar dentro do gesto do clique.
+  const mensagem = registro._iaMensagem || gerarMensagemPosVisita(registro.cliente, registro.crianca);
   const url = `https://wa.me/${registro.numeroCliente}?text=${encodeURIComponent(mensagem)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 
@@ -12572,6 +12776,15 @@ function dispararMensagemPosVisita(registro, card) {
 
   posVisitaEstadoAntiBan.envios += 1;
   habilitarProximoComAntiBanimento(card, posVisitaEstadoAntiBan, ".pv-btn-enviar", ".pv-cooldown-msg");
+
+  // Repõe o buffer: a fila andou, então a próxima ainda sem mensagem entra
+  // na pré-busca agora, com folga até chegar a vez dela.
+  abastecerBufferMensagensIA(posVisitaFilaAtual, r => ({
+    tipo: "pos-visita",
+    nomeResponsavel: r.cliente,
+    nomeCrianca: r.crianca,
+    tempoTotalMinutos: r.tempoTotalMinutos
+  }));
 
   decrementarBadgePosVisita();
 
@@ -12605,6 +12818,7 @@ function formatarDataBr(dataIso) {
 // disparo de parabéns no WhatsApp para quem faz aniversário hoje.
 // ==========================================================================
 let aniversarioEstadoAntiBan = novoEstadoAntiBanimento();
+let aniversariosFilaAtual = [];
 
 // Badge piscante ao lado de "ANIVERSÁRIOS" no menu: mostra quantos
 // aniversariantes de hoje ainda não foram parabenizados. Atualiza no login
@@ -12775,6 +12989,15 @@ async function carregarAniversarios() {
       if (!registro.jaEnviadoEsteAno) primeiroHabilitavelJaEncontrado = true;
       lista.appendChild(criarCardAniversario(registro, habilitado));
     });
+
+    // Personalização por IA (item 5): só para quem ainda não recebeu.
+    aniversariosFilaAtual = doDia.filter(r => !r.jaEnviadoEsteAno);
+    abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+      tipo: "aniversario",
+      nomeResponsavel: r.nomeResponsavel,
+      nomeCrianca: r.nomeCrianca,
+      idade: r.idade
+    }));
   } catch (err) {
     console.error("Erro ao carregar aniversariantes:", err);
     showToast("Erro ao carregar os aniversariantes de hoje.", "erro");
@@ -12811,7 +13034,9 @@ function criarCardAniversario(registro, habilitado) {
 
 function dispararParabensAniversario(registro, card) {
   const btn = card.querySelector(".an-btn-enviar");
-  const mensagem = gerarMensagemAniversario(registro.nomeResponsavel, registro.nomeCrianca, registro.idade);
+  // Ver dispararMensagemPosVisita: a mensagem da IA é usada só se já estiver
+  // pronta, para não quebrar o gesto do clique que abre o WhatsApp.
+  const mensagem = registro._iaMensagem || gerarMensagemAniversario(registro.nomeResponsavel, registro.nomeCrianca, registro.idade);
   const url = `https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 
@@ -12820,6 +13045,13 @@ function dispararParabensAniversario(registro, card) {
 
   aniversarioEstadoAntiBan.envios += 1;
   habilitarProximoComAntiBanimento(card, aniversarioEstadoAntiBan, ".an-btn-enviar", ".an-cooldown-msg");
+
+  abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+    tipo: "aniversario",
+    nomeResponsavel: r.nomeResponsavel,
+    nomeCrianca: r.nomeCrianca,
+    idade: r.idade
+  }));
 
   decrementarBadgeAniversarios();
 
