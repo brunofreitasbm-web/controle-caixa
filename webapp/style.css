@@ -3072,6 +3072,7 @@ body.tema-fa .topbar {
 #tab-rh-modulo .bg-brand-900,
 #tab-rh-modulo .bg-brand-950\/40,
 #tab-rh-modulo .bg-brand-950\/60,
+#tab-rh-modulo .bg-brand-950\/70,
 #tab-rh-modulo .bg-brand-950\/80,
 #tab-rh-modulo .bg-brand-900\/30,
 #tab-rh-modulo .bg-brand-900\/40,
@@ -3633,6 +3634,52 @@ body.tema-fa .topbar {
   color: #6C7C99;
   font-size: 0.75rem;
 }
+
+/* Dashboard Gerencial (DISC): fundo claro / texto escuro sempre, alto contraste */
+#tab-rh-modulo .rh-chart-card {
+  background: var(--paper);
+  border-color: var(--border);
+}
+#tab-rh-modulo .rh-chart-card h4 {
+  color: var(--ink);
+}
+#tab-rh-modulo .rh-chart-card p.rh-chart-sub {
+  color: var(--muted);
+}
+#tab-rh-modulo .rh-empty-state {
+  color: var(--muted);
+}
+#tab-rh-modulo .bg-red-950\/20 {
+  background-color: #fef2f2 !important;
+}
+#tab-rh-modulo .bg-amber-950\/20 {
+  background-color: #fffbeb !important;
+}
+#tab-rh-modulo .bg-emerald-950\/20 {
+  background-color: #ecfdf5 !important;
+}
+#tab-rh-modulo .bg-indigo-950\/20 {
+  background-color: #eef2ff !important;
+}
+#tab-rh-modulo .text-red-400 { color: #991b1b !important; }
+#tab-rh-modulo .text-amber-400 { color: #92400e !important; }
+#tab-rh-modulo .text-emerald-400 { color: #065f46 !important; }
+#tab-rh-modulo .text-indigo-400 { color: #3730a3 !important; }
+#tab-rh-modulo .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+#tab-rh-modulo .bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+#tab-rh-modulo .bg-indigo-950\/40 {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+#tab-rh-modulo .text-emerald-300 { color: #065f46 !important; }
+#tab-rh-modulo .text-amber-300 { color: #92400e !important; }
+#tab-rh-modulo .text-indigo-300 { color: #3730a3 !important; }
 .rh-sales-badge {
   display: inline-flex;
   align-items: center;

@@ -1905,15 +1905,24 @@ document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
 function atualizarCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("field-valor-envelope");
   const valorEnvelopeInput = document.getElementById("valor-envelope");
+  const fieldFaturado = document.getElementById("field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("valor-faturado");
+  const fieldSangria = document.getElementById("field-sangria");
   const fotoHint = document.getElementById("foto-hint");
 
   if (tipoOperacaoSelecionado === "Abertura") {
     fieldEnvelope.classList.add("hidden");
     valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
@@ -1921,15 +1930,24 @@ function atualizarCamposPorOperacao() {
 function atualizarFaCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("fa-field-valor-envelope");
   const valorEnvelopeInput = document.getElementById("fa-valor-envelope");
+  const fieldFaturado = document.getElementById("fa-field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("fa-valor-faturado");
+  const fieldSangria = document.getElementById("fa-field-sangria");
   const fotoHint = document.getElementById("fa-foto-hint");
 
   if (faTipoOperacaoSelecionado === "Abertura") {
     fieldEnvelope.classList.add("hidden");
     valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
@@ -2171,6 +2189,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const dataOperacao = document.getElementById("data-operacao").value;
   const fundoCaixaRaw = document.getElementById("fundo-caixa").value;
   const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("valor-faturado").value;
+  const sangriaRaw = document.getElementById("sangria").value;
   const observacoes = document.getElementById("observacoes").value;
 
   limparErrosInline("");
@@ -2206,6 +2226,12 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
       marcarErro(document.getElementById("valor-envelope"), document.getElementById("valor-envelope-error"));
     }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("valor-faturado"), document.getElementById("valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("sangria"), document.getElementById("sangria-error"));
+    }
     if (!fotoDataUrl) {
       marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
     }
@@ -2219,6 +2245,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = tipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = tipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
 
   const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
@@ -2240,6 +2268,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     dataOperacao: new Date(dataOperacao).toISOString(),
     fundoCaixa,
     valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
     observacoes: observacoes || null,
     fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
     status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2305,6 +2335,12 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     document.getElementById("consultor").value = currentUser.nome;
   }
 
+  if (registro.tipoOperacao === "Fechamento") {
+    const METAS_VALIDAS_MSG = ["diaria", "manual"];
+    const metaHoje = await buscarMetaDiaLoja(loja, dataOperacao.slice(0, 10));
+    registro._metaDiaria = (metaHoje && METAS_VALIDAS_MSG.includes(metaHoje.origem)) ? metaHoje.valor : null;
+  }
+
   mostrarGeradorMensagem(registro);
 });
 
@@ -2319,6 +2355,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const dataOperacao = document.getElementById("fa-data-operacao").value;
   const fundoCaixaRaw = document.getElementById("fa-fundo-caixa").value;
   const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("fa-valor-faturado").value;
+  const sangriaRaw = document.getElementById("fa-sangria").value;
   const observacoes = document.getElementById("fa-observacoes").value;
 
   limparErrosInline("fa");
@@ -2354,6 +2392,12 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
       marcarErro(document.getElementById("fa-valor-envelope"), document.getElementById("fa-valor-envelope-error"));
     }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("fa-valor-faturado"), document.getElementById("fa-valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("fa-sangria"), document.getElementById("fa-sangria-error"));
+    }
     if (!faFotoDataUrl) {
       marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
     }
@@ -2367,6 +2411,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
 
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = faTipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = faTipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
 
   const duplicado = registrosFA.some(r =>
     r.loja === loja &&
@@ -2388,6 +2434,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     dataOperacao: new Date(dataOperacao).toISOString(),
     fundoCaixa,
     valorEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
     observacoes: observacoes || null,
     fotoEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? faFotoDataUrl : null,
     status: faTipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2451,13 +2499,23 @@ function mensagemAviso(r) {
       `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}`
     );
   }
+  let pctMetaLinha;
+  if (r._metaDiaria) {
+    const pct = (r.valorFaturado / r._metaDiaria) * 100;
+    pctMetaLinha = `📊 ${pct.toFixed(1)}% da meta`;
+  } else {
+    pctMetaLinha = `📊 Meta não configurada`;
+  }
   return (
     `🔔 Fechamento de Caixa - Cacau Show\n` +
     `Loja: ${r.loja}\n` +
     `Consultor: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
-    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}`
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}\n` +
+    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}\n` : "") +
+    pctMetaLinha
   );
 }
 
@@ -2515,7 +2573,9 @@ function mensagemAvisoFA(r) {
     `Consultora: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
-    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}`
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "")
   );
 }
 
@@ -10310,12 +10370,12 @@ function gerarSvgRadarDisc(valores, size = 260) {
 
   const grades = [0.25, 0.5, 0.75, 1].map(frac => {
     const pontos = eixos.map(e => paraXY(e.angulo, raioMax * frac).join(",")).join(" ");
-    return `<polygon points="${pontos}" fill="none" stroke="#1F2A3D" stroke-width="1"/>`;
+    return `<polygon points="${pontos}" fill="none" stroke="#D7DEE9" stroke-width="1"/>`;
   }).join("");
 
   const linhasEixo = eixos.map(e => {
     const [x, y] = paraXY(e.angulo, raioMax);
-    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#1F2A3D" stroke-width="1"/>`;
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#D7DEE9" stroke-width="1"/>`;
   }).join("");
 
   const pontosPerfil = eixos.map(e => {
@@ -10335,7 +10395,7 @@ function gerarSvgRadarDisc(valores, size = 260) {
     const v = Math.round(valores[e.key] || 0);
     return `
       <text x="${x}" y="${y - 6}" text-anchor="middle" font-size="13" font-weight="800" fill="${DISC_COLORS[e.key]}">${e.label}</text>
-      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#8DA0C4">${v}%</text>
+      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#475569">${v}%</text>
     `;
   }).join("");
 
@@ -10372,9 +10432,9 @@ function gerarSvgDistribuicaoDisc(counts, size = 190) {
     const val = counts[key] || 0;
     const pct = Math.round((val / total) * 100);
     return `
-      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:#B9C6DE;">
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:#1C2435;">
         <span style="width:10px;height:10px;border-radius:3px;background:${DISC_COLORS[key]};display:inline-block;flex-shrink:0;"></span>
-        <span>${label}: <strong style="color:#fff">${val}</strong> <span style="color:#6C7C99">(${pct}%)</span></span>
+        <span>${label}: <strong style="color:#1C2435">${val}</strong> <span style="color:#475569">(${pct}%)</span></span>
       </div>
     `;
   }).join("");
@@ -10383,8 +10443,8 @@ function gerarSvgDistribuicaoDisc(counts, size = 190) {
     <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
       <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
         ${arcos}
-        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${total}</text>
-        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#6C7C99" letter-spacing="1">PESSOAS</text>
+        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#1C2435">${total}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#475569" letter-spacing="1">PESSOAS</text>
       </svg>
       <div style="display:flex;flex-direction:column;gap:8px;">${legenda}</div>
     </div>
@@ -10412,19 +10472,19 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
   ];
   const fundos = quadrantes.map(q => `<rect x="${q.x}" y="${q.y}" width="${meio}" height="${meio}" fill="${q.cor}14"/>`).join("");
   const letrasQuadrante = quadrantes.map(q =>
-    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}22">${q.letra}</text>`
+    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}33">${q.letra}</text>`
   ).join("");
 
   const eixos = `
-    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#2A3550" stroke-width="1"/>
-    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#2A3550" stroke-width="1"/>
+    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#C7CEDC" stroke-width="1"/>
+    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#C7CEDC" stroke-width="1"/>
   `;
 
   const rotulosExtremos = `
-    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#6C7C99">◀ Foco em Tarefa</text>
-    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#6C7C99">Foco em Pessoas ▶</text>
-    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">▲ Ritmo Rápido/Assertivo</text>
-    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#6C7C99">Ritmo Cauteloso/Reflexivo ▼</text>
+    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#475569">◀ Foco em Tarefa</text>
+    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#475569">Foco em Pessoas ▶</text>
+    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#475569">▲ Ritmo Rápido/Assertivo</text>
+    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#475569">Ritmo Cauteloso/Reflexivo ▼</text>
   `;
 
   // Distribui pontos que caem muito próximos (mesmo perfil arredondado) num
@@ -10449,12 +10509,12 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
     }
 
     const cor = DISC_COLORS[p.dominante] || "#94A3B8";
-    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#0F1420" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
+    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#F3F5F9" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
   }).join("");
 
   return `
     <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;" id="rh-talentos-svg">
-      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#0B0F18"/>
+      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#F3F5F9"/>
       ${fundos}
       ${letrasQuadrante}
       ${eixos}
@@ -10799,12 +10859,12 @@ function renderRhDashboard() {
         .sort((a, b) => b.aptidao.score - a.aptidao.score);
 
       rankingContainer.innerHTML = ranking.map((p, idx) => `
-        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:#131A28;cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
-          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:#6C7C99;">${idx + 1}º</span>
+        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:#F3F5F9;cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
+          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:#5B6B85;">${idx + 1}º</span>
           <span style="width:28px;height:28px;border-radius:50%;background:${DISC_COLORS[p.dominante] || '#4A5568'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0;">${(p.dominante || '?').toUpperCase()}</span>
-          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#E4EAF5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
+          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#1C2435;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
           <div style="flex:2;min-width:60px;">
-            <div style="width:100%;background:#1F2A3D;border-radius:999px;height:8px;overflow:hidden;">
+            <div style="width:100%;background:#DCE1EB;border-radius:999px;height:8px;overflow:hidden;">
               <div style="width:${p.aptidao.score}%;height:100%;background:${p.aptidao.nivel === 'alto' ? '#10b981' : p.aptidao.nivel === 'moderado' ? '#f59e0b' : '#4A5568'};border-radius:999px;"></div>
             </div>
           </div>

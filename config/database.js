@@ -8,6 +8,7 @@ const camelCaseMap = {
   dataoperacao: 'dataOperacao',
   fundocaixa: 'fundoCaixa',
   valorenvelope: 'valorEnvelope',
+  valorfaturado: 'valorFaturado',
   fotoenvelope: 'fotoEnvelope',
   dataretirada: 'dataRetirada',
   retiradopor: 'retiradoPor',
@@ -182,6 +183,8 @@ function initDb(onSuccess) {
           dataOperacao TEXT,
           fundoCaixa REAL,
           valorEnvelope REAL,
+          valorFaturado REAL,
+          sangria REAL,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -201,6 +204,8 @@ function initDb(onSuccess) {
           dataOperacao TEXT,
           fundoCaixa REAL,
           valorEnvelope REAL,
+          valorFaturado REAL,
+          sangria REAL,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -435,6 +440,31 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
+        });
+      });
+
+      // Fechamento (#12): Valor Faturado (obrigatório) e Sangria (opcional)
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN valorFaturado REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN sangria REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN valorFaturado REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN sangria REAL', [], () => resolve());
         });
       });
 
