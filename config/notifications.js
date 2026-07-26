@@ -278,6 +278,15 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
     return;
   }
 
+  // Lembrete de Meta Hora a Hora: canal PUSH desativado. O aviso saía a cada
+  // intervalo, para todas as lojas, e virava spam no celular da equipe. O
+  // lembrete continua existindo por e-mail e o próprio card na tela do Meta
+  // Hora a Hora continua mostrando o intervalo pendente.
+  if (notificationType === 'meta_lembrete' || notificationType === 'meta-lembrete') {
+    console.log(`Push notification (${title}) ignorada: notificações PUSH de lembrete de Meta Hora a Hora estão desativadas.`);
+    return;
+  }
+
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
   
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
@@ -296,6 +305,12 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
         finalTargetUsers = targetUsers.map(u => u.trim().toLowerCase());
       }
 
+      // Marca que as regras por perfil foram aplicadas: sem isso, um tipo com
+      // todos os perfis desmarcados terminaria com a lista vazia e cairia no
+      // fallback "SELECT * FROM push_subscriptions" — ou seja, desligar tudo
+      // acabava mandando para todo mundo.
+      let regrasAplicadas = false;
+
       if (notificationType && rules) {
         const enabledRoles = [];
         const typeRules = rules[notificationType] || { colab: false, lider: true, owner: true };
@@ -309,6 +324,12 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
         } else {
           finalTargetUsers = filteredColabs.map(c => c.nome.toLowerCase());
         }
+        regrasAplicadas = true;
+      }
+
+      if (regrasAplicadas && (!finalTargetUsers || finalTargetUsers.length === 0)) {
+        console.log(`Push notification (${title}) ignorada: nenhum perfil habilitado para o tipo "${notificationType}".`);
+        return;
       }
 
       const sql = finalTargetUsers && finalTargetUsers.length > 0

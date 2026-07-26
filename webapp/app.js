@@ -157,7 +157,7 @@ const DEFAULT_NOTIF_PREFS = {
   "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
-  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
+  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
@@ -5991,8 +5991,13 @@ function initializeNotificationPrefs() {
   });
 }
 
+// Tipos cujo canal PUSH está desligado no servidor (config/notifications.js).
+// A tabela precisa refletir isso para o Owner não marcar "Push" achando que
+// ainda sai notificação no celular.
+const NOTIF_PUSH_DESATIVADO = ["divergencia", "meta-lembrete"];
+
 function renderNotifRoleCell(notifType, role, isOwner) {
-  const isPushDisabledForType = notifType === "divergencia";
+  const isPushDisabledForType = NOTIF_PUSH_DESATIVADO.includes(notifType);
   const dis = !isOwner ? "disabled" : "";
   const fade = !isOwner ? "opacity: 0.5;" : "";
   const disPush = (!isOwner || isPushDisabledForType) ? "disabled" : "";
@@ -6009,7 +6014,7 @@ function renderNotifRoleCell(notifType, role, isOwner) {
           <input type="radio" name="notif-${notifType}-${role}-channel" value="email" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
           <span style="font-size: 0.68rem;">Email</span>
         </label>
-        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Push desativado temporariamente para divergências' : ''}">
+        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Canal Push desativado para este tipo de notificação' : ''}">
           <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${disPush} style="${fadePush}" />
           <span style="font-size: 0.68rem; ${isPushDisabledForType ? 'text-decoration: line-through; opacity: 0.5;' : ''}">Push</span>
         </label>
@@ -6032,7 +6037,7 @@ function renderNotificationTable() {
     "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
     "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
-    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
+    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo (Push desativado — só e-mail)" },
     "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" }
   };
 
@@ -6064,7 +6069,7 @@ function renderNotificationTable() {
       if (checkbox) checkbox.checked = !!prefs[notifType][role];
 
       let channel = prefs[notifType][`${role}_ch`] || "email";
-      if (notifType === "divergencia" && channel === "push") {
+      if (NOTIF_PUSH_DESATIVADO.includes(notifType) && channel === "push") {
         channel = "email";
       }
       const radio = document.querySelector(`input.notif-channel[name="notif-${notifType}-${role}-channel"][value="${channel}"]`);
