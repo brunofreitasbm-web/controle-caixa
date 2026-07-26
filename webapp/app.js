@@ -4939,6 +4939,20 @@ checkApiConnection = async function () {
 // Badge de sync pendente
 atualizarBadgeSync();
 
+// Quando um Service Worker novo assume o controle, a tela aberta ainda está
+// rodando o HTML/JS da versão anterior — recarrega uma vez para o deploy
+// aparecer na hora. Só vale para troca de versão: numa primeira instalação
+// não havia controller antes, e recarregar ali seria um refresh à toa.
+if ("serviceWorker" in navigator) {
+  const jaTinhaControlador = !!navigator.serviceWorker.controller;
+  let recarregandoPorAtualizacao = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!jaTinhaControlador || recarregandoPorAtualizacao) return;
+    recarregandoPorAtualizacao = true;
+    window.location.reload();
+  });
+}
+
 // ==================== PUSH NOTIFICATIONS ====================
 async function inscreverPushNotificacoes() {
   if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra' && currentUser.nome !== 'LiderOP') return;

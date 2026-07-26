@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v33'; // v33: atalho direto do Insights IA (sidebar + barra rápida)
+const CACHE_NAME = 'ponto-pwa-v34'; // v34: network-first no app shell + reload automatico apos deploy
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -24,7 +24,12 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
+// Distingue "primeira instalação" de "atualização de versão": só na atualização
+// existe uma tela aberta rodando código velho que precisa ser recarregada.
+let ehAtualizacaoDeVersao = false;
+
 self.addEventListener('install', event => {
+  ehAtualizacaoDeVersao = !!self.registration.active;
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS_TO_CACHE);
@@ -32,18 +37,41 @@ self.addEventListener('install', event => {
   );
 });
 
+// Recarrega as telas abertas assim que a nova versão assume o controle. Sem
+// isso, o app que já estava aberto continuava exibindo o HTML/JS antigos até o
+// usuário fechar e abrir de novo — era o motivo de um deploy parecer "não ter
+// pego" no celular.
+async function recarregarClientesAbertos() {
+  if (!ehAtualizacaoDeVersao) return;
+  const janelas = await self.clients.matchAll({ type: 'window' });
+  janelas.forEach(janela => {
+    try {
+      // Sem await de propósito: navigate() só resolve quando a nova navegação
+      // termina de ser servida por este mesmo SW. Esperar por ela travaria a
+      // ativação, e a navegação nunca sairia do lugar.
+      janela.navigate(janela.url).catch(() => {});
+    } catch (e) {
+      // Alguns navegadores não expõem navigate() — o network-first do fetch já
+      // garante conteúdo novo no próximo carregamento.
+    }
+  });
+}
+
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
+  const prepararNovaVersao = caches.keys().then(keys => {
+    return Promise.all(
+      keys.map(key => {
+        if (key !== CACHE_NAME) {
+          return caches.delete(key);
+        }
+      })
+    );
+  }).then(() => self.clients.claim());
+
+  event.waitUntil(prepararNovaVersao);
+  // Fora do waitUntil: a recarga depende deste SW já estar ativo para responder
+  // à navegação — só pode acontecer depois que a ativação terminar.
+  prepararNovaVersao.then(() => recarregarClientesAbertos());
 });
 
 // Resposta de último recurso: sem ela, um respondWith que resolve para
@@ -53,6 +81,15 @@ function respostaOffline() {
     JSON.stringify({ offline: true, erro: 'Sem conexão com o servidor.' }),
     { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'application/json' } }
   );
+}
+
+// HTML, CSS e JS servidos pelo próprio domínio — o que é reconstruído a cada
+// deploy. Fica de fora tudo que vem de CDN e os binários (ícones, imagens).
+function ehAppShell(request) {
+  if (request.mode === 'navigate') return true;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+  return url.pathname === '/' || /\.(html|css|js|json)$/i.test(url.pathname);
 }
 
 self.addEventListener('fetch', event => {
@@ -75,6 +112,28 @@ self.addEventListener('fetch', event => {
         // resposta 503 explícita para o app cair no fluxo offline dele.
         const cached = await caches.match(event.request);
         return cached || respostaOffline();
+      })
+    );
+    return;
+  }
+
+  // App shell (HTML/CSS/JS do próprio app): rede primeiro, cache como plano B.
+  // Esses arquivos mudam a cada deploy — servi-los do cache primeiro fazia o
+  // usuário ver a versão anterior até recarregar uma segunda vez. Imagens,
+  // ícones e libs de CDN continuam no cache-first (não mudam entre deploys).
+  if (ehAppShell(event.request)) {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copia = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copia));
+        }
+        return networkResponse;
+      }).catch(async () => {
+        const cached = await caches.match(event.request, { ignoreSearch: true });
+        if (cached) return cached;
+        const shell = await caches.match('/index.html');
+        return shell || respostaOffline();
       })
     );
     return;
