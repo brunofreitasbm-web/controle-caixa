@@ -2591,7 +2591,7 @@ function mostrarGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
 
-function mensagemAvisoFA(r) {
+function mensagemAvisoFA(r, linhaVendas = "") {
   if (r.tipoOperacao === "Abertura") {
     return (
       `🧡 Abertura de Caixa - FaçaAmigos\n` +
@@ -2609,23 +2609,59 @@ function mensagemAvisoFA(r) {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
-    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "")
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "") +
+    linhaVendas
   );
 }
 
-function mostrarFaGeradorMensagem(registro) {
+// Busca o lançamento de vendas por checkpoint (30min/1h/2h) do dia para a
+// consultora+unidade, usado para compor a linha de conversão na mensagem de
+// fechamento. Só existe para as unidades que usam a metodologia de conversão.
+async function buscarLancamentoHojeFA(usuario, unidade) {
+  if (!UNIDADES_FA_CONVERSAO.includes(unidade)) return null;
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuario)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.find(l => l.data === hoje) || null;
+  } catch (err) {
+    console.error("Erro ao buscar lançamento de vendas do dia (FA):", err);
+    return null;
+  }
+}
+
+function linhaVendasConversaoFA(l) {
+  if (!l) return "";
+  const v30 = l.vendas30 || 0;
+  const v1h = l.vendas1h || 0;
+  const v2h = l.vendas2h || 0;
+  const total = v30 + v1h + v2h;
+  const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+  return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
+}
+
+async function mostrarFaGeradorMensagem(registro) {
   const banner = document.getElementById("fa-aviso-banner");
   const textarea = document.getElementById("fa-aviso-texto");
   const status = document.getElementById("fa-aviso-status");
   const linkBtn = document.getElementById("fa-btn-abrir-whatsapp");
 
-  textarea.value = mensagemAvisoFA(registro);
+  let linhaVendas = "";
+  if (registro.tipoOperacao === "Fechamento") {
+    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
+    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+  }
+
+  const texto = mensagemAvisoFA(registro, linhaVendas);
+  textarea.value = texto;
   status.classList.add("hidden");
 
   const linkGrupoLoja = WHATSAPP_GRUPOS_FA[registro.loja];
   linkBtn.href = linkGrupoLoja
     ? linkGrupoLoja
-    : `https://wa.me/?text=${encodeURIComponent(mensagemAvisoFA(registro))}`;
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
   async function marcarFaGerado() {
     registro.mensagemGerada = true;
