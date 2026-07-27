@@ -632,7 +632,14 @@ function getDestinatariosNotificacao(tipo) {
 
   const prefKey = notifTypeMap[tipo] || tipo;
   const prefs = loadNotificationPrefs();
-  const typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+  let typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+
+  // Lembrete de lançamento da Meta Hora a Hora: só a operadora da loja, mesmo
+  // que uma preferência antiga tenha ficado salva com Líder/Owner marcados.
+  // Mesma regra aplicada no servidor (config/notifications.js).
+  if (prefKey === "meta-lembrete") {
+    typeRules = Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
+  }
 
   const rolesPermitidos = [];
   if (typeRules.colab) {
@@ -5013,8 +5020,15 @@ if ("serviceWorker" in navigator) {
 }
 
 // ==================== PUSH NOTIFICATIONS ====================
+// Perfis que registram inscrição push. A operadora de loja (consultora) entrou
+// aqui por causa do lembrete de lançamento da Meta Hora a Hora: o aviso é dela,
+// mas sem inscrição não havia para quem enviar. Quem recebe cada tipo continua
+// sendo decidido no servidor (config/notifications.js) — estar inscrito não
+// significa receber tudo.
+const PERFIS_COM_PUSH = ['owner', 'consultora', 'consultora_dashboard'];
+
 async function inscreverPushNotificacoes() {
-  if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra' && currentUser.nome !== 'LiderOP') return;
+  if (!PERFIS_COM_PUSH.includes(currentUser.role)) return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
@@ -6050,18 +6064,28 @@ function initializeNotificationPrefs() {
   });
 }
 
+// O lembrete de lançamento da Meta Hora a Hora é aviso de execução: só a
+// operadora da loja recebe. O servidor já força essa regra
+// (config/notifications.js) — aqui a célula fica travada para a tela não
+// prometer um envio que nunca vai acontecer.
+function tipoExclusivoDaOperadora(notifType, role) {
+  return notifType === "meta-lembrete" && role !== "colab";
+}
+
 function renderNotifRoleCell(notifType, role, isOwner) {
   const isPushDisabledForType = notifType === "divergencia";
-  const dis = !isOwner ? "disabled" : "";
-  const fade = !isOwner ? "opacity: 0.5;" : "";
-  const disPush = (!isOwner || isPushDisabledForType) ? "disabled" : "";
-  const fadePush = (!isOwner || isPushDisabledForType) ? "opacity: 0.4;" : "";
+  const soOperadora = tipoExclusivoDaOperadora(notifType, role);
+  const dis = (!isOwner || soOperadora) ? "disabled" : "";
+  const fade = (!isOwner || soOperadora) ? "opacity: 0.5;" : "";
+  const disPush = (!isOwner || isPushDisabledForType || soOperadora) ? "disabled" : "";
+  const fadePush = (!isOwner || isPushDisabledForType || soOperadora) ? "opacity: 0.4;" : "";
+  const tituloCelula = soOperadora ? ' title="Exclusivo da operadora da loja — Líder e Owner acompanham pelo resumo de atraso"' : "";
 
   return `
-    <div class="flex flex-col gap-1.5">
+    <div class="flex flex-col gap-1.5"${tituloCelula}>
       <label class="flex items-center gap-2">
         <input type="checkbox" id="notif-${notifType}-${role}" class="notif-check" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
-        <span style="font-size: 0.7rem; opacity: 0.75;">Ativo</span>
+        <span style="font-size: 0.7rem; opacity: 0.75;">${soOperadora ? "Só a operadora" : "Ativo"}</span>
       </label>
       <div class="flex items-center gap-3 pl-1">
         <label class="flex items-center gap-1">
@@ -6120,7 +6144,9 @@ function renderNotificationTable() {
   Object.keys(prefs).forEach(notifType => {
     ["colab", "lider", "owner"].forEach(role => {
       const checkbox = document.getElementById(`notif-${notifType}-${role}`);
-      if (checkbox) checkbox.checked = !!prefs[notifType][role];
+      // Uma configuração antiga pode ter Líder/Owner marcados no lembrete de
+      // meta; a regra atual não envia para eles, então a tela também não mostra.
+      if (checkbox) checkbox.checked = !tipoExclusivoDaOperadora(notifType, role) && !!prefs[notifType][role];
 
       let channel = prefs[notifType][`${role}_ch`] || "email";
       if (notifType === "divergencia" && channel === "push") {
