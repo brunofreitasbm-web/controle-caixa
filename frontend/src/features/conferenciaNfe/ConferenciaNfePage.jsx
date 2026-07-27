@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2, ClipboardList, Search } from 'lucide-react';
-import Card, { CardHeader } from '../../components/ui/Card.jsx';
+import Card from '../../components/ui/Card.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Select from '../../components/ui/Select.jsx';
 import Input from '../../components/ui/Input.jsx';

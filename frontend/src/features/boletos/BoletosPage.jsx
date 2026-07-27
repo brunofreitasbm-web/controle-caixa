@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Receipt, Trash2 } from 'lucide-react';
-import Card, { CardHeader } from '../../components/ui/Card.jsx';
+import Card from '../../components/ui/Card.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Select from '../../components/ui/Select.jsx';
 import Table, { Tr, Td } from '../../components/ui/Table.jsx';

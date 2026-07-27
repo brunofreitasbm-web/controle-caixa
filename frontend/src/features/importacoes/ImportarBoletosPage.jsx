@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Send, X } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
 import Card, { CardHeader } from '../../components/ui/Card.jsx';
 import FileDropzone from '../../components/FileDropzone.jsx';
 import Button from '../../components/ui/Button.jsx';
@@ -12,8 +11,6 @@ import { LoadingBlock } from '../../components/ui/Spinner.jsx';
 import { formatBRL } from '../../lib/format.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { LOJAS_CACAU_SHOW, detectStoreFromText, useImportarBoletos } from '../../hooks/useFinanceiro.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString();
 
 function uid() {
   return 'b-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36);
@@ -134,6 +131,10 @@ function extrairBoletosDoTexto(items, fullText) {
 }
 
 async function parseBoletoPdfFile(file, onProgress) {
+  const pdfjsLib = await import('pdfjs-dist');
+  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const allItems = [];
