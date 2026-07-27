@@ -1342,7 +1342,7 @@ function iniciarModuloBase(moduloOpcional) {
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
