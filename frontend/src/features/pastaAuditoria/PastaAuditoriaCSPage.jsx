@@ -1,5 +1,11 @@
-import PagePlaceholder from '../../components/ui/PagePlaceholder.jsx';
+import PastaAuditoriaView from './components/PastaAuditoriaView.jsx';
 
 export default function PastaAuditoriaCSPage() {
-  return <PagePlaceholder title="Pasta de Auditoria — Cacau Show" />;
+  return (
+    <PastaAuditoriaView
+      negocio="cacau-show"
+      title="Pasta de Auditoria — Cacau Show"
+      subtitle="CNPJ, contrato social, alvará, seguro e demais documentos legais das lojas"
+    />
+  );
 }
