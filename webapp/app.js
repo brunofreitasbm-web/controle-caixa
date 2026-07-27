@@ -11755,6 +11755,10 @@ let pontoGpsAccuracy = null;
 // NF-e/Inventário) para não recarregar essas telas ao trocar de operação aqui.
 let pontoOperacaoAtiva = null;
 let pontoGpsWatchId = null;
+// Verificação de GPS (precisão + cerca virtual) desativada temporariamente a
+// pedido do Owner em 2026-07-27 — bater ponto não fica mais bloqueado por
+// localização. Reativar voltando este valor para `true`.
+const GPS_VERIFICACAO_ATIVA = false;
 
 // Biometria facial
 let modelosFaciaisCarregados = false;
@@ -12217,24 +12221,27 @@ function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
 }
 
 async function registrarMarcacaoPonto(tipo) {
-  if (!pontoGpsCoords) {
-    showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
-    return;
-  }
-
-  // Geofencing Check
   const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
-  const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
-  const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
-  
-  if (pontoGpsAccuracy > 30) {
-    showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
-    return;
-  }
-  
-  if (dist > GEOFENCE_RAIO_METROS) {
-    showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
-    return;
+
+  if (GPS_VERIFICACAO_ATIVA) {
+    if (!pontoGpsCoords) {
+      showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
+      return;
+    }
+
+    // Geofencing Check
+    const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+    const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
+
+    if (pontoGpsAccuracy > 30) {
+      showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
+      return;
+    }
+
+    if (dist > GEOFENCE_RAIO_METROS) {
+      showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
+      return;
+    }
   }
 
   // Biometria facial: obrigatória sempre que a câmera está ativa
@@ -12263,7 +12270,9 @@ async function registrarMarcacaoPonto(tipo) {
   const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
   const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
   const timestamp = new Date().toISOString();
-  const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+  const gpsLat = pontoGpsCoords ? pontoGpsCoords.latitude : null;
+  const gpsLng = pontoGpsCoords ? pontoGpsCoords.longitude : null;
+  const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${gpsLat}_${gpsLng}_${prevHash}`;
   const currentHash = await calcularHashSha256(rawString);
 
   const newRecord = {
@@ -12272,7 +12281,7 @@ async function registrarMarcacaoPonto(tipo) {
     timestamp,
     tipo,
     operacao: storeName,
-    gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+    gps: pontoGpsCoords ? `${gpsLat.toFixed(5)},${gpsLng.toFixed(5)}` : null,
     accuracy: pontoGpsAccuracy,
     photo: photoBase64,
     hash: currentHash,
