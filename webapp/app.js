@@ -641,6 +641,13 @@ function getDestinatariosNotificacao(tipo) {
     typeRules = Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
   }
 
+  // Início do Inventário Mensal: aviso é dirigido à Líder de Operação, nunca
+  // ao Owner — mesmo que uma preferência antiga tenha ficado salva com Owner
+  // marcado. Mesma regra aplicada no servidor (config/notifications.js).
+  if (prefKey === "inv-inicio") {
+    typeRules = Object.assign({}, typeRules, { owner: false });
+  }
+
   const rolesPermitidos = [];
   if (typeRules.colab) {
     rolesPermitidos.push('consultora', 'consultora_fa');
@@ -6072,14 +6079,28 @@ function tipoExclusivoDaOperadora(notifType, role) {
   return notifType === "meta-lembrete" && role !== "colab";
 }
 
+// Início do Inventário Mensal é aviso dirigido à Líder de Operação. O
+// servidor já força owner: false (config/notifications.js) — aqui a célula
+// do Owner fica travada para a tela não prometer um envio que nunca vai
+// acontecer.
+function ownerBloqueadoParaTipo(notifType, role) {
+  return notifType === "inv-inicio" && role === "owner";
+}
+
 function renderNotifRoleCell(notifType, role, isOwner) {
   const isPushDisabledForType = notifType === "divergencia";
   const soOperadora = tipoExclusivoDaOperadora(notifType, role);
-  const dis = (!isOwner || soOperadora) ? "disabled" : "";
-  const fade = (!isOwner || soOperadora) ? "opacity: 0.5;" : "";
-  const disPush = (!isOwner || isPushDisabledForType || soOperadora) ? "disabled" : "";
-  const fadePush = (!isOwner || isPushDisabledForType || soOperadora) ? "opacity: 0.4;" : "";
-  const tituloCelula = soOperadora ? ' title="Exclusivo da operadora da loja — Líder e Owner acompanham pelo resumo de atraso"' : "";
+  const ownerBloqueado = ownerBloqueadoParaTipo(notifType, role);
+  const travado = soOperadora || ownerBloqueado;
+  const dis = (!isOwner || travado) ? "disabled" : "";
+  const fade = (!isOwner || travado) ? "opacity: 0.5;" : "";
+  const disPush = (!isOwner || isPushDisabledForType || travado) ? "disabled" : "";
+  const fadePush = (!isOwner || isPushDisabledForType || travado) ? "opacity: 0.4;" : "";
+  const tituloCelula = soOperadora
+    ? ' title="Exclusivo da operadora da loja — Líder e Owner acompanham pelo resumo de atraso"'
+    : ownerBloqueado
+      ? ' title="Exclusivo da Líder de Operação — este aviso nunca vai para o Owner"'
+      : "";
 
   return `
     <div class="flex flex-col gap-1.5"${tituloCelula}>
