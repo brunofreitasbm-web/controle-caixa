@@ -90,7 +90,7 @@ export default function ConferenciaNfePage() {
         ) : filtradas.length === 0 ? (
           <EmptyState icon={ClipboardList} title="Nenhuma NF-e encontrada" description="Importe uma NF-e na tela de Importações." />
         ) : (
-          <Table columns={[{ label: 'Número' }, { label: 'Loja' }, { label: 'Fornecedor' }, { label: 'Emissão' }, { label: 'Valor' }, { label: 'Itens' }, { label: 'Status' }, { label: '' }]}>
+          <Table columns={['Número', 'Loja', 'Fornecedor', 'Emissão', 'Valor', 'Itens', 'Status', '']}>
             {filtradas.map((nf) => {
               const { status, label } = statusDaNota(nf.info);
               const { conferidos, total } = contarConferidos(nf.products || []);
@@ -176,7 +176,7 @@ function ConferenciaModal({ nota, usuario, onClose }) {
       <div className="space-y-4">
         <Badge status={status}>{status === 'concluido' ? 'Concluída' : 'Pendente'}</Badge>
 
-        <Table columns={[{ label: 'Código' }, { label: 'Produto' }, { label: 'Qtd. Faturada' }, { label: 'Validade' }, { label: 'Contagem' }]}>
+        <Table columns={['Código', 'Produto', 'Qtd. Faturada', 'Validade', 'Contagem']}>
           {(nota.products || []).map((p) => {
             const diasRestantes = p.validade ? Math.ceil((new Date(p.validade).getTime() - Date.now()) / 86400000) : null;
             return (

@@ -255,7 +255,7 @@ export default function ImportarBoletosPage() {
             }
           />
 
-          <Table columns={[{ label: 'Documento' }, { label: 'Loja' }, { label: 'Descrição' }, { label: 'Vencimento' }, { label: 'Valor' }]}>
+          <Table columns={['Documento', 'Loja', 'Descrição', 'Vencimento', 'Valor']}>
             {boletos.map((b) => (
               <Tr key={b.id}>
                 <Td>

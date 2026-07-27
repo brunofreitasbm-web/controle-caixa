@@ -210,7 +210,7 @@ export default function AuditoriaBoletosPage() {
         ) : filtrada.length === 0 ? (
           <EmptyState icon={ShieldCheck} title="Nada para auditar" description="Importe NF-e e boletos para ver o cruzamento aqui." />
         ) : (
-          <Table columns={[{ label: 'Documento' }, { label: 'Loja' }, { label: 'NF-e' }, { label: 'Valor NF-e' }, { label: 'Valor Boletos' }, { label: 'Status' }, { label: 'Observação' }]}>
+          <Table columns={['Documento', 'Loja', 'NF-e', 'Valor NF-e', 'Valor Boletos', 'Status', 'Observação']}>
             {filtrada.map((item) => (
               <Tr key={item.groupKey}>
                 <Td>{item.baseDoc}</Td>

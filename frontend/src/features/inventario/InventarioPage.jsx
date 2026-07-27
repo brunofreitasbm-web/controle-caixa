@@ -173,7 +173,7 @@ export default function InventarioPage() {
         ) : itens.length === 0 ? (
           <EmptyState icon={Boxes} title="Nenhum item contado ainda" description="Adicione um item acima ou aguarde a importação de uma NF-e conferida." />
         ) : (
-          <Table columns={[{ label: 'Código' }, { label: 'Descrição' }, { label: 'Validade' }, { label: 'Quantidade' }, { label: 'Atualizado por' }, { label: '' }]}>
+          <Table columns={['Código', 'Descrição', 'Validade', 'Quantidade', 'Atualizado por', '']}>
             {itens.map((item) => (
               <Tr key={item.code}>
                 <Td>{item.code}</Td>

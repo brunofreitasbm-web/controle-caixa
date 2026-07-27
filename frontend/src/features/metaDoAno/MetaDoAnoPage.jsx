@@ -172,7 +172,7 @@ export default function MetaDoAnoPage() {
         ) : metas.length === 0 ? (
           <EmptyState icon={Target} title="Nenhuma meta cadastrada" description={`Nenhuma meta encontrada para ${anoFiltro}.`} />
         ) : (
-          <Table columns={[{ label: 'Loja' }, { label: 'Ano' }, { label: 'Meta Anual' }, { label: 'Origem' }, { label: '' }]}>
+          <Table columns={['Loja', 'Ano', 'Meta Anual', 'Origem', '']}>
             {metas.map((m) => (
               <Tr key={m.id} className={selecionada?.id === m.id ? 'bg-blue-50' : ''}>
                 <Td className="font-bold cursor-pointer" onClick={() => setSelecionada(m)}>

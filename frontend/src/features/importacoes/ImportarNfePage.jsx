@@ -260,7 +260,7 @@ export default function ImportarNfePage() {
             </Select>
           </div>
 
-          <Table columns={[{ label: 'Código' }, { label: 'Produto' }, { label: 'Qtd. Faturada' }, { label: 'Múltiplo' }, { label: 'Total Unidades' }]}>
+          <Table columns={['Código', 'Produto', 'Qtd. Faturada', 'Múltiplo', 'Total Unidades']}>
             {parsed.products.map((p) => (
               <Tr key={p.code}>
                 <Td>{p.code}</Td>

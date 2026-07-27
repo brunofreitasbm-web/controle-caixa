@@ -180,7 +180,7 @@ export default function ImportarMetasPage() {
             }
           />
 
-          <Table columns={[{ label: 'Data' }, { label: 'Meta' }, { label: 'Origem' }]}>
+          <Table columns={['Data', 'Meta', 'Origem']}>
             {linhas.map((l) => (
               <Tr key={l.data}>
                 <Td>{formatDate(l.data)}</Td>

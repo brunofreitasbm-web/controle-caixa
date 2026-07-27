@@ -119,7 +119,7 @@ export default function BoletosPage() {
         ) : filtrados.length === 0 ? (
           <EmptyState icon={Receipt} title="Nenhum boleto encontrado" description="Importe um relatório de títulos na tela de Importações." />
         ) : (
-          <Table columns={[{ label: 'Documento' }, { label: 'Loja' }, { label: 'Descrição' }, { label: 'Vencimento' }, { label: 'Valor' }, { label: 'Status' }, { label: '' }]}>
+          <Table columns={['Documento', 'Loja', 'Descrição', 'Vencimento', 'Valor', 'Status', '']}>
             {filtrados.map((b) => (
               <Tr key={b.id}>
                 <Td>{b.documento}</Td>
