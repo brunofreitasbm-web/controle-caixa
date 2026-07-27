@@ -372,7 +372,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: url('icons/icon-192.svg') center/contain no-repeat;
+  background: url('icons/icon-192.png?v=3') center/contain no-repeat;
   box-shadow: var(--shadow-md);
   flex-shrink: 0;
   transition: transform 0.3s ease;
@@ -491,6 +491,20 @@ body {
 
 .sidebar-group.collapsed .sidebar-group-header .group-chevron {
   transform: rotate(-90deg);
+}
+
+/* Cabeçalho que é atalho direto (grupo de item único, ex.: Insights IA):
+   abre a aba num clique, então não mostra chevron nem o conteúdo do grupo. */
+.sidebar-group-header.is-direct .group-arrow {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.sidebar-group-header.is-direct:hover .group-arrow,
+.sidebar-group-header.is-direct.active .group-arrow {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .sidebar-group-content {
@@ -2019,16 +2033,23 @@ button:focus-visible,
   background: var(--tone-warning-soft);
   color: var(--tone-warning-ink);
   border: 2px solid var(--tone-warning-line);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  width: 18px;
+  min-width: 18px;
   height: 18px;
-  border-radius: 50%;
+  padding: 0 5px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   animation: pulse 2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.sync-badge i {
+  font-size: 0.6rem;
 }
 
 .icon-btn {
@@ -2050,6 +2071,9 @@ button:focus-visible,
    769–900px em que existia hambúrguer e nenhuma barra de navegação.
    O desenho de cada uma (proporções, indicador, presença do FAB) é definido
    pelo idioma da plataforma, mais abaixo — aqui fica só o que é comum.
+   Perfis com muitos atalhos (Líder, Owner com Insights IA) não cabem numa
+   barra fixa: o JS já limita a 4 destinos + "Mais" (webapp/app.js), então a
+   barra em si não precisa rolar.
    ========================================================================== */
 .density-compact .bottom-nav {
   display: flex;
@@ -2374,8 +2398,13 @@ button:focus-visible,
 }
 
 .fa-subtitle {
-  color: rgba(255,255,255,0.65);
-  font-size: 0.85rem;
+  /* Alto contraste sobre o banner escuro: branco sólido + sombra sutil,
+     em vez do branco a 65% que ficava apagado em telas com brilho baixo. */
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
   margin: 2px 0 0;
 }
 
@@ -3582,6 +3611,52 @@ body.tema-fa .topbar {
   color: var(--ink-muted);
   font-size: 0.75rem;
 }
+
+/* Dashboard Gerencial (DISC): fundo claro / texto escuro sempre, alto contraste */
+#tab-rh-modulo .rh-chart-card {
+  background: var(--paper);
+  border-color: var(--border);
+}
+#tab-rh-modulo .rh-chart-card h4 {
+  color: var(--ink);
+}
+#tab-rh-modulo .rh-chart-card p.rh-chart-sub {
+  color: var(--muted);
+}
+#tab-rh-modulo .rh-empty-state {
+  color: var(--muted);
+}
+#tab-rh-modulo .bg-red-950\/20 {
+  background-color: #fef2f2 !important;
+}
+#tab-rh-modulo .bg-amber-950\/20 {
+  background-color: #fffbeb !important;
+}
+#tab-rh-modulo .bg-emerald-950\/20 {
+  background-color: #ecfdf5 !important;
+}
+#tab-rh-modulo .bg-indigo-950\/20 {
+  background-color: #eef2ff !important;
+}
+#tab-rh-modulo .text-red-400 { color: #991b1b !important; }
+#tab-rh-modulo .text-amber-400 { color: #92400e !important; }
+#tab-rh-modulo .text-emerald-400 { color: #065f46 !important; }
+#tab-rh-modulo .text-indigo-400 { color: #3730a3 !important; }
+#tab-rh-modulo .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+#tab-rh-modulo .bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+#tab-rh-modulo .bg-indigo-950\/40 {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+#tab-rh-modulo .text-emerald-300 { color: #065f46 !important; }
+#tab-rh-modulo .text-amber-300 { color: #92400e !important; }
+#tab-rh-modulo .text-indigo-300 { color: #3730a3 !important; }
 .rh-sales-badge {
   display: inline-flex;
   align-items: center;
@@ -3650,6 +3725,28 @@ body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .tab-btn {
 aside:not(.fa-section *),
 header:not(.fa-section *) {
   color: var(--ink);
+}
+
+/* .glass-card ganhou uma definição base própria (acima, perto do topo do
+   arquivo) quando os remendos por aba foram removidos, mas telas adicionadas
+   depois deste refactor (Pós-visita, por ex.) ainda podem trazer markup com
+   classes utilitárias escuras (bg-brand-9xx, text-white...) dentro dele —
+   este bloco força o tema claro nesses casos, sem depender de cada tela ter
+   sido migrada para as classes semânticas. */
+.glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4,
+.glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]),
+.glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not(.tab-icon):not(.group-icon),
+.glass-card label,
+.glass-card td,
+.glass-card li,
+.glass-card div:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]) {
+  color: var(--ink) !important;
+}
+
+.glass-card {
+  background-color: var(--paper) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
 }
 
 /* Descrições, subtítulos e metadados secundários. */
@@ -3756,7 +3853,7 @@ button:disabled:not(.fa-section *) {
    fonte — para que o estado ative sem depender só de matiz. O trilho é
    inset box-shadow em vez de border-left para não deslocar o layout na
    troca de estado. */
-.tab-btn.active, .sidebar-group-header[aria-expanded="true"] {
+.tab-btn.active, .sidebar-group-header[aria-expanded="true"], .sidebar-group-header.is-direct.active {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
   font-weight: 700;
@@ -4303,4 +4400,342 @@ button:disabled:not(.fa-section *) {
 .density-compact .fa-sub-btn {
   flex: 0 0 auto;
   padding: 8px 14px;
+}
+
+/* ==========================================================================
+   Balão de descrição (tooltip) — qualquer elemento com data-tip="texto"
+   ganha uma legenda curta ao passar o mouse, sem precisar de JS.
+   ========================================================================== */
+[data-tip] {
+  position: relative;
+}
+
+/* Badge piscante de aniversariantes pendentes, ao lado do texto do menu. */
+.an-badge {
+  margin-left: auto;
+  background: #f97316;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  animation: an-badge-piscar 1.4s ease-in-out infinite;
+}
+@keyframes an-badge-piscar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.88); }
+}
+
+/* Mesmo badge, na cor do WhatsApp para a Pós-visita. */
+.pv-badge {
+  background: #25D366;
+}
+
+/* Fila da Pós-visita: grade responsiva de 1 a 6 colunas em vez de lista
+   1-card-por-linha — melhor aproveitamento de tela em telas largas. */
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 1600px) {
+  .pv-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-tip]::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border: 5px solid transparent;
+  border-top-color: #0f172a;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+}
+
+[data-tip]:hover::after,
+[data-tip]:hover::before,
+[data-tip]:focus-visible::after,
+[data-tip]:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+
+/* Cabeçalho clicável dos cards recolhíveis do Painel de Configurações
+   (Operações, WhatsApp, Contador). Sem isso o <button> herda o visual
+   padrão do navegador e destoa do card. */
+.config-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.config-toggle:hover .config-toggle-icon {
+  color: var(--brand-500, #7a4a2b);
+}
+.config-toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+/* ==========================================================================
+   PAINEL INSIGHTS IA (insights-ia.js / aba #tab-insights-ia)
+   Ancorado nos tokens de :root para seguir o mesmo sistema visual do resto
+   do app, inclusive no tema escuro (que redefine as mesmas variáveis).
+   ========================================================================== */
+
+.ia-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.ia-card-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.ia-card-topo h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.ia-card-topo h3 i { color: var(--wine); }
+
+.ia-card-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.ia-select {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+/* --- estados --- */
+.ia-loading, .ia-erro {
+  font-size: 12.5px;
+  padding: 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ia-loading { color: var(--muted); background: var(--cream); }
+.ia-erro { color: var(--red); background: var(--red-light); border: 1px solid var(--red); }
+
+/* --- selo de procedência: IA, fallback ou sem dados --- */
+.ia-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.ia-selo-ok { background: var(--green-light); color: var(--gold-dark); border: 1px solid var(--green); }
+.ia-selo-alerta { background: var(--amber-light); color: #8a4b00; border: 1px solid var(--amber); }
+.ia-selo-neutro { background: var(--cream); color: var(--muted); border: 1px solid var(--border); }
+
+/* --- tipografia do conteúdo --- */
+.ia-manchete {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.ia-texto {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.ia-destaque { color: var(--gold-dark); }
+.ia-atencao { color: #8a4b00; }
+.ia-subtitulo {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--wine);
+  margin: 16px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ia-lista { margin: 0 0 10px; padding-left: 20px; }
+.ia-lista li {
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.ia-lista-num { list-style: decimal; }
+.ia-fechamento {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  border-left: 3px solid var(--wine);
+  padding-left: 10px;
+  margin-top: 14px;
+}
+.ia-rodape-aviso {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- faixa de métricas --- */
+.ia-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ia-metrica {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ia-metrica-num { font-size: 16px; font-weight: 800; color: var(--ink); }
+.ia-metrica-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.ia-metrica-alerta { background: var(--red-light); border-color: var(--red); }
+.ia-metrica-alerta .ia-metrica-num { color: var(--red); }
+.ia-metrica-ok { background: var(--green-light); border-color: var(--green); }
+.ia-metrica-ok .ia-metrica-num { color: var(--gold-dark); }
+
+/* --- linhas de loja no briefing --- */
+.ia-lojas { margin-bottom: 12px; }
+.ia-loja-linha {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 0.5fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.ia-loja-nome { font-weight: 700; color: var(--ink); }
+.ia-loja-valor { font-weight: 700; color: var(--ink); }
+.ia-loja-meta { color: var(--muted); font-size: 11px; }
+.ia-loja-pct { font-weight: 800; text-align: right; }
+.ia-pos { color: var(--green); }
+.ia-neg { color: var(--red); }
+
+/* --- achados da auditoria, por severidade --- */
+.ia-achado {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--cream);
+}
+.ia-sev-alta { border-left-color: var(--red); }
+.ia-sev-media { border-left-color: var(--amber); }
+.ia-sev-baixa { border-left-color: var(--blue); }
+.ia-achado-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.ia-achado-topo strong { font-size: 12.5px; color: var(--ink); }
+.ia-sev-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.ia-sev-alta .ia-sev-tag { color: var(--red); border-color: var(--red); }
+.ia-sev-media .ia-sev-tag { color: var(--amber); border-color: var(--amber); }
+.ia-achado-detalhe { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0 0 6px; }
+.ia-achado-acao { font-size: 12px; color: var(--ink); font-weight: 600; line-height: 1.5; margin: 0; }
+.ia-achado-acao i { color: var(--wine); margin-right: 4px; }
+
+/* --- prévia da notificação do copiloto --- */
+.ia-push-preview {
+  background: var(--wine-dark);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #fff;
+  max-width: 460px;
+}
+.ia-push-titulo { font-size: 11.5px; font-weight: 800; opacity: 0.85; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.ia-push-corpo { font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  .ia-loja-linha { grid-template-columns: 1fr 1fr; row-gap: 2px; }
+  .ia-card-topo { align-items: flex-start; }
 }

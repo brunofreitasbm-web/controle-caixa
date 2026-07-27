@@ -136,11 +136,12 @@
   };
 })();
 </script>
-<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
+<link rel="manifest" href="manifest.json?v=3">
+<link rel="stylesheet" href="style.css?v=20">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -346,25 +347,25 @@
 
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
       <div class="sidebar-group collapsed" id="group-controle-caixa">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Registro, dashboard e histórico dos envelopes de caixa do Cacau Show">
           <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
           <span class="group-title">Controle de Caixa</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro">
+          <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro" data-tip="Lança um novo envelope de abertura ou fechamento de caixa">
             <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
             <span class="tab-text">Registrar Envelope</span>
           </button>
-          <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard">
+          <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard" data-tip="Visão geral dos envelopes em aberto e já retirados">
             <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
             <span class="tab-text">Dashboard de Envelopes</span>
           </button>
-          <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico">
+          <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico" data-tip="Lista completa de envelopes registrados, com filtros">
             <span class="tab-icon"><i class="fa-solid fa-receipt"></i></span>
             <span class="tab-text">Histórico</span>
           </button>
-          <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal">
+          <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal" data-tip="Totais e gráficos de faturamento consolidados por mês">
             <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
             <span class="tab-text">Dashboard Mês</span>
           </button>
@@ -373,17 +374,17 @@
 
       <!-- Módulo Logística: Conferência e Inventário -->
       <div class="sidebar-group collapsed" id="group-logistica">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Conferência de notas fiscais e contagem de estoque">
           <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
           <span class="group-title">Logística</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe">
+          <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe" data-tip="Confere os produtos recebidos contra a nota fiscal (XML)">
             <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
             <span class="tab-text">Conferência de NF-e</span>
           </button>
-          <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque">
+          <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque" data-tip="Contagem de estoque por loja, compartilhada entre as consultoras">
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventário de Estoque</span>
           </button>
@@ -392,19 +393,61 @@
 
       <!-- Gestão de Boletos -->
       <div class="sidebar-group collapsed" id="group-boletos">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Controle de boletos a pagar e conferência dos pagamentos">
           <span class="group-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
           <span class="group-title">Gestão de Boletos</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos">
+          <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos" data-tip="Lista de boletos importados, com status de pagamento">
             <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
             <span class="tab-text">Boletos</span>
           </button>
-          <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos">
+          <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos" data-tip="Confere se os boletos pagos batem com o extrato">
             <span class="tab-icon"><i class="fa-solid fa-calculator text-accent"></i></span>
             <span class="tab-text">Auditoria Boletos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Pasta de Auditoria: repositório de documentos legais/societários
+           (CNPJ, contrato social, alvará, habite-se, seguro, contratos
+           trabalhistas etc.), uma pasta por negócio -->
+      <div class="sidebar-group collapsed" id="group-pasta-auditoria">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Documentos legais e societários: CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas">
+          <span class="group-icon"><i class="fa-solid fa-folder-open"></i></span>
+          <span class="group-title">Pasta de Auditoria</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-cs" data-tab="pasta-auditoria-cs" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-cs" data-tip="Documentos legais do Cacau Show">
+            <span class="tab-icon"><i class="fa-solid fa-folder"></i></span>
+            <span class="tab-text">Cacau Show</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-fa" data-tab="pasta-auditoria-fa" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-fa" data-tip="Documentos legais do Faça Amigos">
+            <span class="tab-icon"><i class="fa-solid fa-folder" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Faça Amigos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Insights IA — painel gerencial concentrado (Owner e Líder de
+           Operações). Todos os cartões são de leitura: nenhum altera boleto,
+           bonificação, escala ou meta. Ver docs/IA.md -->
+      <!-- Grupo de item único: o cabeçalho é um atalho direto (data-tab), abre a
+           aba num clique em vez de expandir um acordeão com uma opção só. -->
+      <div class="sidebar-group collapsed" id="group-insights-ia">
+        <button class="sidebar-group-header is-direct" data-tab="insights-ia" data-tip="Briefing do dia, coach de conversão, escala e copiloto de meta">
+          <span class="group-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="group-title">Insights IA</span>
+          <span class="group-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </button>
+        <!-- Mantido no DOM (hidden): é ele que carrega a permissão do perfil e
+             faz o grupo inteiro sumir para quem não tem acesso. -->
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, coach de conversão, escala e copiloto de meta">
+            <span class="tab-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <span class="tab-text">Insights IA</span>
           </button>
         </div>
       </div>
@@ -412,17 +455,17 @@
       <!-- Importações (uploads centralizados: XML de NF-e, PDF de Títulos,
            Metas Diárias) + Meta do Ano (placeholder da PR #1, granularidade anual) -->
       <div class="sidebar-group collapsed" id="group-importacoes">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Upload de arquivos que alimentam o sistema (NF-e, boletos, metas)">
           <span class="group-icon"><i class="fa-solid fa-file-import"></i></span>
           <span class="group-title">Importações</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes">
+          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes" data-tip="Central de upload de arquivos (XML de NF-e, PDF de títulos, metas diárias)">
             <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
             <span class="tab-text">Importações</span>
           </button>
-          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta">
+          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta" data-tip="Cadastro da meta anual e mensal de cada loja">
             <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
             <span class="tab-text">Meta do Ano</span>
           </button>
@@ -431,13 +474,13 @@
 
       <!-- Meta Hora a Hora (vendas Cacau Show, independente do Controle de Caixa) -->
       <div class="sidebar-group collapsed" id="group-meta-hora-hora">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Acompanhamento de vendas hora a hora contra a meta do dia">
           <span class="group-icon"><i class="fa-solid fa-bullseye"></i></span>
           <span class="group-title">Meta Hora a Hora</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-meta-hora-hora" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora">
+          <button class="tab-btn hidden" id="tab-btn-meta-hora-hora" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora" data-tip="Lança as vendas do turno e acompanha o progresso da meta do dia, intervalo a intervalo">
             <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
             <span class="tab-text">Meta Hora a Hora</span>
           </button>
@@ -446,17 +489,17 @@
 
       <!-- Meta do Faça Amigos: abre a aba FA já na sub-aba de bonificação -->
       <div class="sidebar-group collapsed" id="group-fa-meta">
-        <button class="sidebar-group-header" aria-expanded="false">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Meta de vendas e regras de bonificação das colaboradoras do FaçaAmigos">
           <span class="group-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
           <span class="group-title">Meta</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-fa-meta" data-tab="faca-amigos" data-fa-subtab="fa-meta" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+          <button class="tab-btn hidden" id="tab-btn-fa-meta" data-tab="faca-amigos" data-fa-subtab="fa-meta" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Lança as vendas do dia (30min/1h/2h) e mostra a bonificação calculada">
             <span class="tab-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
             <span class="tab-text">Meta &amp; Bonificação</span>
           </button>
-          <button class="tab-btn hidden" id="tab-btn-fa-regras" data-tab="faca-amigos" data-fa-subtab="fa-regras-bonificacao" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+          <button class="tab-btn hidden" id="tab-btn-fa-regras" data-tab="faca-amigos" data-fa-subtab="fa-regras-bonificacao" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Configura os valores e percentuais usados no cálculo da bonificação">
             <span class="tab-icon"><i class="fa-solid fa-scale-balanced" style="color: #ff7a00;"></i></span>
             <span class="tab-text">Regras de Bonificação</span>
           </button>
@@ -464,15 +507,25 @@
       </div>
 
       <!-- Outras opções do sistema -->
-      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos">
+      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Registro de envelopes, dashboard, metas e bonificação do FaçaAmigos">
         <span class="tab-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
         <span class="tab-text">FaçaAmigos</span>
       </button>
-      <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo">
+      <button class="tab-btn hidden" id="tab-btn-pos-visita" data-tab="pos-visita" role="tab" aria-selected="false" aria-controls="tab-pos-visita" data-tip="Importa o relatório do dia anterior e dispara WhatsApp para quem visitou o playground">
+        <span class="tab-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
+        <span class="tab-text">PÓS-VISITA</span>
+        <span id="pv-badge" class="an-badge pv-badge hidden" data-tip="Mensagens de pós-visita ainda pendentes de envio">0</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-aniversarios" data-tab="aniversarios" role="tab" aria-selected="false" aria-controls="tab-aniversarios" data-tip="Importa o cadastro de crianças (PDF) e dispara parabéns no WhatsApp no dia do aniversário">
+        <span class="tab-icon"><i class="fa-solid fa-cake-candles" style="color: #f97316;"></i></span>
+        <span class="tab-text">ANIVERSÁRIOS</span>
+        <span id="an-badge" class="an-badge hidden" data-tip="Aniversariantes de hoje que ainda não foram parabenizados">0</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
         <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
         <span class="tab-text">Módulo RH (DISC)</span>
       </button>
-      <button class="tab-btn" id="tab-btn-controle-ponto" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto">
+      <button class="tab-btn" id="tab-btn-controle-ponto" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
         <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
         <span class="tab-text">Controle de Ponto</span>
       </button>
@@ -486,9 +539,9 @@
         <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
       </div>
       <div class="sidebar-actions">
-        <button id="btn-trocar-modulo" class="btn-mini-outline hidden">Módulos</button>
-        <button id="btn-trocar-pin" class="btn-mini-outline">Trocar PIN</button>
-        <button id="btn-trocar-usuario" class="btn-mini-outline">Trocar usuário</button>
+        <button id="btn-trocar-modulo" class="btn-mini-outline hidden" data-tip="Volta pra tela de escolha de módulo (Cacau Show / FaçaAmigos / RH / Ponto)">Módulos</button>
+        <button id="btn-trocar-pin" class="btn-mini-outline" data-tip="Altera o PIN de acesso do usuário atual">Trocar PIN</button>
+        <button id="btn-trocar-usuario" class="btn-mini-outline" data-tip="Sai da conta atual e volta pra tela de login">Trocar usuário</button>
       </div>
     </div>
   </aside>
@@ -530,8 +583,10 @@
         </button>
         <!-- Perfil do Usuário (BlueDox Style) -->
         <div id="topbar-user-profile" class="user-profile-header" style="position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
-          <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização"></span>
-          <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--tone-accent-soft); border: 1.5px solid var(--edge-accent); color: var(--tone-accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+          <div style="position: relative; display: flex;">
+            <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--tone-accent-soft); border: 1.5px solid var(--edge-accent); color: var(--tone-accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+            <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização" role="button" tabindex="0" aria-label="Ações pendentes de sincronização com o servidor"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span id="sync-badge-count">0</span></span>
+          </div>
           <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
         </div>
       </div>
@@ -614,6 +669,20 @@
             <label for="valor-envelope">Valor do Envelope (R$) *</label>
             <input type="text" id="valor-envelope" inputmode="numeric" placeholder="R$ 0,00" required>
             <div id="valor-envelope-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field" id="field-valor-faturado">
+            <label for="valor-faturado">Valor Faturado (R$) *</label>
+            <input type="text" id="valor-faturado" inputmode="numeric" placeholder="R$ 0,00" required>
+            <div id="valor-faturado-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
+          </div>
+
+          <div class="field" id="field-sangria">
+            <label for="sangria">Sangria (R$)</label>
+            <input type="text" id="sangria" inputmode="numeric" placeholder="R$ 0,00">
+            <div id="sangria-error" class="input-error-msg hidden">Valor inválido</div>
           </div>
         </div>
 
@@ -855,7 +924,7 @@
           <span class="fa-logo-icon">🧡</span>
           <div>
             <h2 class="fa-title">Faça<span class="fa-title-accent">Amigos</span></h2>
-            <p class="fa-subtitle">Controle de Caixa &mdash; Parque Shopping</p>
+            <p class="fa-subtitle">Playground Inclusivo e Circuito</p>
           </div>
         </div>
         <div class="fa-lojas-badge">
@@ -867,12 +936,12 @@
 
       <!-- Sub-navegação interna do FA (owners vêem tudo, consultoras_fa vêem registro + minha meta) -->
       <nav class="fa-subnav" id="fa-subnav" role="tablist" aria-label="Navegação FaçaAmigos">
-        <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro">Registrar Envelope</button>
-        <button class="fa-sub-btn hidden" data-fa-tab="fa-dashboard" id="fa-tablink-dashboard">Dashboard</button>
-        <button class="fa-sub-btn hidden" data-fa-tab="fa-historico" id="fa-tablink-historico">Histórico</button>
-        <button class="fa-sub-btn hidden" data-fa-tab="fa-mensal" id="fa-tablink-mensal">Mensal</button>
-        <button class="fa-sub-btn hidden" data-fa-tab="fa-meta" id="fa-tablink-meta">Minha Meta 🎯</button>
-        <button class="fa-sub-btn hidden" data-fa-tab="fa-regras-bonificacao" id="fa-tablink-regras-bonificacao">Regras de Bonificação</button>
+        <button class="fa-sub-btn active" data-fa-tab="fa-registro" id="fa-tablink-registro" data-tip="Lança um novo envelope de abertura/fechamento do FaçaAmigos">Registrar Envelope</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-dashboard" id="fa-tablink-dashboard" data-tip="Visão geral dos envelopes do FaçaAmigos em aberto e retirados">Dashboard</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-historico" id="fa-tablink-historico" data-tip="Lista completa de envelopes do FaçaAmigos registrados">Histórico</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-mensal" id="fa-tablink-mensal" data-tip="Totais consolidados por mês do FaçaAmigos">Mensal</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-meta" id="fa-tablink-meta" data-tip="Suas vendas do dia e a bonificação calculada a partir delas">Minha Meta 🎯</button>
+        <button class="fa-sub-btn hidden" data-fa-tab="fa-regras-bonificacao" id="fa-tablink-regras-bonificacao" data-tip="Valores e percentuais usados para calcular a bonificação">Regras de Bonificação</button>
       </nav>
 
       <!-- SUB-TAB: REGISTRO FA -->
@@ -932,6 +1001,20 @@
               <label for="fa-valor-envelope">Valor do Envelope (R$) *</label>
               <input type="text" id="fa-valor-envelope" inputmode="numeric" placeholder="R$ 0,00" required>
               <div id="fa-valor-envelope-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field" id="fa-field-valor-faturado">
+              <label for="fa-valor-faturado">Valor Faturado (R$) *</label>
+              <input type="text" id="fa-valor-faturado" inputmode="numeric" placeholder="R$ 0,00" required>
+              <div id="fa-valor-faturado-error" class="input-error-msg hidden">Valor inválido ou ausente</div>
+            </div>
+
+            <div class="field" id="fa-field-sangria">
+              <label for="fa-sangria">Sangria (R$)</label>
+              <input type="text" id="fa-sangria" inputmode="numeric" placeholder="R$ 0,00">
+              <div id="fa-sangria-error" class="input-error-msg hidden">Valor inválido</div>
             </div>
           </div>
 
@@ -1521,6 +1604,77 @@
     </section>
 
     <!-- ===================== ABA: IMPORTAÇÕES (UPLOADS CENTRALIZADOS) ===================== -->
+    <!-- ================================================================
+         INSIGHTS IA — painel gerencial (Owner e Líder de Operações)
+         Lógica em insights-ia.js. Todos os cartões são somente leitura.
+         ================================================================ -->
+    <section id="tab-insights-ia" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-insights-ia">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-brand-300"></i> Insights IA
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">Análises geradas a partir dos dados que já estão no sistema. A IA sugere — nenhuma ação é executada sem você.</p>
+          </div>
+          <div id="ia-status-linha"></div>
+        </div>
+
+        <!-- Briefing do dia -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-mug-hot"></i> Briefing do dia</h3>
+            <button id="ia-briefing-atualizar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-arrows-rotate"></i> Atualizar</button>
+          </div>
+          <p class="ia-card-sub">Vendas de ontem contra a meta, envelopes parados, boletos vencendo e conversão do FaçaAmigos. Enviado automaticamente às 7h.</p>
+          <div id="ia-briefing-conteudo"></div>
+        </div>
+
+        <!-- Coach de conversão -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-medal"></i> Coach de conversão (FaçaAmigos)</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-coach-colaboradora" class="ia-select"></select>
+              <button id="ia-coach-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+              <button id="ia-coach-atualizar" class="btn-secondary btn-mini-outline" title="Ignora o cache e gera de novo"><i class="fa-solid fa-arrows-rotate"></i></button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Onde a conversão está, quanto falta para a próxima faixa e em que dia da semana o desempenho cai.</p>
+          <div id="ia-coach-conteudo"></div>
+        </div>
+
+        <!-- Escala inteligente -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-users-gear"></i> Escala inteligente</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-escala-loja" class="ia-select"></select>
+              <button id="ia-escala-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Horários que concentram venda e horários ociosos, para realocar equipe. Exige histórico mínimo de 14 dias de Meta Hora a Hora.</p>
+          <div id="ia-escala-conteudo"></div>
+        </div>
+
+        <!-- Copiloto Meta Hora a Hora -->
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-gauge-high"></i> Copiloto Meta Hora a Hora</h3>
+            <div class="flex gap-2 items-center">
+              <select id="ia-copiloto-loja" class="ia-select"></select>
+              <select id="ia-copiloto-hora" class="ia-select"></select>
+              <button id="ia-copiloto-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Ver aviso</button>
+            </div>
+          </div>
+          <p class="ia-card-sub">Prévia do aviso que a consultora recebe 10 minutos antes de cada intervalo, com o ritmo necessário para bater a meta.</p>
+          <div id="ia-copiloto-conteudo"></div>
+        </div>
+
+      </div>
+    </section>
+
     <section id="tab-importacoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-importacoes">
       <div class="section-header mb-6">
         <div>
@@ -2324,6 +2478,178 @@
       </div>
     </section>
 
+    <!-- ===================== PASTA DE AUDITORIA: CACAU SHOW ===================== -->
+    <section id="tab-pasta-auditoria-cs" class="tab-panel hidden" role="tabpanel" data-negocio="cacau-show">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-folder-open text-brand-300"></i> Pasta de Auditoria — Cacau Show
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas e outros documentos legais.</p>
+          </div>
+          <button class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center" data-abrir-upload-pasta-auditoria="cacau-show">
+            <i class="fa-solid fa-upload"></i> Enviar Documento
+          </button>
+        </div>
+
+        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row flex-wrap items-center gap-3">
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="unidade" data-negocio="cacau-show">
+            <option value="">Todas as Unidades</option>
+            <option value="Marambaia">Marambaia</option>
+            <option value="Icoaraci">Icoaraci</option>
+            <option value="Mário Covas">Mário Covas</option>
+            <option value="Venda Direta">Venda Direta</option>
+          </select>
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="categoria" data-negocio="cacau-show">
+            <option value="">Todas as Categorias</option>
+            <option value="CNPJ">CNPJ</option>
+            <option value="Contrato Social">Contrato Social</option>
+            <option value="Alvará">Alvará</option>
+            <option value="Habite-se">Habite-se</option>
+            <option value="Seguro">Seguro</option>
+            <option value="Contrato Trabalhista">Contrato Trabalhista</option>
+            <option value="Outro">Outro</option>
+          </select>
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="vencimento" data-negocio="cacau-show">
+            <option value="">Vencimento: Todos</option>
+            <option value="vencidos">Vencidos</option>
+            <option value="30dias">Vence em 30 dias</option>
+          </select>
+        </div>
+
+        <div class="card bg-paper p-6 rounded-2xl border border-border">
+          <div class="table-wrap">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-border uppercase tracking-wider font-bold">
+                  <th class="py-3 px-4">Documento</th>
+                  <th class="py-3 px-3">Categoria</th>
+                  <th class="py-3 px-3">Unidade</th>
+                  <th class="py-3 px-3">Vencimento</th>
+                  <th class="py-3 px-3">Enviado por</th>
+                  <th class="py-3 px-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pasta-auditoria-cs-tbody" class="divide-y divide-brand-900/40">
+                <tr class="text-brand-400 text-center"><td colspan="6" class="py-8">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PASTA DE AUDITORIA: FAÇA AMIGOS ===================== -->
+    <section id="tab-pasta-auditoria-fa" class="tab-panel hidden" role="tabpanel" data-negocio="faca-amigos">
+      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+          <div>
+            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-folder-open" style="color: #ff7a00;"></i> Pasta de Auditoria — Faça Amigos
+            </h2>
+            <p class="text-xs text-brand-100 mt-1">CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas e outros documentos legais.</p>
+          </div>
+          <button class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center" data-abrir-upload-pasta-auditoria="faca-amigos">
+            <i class="fa-solid fa-upload"></i> Enviar Documento
+          </button>
+        </div>
+
+        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row flex-wrap items-center gap-3">
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="unidade" data-negocio="faca-amigos">
+            <option value="">Todas as Unidades</option>
+            <option value="Grão Pará">Grão Pará</option>
+            <option value="ParqueShopping">ParqueShopping</option>
+            <option value="Parque Circuito">Parque Circuito</option>
+          </select>
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="categoria" data-negocio="faca-amigos">
+            <option value="">Todas as Categorias</option>
+            <option value="CNPJ">CNPJ</option>
+            <option value="Contrato Social">Contrato Social</option>
+            <option value="Alvará">Alvará</option>
+            <option value="Habite-se">Habite-se</option>
+            <option value="Seguro">Seguro</option>
+            <option value="Contrato Trabalhista">Contrato Trabalhista</option>
+            <option value="Outro">Outro</option>
+          </select>
+          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="vencimento" data-negocio="faca-amigos">
+            <option value="">Vencimento: Todos</option>
+            <option value="vencidos">Vencidos</option>
+            <option value="30dias">Vence em 30 dias</option>
+          </select>
+        </div>
+
+        <div class="card bg-paper p-6 rounded-2xl border border-border">
+          <div class="table-wrap">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-border uppercase tracking-wider font-bold">
+                  <th class="py-3 px-4">Documento</th>
+                  <th class="py-3 px-3">Categoria</th>
+                  <th class="py-3 px-3">Unidade</th>
+                  <th class="py-3 px-3">Vencimento</th>
+                  <th class="py-3 px-3">Enviado por</th>
+                  <th class="py-3 px-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pasta-auditoria-fa-tbody" class="divide-y divide-brand-900/40">
+                <tr class="text-brand-400 text-center"><td colspan="6" class="py-8">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MODAL: ENVIAR DOCUMENTO (Pasta de Auditoria) ===================== -->
+    <div id="modal-upload-pasta-auditoria" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 460px;">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-display text-lg font-bold text-white">Enviar Documento</h3>
+          <button type="button" id="btn-fechar-upload-pasta-auditoria" class="text-brand-300 hover:text-white" aria-label="Fechar">✕</button>
+        </div>
+        <form id="form-upload-pasta-auditoria" class="space-y-3">
+          <input type="hidden" id="pasta-auditoria-form-negocio" value="">
+          <div>
+            <label class="text-xs font-bold text-brand-300">Unidade</label>
+            <select id="pasta-auditoria-form-unidade" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold mt-1"></select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-300">Categoria</label>
+            <select id="pasta-auditoria-form-categoria" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold mt-1">
+              <option value="CNPJ">CNPJ</option>
+              <option value="Contrato Social">Contrato Social</option>
+              <option value="Alvará">Alvará</option>
+              <option value="Habite-se">Habite-se</option>
+              <option value="Seguro">Seguro</option>
+              <option value="Contrato Trabalhista">Contrato Trabalhista</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div id="pasta-auditoria-form-categoria-outro-wrap" class="hidden">
+            <label class="text-xs font-bold text-brand-300">Qual documento?</label>
+            <input type="text" id="pasta-auditoria-form-categoria-outro" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-300">Arquivo (PDF, imagem ou planilha)</label>
+            <input type="file" id="pasta-auditoria-form-arquivo" accept=".pdf,image/*,.xls,.xlsx" class="w-full text-xs mt-1" required>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-300">Data de Vencimento (opcional)</label>
+            <input type="date" id="pasta-auditoria-form-vencimento" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1">
+            <p class="text-[10px] text-brand-400 mt-1">Se o arquivo for um PDF e você deixar em branco, a IA tenta encontrar a validade no documento — você confirma antes de salvar.</p>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-300">Observações (opcional)</label>
+            <textarea id="pasta-auditoria-form-observacoes" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1" rows="2"></textarea>
+          </div>
+          <button type="submit" id="btn-salvar-upload-pasta-auditoria" class="btn-primary py-2 px-4 rounded-xl text-xs font-bold w-full bg-brand-700 hover:bg-brand-650 text-white">
+            Enviar
+          </button>
+        </form>
+      </div>
+    </div>
+
     <!-- ===================== MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC ===================== -->
     <section id="tab-rh-modulo" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-rh-modulo">
       <div class="section-header mb-6">
@@ -2905,6 +3231,140 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: PÓS-VISITA (FaçaAmigos) ===================== -->
+    <section id="tab-pos-visita" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-pos-visita">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-comment-dots" style="color: #25D366;"></i> PÓS-VISITA
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Importe o Relatório Operacional do dia anterior (CSV) e dispare WhatsApp para os responsáveis. Clique em "Enviar mensagem" pra abrir o WhatsApp já com o número e o texto prontos.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="pv-btn-atualizar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Recarrega a fila de mensagens pendentes">
+            <i class="fa-solid fa-rotate"></i> Atualizar
+          </button>
+        </div>
+      </div>
+
+      <!-- Quadro de importação do CSV: escolher o arquivo já importa na hora,
+           sem precisar de um botão extra — menos cliques pro operador. -->
+      <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
+        <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-file-csv"></i> Importar Relatório Operacional (CSV)
+        </h3>
+        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="field">
+            <label for="pv-import-data" data-tip="É só uma referência visual (vem com o dia anterior preenchido) — a data real de cada visita é lida direto da coluna do CSV">Data do relatório (referência)</label>
+            <input type="date" id="pv-import-data">
+          </div>
+          <div class="field">
+            <label for="pv-import-arquivo" data-tip="Escolher o arquivo já importa direto, sem precisar de outro clique">Arquivo CSV (importa ao escolher)</label>
+            <input type="file" id="pv-import-arquivo" accept=".csv,text/csv">
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 0.75rem;">
+          <span id="pv-import-msg" class="form-msg" role="status"></span>
+        </div>
+      </div>
+
+      <!-- Quadro de relatório automático -->
+      <div id="pv-relatorio" class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Contagem automática de quantos registros foram importados e quantas mensagens já foram enviadas no mês atual">
+        <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-chart-simple"></i> Relatório do mês <span id="pv-relatorio-data" class="text-brand-400 font-normal normal-case"></span>
+        </h3>
+        <div class="flex items-center gap-6">
+          <div>
+            <div class="text-2xl font-extrabold text-white" id="pv-relatorio-importados">0</div>
+            <div class="text-[11px] text-brand-400">importados</div>
+          </div>
+          <div>
+            <div class="text-2xl font-extrabold text-emerald-400" id="pv-relatorio-enviados">0</div>
+            <div class="text-[11px] text-brand-400">mensagens enviadas</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="pv-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
+        <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
+        <p class="text-sm font-bold text-brand-200">Nenhuma mensagem pendente — fila em dia! 💙</p>
+      </div>
+
+      <div id="pv-lista" class="pv-grid"></div>
+    </section>
+
+    <!-- ===================== ABA: ANIVERSÁRIOS (FaçaAmigos) ===================== -->
+    <section id="tab-aniversarios" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-aniversarios">
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-cake-candles" style="color: #f97316;"></i> ANIVERSÁRIOS
+          </h2>
+          <p class="text-xs text-brand-100 mt-1">Importe o cadastro de crianças (PDF) e dispare parabéns no WhatsApp para quem faz aniversário hoje.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="an-btn-atualizar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Recarrega a lista de aniversariantes de hoje">
+            <i class="fa-solid fa-rotate"></i> Atualizar
+          </button>
+        </div>
+      </div>
+
+      <!-- Quadro de importação do PDF (drag & drop) -->
+      <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
+        <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-file-pdf"></i> Importar Cadastro de Crianças (PDF)
+        </h3>
+        <div id="an-dropzone" class="rounded-2xl border-2 border-dashed border-brand-700 p-8 text-center cursor-pointer transition hover:border-brand-500" data-tip="Arraste um ou vários PDFs aqui ou clique para escolher — atualiza os registros existentes e adiciona os novos">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-brand-400 mb-2 block"></i>
+          <p class="text-xs text-brand-300">Arraste um ou vários PDFs aqui ou clique para escolher</p>
+          <input type="file" id="an-input-arquivo" accept=".pdf,application/pdf" multiple class="hidden">
+        </div>
+        <p id="an-import-msg" class="form-msg mt-2" role="status"></p>
+      </div>
+
+      <!-- Resumo do cadastro: total importado + conferência dos dados lidos
+           do PDF, pro operador validar se o parser leu tudo corretamente. -->
+      <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Total de crianças já cadastradas no sistema — use para conferir se o PDF foi importado por completo">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div class="flex items-center gap-6">
+            <div>
+              <div class="text-2xl font-extrabold text-white" id="an-total-cadastrados">0</div>
+              <div class="text-[11px] text-brand-400">crianças cadastradas</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-amber-400" id="an-total-hoje">0</div>
+              <div class="text-[11px] text-brand-400">aniversariantes hoje</div>
+            </div>
+          </div>
+          <button type="button" id="an-btn-conferir" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Mostra a lista completa do que foi lido do PDF (nome, data de nascimento e telefone) para conferência">
+            <i class="fa-solid fa-list-check"></i> Conferir cadastros
+          </button>
+        </div>
+        <div id="an-conferencia" class="hidden mt-4 pt-4 border-t border-brand-800/60">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="text-left text-brand-400">
+                  <th class="py-1 pr-3">Criança</th>
+                  <th class="py-1 pr-3">Nascimento</th>
+                  <th class="py-1 pr-3">Responsável</th>
+                  <th class="py-1">Telefone</th>
+                </tr>
+              </thead>
+              <tbody id="an-conferencia-corpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="an-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
+        <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
+        <p class="text-sm font-bold text-brand-200">Nenhum aniversariante hoje. 🎂</p>
+      </div>
+
+      <div id="an-lista" class="pv-grid"></div>
+    </section>
+
     <!-- ===================== ABA: CONFIGURAÇÕES (TODOS OS PERFIS, ADVANCED SECTIONS POR PERFIL) ===================== -->
     <section id="tab-configuracoes" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-configuracoes">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
@@ -2915,102 +3375,98 @@
             <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
               <i class="fa-solid fa-sliders text-ink-muted"></i> Painel de Configurações
             </h2>
-            <p class="text-xs text-ink-strong mt-1">Gerencie a aparência, tempo limite de inatividade, canais de comunicação e integridade dos dados locais.</p>
+            <p class="text-xs text-ink-strong mt-1">Tudo que define como a operação roda: lojas, ponto, canais de aviso, pessoas e integridade dos dados.</p>
           </div>
-          <div>
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Ajustes do HuB</span>
+          <div class="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest self-start md:self-end">Ajustes do HuB</span>
+            <div class="relative w-full md:w-72">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted text-xs"></i>
+              <input type="search" id="config-busca" placeholder="Buscar ajuste (ex: ponto, e-mail, backup)"
+                class="w-full bg-paper border border-border rounded-xl py-2 pl-8 pr-3 text-ink placeholder:text-ink-muted text-xs focus:outline-none focus:border-gold transition">
+            </div>
           </div>
         </div>
 
-        <!-- Grid de Configurações -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <!-- Card: Segurança & Sessão -->
-          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
-            <div>
-              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-shield-halved text-accent"></i> Segurança & Sessão
+        <!-- Grid de Configurações. Ordem pensada para Líder de Operações/Owner:
+             primeiro o que afeta a operação inteira (prontidão, lojas, canais,
+             pessoas), depois o que é do próprio usuário/dispositivo. -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="config-grid">
+
+          <!-- Card: Prontidão da Operação — checklist do que ainda falta configurar (Líder/Owner) -->
+          <div id="config-card-prontidao" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="prontidao checklist pendencias status operacao diagnostico">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-accent"></i> Prontidão da Operação
               </h3>
-              <p class="text-xs text-muted mb-4">Gerencie as regras de expiração e altere seus dados de autenticação rápida.</p>
-              
-              <div class="space-y-4">
-                <div class="field">
-                  <label class="block text-xs font-bold uppercase mb-1">Tempo Limite por Inatividade</label>
-                  <select id="config-timeout-select" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
-                    <option value="300">5 minutos</option>
-                    <option value="900">15 minutos</option>
-                    <option value="1800">30 minutos</option>
-                    <option value="3600">1 hora</option>
-                    <option value="0">Nunca bloquear</option>
-                  </select>
-                </div>
-                
-                <div class="flex flex-col sm:flex-row gap-2 pt-2">
-                  <button type="button" id="config-btn-change-pin" class="flex-1 py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-key"></i> Alterar meu PIN
-                  </button>
-                  <button type="button" id="config-btn-logout" class="flex-1 py-2.5 bg-danger-soft hover:bg-danger-hover border border-danger text-danger font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-right-from-bracket"></i> Sair / Mudar Usuário
-                  </button>
-                </div>
-
-                <div class="pt-2">
-                  <button type="button" id="config-btn-cadastrar-biometria" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 hidden">
-                    <i class="fa-solid fa-face-viewfinder"></i> Cadastrar Biometria
-                  </button>
-                  <p id="config-biometria-status" class="text-[11px] text-muted mt-2 hidden"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Card: Atualização do App / Cache do Service Worker (distinto do card "Gestão de Dados & Armazenamento Local" mais abaixo, que trata do backup dos dados de negócio) -->
-          <div class="card p-6 rounded-2xl border border-border flex flex-col justify-between">
-            <div>
-              <h3 class="text-base font-bold flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-database text-accent"></i> Atualização do App (Cache)
-              </h3>
-              <p class="text-xs text-muted mb-4">Se o app parecer "travado" numa versão antiga depois de uma atualização, force a atualização aqui — sem precisar desinstalar ou pedir ajuda.</p>
-
-              <div class="space-y-3">
-                <div class="p-3 rounded-xl bg-cream border border-border text-xs space-y-1.5">
-                  <div class="flex justify-between"><span class="text-muted">Registros de ponto ainda não sincronizados</span><strong id="config-ponto-offline-count">—</strong></div>
-                  <div class="flex justify-between"><span class="text-muted">Cache do app</span><strong id="config-app-cache-status">—</strong></div>
-                </div>
-
-                <button type="button" id="config-btn-forcar-atualizacao" class="w-full py-2.5 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
-                  <i class="fa-solid fa-arrows-rotate"></i> Forçar Atualização do App
+              <div class="flex items-center gap-2">
+                <span id="config-prontidao-resumo" class="px-3 py-1 rounded-full text-[10px] font-bold border border-border whitespace-nowrap">Verificando…</span>
+                <button type="button" id="config-btn-revalidar-prontidao" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2">
+                  <i class="fa-solid fa-rotate"></i> Revalidar
                 </button>
-                <p class="text-[11px] text-muted">Limpa o cache local e recarrega a versão mais recente do servidor. Não apaga registros ainda não sincronizados.</p>
               </div>
             </div>
+            <p class="text-xs text-muted mb-4">O que ainda falta configurar para o Hub rodar sem tropeço. Cada pendência aqui vira problema no dia a dia da loja.</p>
+            <ul id="config-prontidao-lista" class="space-y-2 text-xs"></ul>
           </div>
 
-          <!-- Card: Geofencing do Ponto (Líder de Operações / Owner) -->
-          <div id="config-card-geofencing" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-location-crosshairs text-accent"></i> Geofencing do Ponto
-            </h3>
-            <p class="text-xs text-muted mb-4">Raio de tolerância, em metros, ao redor da localização de cada operação (definida acima) para liberar a marcação de ponto. Muito baixo bloqueia colaboradoras dentro da própria loja; muito alto perde o propósito da cerca virtual.</p>
+          <!-- Card: Localização, Horário e Cerca Virtual das Operações (Líder de Operações / Owner).
+               O antigo card separado "Geofencing do Ponto" foi compactado para cá: o raio de
+               tolerância só faz sentido junto das coordenadas que ele delimita. -->
+          <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="operacoes lojas localizacao latitude longitude horario abertura fechamento geofencing cerca virtual raio ponto metas">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-operacoes">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot text-accent"></i> Operações: Localização, Horário e Cerca Virtual
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
 
-            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
-              <div class="field sm:w-56">
-                <label class="block text-xs font-bold uppercase mb-1">Raio de Tolerância (metros)</label>
-                <input type="number" id="config-geofence-raio" min="10" max="500" step="5" value="50" class="w-full bg-paper border border-border rounded-xl p-3 text-ink text-xs focus:outline-none focus:border-gold transition">
+            <div id="config-corpo-operacoes" class="config-corpo hidden mt-3">
+            <p class="text-xs text-muted mb-4">Localização e horário alimentam a marcação de ponto e o Meta Hora a Hora — a meta do dia em si vem da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-border uppercase tracking-wider font-bold">
+                    <th class="py-2 px-2">Operação</th>
+                    <th class="py-2 px-2">Latitude</th>
+                    <th class="py-2 px-2">Longitude</th>
+                    <th class="py-2 px-2">Abertura</th>
+                    <th class="py-2 px-2">Fechamento</th>
+                  </tr>
+                </thead>
+                <tbody id="config-operacoes-tbody" class="divide-y divide-border">
+                  <!-- Gerado dinamicamente no JS (uma linha por operação) -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Cerca virtual do ponto: uma linha só, ao lado do botão de salvar. -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-border">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-location-crosshairs text-brand-500 text-xs"></i>
+                <label for="config-geofence-raio" class="text-xs font-bold whitespace-nowrap">Raio da cerca do ponto</label>
+                <input type="number" id="config-geofence-raio" min="10" max="500" step="5" value="50" class="w-24 bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold transition">
+                <span class="text-[11px] text-muted">metros — muito baixo bloqueia quem está dentro da loja; muito alto anula a cerca.</span>
               </div>
-              <button type="button" id="config-btn-save-geofence" class="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
-                <i class="fa-solid fa-floppy-disk"></i> Salvar Raio de Tolerância
+              <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Operações
               </button>
+            </div>
             </div>
           </div>
 
           <!-- Card: WhatsApp Lojas (Apenas Owners/Gestores) -->
-          <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-brands fa-whatsapp text-success"></i> Links dos Grupos de WhatsApp das Lojas
-            </h3>
+          <div id="config-card-whatsapp" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="whatsapp grupos links lojas avisos relatorios">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-whatsapp">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp text-success"></i> Links dos Grupos de WhatsApp das Lojas
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
+
+            <div id="config-corpo-whatsapp" class="config-corpo hidden mt-3">
             <p class="text-xs text-muted mb-4">Configure os links de convite para os relatórios serem enviados diretamente para os grupos corretos de cada filial.</p>
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Cacau Show -->
               <div class="space-y-3 p-4 rounded-xl bg-cream border border-border">
@@ -3034,41 +3490,11 @@
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Links do WhatsApp
               </button>
             </div>
-          </div>
-
-          <!-- Card: Localização e Horário das Operações (Líder de Operações / Owner) -->
-          <div id="config-card-operacoes" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-map-location-dot text-accent"></i> Localização e Horário das Operações
-            </h3>
-            <p class="text-xs text-muted mb-4">Localização e horário são usados no geofencing do Ponto e no cálculo do Meta Hora a Hora — a meta do dia em si vem exclusivamente da planilha importada em Importações &gt; Metas Diárias (XLSX).</p>
-
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr class="border-b border-border uppercase tracking-wider font-bold">
-                    <th class="py-2 px-2">Operação</th>
-                    <th class="py-2 px-2">Latitude</th>
-                    <th class="py-2 px-2">Longitude</th>
-                    <th class="py-2 px-2">Abertura</th>
-                    <th class="py-2 px-2">Fechamento</th>
-                  </tr>
-                </thead>
-                <tbody id="config-operacoes-tbody" class="divide-y divide-border">
-                  <!-- Gerado dinamicamente no JS (uma linha por operação) -->
-                </tbody>
-              </table>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-4">
-              <button type="button" id="config-btn-save-operacoes" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
-                <i class="fa-solid fa-floppy-disk"></i> Salvar Localização e Horários
-              </button>
             </div>
           </div>
 
           <!-- Card: Configurações de Notificações -->
-          <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2">
+          <div id="config-card-notificacoes" class="card p-6 rounded-2xl border border-border md:col-span-2" data-config-busca="notificacoes alertas email push regras perfis">
             <div class="flex items-center justify-between mb-4">
               <div>
                 <h3 class="text-base font-bold flex items-center gap-2">
@@ -3120,43 +3546,16 @@
             </div>
           </div>
 
-          <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
-          <button type="button" class="tab-btn hidden" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
-            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
-              <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-user-shield"></i></span>
-                <div class="text-left">
-                  <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
-                  <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
-                </div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
-            </div>
-          </button>
-
-          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
-               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
-               então a visibilidade já é controlada por tabsPermitidas. -->
-          <button type="button" class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
-            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
-              <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-users-gear"></i></span>
-                <div class="text-left">
-                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
-                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
-                </div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
-            </div>
-          </button>
-
           <!-- Card: Dados do Contador (emissão mensal da Folha de Ponto) — Owner -->
-          <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden">
-            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
-              <i class="fa-solid fa-file-invoice text-accent"></i> Dados do Contador (Folha de Ponto)
-            </h3>
+          <div id="config-card-contador" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="contador contabilidade folha de ponto email pdf">
+            <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-contador">
+              <h3 class="text-base font-bold flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-accent"></i> Dados do Contador (Folha de Ponto)
+              </h3>
+              <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+            </button>
+
+            <div id="config-corpo-contador" class="config-corpo hidden mt-3">
             <p class="text-xs text-muted mb-4">E-mail para onde a Folha de Ponto em PDF é enviada. O envio é feito por você, pelo botão <strong>"Enviar ao Contador"</strong> na aba Controle de Ponto — nada é disparado automaticamente.</p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3176,15 +3575,74 @@
                 <i class="fa-solid fa-floppy-disk"></i> Salvar Dados do Contador
               </button>
             </div>
+            </div>
+          </div>
+
+          <!-- Card: Acesso Avançado (Auditoria de Ações) — exclusivo Owner -->
+          <button type="button" class="tab-btn hidden" data-config-busca="auditoria log acoes historico" id="tab-btn-auditoria" data-tab="auditoria" role="tab" aria-selected="false" aria-controls="tab-auditoria"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-user-shield"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Auditoria de Ações</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Log de modificações de PIN, status e fechamentos — acesso exclusivo Owner</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
+          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
+               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
+               então a visibilidade já é controlada por tabsPermitidas. -->
+          <button type="button" class="tab-btn hidden" data-config-busca="colaboradores equipe cadastro pin perfil unidade pessoas" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
+            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
+            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-accent transition">
+              <div class="flex items-center gap-3">
+                <span class="tab-icon w-9 h-9 rounded-xl bg-surface-3 flex items-center justify-center text-accent"><i class="fa-solid fa-users-gear"></i></span>
+                <div class="text-left">
+                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
+                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
+            </div>
+          </button>
+
+          <!-- Card: Segurança & Sessão (compacto — tudo numa linha só) -->
+          <div class="card p-5 rounded-2xl border border-border" data-config-busca="seguranca sessao pin senha timeout inatividade logout sair biometria">
+            <h3 class="text-sm font-bold flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-shield-halved text-brand-500"></i> Segurança & Sessão
+            </h3>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="config-timeout-select" title="Tempo limite por inatividade" class="flex-1 min-w-[9rem] bg-paper border border-border rounded-xl p-2 text-ink text-xs focus:outline-none focus:border-gold transition">
+                <option value="300">Bloquear em 5 min</option>
+                <option value="900">Bloquear em 15 min</option>
+                <option value="1800">Bloquear em 30 min</option>
+                <option value="3600">Bloquear em 1 hora</option>
+                <option value="0">Nunca bloquear</option>
+              </select>
+              <button type="button" id="config-btn-change-pin" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2" title="Alterar meu PIN">
+                <i class="fa-solid fa-key"></i> PIN
+              </button>
+              <button type="button" id="config-btn-cadastrar-biometria" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2 hidden" title="Cadastrar biometria facial">
+                <i class="fa-solid fa-face-viewfinder"></i> Biometria
+              </button>
+              <button type="button" id="config-btn-logout" class="py-2 px-3 bg-red-950/10 hover:bg-red-950/20 border border-red-900/30 text-red-700 font-bold rounded-xl text-xs transition flex items-center gap-2" title="Sair / mudar usuário">
+                <i class="fa-solid fa-right-from-bracket"></i> Sair
+              </button>
+            </div>
+            <p id="config-biometria-status" class="text-[11px] text-muted mt-2 hidden"></p>
           </div>
 
           <!-- Card: Manutenção & Dados -->
-          <div class="card p-6 rounded-2xl border border-border md:col-span-2">
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2" data-config-busca="dados backup exportar importar limpar reset armazenamento local perfil de configuracoes">
             <h3 class="text-base font-bold flex items-center gap-2 mb-2">
               <i class="fa-solid fa-database text-accent"></i> Gestão de Dados & Armazenamento Local
             </h3>
             <p class="text-xs text-muted mb-4">Exporte backups de segurança, importe dados existentes ou redefina o banco local em caso de inconsistência persistente.</p>
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <!-- Exportar -->
               <div class="p-4 rounded-xl bg-cream border border-border flex flex-col justify-between">
@@ -3225,7 +3683,7 @@
           </div>
 
           <!-- Card: Informações do Sistema -->
-          <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper">
+          <div class="card p-6 rounded-2xl border border-border md:col-span-2 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-cream to-paper" data-config-busca="versao sistema usuario conexao atualizar cache">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-border">
                 <i class="fa-solid fa-circle-info text-accent text-lg"></i>
@@ -3235,7 +3693,7 @@
                 <span class="block text-[10px] text-muted">Ambiente de Operações e Recebimentos Integrados</span>
               </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 flex-wrap justify-end">
               <div class="text-right">
                 <span class="block text-[10px] text-muted">Usuário Ativo</span>
                 <span class="block text-xs font-bold" id="config-user-info">-</span>
@@ -3243,6 +3701,11 @@
               <div class="px-3 py-1 rounded-full text-[10px] font-bold bg-success-soft border border-success text-success" id="config-connection-badge">
                 Conectado
               </div>
+              <!-- Antigo card "Atualização do App (Cache)": virou este botão discreto no rodapé.
+                   Limpa só o Cache Storage e o Service Worker — nunca IndexedDB/localStorage. -->
+              <button type="button" id="config-btn-forcar-atualizacao" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2" title="Limpa o cache do app e recarrega a versão mais recente. Não apaga registros ainda não sincronizados.">
+                <i class="fa-solid fa-arrows-rotate"></i> Atualizar App
+              </button>
             </div>
           </div>
 
@@ -3563,10 +4026,14 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
+<script src="mensagens-pos-visita.js?v=1"></script>
+<script src="mensagens-aniversario.js?v=3"></script>
 <script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=27"></script>
+<script src="insights-ia.js?v=1"></script>
+<script src="pasta-auditoria.js?v=1"></script>
+<script src="app.js?v=38"></script>
 </body>
 </html>

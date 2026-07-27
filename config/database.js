@@ -8,6 +8,7 @@ const camelCaseMap = {
   dataoperacao: 'dataOperacao',
   fundocaixa: 'fundoCaixa',
   valorenvelope: 'valorEnvelope',
+  valorfaturado: 'valorFaturado',
   fotoenvelope: 'fotoEnvelope',
   dataretirada: 'dataRetirada',
   retiradopor: 'retiradoPor',
@@ -33,7 +34,22 @@ const camelCaseMap = {
   bloqueadoate: 'bloqueadoAte',
   ultimatentativaem: 'ultimaTentativaEm',
   datanascimento: 'dataNascimento',
-  dataadmissao: 'dataAdmissao'
+  dataadmissao: 'dataAdmissao',
+  datasessao: 'dataSessao',
+  numerocliente: 'numeroCliente',
+  tempototalminutos: 'tempoTotalMinutos',
+  mensagemenviada: 'mensagemEnviada',
+  mensagemenviadaem: 'mensagemEnviadaEm',
+  jacontactadoantes: 'jaContactadoAntes',
+  nomecrianca: 'nomeCrianca',
+  nomeresponsavel: 'nomeResponsavel',
+  mensagemenviadaano: 'mensagemEnviadaAno',
+  categoriaoutro: 'categoriaOutro',
+  nomearquivo: 'nomeArquivo',
+  mimetype: 'mimeType',
+  datavencimento: 'dataVencimento',
+  vencimentosugeridoia: 'vencimentoSugeridoIA',
+  enviadopor: 'enviadoPor'
 };
 
 function normalizeRow(row) {
@@ -182,6 +198,8 @@ function initDb(onSuccess) {
           dataOperacao TEXT,
           fundoCaixa REAL,
           valorEnvelope REAL,
+          valorFaturado REAL,
+          sangria REAL,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -201,6 +219,8 @@ function initDb(onSuccess) {
           dataOperacao TEXT,
           fundoCaixa REAL,
           valorEnvelope REAL,
+          valorFaturado REAL,
+          sangria REAL,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -401,6 +421,70 @@ function initDb(onSuccess) {
           atualizadoEm TEXT,
           criadoEm TEXT,
           UNIQUE(loja, codProduto)
+        )`,
+        // Pós-visita 1h/2h (FaçaAmigos): fila de disparo de WhatsApp para
+        // responsáveis cuja criança ficou mais de 1h no playground, importada
+        // diariamente via Make.com a partir do relatório de vendas por e-mail.
+        `CREATE TABLE IF NOT EXISTS pos_visita_registros (
+          id TEXT PRIMARY KEY,
+          dataSessao TEXT NOT NULL,
+          cliente TEXT NOT NULL,
+          numeroCliente TEXT NOT NULL,
+          crianca TEXT NOT NULL,
+          tempoTotalMinutos INTEGER NOT NULL,
+          mensagemEnviada INTEGER DEFAULT 0,
+          mensagemEnviadaEm TEXT,
+          criadoEm TEXT,
+          UNIQUE(dataSessao, numeroCliente, crianca)
+        )`,
+        // Aniversários (FaçaAmigos): cadastro de crianças importado de PDF,
+        // usado para disparar parabéns no WhatsApp no dia do aniversário.
+        // Chave (nomeCrianca, nomeResponsavel) permite reimportar o mesmo
+        // relatório todo dia sem duplicar — só atualiza os dados.
+        `CREATE TABLE IF NOT EXISTS aniversarios_registros (
+          id TEXT PRIMARY KEY,
+          nomeCrianca TEXT NOT NULL,
+          dataNascimento TEXT NOT NULL,
+          documento TEXT,
+          nomeResponsavel TEXT NOT NULL,
+          telefone TEXT NOT NULL,
+          mensagemEnviadaAno INTEGER,
+          mensagemEnviadaEm TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT,
+          UNIQUE(nomeCrianca, nomeResponsavel)
+        )`,
+        // Cache das respostas de IA (services/ia.js). Briefing do dia, coach
+        // da competência e auditoria de boletos custam cota e mudam pouco
+        // dentro da janela — gerar uma vez e reusar mantém o uso dentro da
+        // camada gratuita. expiraEm é epoch em ms (BIGINT: um timestamp em ms
+        // não cabe no INTEGER de 4 bytes do Postgres).
+        `CREATE TABLE IF NOT EXISTS ia_cache (
+          chave TEXT PRIMARY KEY,
+          valor TEXT,
+          criadoEm TEXT,
+          expiraEm BIGINT
+        )`,
+        // Pasta de Auditoria: repositório de documentos legais/societários
+        // (CNPJ, contrato social, alvará, habite-se, seguro, contratos
+        // trabalhistas etc.), separado por negócio (cacau-show/faca-amigos).
+        // conteudo guarda o arquivo em base64, mesmo padrão de
+        // registros.fotoEnvelope.
+        `CREATE TABLE IF NOT EXISTS documentos_auditoria (
+          id TEXT PRIMARY KEY,
+          negocio TEXT NOT NULL,
+          unidade TEXT,
+          categoria TEXT NOT NULL,
+          categoriaOutro TEXT,
+          nomeArquivo TEXT,
+          mimeType TEXT,
+          conteudo TEXT,
+          dataVencimento TEXT,
+          vencimentoSugeridoIA INTEGER DEFAULT 0,
+          observacoes TEXT,
+          enviadoPor TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT
         )`
       ];
 
@@ -435,6 +519,31 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE registros_fa ADD COLUMN deletadoEm TEXT', [], () => resolve());
+        });
+      });
+
+      // Fechamento (#12): Valor Faturado (obrigatório) e Sangria (opcional)
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN valorFaturado REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN sangria REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN valorFaturado REAL', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN sangria REAL', [], () => resolve());
         });
       });
 
@@ -542,6 +651,34 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_fa_bonif_diaria ON fa_bonificacao_diaria(usuario, unidade, data)', [], () => resolve());
+        });
+      });
+
+      // push_subscriptions ganhava uma linha nova a cada login (o client
+      // re-envia o mesmo endpoint em /api/subscribe), então um push disparado
+      // para o usuário era entregue uma vez por linha duplicada — daí a
+      // enxurrada de notificações repetidas no mesmo aparelho. Remove os
+      // duplicados existentes (mantendo a inscrição mais recente por endpoint)
+      // antes de travar o endpoint como único.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run(
+            'DELETE FROM push_subscriptions WHERE id NOT IN (SELECT MAX(id) FROM push_subscriptions GROUP BY endpoint)',
+            [],
+            (err) => {
+              if (err) console.error('Erro ao remover push_subscriptions duplicadas:', err.message);
+              resolve();
+            }
+          );
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)', [], (err) => {
+            if (err) console.error('Erro ao criar índice único push_subscriptions:', err.message);
+            resolve();
+          });
         });
       });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v24';
+const CACHE_NAME = 'ponto-pwa-v37'; // v37: design system claro + layout adaptativo
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,8 +6,13 @@ const ASSETS_TO_CACHE = [
   '/tailwind-compiled.css',
   '/app.js',
   '/realtime.js',
+  '/insights-ia.js',
+  '/pasta-auditoria.js',
   '/manifest.json',
   '/favicon.ico',
+  '/icons/favicon-16.png',
+  '/icons/favicon-32.png',
+  '/icons/icon-180.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/vendor/html5-qrcode.min.js',
@@ -20,29 +25,90 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
+// Distingue "primeira instalação" de "atualização de versão": só na atualização
+// existe uma tela aberta rodando código velho que precisa ser recarregada.
+let ehAtualizacaoDeVersao = false;
+
 self.addEventListener('install', event => {
+  ehAtualizacaoDeVersao = !!self.registration.active;
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // cache.addAll() é tudo-ou-nada: se UM único asset da lista faltar
+      // (404) ou a rede falhar num deles, a promise inteira rejeita e
+      // NENHUM asset é cacheado — foi o que aconteceu quando icon-180.png
+      // ficou referenciado aqui sem o arquivo existir. cache.add() individual
+      // com allSettled isola a falha: um asset ausente vira um aviso no
+      // console, os demais continuam sendo cacheados normalmente.
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => cache.add(url).catch(err => {
+          console.warn('[SW] Falha ao pre-cachear (ignorado):', url, err.message);
+          throw err;
+        }))
+      );
     }).then(() => self.skipWaiting())
   );
 });
 
+// Recarrega as telas abertas assim que a nova versão assume o controle. Sem
+// isso, o app que já estava aberto continuava exibindo o HTML/JS antigos até o
+// usuário fechar e abrir de novo — era o motivo de um deploy parecer "não ter
+// pego" no celular.
+async function recarregarClientesAbertos() {
+  if (!ehAtualizacaoDeVersao) return;
+  const janelas = await self.clients.matchAll({ type: 'window' });
+  janelas.forEach(janela => {
+    try {
+      // Sem await de propósito: navigate() só resolve quando a nova navegação
+      // termina de ser servida por este mesmo SW. Esperar por ela travaria a
+      // ativação, e a navegação nunca sairia do lugar.
+      janela.navigate(janela.url).catch(() => {});
+    } catch (e) {
+      // Alguns navegadores não expõem navigate() — o network-first do fetch já
+      // garante conteúdo novo no próximo carregamento.
+    }
+  });
+}
+
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
+  const prepararNovaVersao = caches.keys().then(keys => {
+    return Promise.all(
+      keys.map(key => {
+        if (key !== CACHE_NAME) {
+          return caches.delete(key);
+        }
+      })
+    );
+  }).then(() => self.clients.claim());
+
+  event.waitUntil(prepararNovaVersao);
+  // Fora do waitUntil: a recarga depende deste SW já estar ativo para responder
+  // à navegação — só pode acontecer depois que a ativação terminar.
+  prepararNovaVersao.then(() => recarregarClientesAbertos());
 });
 
+// Resposta de último recurso: sem ela, um respondWith que resolve para
+// undefined estoura "Failed to convert value to 'Response'".
+function respostaOffline() {
+  return new Response(
+    JSON.stringify({ offline: true, erro: 'Sem conexão com o servidor.' }),
+    { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'application/json' } }
+  );
+}
+
+// HTML, CSS e JS servidos pelo próprio domínio — o que é reconstruído a cada
+// deploy. Fica de fora tudo que vem de CDN e os binários (ícones, imagens).
+function ehAppShell(request) {
+  if (request.mode === 'navigate') return true;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+  return url.pathname === '/' || /\.(html|css|js|json)$/i.test(url.pathname);
+}
+
 self.addEventListener('fetch', event => {
+  // Só GET passa pelo cache. POST/PUT/DELETE não podem ser armazenados
+  // (cache.put lança) e devem ir direto para a rede.
+  if (event.request.method !== 'GET') return;
+
   // O canal de tempo real é uma conexão longa (text/event-stream). Deixamos
   // passar direto: qualquer intermediação do Service Worker atrapalha o fluxo
   // contínuo de eventos.
@@ -52,8 +118,34 @@ self.addEventListener('fetch', event => {
 
   if (event.request.url.includes('/api/ponto') || event.request.url.includes('/api/')) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(event.request);
+      fetch(event.request).catch(async () => {
+        // caches.match devolve undefined quando não há cópia — e respondWith(undefined)
+        // vira "Failed to convert value to 'Response'" no console. Devolvemos uma
+        // resposta 503 explícita para o app cair no fluxo offline dele.
+        const cached = await caches.match(event.request);
+        return cached || respostaOffline();
+      })
+    );
+    return;
+  }
+
+  // App shell (HTML/CSS/JS do próprio app): rede primeiro, cache como plano B.
+  // Esses arquivos mudam a cada deploy — servi-los do cache primeiro fazia o
+  // usuário ver a versão anterior até recarregar uma segunda vez. Imagens,
+  // ícones e libs de CDN continuam no cache-first (não mudam entre deploys).
+  if (ehAppShell(event.request)) {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copia = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copia));
+        }
+        return networkResponse;
+      }).catch(async () => {
+        const cached = await caches.match(event.request, { ignoreSearch: true });
+        if (cached) return cached;
+        const shell = await caches.match('/index.html');
+        return shell || respostaOffline();
       })
     );
     return;
@@ -73,7 +165,9 @@ self.addEventListener('fetch', event => {
       }
       // Sem cache e sem rede (servidor fora do ar/offline): antes rejeitava sem
       // catch, virando "Uncaught (in promise) TypeError: Failed to fetch" no console.
-      return fetch(event.request).catch(() => caches.match('/index.html'));
+      return fetch(event.request)
+        .catch(() => caches.match('/index.html'))
+        .then(res => res || respostaOffline());
     })
   );
 });

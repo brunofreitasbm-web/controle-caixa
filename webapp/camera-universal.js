@@ -203,7 +203,7 @@ const CameraUniversal = (function () {
     try {
       if (config.faceDetection) await ensureModelsLoaded();
       state.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
+        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
         audio: false,
       });
       video.srcObject = state.stream;

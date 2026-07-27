@@ -100,10 +100,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "pasta-auditoria-cs", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
+  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -128,6 +128,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "historico", icon: "fa-receipt", label: "Histórico" },
     { tab: "importacoes", icon: "fa-file-import", label: "Importações" },
     { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
   consultora_fa: [
     { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope" },
@@ -137,6 +138,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA" },
     { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
+    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
 };
 
@@ -558,11 +560,16 @@ function carregarJSON(key, fallback) {
 const offlineBanner = document.getElementById("offline-banner");
 
 async function checkApiConnection() {
-  const endpoints = [
-    API_BASE,
-    "http://localhost:5000/api",
-    "http://127.0.0.1:5000/api"
-  ];
+  // Os fallbacks de localhost só fazem sentido quando o próprio app está sendo
+  // aberto localmente (arquivo ou servidor de desenvolvimento). Num domínio
+  // hospedado (Render, etc.) o navegador bloqueia a tentativa por política de
+  // acesso ao "loopback address space" e enche o console de erro de CORS.
+  const ehAmbienteLocal = window.location.protocol === "file:" ||
+    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+
+  const endpoints = ehAmbienteLocal
+    ? [API_BASE, "http://localhost:5000/api", "http://127.0.0.1:5000/api"]
+    : [API_BASE];
 
   for (const ep of endpoints) {
     try {
@@ -625,7 +632,14 @@ function getDestinatariosNotificacao(tipo) {
 
   const prefKey = notifTypeMap[tipo] || tipo;
   const prefs = loadNotificationPrefs();
-  const typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+  let typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+
+  // Lembrete de lançamento da Meta Hora a Hora: só a operadora da loja, mesmo
+  // que uma preferência antiga tenha ficado salva com Líder/Owner marcados.
+  // Mesma regra aplicada no servidor (config/notifications.js).
+  if (prefKey === "meta-lembrete") {
+    typeRules = Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
+  }
 
   const rolesPermitidos = [];
   if (typeRules.colab) {
@@ -1328,7 +1342,7 @@ function iniciarModuloBase(moduloOpcional) {
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1374,13 +1388,18 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-logistica", "group-boletos", "group-importacoes",
+  ["group-controle-caixa", "group-logistica", "group-boletos", "group-pasta-auditoria", "group-insights-ia", "group-importacoes",
    "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
   });
+
+  // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
+  // pra que o operador veja o número piscando assim que entra no módulo.
+  if (tabsPermitidas.includes("pos-visita")) buscarContagemPosVisitaPendentes();
+  if (tabsPermitidas.includes("aniversarios")) buscarContagemAniversariosPendentes();
 
   // Menu rápido (grade desktop + barra mobile), curado por perfil
   renderMenuRapido();
@@ -1635,7 +1654,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "configuracoes", "controle-ponto"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios", "pasta-auditoria-cs", "pasta-auditoria-fa"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1659,6 +1678,12 @@ function ativarTab(tabName) {
     activeBtn.setAttribute("tabindex", "0");
   }
 
+  // Cabeçalhos que são atalho direto (grupo de item único, ex.: Insights IA)
+  // também precisam refletir a aba aberta.
+  document.querySelectorAll(".sidebar-group-header.is-direct").forEach(h => {
+    h.classList.toggle("active", h.dataset.tab === tabName);
+  });
+
   const activePanel = document.getElementById("tab-" + tabName);
   if (activePanel) {
     activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
@@ -1667,6 +1692,13 @@ function ativarTab(tabName) {
 
   if (tabName === "configuracoes") {
     inicializarPainelConfiguracoes();
+  }
+
+  // Painel Insights IA (insights-ia.js). Popula os seletores e carrega o
+  // briefing; os demais cartões ficam sob demanda para não gastar seis
+  // requisições da cota gratuita só por abrir a aba.
+  if (tabName === "insights-ia" && typeof inicializarInsightsIA === "function") {
+    inicializarInsightsIA();
   }
 
   // Sync bottom nav + grade de atalhos (#7). Quando duas pílulas apontam pro
@@ -1692,6 +1724,8 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
+  if (tabName === "pasta-auditoria-cs" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("cacau-show");
+  if (tabName === "pasta-auditoria-fa" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("faca-amigos");
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();
@@ -1699,6 +1733,8 @@ function ativarTab(tabName) {
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
+  if (tabName === "pos-visita") renderPosVisita();
+  if (tabName === "aniversarios") renderAniversarios();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
   observarTituloDaSecao(tabName);
@@ -1826,6 +1862,13 @@ document.addEventListener("keydown", (e) => {
 // vários grupos ficam abertos ao mesmo tempo).
 document.querySelectorAll(".sidebar-group-header").forEach(header => {
   header.addEventListener("click", () => {
+    // Grupo de item único (ex.: Insights IA): o cabeçalho vira atalho direto —
+    // abre a aba no primeiro clique, sem acordeão.
+    if (header.dataset.tab) {
+      ativarTab(header.dataset.tab);
+      return;
+    }
+
     const group = header.closest(".sidebar-group");
     if (!group) return;
     const isExpanded = group.classList.contains("expanded");
@@ -1993,15 +2036,24 @@ document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
 function atualizarCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("field-valor-envelope");
   const valorEnvelopeInput = document.getElementById("valor-envelope");
+  const fieldFaturado = document.getElementById("field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("valor-faturado");
+  const fieldSangria = document.getElementById("field-sangria");
   const fotoHint = document.getElementById("foto-hint");
 
   if (tipoOperacaoSelecionado === "Abertura") {
     fieldEnvelope.classList.add("hidden");
     valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
@@ -2009,15 +2061,24 @@ function atualizarCamposPorOperacao() {
 function atualizarFaCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("fa-field-valor-envelope");
   const valorEnvelopeInput = document.getElementById("fa-valor-envelope");
+  const fieldFaturado = document.getElementById("fa-field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("fa-valor-faturado");
+  const fieldSangria = document.getElementById("fa-field-sangria");
   const fotoHint = document.getElementById("fa-foto-hint");
 
   if (faTipoOperacaoSelecionado === "Abertura") {
     fieldEnvelope.classList.add("hidden");
     valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
     valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
   }
 }
@@ -2259,6 +2320,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const dataOperacao = document.getElementById("data-operacao").value;
   const fundoCaixaRaw = document.getElementById("fundo-caixa").value;
   const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("valor-faturado").value;
+  const sangriaRaw = document.getElementById("sangria").value;
   const observacoes = document.getElementById("observacoes").value;
 
   limparErrosInline("");
@@ -2294,6 +2357,12 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
       marcarErro(document.getElementById("valor-envelope"), document.getElementById("valor-envelope-error"));
     }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("valor-faturado"), document.getElementById("valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("sangria"), document.getElementById("sangria-error"));
+    }
     if (!fotoDataUrl) {
       marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
     }
@@ -2307,6 +2376,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = tipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = tipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
 
   const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
@@ -2328,6 +2399,8 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     dataOperacao: new Date(dataOperacao).toISOString(),
     fundoCaixa,
     valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
     observacoes: observacoes || null,
     fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
     status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2393,6 +2466,12 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     document.getElementById("consultor").value = currentUser.nome;
   }
 
+  if (registro.tipoOperacao === "Fechamento") {
+    const METAS_VALIDAS_MSG = ["diaria", "manual"];
+    const metaHoje = await buscarMetaDiaLoja(loja, dataOperacao.slice(0, 10));
+    registro._metaDiaria = (metaHoje && METAS_VALIDAS_MSG.includes(metaHoje.origem)) ? metaHoje.valor : null;
+  }
+
   mostrarGeradorMensagem(registro);
 });
 
@@ -2407,6 +2486,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const dataOperacao = document.getElementById("fa-data-operacao").value;
   const fundoCaixaRaw = document.getElementById("fa-fundo-caixa").value;
   const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("fa-valor-faturado").value;
+  const sangriaRaw = document.getElementById("fa-sangria").value;
   const observacoes = document.getElementById("fa-observacoes").value;
 
   limparErrosInline("fa");
@@ -2442,6 +2523,12 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
       marcarErro(document.getElementById("fa-valor-envelope"), document.getElementById("fa-valor-envelope-error"));
     }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("fa-valor-faturado"), document.getElementById("fa-valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("fa-sangria"), document.getElementById("fa-sangria-error"));
+    }
     if (!faFotoDataUrl) {
       marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
     }
@@ -2455,6 +2542,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
 
   const fundoCaixa = parseMoeda(fundoCaixaRaw);
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = faTipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = faTipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
 
   const duplicado = registrosFA.some(r =>
     r.loja === loja &&
@@ -2476,6 +2565,8 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     dataOperacao: new Date(dataOperacao).toISOString(),
     fundoCaixa,
     valorEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
     observacoes: observacoes || null,
     fotoEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? faFotoDataUrl : null,
     status: faTipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2539,13 +2630,23 @@ function mensagemAviso(r) {
       `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}`
     );
   }
+  let pctMetaLinha;
+  if (r._metaDiaria) {
+    const pct = (r.valorFaturado / r._metaDiaria) * 100;
+    pctMetaLinha = `📊 ${pct.toFixed(1)}% da meta`;
+  } else {
+    pctMetaLinha = `📊 Meta não configurada`;
+  }
   return (
     `🔔 Fechamento de Caixa - Cacau Show\n` +
     `Loja: ${r.loja}\n` +
     `Consultor: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
-    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}`
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}\n` +
+    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}\n` : "") +
+    pctMetaLinha
   );
 }
 
@@ -2587,7 +2688,7 @@ function mostrarGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
 
-function mensagemAvisoFA(r) {
+function mensagemAvisoFA(r, linhaVendas = "") {
   if (r.tipoOperacao === "Abertura") {
     return (
       `🧡 Abertura de Caixa - FaçaAmigos\n` +
@@ -2603,23 +2704,61 @@ function mensagemAvisoFA(r) {
     `Consultora: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
-    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}`
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "") +
+    linhaVendas
   );
 }
 
-function mostrarFaGeradorMensagem(registro) {
+// Busca o lançamento de vendas por checkpoint (30min/1h/2h) do dia para a
+// consultora+unidade, usado para compor a linha de conversão na mensagem de
+// fechamento. Só existe para as unidades que usam a metodologia de conversão.
+async function buscarLancamentoHojeFA(usuario, unidade) {
+  if (!UNIDADES_FA_CONVERSAO.includes(unidade)) return null;
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuario)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.find(l => l.data === hoje) || null;
+  } catch (err) {
+    console.error("Erro ao buscar lançamento de vendas do dia (FA):", err);
+    return null;
+  }
+}
+
+function linhaVendasConversaoFA(l) {
+  if (!l) return "";
+  const v30 = l.vendas30 || 0;
+  const v1h = l.vendas1h || 0;
+  const v2h = l.vendas2h || 0;
+  const total = v30 + v1h + v2h;
+  const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+  return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
+}
+
+async function mostrarFaGeradorMensagem(registro) {
   const banner = document.getElementById("fa-aviso-banner");
   const textarea = document.getElementById("fa-aviso-texto");
   const status = document.getElementById("fa-aviso-status");
   const linkBtn = document.getElementById("fa-btn-abrir-whatsapp");
 
-  textarea.value = mensagemAvisoFA(registro);
+  let linhaVendas = "";
+  if (registro.tipoOperacao === "Fechamento") {
+    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
+    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+  }
+
+  const texto = mensagemAvisoFA(registro, linhaVendas);
+  textarea.value = texto;
   status.classList.add("hidden");
 
   const linkGrupoLoja = WHATSAPP_GRUPOS_FA[registro.loja];
   linkBtn.href = linkGrupoLoja
     ? linkGrupoLoja
-    : `https://wa.me/?text=${encodeURIComponent(mensagemAvisoFA(registro))}`;
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
   async function marcarFaGerado() {
     registro.mensagemGerada = true;
@@ -4839,14 +4978,35 @@ function addToSyncQueue(action) {
 function atualizarBadgeSync() {
   const queue = getSyncQueue();
   const badge = document.getElementById("sync-badge");
+  const badgeCount = document.getElementById("sync-badge-count");
   if (badge) {
     if (queue.length > 0) {
-      badge.textContent = queue.length;
+      if (badgeCount) badgeCount.textContent = queue.length;
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
     }
   }
+}
+
+// O badge mostra só um número dentro de um ícone de nuvem; no celular não dá
+// pra passar o mouse pra ler o title="Ações pendentes de sincronização", então
+// o toque precisa explicar o que aquele número significa.
+const syncBadgeEl = document.getElementById("sync-badge");
+if (syncBadgeEl) {
+  const explicarSyncBadge = (e) => {
+    e.stopPropagation();
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+  };
+  syncBadgeEl.addEventListener("click", explicarSyncBadge);
+  syncBadgeEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      explicarSyncBadge(e);
+    }
+  });
 }
 
 async function processarFilaSync() {
@@ -4933,9 +5093,30 @@ checkApiConnection = async function () {
 // Badge de sync pendente
 atualizarBadgeSync();
 
+// Quando um Service Worker novo assume o controle, a tela aberta ainda está
+// rodando o HTML/JS da versão anterior — recarrega uma vez para o deploy
+// aparecer na hora. Só vale para troca de versão: numa primeira instalação
+// não havia controller antes, e recarregar ali seria um refresh à toa.
+if ("serviceWorker" in navigator) {
+  const jaTinhaControlador = !!navigator.serviceWorker.controller;
+  let recarregandoPorAtualizacao = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!jaTinhaControlador || recarregandoPorAtualizacao) return;
+    recarregandoPorAtualizacao = true;
+    window.location.reload();
+  });
+}
+
 // ==================== PUSH NOTIFICATIONS ====================
+// Perfis que registram inscrição push. A operadora de loja (consultora) entrou
+// aqui por causa do lembrete de lançamento da Meta Hora a Hora: o aviso é dela,
+// mas sem inscrição não havia para quem enviar. Quem recebe cada tipo continua
+// sendo decidido no servidor (config/notifications.js) — estar inscrito não
+// significa receber tudo.
+const PERFIS_COM_PUSH = ['owner', 'consultora', 'consultora_dashboard'];
+
 async function inscreverPushNotificacoes() {
-  if (currentUser.role !== 'owner' && currentUser.nome !== 'Alexandra' && currentUser.nome !== 'LiderOP') return;
+  if (!PERFIS_COM_PUSH.includes(currentUser.role)) return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
@@ -6002,18 +6183,28 @@ function initializeNotificationPrefs() {
   });
 }
 
+// O lembrete de lançamento da Meta Hora a Hora é aviso de execução: só a
+// operadora da loja recebe. O servidor já força essa regra
+// (config/notifications.js) — aqui a célula fica travada para a tela não
+// prometer um envio que nunca vai acontecer.
+function tipoExclusivoDaOperadora(notifType, role) {
+  return notifType === "meta-lembrete" && role !== "colab";
+}
+
 function renderNotifRoleCell(notifType, role, isOwner) {
   const isPushDisabledForType = notifType === "divergencia";
-  const dis = !isOwner ? "disabled" : "";
-  const fade = !isOwner ? "opacity: 0.5;" : "";
-  const disPush = (!isOwner || isPushDisabledForType) ? "disabled" : "";
-  const fadePush = (!isOwner || isPushDisabledForType) ? "opacity: 0.4;" : "";
+  const soOperadora = tipoExclusivoDaOperadora(notifType, role);
+  const dis = (!isOwner || soOperadora) ? "disabled" : "";
+  const fade = (!isOwner || soOperadora) ? "opacity: 0.5;" : "";
+  const disPush = (!isOwner || isPushDisabledForType || soOperadora) ? "disabled" : "";
+  const fadePush = (!isOwner || isPushDisabledForType || soOperadora) ? "opacity: 0.4;" : "";
+  const tituloCelula = soOperadora ? ' title="Exclusivo da operadora da loja — Líder e Owner acompanham pelo resumo de atraso"' : "";
 
   return `
-    <div class="flex flex-col gap-1.5">
+    <div class="flex flex-col gap-1.5"${tituloCelula}>
       <label class="flex items-center gap-2">
         <input type="checkbox" id="notif-${notifType}-${role}" class="notif-check" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
-        <span style="font-size: 0.7rem; opacity: 0.75;">Ativo</span>
+        <span style="font-size: 0.7rem; opacity: 0.75;">${soOperadora ? "Só a operadora" : "Ativo"}</span>
       </label>
       <div class="flex items-center gap-3 pl-1">
         <label class="flex items-center gap-1">
@@ -6072,7 +6263,9 @@ function renderNotificationTable() {
   Object.keys(prefs).forEach(notifType => {
     ["colab", "lider", "owner"].forEach(role => {
       const checkbox = document.getElementById(`notif-${notifType}-${role}`);
-      if (checkbox) checkbox.checked = !!prefs[notifType][role];
+      // Uma configuração antiga pode ter Líder/Owner marcados no lembrete de
+      // meta; a regra atual não envia para eles, então a tela também não mostra.
+      if (checkbox) checkbox.checked = !tipoExclusivoDaOperadora(notifType, role) && !!prefs[notifType][role];
 
       let channel = prefs[notifType][`${role}_ch`] || "email";
       if (notifType === "divergencia" && channel === "push") {
@@ -6194,9 +6387,36 @@ function setupPinDotsEventHandlers() {
       }
       setup.input.addEventListener("input", () => {
         updatePinDots(setup.input, setup.dots);
+        autoSubmitPinSeCompleto(setup.input);
       });
     }
   });
+}
+
+// Assim que o PIN (4 dígitos) é digitado, envia sozinho — sem precisar de
+// Enter nem clicar em "Entrar". No cadastro de PIN novo, só envia quando os
+// dois campos (PIN + confirmação) já estiverem completos.
+function autoSubmitPinSeCompleto(input) {
+  if (input.value.trim().length !== 4) return;
+
+  if (input.id === "session-pin") {
+    document.getElementById("session-unlock").click();
+    return;
+  }
+
+  if (input.id === "login-pin") {
+    const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
+    if (ehCriacao) {
+      if (loginPinConfirmInput.value.trim().length === 4) loginEntrarBtn.click();
+    } else {
+      loginEntrarBtn.click();
+    }
+    return;
+  }
+
+  if (input.id === "login-pin-confirm") {
+    if (loginPinInput.value.trim().length === 4) loginEntrarBtn.click();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9862,9 +10082,8 @@ function inicializarPainelConfiguracoes() {
     }
   }
 
-  // Mostrar card de Geofencing do Ponto para Líder de Operações/Owner
-  const cardGeofencing = document.getElementById("config-card-geofencing");
-  if (cardGeofencing) cardGeofencing.classList.toggle("hidden", !mostrarOperacoes);
+  // O raio da cerca virtual mora dentro do próprio card de Operações (ele
+  // delimita justamente as coordenadas da tabela acima).
   if (mostrarOperacoes) {
     const inputRaio = document.getElementById("config-geofence-raio");
     if (inputRaio) inputRaio.value = GEOFENCE_RAIO_METROS;
@@ -9881,33 +10100,150 @@ function inicializarPainelConfiguracoes() {
     if (inputEmail) inputEmail.value = config.contadorEmail || "";
   }
 
-  atualizarCardArmazenamento();
+  // Card "Prontidão da Operação" (Líder de Operações / Owner)
+  const cardProntidao = document.getElementById("config-card-prontidao");
+  if (cardProntidao) cardProntidao.classList.toggle("hidden", !mostrarOperacoes);
+  if (mostrarOperacoes) renderProntidaoOperacao();
+
+  aplicarFiltroConfiguracoes();
 }
 
-// Card "Armazenamento & Atualização do App": mostra quantos registros de
-// ponto ainda não sincronizaram e se o Service Worker (cache offline) está
-// ativo. Puramente informativo — não força nenhuma sincronização sozinho.
-async function atualizarCardArmazenamento() {
-  const elCount = document.getElementById("config-ponto-offline-count");
-  if (elCount) {
-    try {
-      inicializarPontoDb();
-      const pendentes = await pontoDb.time_records.where("syncStatus").equals("PENDING").count();
-      elCount.textContent = pendentes;
-    } catch (e) {
-      elCount.textContent = "—";
-    }
-  }
+// --------------------------------------------------------------------------
+// Prontidão da Operação: checklist do que ainda falta configurar. Lê o estado
+// real já carregado (coordenadas, links, contador, notificações) — nenhuma
+// chamada nova ao servidor.
+// --------------------------------------------------------------------------
+function calcularPendenciasOperacao() {
+  const itens = [];
 
-  const elCache = document.getElementById("config-app-cache-status");
-  if (elCache) {
-    if ("serviceWorker" in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration();
-      elCache.textContent = reg ? "Ativo (offline habilitado)" : "Não ativo neste dispositivo";
-    } else {
-      elCache.textContent = "Não suportado neste navegador";
-    }
+  const semCoords = Object.keys(LOJAS_GEOLOC).filter(op => {
+    const g = LOJAS_GEOLOC[op] || {};
+    return !g.lat || !g.lng;
+  });
+  itens.push({
+    ok: semCoords.length === 0,
+    titulo: "Localização das operações",
+    okTexto: "Todas as operações têm coordenadas definidas.",
+    pendenteTexto: `Sem coordenadas: ${semCoords.join(", ")} — a cerca virtual bloqueia a marcação de ponto nessas operações.`
+  });
+
+  const semHorario = Object.keys(LOJAS_GEOLOC).filter(op => {
+    const c = OPERACOES_CONFIG[op];
+    return !c || !c.abertura || !c.fechamento;
+  });
+  itens.push({
+    ok: semHorario.length === 0,
+    titulo: "Horário de funcionamento",
+    okTexto: "Abertura e fechamento definidos em todas as operações.",
+    pendenteTexto: `Sem horário: ${semHorario.join(", ")} — o Meta Hora a Hora fica sem base de cálculo.`
+  });
+
+  const raioOk = GEOFENCE_RAIO_METROS >= 10 && GEOFENCE_RAIO_METROS <= 500;
+  itens.push({
+    ok: raioOk,
+    titulo: "Cerca virtual do ponto",
+    okTexto: `Raio de tolerância em ${GEOFENCE_RAIO_METROS} metros.`,
+    pendenteTexto: "Raio de tolerância fora da faixa recomendada (10 a 500 metros)."
+  });
+
+  const gruposTodos = { ...WHATSAPP_GRUPOS, ...WHATSAPP_GRUPOS_FA };
+  const semGrupo = Object.keys(gruposTodos).filter(loja => {
+    const v = (gruposTodos[loja] || "").trim();
+    return !v.startsWith("https://chat.whatsapp.com/");
+  });
+  itens.push({
+    ok: semGrupo.length === 0,
+    titulo: "Grupos de WhatsApp",
+    okTexto: "Todas as lojas com link de grupo válido.",
+    pendenteTexto: `Sem link válido: ${semGrupo.join(", ")} — os avisos dessas lojas não têm para onde ir.`
+  });
+
+  itens.push({
+    ok: !!(config.contadorEmail || "").trim(),
+    titulo: "E-mail do contador",
+    okTexto: `Folha de Ponto vai para ${config.contadorEmail}.`,
+    pendenteTexto: "Sem e-mail cadastrado — não dá para enviar a Folha de Ponto ao contador."
+  });
+
+  itens.push({
+    ok: loadNotifMasterEnabled(),
+    titulo: "Notificações de eventos",
+    okTexto: "Alertas de eventos ativos.",
+    pendenteTexto: "Chave mestra desligada — nenhum alerta de evento está sendo enviado."
+  });
+
+  return itens;
+}
+
+function renderProntidaoOperacao() {
+  const lista = document.getElementById("config-prontidao-lista");
+  const resumo = document.getElementById("config-prontidao-resumo");
+  if (!lista) return;
+
+  const itens = calcularPendenciasOperacao();
+  const pendentes = itens.filter(i => !i.ok);
+
+  lista.innerHTML = itens.map(i => `
+    <li class="flex items-start gap-2 p-2 rounded-lg ${i.ok ? "" : "bg-amber-950/10 border border-amber-800/30"}">
+      <i class="fa-solid ${i.ok ? "fa-circle-check text-emerald-600" : "fa-triangle-exclamation text-amber-600"} mt-0.5"></i>
+      <span>
+        <strong class="block">${i.titulo}</strong>
+        <span class="text-muted">${i.ok ? i.okTexto : i.pendenteTexto}</span>
+      </span>
+    </li>
+  `).join("");
+
+  if (resumo) {
+    const tudoOk = pendentes.length === 0;
+    resumo.textContent = tudoOk ? "Tudo configurado" : `${pendentes.length} pendência${pendentes.length > 1 ? "s" : ""}`;
+    resumo.className = `px-3 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap ${
+      tudoOk ? "bg-emerald-950/10 border-emerald-800/30 text-emerald-700" : "bg-amber-950/10 border-amber-800/30 text-amber-700"
+    }`;
   }
+}
+
+
+// --------------------------------------------------------------------------
+// Busca dentro do painel: filtra os cards pelo texto visível + as palavras-chave
+// em data-config-busca. Cards ocultos por perfil continuam ocultos.
+// --------------------------------------------------------------------------
+function aplicarFiltroConfiguracoes() {
+  const input = document.getElementById("config-busca");
+  const grid = document.getElementById("config-grid");
+  if (!input || !grid) return;
+
+  const termo = input.value.trim().toLowerCase();
+  // Sem acentos, para "operacoes" achar "Operações".
+  const RE_ACENTOS = new RegExp("[\\u0300-\\u036f]", "g");
+  const normalizar = (s) => s.normalize("NFD").replace(RE_ACENTOS, "").toLowerCase();
+  const alvo = normalizar(termo);
+
+  Array.from(grid.children).forEach(card => {
+    // Sem termo: devolve o card ao controle de visibilidade original (perfil).
+    if (!alvo) {
+      if (card.dataset.configOculto === "1") card.classList.add("hidden");
+      else if (card.dataset.configOculto === "0") card.classList.remove("hidden");
+      delete card.dataset.configOculto;
+      return;
+    }
+
+    // Guarda o estado original de visibilidade na primeira filtragem.
+    if (card.dataset.configOculto === undefined) {
+      card.dataset.configOculto = card.classList.contains("hidden") ? "1" : "0";
+    }
+    if (card.dataset.configOculto === "1") return; // oculto por perfil: nunca reaparece na busca
+
+    const texto = normalizar(`${card.dataset.configBusca || ""} ${card.textContent || ""}`);
+    const casa = texto.includes(alvo);
+    card.classList.toggle("hidden", !casa);
+
+    // Card recolhido que deu match: abre sozinho, senão a busca "acha" algo que
+    // continua escondido dentro do card.
+    if (casa) {
+      const toggle = card.querySelector(".config-toggle");
+      if (toggle && toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+    }
+  });
 }
 
 const btnForcarAtualizacao = document.getElementById("config-btn-forcar-atualizacao");
@@ -10194,6 +10530,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
       showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
     });
   }
@@ -10222,21 +10559,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const semCoordenadas = Object.keys(novoGeoloc).filter(op => novoGeoloc[op].lat === 0 && novoGeoloc[op].lng === 0);
 
+      // O raio da cerca virtual agora é salvo junto (mesmo card).
+      const inputRaio = document.getElementById("config-geofence-raio");
+      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
+      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
+        showToast("Informe um raio de cerca entre 10 e 500 metros.", "erro");
+        return;
+      }
+
       btnSaveOperacoes.disabled = true;
       // Persiste no backend (tabela `configuracoes`, cadastro centralizado — vale
       // para todos os dispositivos/colaboradoras, não só para quem salvou), com
       // fallback local se a API estiver offline no momento do salvamento.
       const okGeoloc = await salvarConfigAPI("operacoesGeoloc", JSON.stringify(novoGeoloc));
       const okConfig = await salvarConfigAPI("operacoesConfig", JSON.stringify(novoConfig));
+      const okRaio = await salvarConfigAPI("geofenceRaioMetros", raio);
       btnSaveOperacoes.disabled = false;
 
       Object.assign(LOJAS_GEOLOC, novoGeoloc);
       Object.assign(OPERACOES_CONFIG, novoConfig);
+      GEOFENCE_RAIO_METROS = raio;
       config.operacoesGeoloc = novoGeoloc;
       config.operacoesConfig = novoConfig;
+      config.geofenceRaioMetros = raio;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
 
-      if (okGeoloc && okConfig) {
+      if (okGeoloc && okConfig && okRaio) {
         if (semCoordenadas.length > 0) {
           showToast(`Salvo! Atenção: ${semCoordenadas.join(", ")} ainda ${semCoordenadas.length > 1 ? "estão" : "está"} com coordenadas 0,0 — a cerca virtual vai bloquear a marcação de ponto até isso ser corrigido.`, "erro");
         } else {
@@ -10248,28 +10597,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const btnSaveGeofence = document.getElementById("config-btn-save-geofence");
-  if (btnSaveGeofence) {
-    btnSaveGeofence.addEventListener("click", async () => {
-      const inputRaio = document.getElementById("config-geofence-raio");
-      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
-      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
-        showToast("Informe um raio entre 10 e 500 metros.", "erro");
-        return;
-      }
-      btnSaveGeofence.disabled = true;
-      const ok = await salvarConfigAPI("geofenceRaioMetros", raio);
-      btnSaveGeofence.disabled = false;
+  // Busca do painel (filtra os cards conforme se digita)
+  const inputBuscaConfig = document.getElementById("config-busca");
+  if (inputBuscaConfig) {
+    inputBuscaConfig.addEventListener("input", aplicarFiltroConfiguracoes);
+  }
 
-      GEOFENCE_RAIO_METROS = raio;
-      config.geofenceRaioMetros = raio;
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-
-      showToast(ok
-        ? "Raio de tolerância salvo para todos os dispositivos!"
-        : "Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar.", ok ? "sucesso" : "erro");
+  // Prontidão da Operação: revalidar sob demanda
+  const btnRevalidarProntidao = document.getElementById("config-btn-revalidar-prontidao");
+  if (btnRevalidarProntidao) {
+    btnRevalidarProntidao.addEventListener("click", () => {
+      renderProntidaoOperacao();
+      showToast("Checklist de prontidão atualizado.", "sucesso");
     });
   }
+
+  // Cards recolhíveis do painel (Operações, WhatsApp, Contador)
+  document.querySelectorAll(".config-toggle").forEach(botao => {
+    botao.addEventListener("click", () => {
+      const corpo = document.getElementById(botao.getAttribute("aria-controls"));
+      if (!corpo) return;
+      const abrindo = corpo.classList.contains("hidden");
+      corpo.classList.toggle("hidden", !abrindo);
+      botao.setAttribute("aria-expanded", String(abrindo));
+      const icone = botao.querySelector(".config-toggle-icon");
+      if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+    });
+  });
 
   const btnSaveContador = document.getElementById("config-btn-save-contador");
   if (btnSaveContador) {
@@ -10292,6 +10646,7 @@ document.addEventListener("DOMContentLoaded", () => {
       config.contadorNome = nomeContador;
       config.contadorEmail = emailContador;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      renderProntidaoOperacao();
 
       showToast((okNome && okEmail)
         ? "Dados do contador salvos!"
@@ -10433,12 +10788,12 @@ function gerarSvgRadarDisc(valores, size = 260) {
 
   const grades = [0.25, 0.5, 0.75, 1].map(frac => {
     const pontos = eixos.map(e => paraXY(e.angulo, raioMax * frac).join(",")).join(" ");
-    return `<polygon points="${pontos}" fill="none" stroke="#1F2A3D" stroke-width="1"/>`;
+    return `<polygon points="${pontos}" fill="none" stroke="#D7DEE9" stroke-width="1"/>`;
   }).join("");
 
   const linhasEixo = eixos.map(e => {
     const [x, y] = paraXY(e.angulo, raioMax);
-    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#1F2A3D" stroke-width="1"/>`;
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#D7DEE9" stroke-width="1"/>`;
   }).join("");
 
   const pontosPerfil = eixos.map(e => {
@@ -10535,12 +10890,12 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
   ];
   const fundos = quadrantes.map(q => `<rect x="${q.x}" y="${q.y}" width="${meio}" height="${meio}" fill="${q.cor}14"/>`).join("");
   const letrasQuadrante = quadrantes.map(q =>
-    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}22">${q.letra}</text>`
+    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}33">${q.letra}</text>`
   ).join("");
 
   const eixos = `
-    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#2A3550" stroke-width="1"/>
-    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#2A3550" stroke-width="1"/>
+    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#C7CEDC" stroke-width="1"/>
+    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#C7CEDC" stroke-width="1"/>
   `;
 
   const rotulosExtremos = `
@@ -10572,7 +10927,7 @@ function gerarSvgMapaTalentos(pessoas, size = 360) {
     }
 
     const cor = DISC_COLORS[p.dominante] || "#94A3B8";
-    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#0F1420" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
+    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#F3F5F9" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
   }).join("");
 
   return `
@@ -12348,6 +12703,600 @@ function inicializarMetaHoraHora() {
   }
 
   carregarMetaHoraHora();
+}
+
+// ==========================================================================
+// ANTI-BANIMENTO — compartilhado por qualquer tela que dispare WhatsApp em
+// sequência (Pós-visita, Aniversários): intervalo aleatório (nunca fixo)
+// entre cada disparo, e uma pausa longa a cada bloco de mensagens, pra
+// reduzir o padrão repetitivo que o WhatsApp usa pra detectar disparo em
+// massa e evitar o número ser bloqueado.
+// ==========================================================================
+const ENVIO_COOLDOWN_MIN_MS = 10000;
+const ENVIO_COOLDOWN_MAX_MS = 20000;
+const ENVIO_PAUSA_LONGA_MIN_MS = 8 * 60 * 1000;
+const ENVIO_PAUSA_LONGA_MAX_MS = 12 * 60 * 1000;
+
+function envioSortearMs(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function novoEstadoAntiBanimento() {
+  return { envios: 0, proximaPausaEm: 20 + Math.floor(Math.random() * 11) }; // bloco de 20 a 30
+}
+
+// Habilita o botão do próximo card da lista depois de um intervalo (curto,
+// aleatório) ou de uma pausa longa (a cada bloco de 20-30 envios), mostrando
+// uma contagem regressiva no elemento de mensagem correspondente.
+function habilitarProximoComAntiBanimento(cardAtual, estado, seletorBtn, seletorMsg) {
+  const proximo = cardAtual.nextElementSibling;
+  if (!proximo) return;
+  const proximoBtn = proximo.querySelector(seletorBtn);
+  const cooldownMsg = proximo.querySelector(seletorMsg);
+  if (!proximoBtn || proximoBtn.disabled === false) return;
+
+  const ehPausaLonga = estado.envios >= estado.proximaPausaEm;
+  const duracaoMs = ehPausaLonga
+    ? envioSortearMs(ENVIO_PAUSA_LONGA_MIN_MS, ENVIO_PAUSA_LONGA_MAX_MS)
+    : envioSortearMs(ENVIO_COOLDOWN_MIN_MS, ENVIO_COOLDOWN_MAX_MS);
+
+  if (ehPausaLonga) {
+    estado.envios = 0;
+    estado.proximaPausaEm = 20 + Math.floor(Math.random() * 11);
+  }
+
+  let restanteMs = duracaoMs;
+  cooldownMsg.classList.remove("hidden");
+
+  const formatar = (ms) => {
+    const totalSeg = Math.ceil(ms / 1000);
+    if (totalSeg <= 60) return `Aguarde ${totalSeg}s...`;
+    const min = Math.floor(totalSeg / 60);
+    const seg = totalSeg % 60;
+    return `Pausa de segurança: ${min}min ${String(seg).padStart(2, "0")}s...`;
+  };
+  cooldownMsg.textContent = formatar(restanteMs);
+
+  const passo = 1000;
+  const intervalo = setInterval(() => {
+    restanteMs -= passo;
+    if (restanteMs <= 0) {
+      clearInterval(intervalo);
+      proximoBtn.disabled = false;
+      cooldownMsg.classList.add("hidden");
+    } else {
+      cooldownMsg.textContent = formatar(restanteMs);
+    }
+  }, passo);
+}
+
+// ==========================================================================
+// PÓS-VISITA (FaçaAmigos) — importação manual do relatório operacional do
+// dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
+// ==========================================================================
+let posVisitaEstadoAntiBan = novoEstadoAntiBanimento();
+// Fila em tela, guardada para repor o buffer de mensagens da IA conforme os
+// envios avançam (ver preBuscarMensagemIA).
+let posVisitaFilaAtual = [];
+
+// Badge piscante ao lado de "PÓS-VISITA" no menu: mostra quantas mensagens
+// ainda estão pendentes de envio. Atualiza no login (pra aparecer mesmo sem
+// abrir a aba) e vai debitando a cada envio.
+async function buscarContagemPosVisitaPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgePosVisita((registros || []).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de pós-visita pendentes:", err);
+  }
+}
+
+function atualizarBadgePosVisita(quantidade) {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgePosVisita() {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgePosVisita(atual);
+}
+
+function renderPosVisita() {
+  const btnAtualizar = document.getElementById("pv-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => carregarPosVisita();
+  }
+
+  const inputData = document.getElementById("pv-import-data");
+  if (inputData && !inputData.value) {
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    inputData.value = ontem.toISOString().slice(0, 10);
+  }
+
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  if (inputArquivo && !inputArquivo.dataset.bound) {
+    inputArquivo.dataset.bound = "1";
+    inputArquivo.onchange = importarCsvPosVisita;
+  }
+
+  carregarPosVisita();
+  carregarRelatorioPosVisita();
+}
+
+// Dispara assim que o operador escolhe o arquivo — sem botão extra, sem
+// clique a mais. A lista de pendentes já aparece atualizada logo em seguida.
+async function importarCsvPosVisita() {
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  const inputData = document.getElementById("pv-import-data");
+  const msg = document.getElementById("pv-import-msg");
+
+  const arquivo = inputArquivo.files[0];
+  if (!arquivo) return;
+  if (!inputData.value) {
+    msg.textContent = "Informe a data do relatório antes de escolher o arquivo.";
+    inputArquivo.value = "";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+  formData.append("dataSessao", inputData.value);
+
+  inputArquivo.disabled = true;
+  msg.textContent = "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/importar-csv`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    msg.textContent = `${json.inseridos} de ${json.linhasNoArquivo} linha(s) importada(s).`;
+    showToast("Relatório importado com sucesso!", "sucesso");
+    inputArquivo.value = "";
+    carregarPosVisita();
+    carregarRelatorioPosVisita();
+  } catch (err) {
+    console.error("Erro ao importar CSV da Pós-visita:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o CSV.", "erro");
+  } finally {
+    inputArquivo.disabled = false;
+  }
+}
+
+async function carregarRelatorioPosVisita() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/relatorio`);
+    if (!res.ok) throw new Error("Falha ao carregar relatório");
+    const relatorio = await res.json();
+
+    document.getElementById("pv-relatorio-importados").textContent = relatorio.importados;
+    document.getElementById("pv-relatorio-enviados").textContent = relatorio.enviados;
+    const label = document.getElementById("pv-relatorio-data");
+    if (label && relatorio.mes) {
+      const [ano, mesNum] = relatorio.mes.split("-");
+      const nomeMes = new Date(Number(ano), Number(mesNum) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      label.textContent = `(${nomeMes})`;
+    }
+  } catch (err) {
+    console.error("Erro ao carregar relatório de pós-visita:", err);
+  }
+}
+
+async function carregarPosVisita() {
+  const lista = document.getElementById("pv-lista");
+  const vazio = document.getElementById("pv-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) throw new Error("Falha ao carregar fila");
+    const { registros } = await res.json();
+
+    lista.innerHTML = "";
+    atualizarBadgePosVisita((registros || []).length);
+    if (!registros || registros.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    registros.forEach((registro, index) => {
+      lista.appendChild(criarCardPosVisita(registro, index === 0));
+    });
+
+    // Personalização por IA (item 5): busca as primeiras em segundo plano.
+    posVisitaFilaAtual = registros;
+    abastecerBufferMensagensIA(registros, r => ({
+      tipo: "pos-visita",
+      nomeResponsavel: r.cliente,
+      nomeCrianca: r.crianca,
+      tempoTotalMinutos: r.tempoTotalMinutos
+    }));
+  } catch (err) {
+    console.error("Erro ao carregar fila de pós-visita:", err);
+    showToast("Erro ao carregar a fila de pós-visita.", "erro");
+  }
+}
+
+// ==========================================================================
+// MENSAGENS PERSONALIZADAS POR IA (item 5 — ver docs/IA.md)
+// ==========================================================================
+// O envio abre o WhatsApp com window.open DENTRO do clique. Se a mensagem
+// fosse pedida à IA no momento do clique, o `await` quebraria o gesto do
+// usuário e o navegador bloquearia o popup. Por isso a mensagem é buscada
+// ANTES, em segundo plano, e guardada no próprio registro.
+//
+// A pré-busca é limitada a um pequeno buffer à frente: a fila do servidor
+// serializa as chamadas e a cota gratuita é limitada — disparar 50 pré-buscas
+// ao abrir a tela gastaria a cota do dia sem necessidade.
+// ==========================================================================
+const IA_MSG_BUFFER = 3;
+
+function preBuscarMensagemIA(registro, corpo) {
+  if (registro._iaMensagem !== undefined) return Promise.resolve(); // já buscada ou em curso
+  registro._iaMensagem = null;
+
+  return fetch(`${API_BASE}/ia/mensagem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo)
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.mensagem) registro._iaMensagem = data.mensagem;
+    })
+    .catch(err => {
+      // Silencioso de propósito: sem mensagem da IA, o envio usa o template
+      // sorteado e o usuário não percebe diferença de fluxo.
+      console.warn("Pré-busca de mensagem por IA falhou:", err.message);
+    });
+}
+
+// Mantém o buffer abastecido conforme a fila anda.
+function abastecerBufferMensagensIA(registros, montarCorpo) {
+  (registros || [])
+    .filter(r => r._iaMensagem === undefined)
+    .slice(0, IA_MSG_BUFFER)
+    .forEach(r => preBuscarMensagemIA(r, montarCorpo(r)));
+}
+
+function criarCardPosVisita(registro, habilitado) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const dataFormatada = formatarDataBr(registro.dataSessao);
+  const avisoDuplicidade = registro.jaContactadoAntes
+    ? `<p class="text-[11px] text-amber-400 mt-1 font-bold" data-tip="Esse responsável e essa criança já receberam mensagem em outro dia — confira antes de enviar de novo">⚠️ Já contactado(a) anteriormente</p>`
+    : '';
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.cliente}</p>
+      <p class="text-[11px] text-brand-400 mt-0.5">${dataFormatada} · ${registro.tempoTotalMinutos} min no playground</p>
+      ${avisoDuplicidade}
+    </div>
+    <div class="flex flex-col gap-1">
+      <button type="button" class="pv-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${habilitado ? "" : "disabled"} data-tip="Abre o WhatsApp com uma mensagem carinhosa já pronta para esse responsável">
+        <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
+      </button>
+      <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
+    </div>
+  `;
+
+  const btn = card.querySelector(".pv-btn-enviar");
+  btn.onclick = () => dispararMensagemPosVisita(registro, card);
+
+  return card;
+}
+
+function dispararMensagemPosVisita(registro, card) {
+  const btn = card.querySelector(".pv-btn-enviar");
+  // Mensagem personalizada pela IA quando já chegou; senão, o sorteio de
+  // template de sempre. Nunca espera aqui: o window.open abaixo precisa
+  // continuar dentro do gesto do clique.
+  const mensagem = registro._iaMensagem || gerarMensagemPosVisita(registro.cliente, registro.crianca);
+  const url = `https://wa.me/${registro.numeroCliente}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Mensagem encaminhada';
+
+  posVisitaEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, posVisitaEstadoAntiBan, ".pv-btn-enviar", ".pv-cooldown-msg");
+
+  // Repõe o buffer: a fila andou, então a próxima ainda sem mensagem entra
+  // na pré-busca agora, com folga até chegar a vez dela.
+  abastecerBufferMensagensIA(posVisitaFilaAtual, r => ({
+    tipo: "pos-visita",
+    nomeResponsavel: r.cliente,
+    nomeCrianca: r.crianca,
+    tempoTotalMinutos: r.tempoTotalMinutos
+  }));
+
+  decrementarBadgePosVisita();
+
+  fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).then(() => carregarRelatorioPosVisita())
+    .catch(err => console.error("Erro ao marcar mensagem como enviada:", err));
+
+  // Deixa a confirmação visível por um instante e então some da fila.
+  setTimeout(() => {
+    card.remove();
+    const lista = document.getElementById("pv-lista");
+    const vazio = document.getElementById("pv-vazio");
+    if (lista && vazio && lista.children.length === 0) {
+      vazio.classList.remove("hidden");
+    }
+  }, 1500);
+}
+
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "";
+  const [ano, mes, dia] = String(dataIso).slice(0, 10).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
+
+// ==========================================================================
+// ANIVERSÁRIOS (FaçaAmigos) — importação do cadastro de crianças (PDF) e
+// disparo de parabéns no WhatsApp para quem faz aniversário hoje.
+// ==========================================================================
+let aniversarioEstadoAntiBan = novoEstadoAntiBanimento();
+let aniversariosFilaAtual = [];
+
+// Badge piscante ao lado de "ANIVERSÁRIOS" no menu: mostra quantos
+// aniversariantes de hoje ainda não foram parabenizados. Atualiza no login
+// (pra aparecer mesmo sem abrir a aba) e vai debitando a cada envio.
+async function buscarContagemAniversariosPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgeAniversarios((registros || []).filter(r => !r.jaEnviadoEsteAno).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de aniversariantes pendentes:", err);
+  }
+}
+
+function atualizarBadgeAniversarios(quantidade) {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgeAniversarios() {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgeAniversarios(atual);
+}
+
+function renderAniversarios() {
+  const btnAtualizar = document.getElementById("an-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => carregarAniversarios();
+  }
+
+  const dropzone = document.getElementById("an-dropzone");
+  const inputArquivo = document.getElementById("an-input-arquivo");
+  if (dropzone && !dropzone.dataset.bound) {
+    dropzone.dataset.bound = "1";
+    dropzone.addEventListener("click", () => inputArquivo.click());
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("border-brand-500");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("border-brand-500"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("border-brand-500");
+      if (e.dataTransfer.files.length) importarPdfsAniversario(e.dataTransfer.files);
+    });
+    inputArquivo.addEventListener("change", () => {
+      if (inputArquivo.files.length) importarPdfsAniversario(inputArquivo.files);
+    });
+  }
+
+  const btnConferir = document.getElementById("an-btn-conferir");
+  if (btnConferir && !btnConferir.dataset.bound) {
+    btnConferir.dataset.bound = "1";
+    btnConferir.onclick = alternarConferenciaAniversarios;
+  }
+
+  carregarAniversarios();
+}
+
+// Mostra/esconde a tabela com tudo que foi lido do PDF, pro operador
+// conferir se os dados vieram certos (nome, data e telefone).
+async function alternarConferenciaAniversarios() {
+  const painel = document.getElementById("an-conferencia");
+  const corpo = document.getElementById("an-conferencia-corpo");
+  if (!painel || !corpo) return;
+
+  if (!painel.classList.contains("hidden")) {
+    painel.classList.add("hidden");
+    return;
+  }
+
+  painel.classList.remove("hidden");
+  corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Carregando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/cadastrados`);
+    if (!res.ok) throw new Error("Falha ao carregar cadastros");
+    const { registros } = await res.json();
+
+    if (!registros || registros.length === 0) {
+      corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Nenhum cadastro importado ainda.</td></tr>`;
+      return;
+    }
+
+    corpo.innerHTML = registros.map(r => `
+      <tr class="border-t border-brand-900/60">
+        <td class="py-1 pr-3 font-semibold">${r.nomeCrianca}</td>
+        <td class="py-1 pr-3">${formatarDataBr(r.dataNascimento)}</td>
+        <td class="py-1 pr-3">${r.nomeResponsavel}</td>
+        <td class="py-1">${r.telefone}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Erro ao carregar conferência de cadastros:", err);
+    corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-red-400">Erro ao carregar os cadastros.</td></tr>`;
+  }
+}
+
+// Aceita um ou vários PDFs de uma vez (FileList do input ou do drag & drop).
+async function importarPdfsAniversario(arquivos) {
+  const msg = document.getElementById("an-import-msg");
+  const formData = new FormData();
+  Array.from(arquivos).forEach(arquivo => formData.append("arquivos", arquivo));
+
+  msg.textContent = arquivos.length > 1 ? `Importando ${arquivos.length} arquivos...` : "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/importar-pdf`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    const arquivosTexto = arquivos.length > 1 ? ` de ${json.arquivosProcessados} arquivo(s)` : "";
+    msg.textContent = `${json.importados} registro(s) importado(s)${arquivosTexto}` +
+      (json.duvidosos ? ` (${json.duvidosos} com nomes incertos — confira)` : "") +
+      (json.arquivosComErro && json.arquivosComErro.length ? ` — ${json.arquivosComErro.length} arquivo(s) com erro` : "") + ".";
+    showToast("Cadastro de aniversários importado!", "sucesso");
+    document.getElementById("an-input-arquivo").value = "";
+    carregarAniversarios();
+
+    // Se a conferência já estava aberta, recarrega pra mostrar o que entrou.
+    const conferencia = document.getElementById("an-conferencia");
+    if (conferencia && !conferencia.classList.contains("hidden")) {
+      conferencia.classList.add("hidden");
+      alternarConferenciaAniversarios();
+    }
+  } catch (err) {
+    console.error("Erro ao importar PDF(s) de aniversários:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o(s) PDF(s).", "erro");
+  }
+}
+
+async function carregarAniversarios() {
+  const lista = document.getElementById("an-lista");
+  const vazio = document.getElementById("an-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) throw new Error("Falha ao carregar aniversariantes");
+    const { registros, totalCadastrados } = await res.json();
+
+    const doDia = registros || [];
+    const totalEl = document.getElementById("an-total-cadastrados");
+    const hojeEl = document.getElementById("an-total-hoje");
+    if (totalEl) totalEl.textContent = totalCadastrados || 0;
+    if (hojeEl) hojeEl.textContent = doDia.length;
+
+    // Fora do bloco condicional de propósito: com a fila vazia o badge
+    // precisa ser zerado, e não manter o número da carga anterior.
+    atualizarBadgeAniversarios(doDia.filter(r => !r.jaEnviadoEsteAno).length);
+
+    lista.innerHTML = "";
+    if (doDia.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    let primeiroHabilitavelJaEncontrado = false;
+    doDia.forEach(registro => {
+      const habilitado = !registro.jaEnviadoEsteAno && !primeiroHabilitavelJaEncontrado;
+      if (!registro.jaEnviadoEsteAno) primeiroHabilitavelJaEncontrado = true;
+      lista.appendChild(criarCardAniversario(registro, habilitado));
+    });
+
+    // Personalização por IA (item 5): só para quem ainda não recebeu.
+    aniversariosFilaAtual = doDia.filter(r => !r.jaEnviadoEsteAno);
+    abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+      tipo: "aniversario",
+      nomeResponsavel: r.nomeResponsavel,
+      nomeCrianca: r.nomeCrianca,
+      idade: r.idade
+    }));
+  } catch (err) {
+    console.error("Erro ao carregar aniversariantes:", err);
+    showToast("Erro ao carregar os aniversariantes de hoje.", "erro");
+  }
+}
+
+function criarCardAniversario(registro, habilitado) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const jaEnviado = registro.jaEnviadoEsteAno;
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🎂 ${registro.nomeCrianca} <span class="text-brand-400 font-normal">— completa ${registro.idade} anos</span></p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.nomeResponsavel}</p>
+    </div>
+    <div class="flex flex-col gap-1">
+      <button type="button" class="an-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${(jaEnviado || !habilitado) ? "disabled" : ""} data-tip="Abre o WhatsApp com uma mensagem de parabéns já pronta para esse responsável">
+        <i class="fa-brands fa-whatsapp"></i> ${jaEnviado ? "Parabéns já enviado" : "Enviar Parabéns no WhatsApp"}
+      </button>
+      <span class="an-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
+    </div>
+  `;
+
+  if (!jaEnviado) {
+    const btn = card.querySelector(".an-btn-enviar");
+    btn.onclick = () => dispararParabensAniversario(registro, card);
+  }
+
+  return card;
+}
+
+function dispararParabensAniversario(registro, card) {
+  const btn = card.querySelector(".an-btn-enviar");
+  // Ver dispararMensagemPosVisita: a mensagem da IA é usada só se já estiver
+  // pronta, para não quebrar o gesto do clique que abre o WhatsApp.
+  const mensagem = registro._iaMensagem || gerarMensagemAniversario(registro.nomeResponsavel, registro.nomeCrianca, registro.idade);
+  const url = `https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns já enviado';
+
+  aniversarioEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, aniversarioEstadoAntiBan, ".an-btn-enviar", ".an-cooldown-msg");
+
+  abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+    tipo: "aniversario",
+    nomeResponsavel: r.nomeResponsavel,
+    nomeCrianca: r.nomeCrianca,
+    idade: r.idade
+  }));
+
+  decrementarBadgeAniversarios();
+
+  fetch(`${API_BASE}/aniversarios/marcar-enviado`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar parabéns como enviado:", err));
 }
 
 async function confirmarIntervaloMeta(horaSlot, valor) {
