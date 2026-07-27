@@ -43,7 +43,13 @@ const camelCaseMap = {
   jacontactadoantes: 'jaContactadoAntes',
   nomecrianca: 'nomeCrianca',
   nomeresponsavel: 'nomeResponsavel',
-  mensagemenviadaano: 'mensagemEnviadaAno'
+  mensagemenviadaano: 'mensagemEnviadaAno',
+  categoriaoutro: 'categoriaOutro',
+  nomearquivo: 'nomeArquivo',
+  mimetype: 'mimeType',
+  datavencimento: 'dataVencimento',
+  vencimentosugeridoia: 'vencimentoSugeridoIA',
+  enviadopor: 'enviadoPor'
 };
 
 function normalizeRow(row) {
@@ -458,6 +464,27 @@ function initDb(onSuccess) {
           valor TEXT,
           criadoEm TEXT,
           expiraEm BIGINT
+        )`,
+        // Pasta de Auditoria: repositório de documentos legais/societários
+        // (CNPJ, contrato social, alvará, habite-se, seguro, contratos
+        // trabalhistas etc.), separado por negócio (cacau-show/faca-amigos).
+        // conteudo guarda o arquivo em base64, mesmo padrão de
+        // registros.fotoEnvelope.
+        `CREATE TABLE IF NOT EXISTS documentos_auditoria (
+          id TEXT PRIMARY KEY,
+          negocio TEXT NOT NULL,
+          unidade TEXT,
+          categoria TEXT NOT NULL,
+          categoriaOutro TEXT,
+          nomeArquivo TEXT,
+          mimeType TEXT,
+          conteudo TEXT,
+          dataVencimento TEXT,
+          vencimentoSugeridoIA INTEGER DEFAULT 0,
+          observacoes TEXT,
+          enviadoPor TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT
         )`
       ];
 
@@ -624,6 +651,34 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_fa_bonif_diaria ON fa_bonificacao_diaria(usuario, unidade, data)', [], () => resolve());
+        });
+      });
+
+      // push_subscriptions ganhava uma linha nova a cada login (o client
+      // re-envia o mesmo endpoint em /api/subscribe), então um push disparado
+      // para o usuário era entregue uma vez por linha duplicada — daí a
+      // enxurrada de notificações repetidas no mesmo aparelho. Remove os
+      // duplicados existentes (mantendo a inscrição mais recente por endpoint)
+      // antes de travar o endpoint como único.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run(
+            'DELETE FROM push_subscriptions WHERE id NOT IN (SELECT MAX(id) FROM push_subscriptions GROUP BY endpoint)',
+            [],
+            (err) => {
+              if (err) console.error('Erro ao remover push_subscriptions duplicadas:', err.message);
+              resolve();
+            }
+          );
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)', [], (err) => {
+            if (err) console.error('Erro ao criar índice único push_subscriptions:', err.message);
+            resolve();
+          });
         });
       });
 

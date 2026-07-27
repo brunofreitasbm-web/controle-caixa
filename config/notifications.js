@@ -14,65 +14,73 @@ function notificacoesEventosAtivas(callback) {
   });
 }
 
-// ==========================================================================
-// Tipos de notificação — tradução entre servidor e tela de Configurações.
-// ==========================================================================
-// O servidor chama as notificações por nomes "longos" (meta_lembrete,
-// conferencia_nfe, divergencia_caixa...), mas a tabela de Configurações grava
-// as regras em `notificacoes_config` usando as chaves da tela (meta-lembrete,
-// nfe, divergencia...). Sem traduzir de um lado para o outro,
-// `rules[notificationType]` dava sempre undefined e todo tipo caía no default
-// — ou seja, nenhum toggle da tela tinha efeito de fato.
-//
-// Este mapa é o espelho de `notifTypeMap` em webapp/app.js
-// (getDestinatariosNotificacao). Chaves da tela passam direto, então os dois
-// jeitos de nomear funcionam.
-const CHAVE_PREF_POR_TIPO = {
-  envelopes: 'envelopes',
-  inventario_inicio: 'inv-inicio',
-  inventario_fim: 'inv-fim',
-  inventario_conclusao: 'inv-fim',
-  conferencia_nfe: 'nfe',
-  nfe: 'nfe',
-  divergencia: 'divergencia',
-  divergencia_caixa: 'divergencia',
-  meta_lembrete: 'meta-lembrete',
-  meta_atraso: 'meta-atraso'
+const REGRAS_PADRAO_NOTIFICACAO = {
+  envelopes: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_conclusao: { colab: false, lider: true, owner: true },
+  conferencia_nfe: { colab: false, lider: true, owner: true },
+  divergencia_caixa: { colab: false, lider: true, owner: true },
+  meta_lembrete: { colab: true, lider: false, owner: false, colab_ch: 'push' },
+  meta_atraso: { colab: false, lider: true, owner: true }
 };
 
-// Regras válidas enquanto Configurações nunca foi salvo. Espelha
-// DEFAULT_NOTIF_PREFS em webapp/app.js, para a tela e o servidor concordarem
-// também no estado inicial.
-const REGRAS_PADRAO = {
-  'envelopes': { colab: true, lider: true, owner: true },
-  'inv-inicio': { colab: true, lider: true, owner: true },
-  'inv-fim': { colab: true, lider: true, owner: true },
-  'nfe': { colab: true, lider: true, owner: true },
-  'divergencia': { colab: true, lider: true, owner: true },
-  'meta-lembrete': { colab: true, lider: false, owner: false },
-  'meta-atraso': { colab: false, lider: true, owner: true }
+// A tela de Configurações (webapp/app.js) grava as chaves com hífen
+// ("meta-lembrete", "nfe", "inv-fim"), enquanto o servidor dispara os avisos
+// com os nomes internos ("meta_lembrete", "conferencia_nfe"...). Sem essa
+// tradução, rules[tipo] vinha undefined e TODO tipo caía no fallback
+// "líder + owner" — era por isso que o lembrete de lançamento de meta, marcado
+// na tela como exclusivo da operadora, chegava assim mesmo para o Líder de
+// Operações e para o Owner.
+const ALIASES_TIPO_NOTIFICACAO = {
+  envelopes: ['envelopes'],
+  inventario_inicio: ['inventario_inicio', 'inv-inicio'],
+  inventario_conclusao: ['inventario_conclusao', 'inv-fim'],
+  conferencia_nfe: ['conferencia_nfe', 'nfe'],
+  divergencia_caixa: ['divergencia_caixa', 'divergencia'],
+  meta_lembrete: ['meta_lembrete', 'meta-lembrete'],
+  meta_atraso: ['meta_atraso', 'meta-atraso']
 };
 
-// Tipos que não têm linha na tabela de Configurações (hoje só
-// briefing_diario) não têm o que consultar: seguem no destino histórico.
-const REGRA_SEM_LINHA_NA_TELA = { colab: false, lider: true, owner: true };
+function tipoCanonicoNotificacao(notificationType) {
+  if (!notificationType) return null;
+  return Object.keys(ALIASES_TIPO_NOTIFICACAO)
+    .find(canonico => ALIASES_TIPO_NOTIFICACAO[canonico].includes(notificationType)) || null;
+}
 
-function regrasDoTipo(rules, notificationType) {
-  const chave = CHAVE_PREF_POR_TIPO[notificationType] || notificationType;
-  const salvas = rules && typeof rules === 'object' ? rules[chave] : null;
-  return salvas || REGRAS_PADRAO[chave] || REGRA_SEM_LINHA_NA_TELA;
+// Resolve as regras de um tipo considerando as duas grafias e caindo nos
+// padrões do servidor quando a configuração ainda não foi salva.
+function regrasDoTipoNotificacao(rulesBrutas, notificationType) {
+  const canonico = tipoCanonicoNotificacao(notificationType);
+  const rules = rulesBrutas && typeof rulesBrutas === 'object' ? rulesBrutas : {};
+
+  let typeRules = null;
+  if (canonico) {
+    const chaveSalva = ALIASES_TIPO_NOTIFICACAO[canonico].find(alias => rules[alias]);
+    typeRules = (chaveSalva && rules[chaveSalva]) || REGRAS_PADRAO_NOTIFICACAO[canonico];
+  } else {
+    typeRules = rules[notificationType] || { colab: false, lider: true, owner: true };
+  }
+
+  // Lançamento da Meta Hora a Hora é aviso de execução: quem lança é a
+  // operadora da loja. Líder de Operações e Owner acompanham pelo resumo de
+  // atraso (meta_atraso) e pelo briefing — nunca por este aviso, mesmo que uma
+  // configuração antiga no banco diga o contrário.
+  if (canonico === 'meta_lembrete') {
+    return Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
+  }
+  return typeRules;
 }
 
 function obterEmailsDestinatarios(notificationType, callback) {
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
-    let rules = null;
+    let rulesBrutas = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {
-        rules = JSON.parse(rowConfig.valor);
+        rulesBrutas = JSON.parse(rowConfig.valor);
       } catch (e) {}
     }
 
-    const typeRules = regrasDoTipo(rules, notificationType);
+    const typeRules = regrasDoTipoNotificacao(rulesBrutas, notificationType);
     const enabledRoles = [];
     if (typeRules.colab) enabledRoles.push('consultora', 'consultora_fa');
     if (typeRules.lider) enabledRoles.push('consultora_dashboard');
@@ -331,10 +339,10 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
   
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
-    let rules = null;
+    let rulesBrutas = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {
-        rules = JSON.parse(rowConfig.valor);
+        rulesBrutas = JSON.parse(rowConfig.valor);
       } catch (e) {}
     }
 
@@ -346,19 +354,19 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
         finalTargetUsers = targetUsers.map(u => u.trim().toLowerCase());
       }
 
-      // Marca que as regras por perfil foram aplicadas: sem isso, um tipo com
-      // todos os perfis desmarcados terminaria com a lista vazia e cairia no
-      // fallback "SELECT * FROM push_subscriptions" — ou seja, desligar tudo
-      // acabava mandando para todo mundo.
-      let regrasAplicadas = false;
-
-      // Antes isto exigia `rules` carregado: sem `notificacoes_config` no
-      // banco, o filtro por perfil era pulado inteiro e o push ia para todas
-      // as inscrições. Agora as regras padrão valem sempre.
+      // Antes o filtro por perfil só rodava quando havia configuração salva no
+      // banco (`rules`): sem ela, o SELECT abaixo pegava TODAS as inscrições e
+      // o push ia para todo mundo inscrito — Líder e Owner incluídos. Agora as
+      // regras padrão valem sempre.
       if (notificationType) {
         const enabledRoles = [];
-        const typeRules = regrasDoTipo(rules, notificationType);
-        if (typeRules.colab) enabledRoles.push('consultora', 'consultora_fa');
+        const typeRules = regrasDoTipoNotificacao(rulesBrutas, notificationType);
+        // Operadoras só passaram a ter push agora, por causa do lembrete de
+        // meta. Respeitar o canal escolhido para elas evita transformar em push
+        // tudo que a tela de Configurações marca como e-mail.
+        if (typeRules.colab && (typeRules.colab_ch || 'email') === 'push') {
+          enabledRoles.push('consultora', 'consultora_fa');
+        }
         if (typeRules.lider) enabledRoles.push('consultora_dashboard');
         if (typeRules.owner) enabledRoles.push('owner');
 
@@ -368,18 +376,20 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
         } else {
           finalTargetUsers = filteredColabs.map(c => c.nome.toLowerCase());
         }
-        regrasAplicadas = true;
       }
 
-      if (regrasAplicadas && (!finalTargetUsers || finalTargetUsers.length === 0)) {
-        console.log(`Push notification (${title}) ignorada: nenhum perfil habilitado para o tipo "${notificationType}".`);
+      // Lista vazia significa "ninguém habilitado para este tipo" e não "manda
+      // para todo mundo": sem esta guarda, um tipo restrito a um perfil que não
+      // tem ninguém inscrito caía no SELECT sem WHERE e notificava a base toda.
+      if (Array.isArray(finalTargetUsers) && finalTargetUsers.length === 0) {
+        console.log(`Push notification (${title}) ignorada: nenhum perfil habilitado para o tipo ${notificationType}.`);
         return;
       }
 
       const sql = finalTargetUsers && finalTargetUsers.length > 0
         ? `SELECT * FROM push_subscriptions WHERE LOWER(usuario) IN (${finalTargetUsers.map(() => '?').join(',')})`
         : 'SELECT * FROM push_subscriptions';
-      
+
       const params = finalTargetUsers && finalTargetUsers.length > 0 ? finalTargetUsers : [];
 
       db.all(sql, params, (errSubs, rows) => {

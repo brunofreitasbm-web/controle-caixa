@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v35'; // v35: network-first no app shell + reload automatico apos deploy + instalacao resiliente a asset ausente
+const CACHE_NAME = 'ponto-pwa-v36'; // v36: adiciona Pasta de Auditoria (pasta-auditoria.js)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/realtime.js',
   '/insights-ia.js',
+  '/pasta-auditoria.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

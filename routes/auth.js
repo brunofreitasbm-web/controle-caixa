@@ -57,21 +57,19 @@ router.post('/subscribe', (req, res) => {
     return res.status(400).json({ error: 'Inscrição inválida' });
   }
 
-  // `endpoint` não tem UNIQUE na tabela e o app chama /subscribe a cada
-  // login/abertura: sem apagar a inscrição anterior, o mesmo aparelho acumula
-  // várias linhas e recebe uma cópia de cada notificação por linha.
-  db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [subscription.endpoint], (errDel) => {
-    if (errDel) return res.status(500).json({ error: errDel.message });
-
-    db.run(
-      'INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)',
-      [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuario, criadoEm],
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ success: true });
-      }
-    );
-  });
+  db.run(
+    `INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       keys_p256dh = excluded.keys_p256dh,
+       keys_auth = excluded.keys_auth,
+       usuario = excluded.usuario,
+       criadoEm = excluded.criadoEm`,
+    [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuario, criadoEm],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ success: true });
+    }
+  );
 });
 
 // 2. Obter PINs (retorna apenas quais usuários têm PIN — NUNCA retorna os PINs reais)
