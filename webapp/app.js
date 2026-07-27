@@ -100,10 +100,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
-  consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "pasta-auditoria-cs", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
+  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1381,7 +1381,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-logistica", "group-boletos", "group-insights-ia", "group-importacoes",
+  ["group-controle-caixa", "group-logistica", "group-boletos", "group-pasta-auditoria", "group-insights-ia", "group-importacoes",
    "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -1647,7 +1647,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios", "pasta-auditoria-cs", "pasta-auditoria-fa"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1717,6 +1717,8 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
+  if (tabName === "pasta-auditoria-cs" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("cacau-show");
+  if (tabName === "pasta-auditoria-fa" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("faca-amigos");
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();

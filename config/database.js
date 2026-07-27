@@ -43,7 +43,13 @@ const camelCaseMap = {
   jacontactadoantes: 'jaContactadoAntes',
   nomecrianca: 'nomeCrianca',
   nomeresponsavel: 'nomeResponsavel',
-  mensagemenviadaano: 'mensagemEnviadaAno'
+  mensagemenviadaano: 'mensagemEnviadaAno',
+  categoriaoutro: 'categoriaOutro',
+  nomearquivo: 'nomeArquivo',
+  mimetype: 'mimeType',
+  datavencimento: 'dataVencimento',
+  vencimentosugeridoia: 'vencimentoSugeridoIA',
+  enviadopor: 'enviadoPor'
 };
 
 function normalizeRow(row) {
@@ -458,6 +464,27 @@ function initDb(onSuccess) {
           valor TEXT,
           criadoEm TEXT,
           expiraEm BIGINT
+        )`,
+        // Pasta de Auditoria: repositório de documentos legais/societários
+        // (CNPJ, contrato social, alvará, habite-se, seguro, contratos
+        // trabalhistas etc.), separado por negócio (cacau-show/faca-amigos).
+        // conteudo guarda o arquivo em base64, mesmo padrão de
+        // registros.fotoEnvelope.
+        `CREATE TABLE IF NOT EXISTS documentos_auditoria (
+          id TEXT PRIMARY KEY,
+          negocio TEXT NOT NULL,
+          unidade TEXT,
+          categoria TEXT NOT NULL,
+          categoriaOutro TEXT,
+          nomeArquivo TEXT,
+          mimeType TEXT,
+          conteudo TEXT,
+          dataVencimento TEXT,
+          vencimentoSugeridoIA INTEGER DEFAULT 0,
+          observacoes TEXT,
+          enviadoPor TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT
         )`
       ];
 
