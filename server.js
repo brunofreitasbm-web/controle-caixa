@@ -50,6 +50,14 @@ app.use(express.json({ limit: '15mb' }));
 // Servir os arquivos estáticos da webapp
 app.use(express.static(path.join(__dirname, 'webapp')));
 
+// v2 (React) — nova interface em preview, isolada em /v2. Não afeta a rota
+// "/" (webapp/ antiga) — só é montada se o build do frontend já existir.
+const v2Dist = path.join(__dirname, 'frontend', 'dist');
+if (fs.existsSync(v2Dist)) {
+  app.use('/v2', express.static(v2Dist));
+  app.get('/v2/*', (req, res) => res.sendFile(path.join(v2Dist, 'index.html')));
+}
+
 // Registrar Rotas Modularizadas
 // O canal SSE vem primeiro: é uma conexão longa e não deve passar por nenhum
 // middleware de parsing/roteamento mais pesado.
