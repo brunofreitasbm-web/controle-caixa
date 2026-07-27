@@ -26,12 +26,16 @@ export function clearCurrentUser() {
   localStorage.removeItem(MODULO_KEY);
 }
 
-export function getModuloAtual() {
-  return localStorage.getItem(MODULO_KEY) || null;
-}
-
-export function setModuloAtual(modulo) {
-  localStorage.setItem(MODULO_KEY, modulo);
+export function rotaPadraoPorRole(role) {
+  switch (role) {
+    case ROLES.CONSULTORA_FA:
+      return '/faca-amigos/dashboard';
+    case ROLES.CONSULTORA:
+    case ROLES.CONSULTORA_DASHBOARD:
+    case ROLES.OWNER:
+    default:
+      return '/caixa/dashboard';
+  }
 }
 
 export function isOwner(user) {

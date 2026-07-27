@@ -3,7 +3,15 @@ import { useLocation } from 'react-router-dom';
 import { NAV_GROUPS } from '../../routes/navConfig.js';
 import RealtimeIndicator from './RealtimeIndicator.jsx';
 
-const FLAT_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+function flattenItems(list) {
+  return (list || []).flatMap((item) => [item, ...flattenItems(item.children)]);
+}
+
+function flattenGroups(groups) {
+  return groups.flatMap((g) => (g.subgroups ? g.subgroups.flatMap((sg) => flattenItems(sg.items)) : flattenItems(g.items)));
+}
+
+const FLAT_ITEMS = flattenGroups(NAV_GROUPS);
 
 function tituloAtual(pathname) {
   const item = FLAT_ITEMS.find((i) => pathname.startsWith(i.path));

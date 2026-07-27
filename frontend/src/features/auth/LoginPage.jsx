@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Delete, User } from 'lucide-react';
 import { api } from '../../lib/apiClient.js';
-import { getCurrentUser, setCurrentUser } from '../../lib/auth.js';
+import { getCurrentUser, setCurrentUser, rotaPadraoPorRole } from '../../lib/auth.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 
 export default function LoginPage() {
@@ -23,7 +23,8 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (getCurrentUser()) navigate('/modulos', { replace: true });
+    const user = getCurrentUser();
+    if (user) navigate(rotaPadraoPorRole(user.role), { replace: true });
   }, [navigate]);
 
   const usuarios = useMemo(() => {
@@ -40,7 +41,7 @@ export default function LoginPage() {
       if (res?.valid) {
         setCurrentUser({ nome: selected.nome, role: selected.role });
         toast.success(`Bem-vindo(a), ${selected.nome}!`);
-        navigate('/modulos', { replace: true });
+        navigate(rotaPadraoPorRole(selected.role), { replace: true });
       } else {
         toast.error('PIN incorreto.');
         setPin('');

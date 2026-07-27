@@ -13,7 +13,7 @@ import FonteBadge from './FonteBadge.jsx';
 // FaçaAmigos) — mesmo conjunto de config/notifications.js#OPERACOES_CONFIG_META.
 const OPERACOES = ['Marambaia', 'Icoaraci', 'Mário Covas', 'Grão Pará', 'ParqueShopping', 'Parque Circuito'];
 
-export default function EscalaCard() {
+export default function EscalaCard({ lojas = OPERACOES }) {
   const [loja, setLoja] = useState('');
   const [data, setData] = useState('');
   const [janela, setJanela] = useState(60);
@@ -33,7 +33,7 @@ export default function EscalaCard() {
         <Field label="Operação">
           <Select value={loja} onChange={(e) => setLoja(e.target.value)}>
             <option value="">Selecione...</option>
-            {OPERACOES.map((op) => (
+            {lojas.map((op) => (
               <option key={op} value={op}>
                 {op}
               </option>

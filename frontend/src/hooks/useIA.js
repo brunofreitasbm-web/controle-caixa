@@ -85,3 +85,16 @@ export function useIAEscalaRefresh() {
     },
   });
 }
+
+// --------------------------------------------------------------------------
+// Copiloto Meta Hora a Hora
+// --------------------------------------------------------------------------
+export function useIACopiloto({ loja, horaSlot, data }, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ['ia', 'copiloto', loja, horaSlot, data || 'hoje'],
+    queryFn: () => api.get('/api/ia/copiloto', { loja, horaSlot, data: data || undefined }),
+    enabled: enabled && !!loja && !!horaSlot,
+    staleTime: STALE_TIME_IA,
+    retry: false,
+  });
+}

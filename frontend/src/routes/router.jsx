@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell.jsx';
 import RequireAuth from './RequireAuth.jsx';
+import { getCurrentUser, rotaPadraoPorRole } from '../lib/auth.js';
 
 import LoginPage from '../features/auth/LoginPage.jsx';
-import ModuloSelectPage from '../features/auth/ModuloSelectPage.jsx';
 
 import RegistroEnvelopePage from '../features/caixa/RegistroEnvelopePage.jsx';
 import DashboardEnvelopesPage from '../features/caixa/DashboardEnvelopesPage.jsx';
@@ -19,7 +19,8 @@ import FaMetaPage from '../features/facaAmigos/MetaPage.jsx';
 import FaRegrasPage from '../features/facaAmigos/RegrasPage.jsx';
 
 import ColaboradoresPage from '../features/colaboradores/ColaboradoresPage.jsx';
-import InsightsIAPage from '../features/insightsIA/InsightsIAPage.jsx';
+import InsightsIACacauShowPage from '../features/insightsIA/InsightsIACacauShowPage.jsx';
+import InsightsIAFacaAmigosPage from '../features/insightsIA/InsightsIAFacaAmigosPage.jsx';
 
 import ImportacoesPage from '../features/importacoes/ImportacoesPage.jsx';
 import ImportarNfePage from '../features/importacoes/ImportarNfePage.jsx';
@@ -43,14 +44,17 @@ import PosVisitaPage from '../features/posVisita/PosVisitaPage.jsx';
 import AniversariosPage from '../features/aniversarios/AniversariosPage.jsx';
 import ConfiguracoesPage from '../features/configuracoes/ConfiguracoesPage.jsx';
 
+function DefaultRedirect() {
+  const user = getCurrentUser();
+  return <Navigate to={user ? rotaPadraoPorRole(user.role) : '/login'} replace />;
+}
+
 export default function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<RequireAuth />}>
-        <Route path="/modulos" element={<ModuloSelectPage />} />
-
         <Route element={<AppShell />}>
           <Route path="/caixa/registro" element={<RegistroEnvelopePage />} />
           <Route path="/caixa/dashboard" element={<DashboardEnvelopesPage />} />
@@ -66,7 +70,9 @@ export default function AppRouter() {
           <Route path="/faca-amigos/regras" element={<FaRegrasPage />} />
 
           <Route path="/colaboradores" element={<ColaboradoresPage />} />
-          <Route path="/insights-ia" element={<InsightsIAPage />} />
+          <Route path="/insights-ia" element={<Navigate to="/insights-ia/cacau-show" replace />} />
+          <Route path="/insights-ia/cacau-show" element={<InsightsIACacauShowPage />} />
+          <Route path="/insights-ia/faca-amigos" element={<InsightsIAFacaAmigosPage />} />
 
           <Route path="/importacoes" element={<ImportacoesPage />} />
           <Route path="/importacoes/nfe" element={<ImportarNfePage />} />
@@ -90,11 +96,11 @@ export default function AppRouter() {
           <Route path="/aniversarios" element={<AniversariosPage />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
 
-          <Route path="/" element={<Navigate to="/modulos" replace />} />
+          <Route path="/" element={<DefaultRedirect />} />
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/modulos" replace />} />
+      <Route path="*" element={<DefaultRedirect />} />
     </Routes>
   );
 }
