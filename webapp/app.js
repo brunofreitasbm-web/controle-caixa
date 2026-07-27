@@ -153,7 +153,7 @@ const ROLE_NOTIF_MAP = {
 // Notificação por tipo e perfil (default: tudo ativado via Email)
 const DEFAULT_NOTIF_PREFS = {
   "envelopes": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
-  "inv-inicio": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "inv-inicio": { colab: true, lider: true, owner: false, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
@@ -610,7 +610,7 @@ async function checkApiConnection() {
 
 const defaultNotifRules = {
   envelopes: { colab: false, lider: true, owner: true },
-  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: false },
   inventario_conclusao: { colab: false, lider: true, owner: true },
   conferencia_nfe: { colab: false, lider: true, owner: true },
   divergencia_caixa: { colab: false, lider: true, owner: true },

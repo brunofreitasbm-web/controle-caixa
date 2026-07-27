@@ -16,7 +16,7 @@ function notificacoesEventosAtivas(callback) {
 
 const REGRAS_PADRAO_NOTIFICACAO = {
   envelopes: { colab: false, lider: true, owner: true },
-  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: false },
   inventario_conclusao: { colab: false, lider: true, owner: true },
   conferencia_nfe: { colab: false, lider: true, owner: true },
   divergencia_caixa: { colab: false, lider: true, owner: true },
