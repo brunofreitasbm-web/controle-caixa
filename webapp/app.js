@@ -4881,14 +4881,35 @@ function addToSyncQueue(action) {
 function atualizarBadgeSync() {
   const queue = getSyncQueue();
   const badge = document.getElementById("sync-badge");
+  const badgeCount = document.getElementById("sync-badge-count");
   if (badge) {
     if (queue.length > 0) {
-      badge.textContent = queue.length;
+      if (badgeCount) badgeCount.textContent = queue.length;
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
     }
   }
+}
+
+// O badge mostra só um número dentro de um ícone de nuvem; no celular não dá
+// pra passar o mouse pra ler o title="Ações pendentes de sincronização", então
+// o toque precisa explicar o que aquele número significa.
+const syncBadgeEl = document.getElementById("sync-badge");
+if (syncBadgeEl) {
+  const explicarSyncBadge = (e) => {
+    e.stopPropagation();
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+  };
+  syncBadgeEl.addEventListener("click", explicarSyncBadge);
+  syncBadgeEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      explicarSyncBadge(e);
+    }
+  });
 }
 
 async function processarFilaSync() {

@@ -434,8 +434,10 @@
         </button>
         <!-- Perfil do Usuário (BlueDox Style) -->
         <div id="topbar-user-profile" class="user-profile-header" style="position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; border-left: 1px solid var(--border); padding-left: 12px; margin-left: 8px;">
-          <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização"></span>
-          <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--wine), var(--wine-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+          <div style="position: relative; display: flex;">
+            <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--wine), var(--wine-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
+            <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização" role="button" tabindex="0" aria-label="Ações pendentes de sincronização com o servidor"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span id="sync-badge-count">0</span></span>
+          </div>
           <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
         </div>
       </div>
