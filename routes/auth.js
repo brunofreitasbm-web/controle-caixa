@@ -58,7 +58,12 @@ router.post('/subscribe', (req, res) => {
   }
 
   db.run(
-    'INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)',
+    `INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       keys_p256dh = excluded.keys_p256dh,
+       keys_auth = excluded.keys_auth,
+       usuario = excluded.usuario,
+       criadoEm = excluded.criadoEm`,
     [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuario, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });

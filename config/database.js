@@ -627,6 +627,34 @@ function initDb(onSuccess) {
         });
       });
 
+      // push_subscriptions ganhava uma linha nova a cada login (o client
+      // re-envia o mesmo endpoint em /api/subscribe), então um push disparado
+      // para o usuário era entregue uma vez por linha duplicada — daí a
+      // enxurrada de notificações repetidas no mesmo aparelho. Remove os
+      // duplicados existentes (mantendo a inscrição mais recente por endpoint)
+      // antes de travar o endpoint como único.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run(
+            'DELETE FROM push_subscriptions WHERE id NOT IN (SELECT MAX(id) FROM push_subscriptions GROUP BY endpoint)',
+            [],
+            (err) => {
+              if (err) console.error('Erro ao remover push_subscriptions duplicadas:', err.message);
+              resolve();
+            }
+          );
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)', [], (err) => {
+            if (err) console.error('Erro ao criar índice único push_subscriptions:', err.message);
+            resolve();
+          });
+        });
+      });
+
       // Corrige colunas monetárias criadas como REAL (float4) no Postgres, que
       // arredondam centavos em valores grandes. No SQLite REAL já é double de
       // 8 bytes e ALTER COLUMN TYPE não existe, então só roda no Postgres.
