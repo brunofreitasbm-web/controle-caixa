@@ -62,10 +62,11 @@ export function useHistoricoPonto(usuario) {
   });
 }
 
-export function useRelatorioPonto(operacao) {
+export function useRelatorioPonto(operacao, enabled = true) {
   return useQuery({
     queryKey: ['ponto', 'relatorio', operacao],
     queryFn: () => api.get('/api/ponto/relatorio', { operacao }),
+    enabled,
   });
 }
 
