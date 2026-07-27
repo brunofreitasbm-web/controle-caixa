@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
+const { registrarLog } = require('../config/logger');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -186,6 +187,24 @@ router.post('/colaboradores/:nome/reset-biometria', requireOwner, (req, res) => 
       if (err2) return res.status(500).json({ error: err2.message });
       db.run('DELETE FROM biometria_tentativas WHERE usuario = ?', [nome], (err3) => {
         if (err3) return res.status(500).json({ error: err3.message });
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
+// Redefinição em massa — apenas Admin/Owner. Limpa o embedding e o
+// histórico de tentativas/bloqueio de TODOS os colaboradores, liberando
+// todo mundo para um novo self-enrollment do zero (ex.: troca de câmera/
+// modelo de reconhecimento facial, suspeita de comprometimento em lote).
+router.post('/colaboradores/reset-biometria-todos', requireOwner, (req, res) => {
+  db.run('UPDATE colaboradores SET hasBiometricEnrolled = 0', [], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    db.run('DELETE FROM ponto_biometria', [], (err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      db.run('DELETE FROM biometria_tentativas', [], function(err3) {
+        if (err3) return res.status(500).json({ error: err3.message });
+        registrarLog(null, 'RESET_BIOMETRIA_TODOS', 'Resetou a biometria facial de todos os colaboradores.', req.body.actorUsuario);
         res.json({ success: true });
       });
     });
