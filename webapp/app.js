@@ -5282,6 +5282,34 @@ async function resetarBiometriaColaborador(nome) {
   }
 }
 
+async function resetarBiometriaTodosColaboradores() {
+  if (!currentUser || currentUser.role !== "owner") {
+    showToast("Apenas administradores podem resetar a biometria.", "erro");
+    return;
+  }
+  const ok = await showModal(`Deseja resetar a biometria facial de TODOS os colaboradores? Cada um precisará cadastrar o rosto novamente na próxima marcação de ponto e as tentativas de bloqueio serão liberadas.`, {
+    title: "Resetar Biometria de Todos",
+    icon: "🧑‍💻",
+    btnText: "Resetar Todos",
+    btnClass: "btn-danger"
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/colaboradores/reset-biometria-todos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorUsuario: currentUser.nome })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast("Biometria de todos os colaboradores foi resetada com sucesso.", "sucesso");
+    renderizarColaboradores();
+  } catch (e) {
+    console.error("Erro ao resetar biometria de todos:", e);
+    showToast("Não foi possível resetar a biometria de todos os colaboradores.", "erro");
+  }
+}
+
 let usuarioPinAdminEmEdicao = null;
 
 function abrirModalAdminPin(nome) {
@@ -5471,6 +5499,11 @@ if (btnAtualizarColab) {
     await renderizarColaboradores();
     showToast("Lista de colaboradores atualizada.", "info");
   };
+}
+
+const btnResetarBiometriaTodos = document.getElementById("btn-resetar-biometria-todos");
+if (btnResetarBiometriaTodos) {
+  btnResetarBiometriaTodos.onclick = resetarBiometriaTodosColaboradores;
 }
 
 /* ==========================================================================
