@@ -100,10 +100,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
-  consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "pasta-auditoria-cs", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
+  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1388,7 +1388,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-logistica", "group-boletos", "group-insights-ia", "group-importacoes",
+  ["group-controle-caixa", "group-logistica", "group-boletos", "group-pasta-auditoria", "group-insights-ia", "group-importacoes",
    "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -1654,7 +1654,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios", "pasta-auditoria-cs", "pasta-auditoria-fa"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1724,6 +1724,8 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
+  if (tabName === "pasta-auditoria-cs" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("cacau-show");
+  if (tabName === "pasta-auditoria-fa" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("faca-amigos");
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();
@@ -2598,7 +2600,7 @@ function mostrarGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
 
-function mensagemAvisoFA(r) {
+function mensagemAvisoFA(r, linhaVendas = "") {
   if (r.tipoOperacao === "Abertura") {
     return (
       `🧡 Abertura de Caixa - FaçaAmigos\n` +
@@ -2616,23 +2618,59 @@ function mensagemAvisoFA(r) {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
-    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "")
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "") +
+    linhaVendas
   );
 }
 
-function mostrarFaGeradorMensagem(registro) {
+// Busca o lançamento de vendas por checkpoint (30min/1h/2h) do dia para a
+// consultora+unidade, usado para compor a linha de conversão na mensagem de
+// fechamento. Só existe para as unidades que usam a metodologia de conversão.
+async function buscarLancamentoHojeFA(usuario, unidade) {
+  if (!UNIDADES_FA_CONVERSAO.includes(unidade)) return null;
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuario)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.find(l => l.data === hoje) || null;
+  } catch (err) {
+    console.error("Erro ao buscar lançamento de vendas do dia (FA):", err);
+    return null;
+  }
+}
+
+function linhaVendasConversaoFA(l) {
+  if (!l) return "";
+  const v30 = l.vendas30 || 0;
+  const v1h = l.vendas1h || 0;
+  const v2h = l.vendas2h || 0;
+  const total = v30 + v1h + v2h;
+  const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+  return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
+}
+
+async function mostrarFaGeradorMensagem(registro) {
   const banner = document.getElementById("fa-aviso-banner");
   const textarea = document.getElementById("fa-aviso-texto");
   const status = document.getElementById("fa-aviso-status");
   const linkBtn = document.getElementById("fa-btn-abrir-whatsapp");
 
-  textarea.value = mensagemAvisoFA(registro);
+  let linhaVendas = "";
+  if (registro.tipoOperacao === "Fechamento") {
+    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
+    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+  }
+
+  const texto = mensagemAvisoFA(registro, linhaVendas);
+  textarea.value = texto;
   status.classList.add("hidden");
 
   const linkGrupoLoja = WHATSAPP_GRUPOS_FA[registro.loja];
   linkBtn.href = linkGrupoLoja
     ? linkGrupoLoja
-    : `https://wa.me/?text=${encodeURIComponent(mensagemAvisoFA(registro))}`;
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
   async function marcarFaGerado() {
     registro.mensagemGerada = true;
@@ -4852,14 +4890,35 @@ function addToSyncQueue(action) {
 function atualizarBadgeSync() {
   const queue = getSyncQueue();
   const badge = document.getElementById("sync-badge");
+  const badgeCount = document.getElementById("sync-badge-count");
   if (badge) {
     if (queue.length > 0) {
-      badge.textContent = queue.length;
+      if (badgeCount) badgeCount.textContent = queue.length;
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
     }
   }
+}
+
+// O badge mostra só um número dentro de um ícone de nuvem; no celular não dá
+// pra passar o mouse pra ler o title="Ações pendentes de sincronização", então
+// o toque precisa explicar o que aquele número significa.
+const syncBadgeEl = document.getElementById("sync-badge");
+if (syncBadgeEl) {
+  const explicarSyncBadge = (e) => {
+    e.stopPropagation();
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+  };
+  syncBadgeEl.addEventListener("click", explicarSyncBadge);
+  syncBadgeEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      explicarSyncBadge(e);
+    }
+  });
 }
 
 async function processarFilaSync() {

@@ -88,8 +88,8 @@ body {
 .brand-logo {
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, #4A7FD3, #2D538E);
-    border-radius: 6px;
+    background: url('icons/icon-192.png?v=3') center/contain no-repeat;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
