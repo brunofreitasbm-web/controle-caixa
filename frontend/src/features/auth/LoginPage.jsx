@@ -27,11 +27,9 @@ export default function LoginPage() {
     if (user) navigate(rotaPadraoPorRole(user.role), { replace: true });
   }, [navigate]);
 
-  const usuarios = useMemo(() => {
-    const colaboradores = colaboradoresQuery.data || [];
-    const pins = pinsQuery.data || {};
-    return colaboradores.filter((c) => Object.prototype.hasOwnProperty.call(pins, c.nome));
-  }, [colaboradoresQuery.data, pinsQuery.data]);
+  const pins = pinsQuery.data || {};
+  const usuarios = colaboradoresQuery.data || [];
+  const temPin = (nome) => Object.prototype.hasOwnProperty.call(pins, nome);
 
   async function confirmarPin(valor) {
     if (!selected || valor.length < 4) return;
@@ -41,6 +39,13 @@ export default function LoginPage() {
       if (res?.valid) {
         setCurrentUser({ nome: selected.nome, role: selected.role });
         toast.success(`Bem-vindo(a), ${selected.nome}!`);
+        navigate(rotaPadraoPorRole(selected.role), { replace: true });
+      } else if (res?.hasPin === false) {
+        // Primeiro acesso: ainda não existe PIN cadastrado para esta pessoa —
+        // os 4 dígitos digitados agora viram o PIN dela.
+        await api.post('/api/pins', { usuario: selected.nome, pin: valor });
+        setCurrentUser({ nome: selected.nome, role: selected.role });
+        toast.success(`PIN criado! Bem-vindo(a), ${selected.nome}!`);
         navigate(rotaPadraoPorRole(selected.role), { replace: true });
       } else {
         toast.error('PIN incorreto.');
@@ -100,6 +105,11 @@ export default function LoginPage() {
                         <User size={18} />
                       </div>
                       <span className="text-xs font-bold text-slate-700 text-center truncate w-full">{u.nome}</span>
+                      {!temPin(u.nome) && (
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">
+                          Criar PIN
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -109,7 +119,9 @@ export default function LoginPage() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm text-slate-500">Olá,</p>
+                  <p className="text-sm text-slate-500">
+                    {temPin(selected.nome) ? 'Olá,' : 'Primeiro acesso — crie um PIN de 4 dígitos para'}
+                  </p>
                   <p className="font-bold text-slate-800">{selected.nome}</p>
                 </div>
                 <button
