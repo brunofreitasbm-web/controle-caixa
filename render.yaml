@@ -1,9 +1,3 @@
-databases:
-  - name: hub-operacoes-db
-    plan: free
-    databaseName: hub_operacoes
-    user: hub_operacoes
-
 services:
   - type: web
     name: hub-operacoes
@@ -15,7 +9,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      # Banco de produção: Postgres do Supabase (projeto "controle-caixa").
+      # Definido manualmente no painel do Render — NUNCA versionar a string de
+      # conexão aqui. Deve ser a mesma URL já usada pela implantação anterior.
       - key: DATABASE_URL
-        fromDatabase:
-          name: hub-operacoes-db
-          property: connectionString
+        sync: false
