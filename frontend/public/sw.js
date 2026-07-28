@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hub-v2-shell-v2';
+const CACHE_NAME = 'hub-v2-shell-v3';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -19,20 +19,29 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api')) return;
 
   event.respondWith(
-    caches.match(request).then(
-      (cached) =>
-        cached ||
-        fetch(request)
-          .then((response) => {
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            return response;
-          })
-          .catch(() => cached)
-    )
+          }
+          return response;
+        })
+        .catch(() => {
+          if (request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+          return Response.error();
+        });
+    })
   );
 });
