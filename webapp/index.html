@@ -218,87 +218,125 @@
     <div class="quick-actions-grid" id="quick-actions-grid"></div>
 
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
+
+      <!-- ===================== SEÇÃO: OPERAÇÕES =====================
+           Cacau Show e FaçaAmigos são módulos independentes entre si:
+           cada um vive no seu próprio accordion aqui dentro, com suas
+           próprias telas. Nenhum item de um aparece dentro do outro. -->
+      <h3 class="sidebar-section-title">Operações</h3>
+
+      <!-- ---------- Cacau Show ---------- -->
       <div class="sidebar-group collapsed" id="group-controle-caixa">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Registro, dashboard e histórico dos envelopes de caixa do Cacau Show">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Registro, dashboard, histórico e demais rotinas do Cacau Show">
           <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
-          <span class="group-title">Controle de Caixa</span>
+          <span class="group-title">Cacau Show</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
           <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro" data-tip="Lança um novo envelope de abertura ou fechamento de caixa">
             <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
-            <span class="tab-text">Registrar Envelope</span>
+            <span class="tab-text">Caixa (Registrar Envelope)</span>
           </button>
           <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard" data-tip="Visão geral dos envelopes em aberto e já retirados">
             <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
-            <span class="tab-text">Dashboard de Envelopes</span>
+            <span class="tab-text">Dashboard CS</span>
+          </button>
+          <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal" data-tip="Totais e gráficos de faturamento consolidados por mês">
+            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="tab-text">↳ Dashboard Mensal</span>
           </button>
           <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico" data-tip="Lista completa de envelopes registrados, com filtros">
             <span class="tab-icon"><i class="fa-solid fa-receipt"></i></span>
             <span class="tab-text">Histórico</span>
           </button>
-          <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal" data-tip="Totais e gráficos de faturamento consolidados por mês">
+          <button class="tab-btn hidden" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora" data-tip="Lança as vendas do turno e acompanha o progresso da meta do dia, intervalo a intervalo">
+            <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
+            <span class="tab-text">Meta Hora a Hora</span>
+          </button>
+          <button class="tab-btn" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
+            <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <span class="tab-text">Registro de Ponto</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes" data-tip="Central de upload de arquivos (XML de NF-e, PDF de títulos, metas diárias)">
+            <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
+            <span class="tab-text">Importações</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta" data-tip="Cadastro da meta anual e mensal de cada loja">
             <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="tab-text">Dashboard Mês</span>
+            <span class="tab-text">↳ Meta do Ano</span>
           </button>
-        </div>
-      </div>
-
-      <!-- Módulo Logística: Conferência e Inventário -->
-      <div class="sidebar-group collapsed" id="group-logistica">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Conferência de notas fiscais e contagem de estoque">
-          <span class="group-icon"><i class="fa-solid fa-boxes-packing"></i></span>
-          <span class="group-title">Logística</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
-          <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe" data-tip="Confere os produtos recebidos contra a nota fiscal (XML)">
-            <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
-            <span class="tab-text">Conferência de NF-e</span>
+          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-cs" data-tab="pasta-auditoria-cs" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-cs" data-tip="Documentos legais e societários do Cacau Show: CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas">
+            <span class="tab-icon"><i class="fa-solid fa-folder-open"></i></span>
+            <span class="tab-text">Pasta de Auditoria</span>
           </button>
-          <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque" data-tip="Contagem de estoque por loja, compartilhada entre as consultoras">
-            <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
-            <span class="tab-text">Inventário de Estoque</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Gestão de Boletos -->
-      <div class="sidebar-group collapsed" id="group-boletos">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Controle de boletos a pagar e conferência dos pagamentos">
-          <span class="group-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-          <span class="group-title">Gestão de Boletos</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
           <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos" data-tip="Lista de boletos importados, com status de pagamento">
             <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
             <span class="tab-text">Boletos</span>
           </button>
           <button class="tab-btn hidden" id="tab-btn-auditoria-boletos" data-tab="auditoria-boletos" role="tab" aria-selected="false" aria-controls="tab-auditoria-boletos" data-tip="Confere se os boletos pagos batem com o extrato">
             <span class="tab-icon"><i class="fa-solid fa-calculator text-brand-500"></i></span>
-            <span class="tab-text">Auditoria Boletos</span>
+            <span class="tab-text">↳ Auditoria de Boletos</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe" data-tip="Confere os produtos recebidos contra a nota fiscal (XML)">
+            <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
+            <span class="tab-text">Conferência de Notas</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque" data-tip="Contagem de estoque por loja, compartilhada entre as consultoras">
+            <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
+            <span class="tab-text">Inventários</span>
           </button>
         </div>
       </div>
 
-      <!-- Pasta de Auditoria: repositório de documentos legais/societários
-           (CNPJ, contrato social, alvará, habite-se, seguro, contratos
-           trabalhistas etc.), uma pasta por negócio -->
-      <div class="sidebar-group collapsed" id="group-pasta-auditoria">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Documentos legais e societários: CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas">
-          <span class="group-icon"><i class="fa-solid fa-folder-open"></i></span>
-          <span class="group-title">Pasta de Auditoria</span>
+      <!-- ---------- Faça Amigos ---------- -->
+      <div class="sidebar-group collapsed" id="group-faca-amigos">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Caixa, dashboard, meta, bonificação e rotinas do FaçaAmigos">
+          <span class="group-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
+          <span class="group-title">Faça Amigos</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-cs" data-tab="pasta-auditoria-cs" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-cs" data-tip="Documentos legais do Cacau Show">
-            <span class="tab-icon"><i class="fa-solid fa-folder"></i></span>
-            <span class="tab-text">Cacau Show</span>
+          <button class="tab-btn hidden fa-tab-btn" data-tab="faca-amigos" data-fa-subtab="fa-registro" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Lança um novo envelope de abertura/fechamento do FaçaAmigos">
+            <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
+            <span class="tab-text">Caixa (Registrar Envelope)</span>
           </button>
-          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-fa" data-tab="pasta-auditoria-fa" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-fa" data-tip="Documentos legais do Faça Amigos">
-            <span class="tab-icon"><i class="fa-solid fa-folder" style="color: #ff7a00;"></i></span>
-            <span class="tab-text">Faça Amigos</span>
+          <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" data-fa-subtab="fa-dashboard" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Visão geral dos envelopes do FaçaAmigos em aberto e retirados">
+            <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
+            <span class="tab-text">Dashboard FA</span>
+          </button>
+          <button class="tab-btn hidden fa-tab-btn" data-tab="faca-amigos" data-fa-subtab="fa-mensal" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Totais consolidados por mês do FaçaAmigos">
+            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="tab-text">↳ Dashboard Mensal</span>
+          </button>
+          <button class="tab-btn hidden fa-tab-btn" data-tab="faca-amigos" data-fa-subtab="fa-historico" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Lista completa de envelopes do FaçaAmigos registrados">
+            <span class="tab-icon"><i class="fa-solid fa-receipt"></i></span>
+            <span class="tab-text">Histórico</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-fa-meta" data-tab="faca-amigos" data-fa-subtab="fa-meta" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Lança as vendas do dia (30min/1h/2h) e mostra a bonificação calculada">
+            <span class="tab-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Meta</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-fa-regras" data-tab="faca-amigos" data-fa-subtab="fa-regras-bonificacao" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Owner: configura os valores e percentuais usados no cálculo da bonificação">
+            <span class="tab-icon"><i class="fa-solid fa-scale-balanced" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Regras de Bonificação (Owner)</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-pos-visita" data-tab="pos-visita" role="tab" aria-selected="false" aria-controls="tab-pos-visita" data-tip="Importa o relatório do dia anterior e dispara WhatsApp para quem visitou o playground">
+            <span class="tab-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
+            <span class="tab-text">Pós-Visita</span>
+            <span id="pv-badge" class="an-badge pv-badge hidden" data-tip="Mensagens de pós-visita ainda pendentes de envio">0</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-aniversarios" data-tab="aniversarios" role="tab" aria-selected="false" aria-controls="tab-aniversarios" data-tip="Importa o cadastro de crianças (PDF) e dispara parabéns no WhatsApp no dia do aniversário">
+            <span class="tab-icon"><i class="fa-solid fa-cake-candles" style="color: #f97316;"></i></span>
+            <span class="tab-text">Aniversariantes</span>
+            <span id="an-badge" class="an-badge hidden" data-tip="Aniversariantes de hoje que ainda não foram parabenizados">0</span>
+          </button>
+          <button class="tab-btn hidden" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
+            <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <span class="tab-text">Registro de Ponto</span>
+          </button>
+          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-fa" data-tab="pasta-auditoria-fa" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-fa" data-tip="Documentos legais e societários do FaçaAmigos: CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas">
+            <span class="tab-icon"><i class="fa-solid fa-folder-open" style="color: #ff7a00;"></i></span>
+            <span class="tab-text">Pasta de Documentação</span>
           </button>
         </div>
       </div>
@@ -324,86 +362,20 @@
         </div>
       </div>
 
-      <!-- Importações (uploads centralizados: XML de NF-e, PDF de Títulos,
-           Metas Diárias) + Meta do Ano (placeholder da PR #1, granularidade anual) -->
-      <div class="sidebar-group collapsed" id="group-importacoes">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Upload de arquivos que alimentam o sistema (NF-e, boletos, metas)">
-          <span class="group-icon"><i class="fa-solid fa-file-import"></i></span>
-          <span class="group-title">Importações</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes" data-tip="Central de upload de arquivos (XML de NF-e, PDF de títulos, metas diárias)">
-            <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
-            <span class="tab-text">Importações</span>
-          </button>
-          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta" data-tip="Cadastro da meta anual e mensal de cada loja">
-            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="tab-text">Meta do Ano</span>
-          </button>
-        </div>
-      </div>
+      <!-- ===================== ITENS DE TOPO (fora de Operações) ===================== -->
 
-      <!-- Meta Hora a Hora (vendas Cacau Show, independente do Controle de Caixa) -->
-      <div class="sidebar-group collapsed" id="group-meta-hora-hora">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Acompanhamento de vendas hora a hora contra a meta do dia">
-          <span class="group-icon"><i class="fa-solid fa-bullseye"></i></span>
-          <span class="group-title">Meta Hora a Hora</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-meta-hora-hora" data-tab="meta-hora-hora" role="tab" aria-selected="false" aria-controls="tab-meta-hora-hora" data-tip="Lança as vendas do turno e acompanha o progresso da meta do dia, intervalo a intervalo">
-            <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
-            <span class="tab-text">Meta Hora a Hora</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Meta do Faça Amigos: abre a aba FA já na sub-aba de bonificação -->
-      <div class="sidebar-group collapsed" id="group-fa-meta">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Meta de vendas e regras de bonificação das colaboradoras do FaçaAmigos">
-          <span class="group-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
-          <span class="group-title">Meta</span>
-          <span class="group-chevron">▼</span>
-        </button>
-        <div class="sidebar-group-content">
-          <button class="tab-btn hidden" id="tab-btn-fa-meta" data-tab="faca-amigos" data-fa-subtab="fa-meta" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Lança as vendas do dia (30min/1h/2h) e mostra a bonificação calculada">
-            <span class="tab-icon"><i class="fa-solid fa-bullseye" style="color: #ff7a00;"></i></span>
-            <span class="tab-text">Meta &amp; Bonificação</span>
-          </button>
-          <button class="tab-btn hidden" id="tab-btn-fa-regras" data-tab="faca-amigos" data-fa-subtab="fa-regras-bonificacao" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Configura os valores e percentuais usados no cálculo da bonificação">
-            <span class="tab-icon"><i class="fa-solid fa-scale-balanced" style="color: #ff7a00;"></i></span>
-            <span class="tab-text">Regras de Bonificação</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Outras opções do sistema -->
-      <button class="tab-btn hidden fa-tab-btn" id="tab-btn-faca-amigos" data-tab="faca-amigos" role="tab" aria-selected="false" aria-controls="tab-faca-amigos" data-tip="Registro de envelopes, dashboard, metas e bonificação do FaçaAmigos">
-        <span class="tab-icon"><i class="fa-solid fa-heart" style="color: #ff7a00;"></i></span>
-        <span class="tab-text">FaçaAmigos</span>
-      </button>
-      <button class="tab-btn hidden" id="tab-btn-pos-visita" data-tab="pos-visita" role="tab" aria-selected="false" aria-controls="tab-pos-visita" data-tip="Importa o relatório do dia anterior e dispara WhatsApp para quem visitou o playground">
-        <span class="tab-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
-        <span class="tab-text">PÓS-VISITA</span>
-        <span id="pv-badge" class="an-badge pv-badge hidden" data-tip="Mensagens de pós-visita ainda pendentes de envio">0</span>
-      </button>
-      <button class="tab-btn hidden" id="tab-btn-aniversarios" data-tab="aniversarios" role="tab" aria-selected="false" aria-controls="tab-aniversarios" data-tip="Importa o cadastro de crianças (PDF) e dispara parabéns no WhatsApp no dia do aniversário">
-        <span class="tab-icon"><i class="fa-solid fa-cake-candles" style="color: #f97316;"></i></span>
-        <span class="tab-text">ANIVERSÁRIOS</span>
-        <span id="an-badge" class="an-badge hidden" data-tip="Aniversariantes de hoje que ainda não foram parabenizados">0</span>
-      </button>
+      <!-- DISC: perfis comportamentais dos colaboradores, dos dois módulos -->
       <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
         <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
-        <span class="tab-text">Módulo RH (DISC)</span>
-      </button>
-      <button class="tab-btn" id="tab-btn-controle-ponto" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
-        <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
-        <span class="tab-text">Controle de Ponto</span>
+        <span class="tab-text">DISC</span>
       </button>
 
-      <!-- "Colaboradores" saiu do menu lateral: agora é um submenu dentro de
-           Configurações (card lançador, mesmo padrão da Auditoria de Ações). -->
+      <!-- Colaboradores: cadastro, PIN, unidade e perfil — promovido para o
+           menu principal (antes só acessível via Configurações). -->
+      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores" data-tip="Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)">
+        <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
+        <span class="tab-text">Colaboradores</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -3465,22 +3437,8 @@
             </div>
           </button>
 
-          <!-- Card lançador: Cadastro de Colaboradores — exclusivo Owner.
-               Mesmo padrão do card de Auditoria acima: é um .tab-btn de verdade,
-               então a visibilidade já é controlada por tabsPermitidas. -->
-          <button type="button" class="tab-btn hidden" data-config-busca="colaboradores equipe cadastro pin perfil unidade pessoas" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores"
-            style="all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;">
-            <div class="card p-5 rounded-2xl border border-border flex items-center justify-between gap-3 hover:border-brand-500 transition">
-              <div class="flex items-center gap-3">
-                <span class="tab-icon w-9 h-9 rounded-xl bg-brand-800/30 flex items-center justify-center text-brand-500"><i class="fa-solid fa-users-gear"></i></span>
-                <div class="text-left">
-                  <span class="tab-text block text-sm font-bold">Cadastro de Colaboradores</span>
-                  <span class="block text-[11px] text-muted mt-0.5">Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)</span>
-                </div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-muted text-xs"></i>
-            </div>
-          </button>
+          <!-- "Cadastro de Colaboradores" saiu de Configurações: agora é o
+               item de topo "Colaboradores" no menu principal (tab-btn-colaboradores). -->
 
           <!-- Card: Segurança & Sessão (compacto — tudo numa linha só) -->
           <div class="card p-5 rounded-2xl border border-border" data-config-busca="seguranca sessao pin senha timeout inatividade logout sair biometria">
