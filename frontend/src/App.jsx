@@ -7,7 +7,7 @@ import AppRouter from './routes/router.jsx';
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="/v2">
+      <BrowserRouter>
         <AppRouter />
         <Toaster position="top-right" richColors />
       </BrowserRouter>

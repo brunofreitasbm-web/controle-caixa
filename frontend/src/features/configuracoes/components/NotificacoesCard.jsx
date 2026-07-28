@@ -63,7 +63,7 @@ export default function NotificacoesCard() {
         toast.error('Permissão de notificações negada no navegador.');
         return;
       }
-      const reg = await navigator.serviceWorker.register('/v2/sw.js');
+      const reg = await navigator.serviceWorker.register('/sw.js');
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         const vapidKey = await api.get('/api/vapidPublicKey');

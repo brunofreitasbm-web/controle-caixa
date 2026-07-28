@@ -1,5 +1,5 @@
-const CACHE_NAME = 'hub-v2-shell-v1';
-const CORE_ASSETS = ['/v2/', '/v2/index.html', '/v2/manifest.json', '/v2/favicon.svg'];
+const CACHE_NAME = 'hub-v2-shell-v2';
+const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -20,7 +20,6 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (!url.pathname.startsWith('/v2/') || url.pathname.startsWith('/v2/api')) return;
   if (url.pathname.startsWith('/api')) return;
 
   event.respondWith(

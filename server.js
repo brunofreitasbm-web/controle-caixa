@@ -47,15 +47,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
-// Servir os arquivos estáticos da webapp
-app.use(express.static(path.join(__dirname, 'webapp')));
-
-// v2 (React) — nova interface em preview, isolada em /v2. Não afeta a rota
-// "/" (webapp/ antiga) — só é montada se o build do frontend já existir.
-const v2Dist = path.join(__dirname, 'frontend', 'dist');
-if (fs.existsSync(v2Dist)) {
-  app.use('/v2', express.static(v2Dist));
-  app.get('/v2/*', (req, res) => res.sendFile(path.join(v2Dist, 'index.html')));
+// Sistema v2.0 (React) — interface publicada, servida na raiz. A v1 antiga
+// (vanilla JS) foi arquivada em archive/webapp-v1 e não é mais servida.
+const frontendDist = path.join(__dirname, 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
 }
 
 // Registrar Rotas Modularizadas
@@ -393,6 +389,19 @@ app.get('/api/cron/ia-tick', async (req, res) => {
     console.error('[ia-tick] Erro:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Fallback de SPA (React Router): qualquer rota GET que não seja de API e não
+// bata em um arquivo estático do build cai no index.html do frontend.
+// Precisa vir depois de todas as rotas /api acima.
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Rota não encontrada.' });
+  }
+  if (!fs.existsSync(frontendDist)) {
+    return res.status(503).send('Build do frontend ainda não foi gerado (frontend/dist ausente).');
+  }
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // Inicializar banco de dados e iniciar servidor

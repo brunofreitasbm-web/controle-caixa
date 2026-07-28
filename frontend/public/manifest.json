@@ -1,8 +1,8 @@
 {
   "name": "HuB Operações",
   "short_name": "HuB Operações",
-  "start_url": "/v2/",
-  "scope": "/v2/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
