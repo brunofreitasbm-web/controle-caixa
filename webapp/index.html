@@ -1465,7 +1465,8 @@
           <div id="ia-status-linha"></div>
         </div>
 
-        <!-- Briefing do dia -->
+        <!-- Briefing do dia: cruza dados dos dois negócios, por isso fica
+             fora do toggle Cacau Show/FaçaAmigos abaixo. -->
         <div class="ia-card">
           <div class="ia-card-topo">
             <h3><i class="fa-solid fa-mug-hot"></i> Briefing do dia</h3>
@@ -1475,45 +1476,64 @@
           <div id="ia-briefing-conteudo"></div>
         </div>
 
-        <!-- Coach de conversão -->
-        <div class="ia-card">
-          <div class="ia-card-topo">
-            <h3><i class="fa-solid fa-medal"></i> Coach de conversão (FaçaAmigos)</h3>
-            <div class="flex gap-2 items-center">
-              <select id="ia-coach-colaboradora" class="ia-select"></select>
-              <button id="ia-coach-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
-              <button id="ia-coach-atualizar" class="btn-secondary btn-mini-outline" title="Ignora o cache e gera de novo"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <!-- Toggle Cacau Show / FaçaAmigos: os demais cartões são específicos
+             de um negócio (Escala e Copiloto usam dados de Meta Hora a Hora,
+             que só existe no Cacau Show; Coach usa colaboradoras do FA) — o
+             toggle só troca qual bloco fica visível, sem duplicar cartões. -->
+        <nav class="ia-negocio-toggle" id="ia-negocio-toggle" role="tablist" aria-label="Negócio dos Insights IA">
+          <button type="button" class="ia-negocio-btn active" data-ia-negocio="cacau-show" role="tab" aria-selected="true">
+            <i class="fa-solid fa-coins"></i> Cacau Show
+          </button>
+          <button type="button" class="ia-negocio-btn" data-ia-negocio="faca-amigos" role="tab" aria-selected="false">
+            <i class="fa-solid fa-heart" style="color: #ff7a00;"></i> Faça Amigos
+          </button>
+        </nav>
+
+        <!-- ---------- Cacau Show ---------- -->
+        <div class="ia-negocio-bloco" data-ia-negocio-bloco="cacau-show">
+          <!-- Escala inteligente -->
+          <div class="ia-card">
+            <div class="ia-card-topo">
+              <h3><i class="fa-solid fa-users-gear"></i> Escala inteligente</h3>
+              <div class="flex gap-2 items-center">
+                <select id="ia-escala-loja" class="ia-select"></select>
+                <button id="ia-escala-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+              </div>
             </div>
+            <p class="ia-card-sub">Horários que concentram venda e horários ociosos, para realocar equipe. Exige histórico mínimo de 14 dias de Meta Hora a Hora.</p>
+            <div id="ia-escala-conteudo"></div>
           </div>
-          <p class="ia-card-sub">Onde a conversão está, quanto falta para a próxima faixa e em que dia da semana o desempenho cai.</p>
-          <div id="ia-coach-conteudo"></div>
+
+          <!-- Copiloto Meta Hora a Hora -->
+          <div class="ia-card">
+            <div class="ia-card-topo">
+              <h3><i class="fa-solid fa-gauge-high"></i> Copiloto Meta Hora a Hora</h3>
+              <div class="flex gap-2 items-center">
+                <select id="ia-copiloto-loja" class="ia-select"></select>
+                <select id="ia-copiloto-hora" class="ia-select"></select>
+                <button id="ia-copiloto-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Ver aviso</button>
+              </div>
+            </div>
+            <p class="ia-card-sub">Prévia do aviso que a consultora recebe 10 minutos antes de cada intervalo, com o ritmo necessário para bater a meta.</p>
+            <div id="ia-copiloto-conteudo"></div>
+          </div>
         </div>
 
-        <!-- Escala inteligente -->
-        <div class="ia-card">
-          <div class="ia-card-topo">
-            <h3><i class="fa-solid fa-users-gear"></i> Escala inteligente</h3>
-            <div class="flex gap-2 items-center">
-              <select id="ia-escala-loja" class="ia-select"></select>
-              <button id="ia-escala-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+        <!-- ---------- Faça Amigos ---------- -->
+        <div class="ia-negocio-bloco hidden" data-ia-negocio-bloco="faca-amigos">
+          <!-- Coach de conversão -->
+          <div class="ia-card">
+            <div class="ia-card-topo">
+              <h3><i class="fa-solid fa-medal"></i> Coach de conversão</h3>
+              <div class="flex gap-2 items-center">
+                <select id="ia-coach-colaboradora" class="ia-select"></select>
+                <button id="ia-coach-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Analisar</button>
+                <button id="ia-coach-atualizar" class="btn-secondary btn-mini-outline" title="Ignora o cache e gera de novo"><i class="fa-solid fa-arrows-rotate"></i></button>
+              </div>
             </div>
+            <p class="ia-card-sub">Onde a conversão está, quanto falta para a próxima faixa e em que dia da semana o desempenho cai.</p>
+            <div id="ia-coach-conteudo"></div>
           </div>
-          <p class="ia-card-sub">Horários que concentram venda e horários ociosos, para realocar equipe. Exige histórico mínimo de 14 dias de Meta Hora a Hora.</p>
-          <div id="ia-escala-conteudo"></div>
-        </div>
-
-        <!-- Copiloto Meta Hora a Hora -->
-        <div class="ia-card">
-          <div class="ia-card-topo">
-            <h3><i class="fa-solid fa-gauge-high"></i> Copiloto Meta Hora a Hora</h3>
-            <div class="flex gap-2 items-center">
-              <select id="ia-copiloto-loja" class="ia-select"></select>
-              <select id="ia-copiloto-hora" class="ia-select"></select>
-              <button id="ia-copiloto-carregar" class="btn-secondary btn-mini-outline"><i class="fa-solid fa-play"></i> Ver aviso</button>
-            </div>
-          </div>
-          <p class="ia-card-sub">Prévia do aviso que a consultora recebe 10 minutos antes de cada intervalo, com o ritmo necessário para bater a meta.</p>
-          <div id="ia-copiloto-conteudo"></div>
         </div>
 
       </div>

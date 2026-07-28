@@ -1821,6 +1821,24 @@ document.querySelectorAll(".sidebar-group-header").forEach(header => {
   });
 });
 
+// Toggle Cacau Show / FaçaAmigos dentro de Insights IA: Escala e Copiloto usam
+// dados de Meta Hora a Hora (só existe no Cacau Show), Coach de conversão usa
+// colaboradoras do FaçaAmigos — o toggle troca qual bloco fica visível, sem
+// duplicar cartões nem disparar chamadas novas (cada cartão só carrega quando
+// o usuário aperta "Analisar", como já era).
+document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const negocio = btn.dataset.iaNegocio;
+    document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(b => {
+      const ativo = b === btn;
+      b.classList.toggle("active", ativo);
+      b.setAttribute("aria-selected", ativo ? "true" : "false");
+    });
+    document.querySelectorAll(".ia-negocio-bloco").forEach(bloco => {
+      bloco.classList.toggle("hidden", bloco.dataset.iaNegocioBloco !== negocio);
+    });
+  });
+});
 
 // Sub-tab ativa do FaçaAmigos
 let faSubTabAtiva = "fa-registro";
