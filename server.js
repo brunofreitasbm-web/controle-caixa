@@ -47,12 +47,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
-// Sistema v2.0 (React) — interface publicada, servida na raiz. A v1 antiga
-// (vanilla JS) foi arquivada em archive/webapp-v1 e não é mais servida.
-const frontendDist = path.join(__dirname, 'frontend', 'dist');
-if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
-}
+// Servir os arquivos estáticos da webapp (v1). A v2 (React) foi arquivada em
+// archive/frontend-v2 e não é mais servida.
+app.use(express.static(path.join(__dirname, 'webapp')));
 
 // Registrar Rotas Modularizadas
 // O canal SSE vem primeiro: é uma conexão longa e não deve passar por nenhum
@@ -389,19 +386,6 @@ app.get('/api/cron/ia-tick', async (req, res) => {
     console.error('[ia-tick] Erro:', err);
     res.status(500).json({ error: err.message });
   }
-});
-
-// Fallback de SPA (React Router): qualquer rota GET que não seja de API e não
-// bata em um arquivo estático do build cai no index.html do frontend.
-// Precisa vir depois de todas as rotas /api acima.
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'Rota não encontrada.' });
-  }
-  if (!fs.existsSync(frontendDist)) {
-    return res.status(503).send('Build do frontend ainda não foi gerado (frontend/dist ausente).');
-  }
-  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // Inicializar banco de dados e iniciar servidor
