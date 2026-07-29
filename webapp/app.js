@@ -1415,6 +1415,15 @@ function iniciarModuloBase(moduloOpcional) {
 
   document.getElementById("user-badge").textContent = currentUser.nome;
 
+  // Quando chamado sem argumento (ex.: recarregar permissões depois que o role
+  // muda no servidor, ver carregarColaboradores()), reaproveita o último módulo
+  // ativo em vez de cair no bloco `else` abaixo — sem isso, o filtro de
+  // Cacau Show/FaçaAmigos/RH/Ponto era pulado por completo e a lista bruta de
+  // TABS_POR_ROLE (que mistura os módulos) vazava direto pra sidebar.
+  if (!moduloOpcional) {
+    moduloOpcional = localStorage.getItem("ultimoModulo_" + currentUser.nome) || moduloOpcional;
+  }
+
   let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
 
   if (moduloOpcional) {
@@ -1422,7 +1431,13 @@ function iniciarModuloBase(moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
       // controle-ponto continua liberado aqui: virou item normal de menu para
       // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
-      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
+      // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
+      // "faca-amigos" em si) — "pasta-auditoria-fa"/"pos-visita"/"aniversarios"
+      // também estão na lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro
+      // do módulo Cacau Show antes desta correção (grupo FaçaAmigos aparecia
+      // com "Pasta de Documentação" mesmo com o owner no módulo Cacau Show).
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa"];
+      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa", "controle-ponto", "configuracoes"];
@@ -1438,13 +1453,13 @@ function iniciarModuloBase(moduloOpcional) {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
   }
 
-  const nomesPermitidosBoletos = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
-  if (!nomesPermitidosBoletos.includes(currentUser.nome)) {
-    tabsPermitidas = tabsPermitidas.filter(tab => tab !== "boletos");
-  }
-
-  const nomesPermitidosAuditoriaBoletos = ["Bruno", "Isabella"];
-  if (!nomesPermitidosAuditoriaBoletos.includes(currentUser.nome)) {
+  // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
+  // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
+  // também uma lista de nomes cravados aqui (["Alexandra","LiderOP","Bruno","Isabella"])
+  // que duplicava essa checagem — se um(a) novo(a) Líder de Operações fosse
+  // contratado(a) com outro nome, o botão sumia silenciosamente pra ela mesmo
+  // tendo o perfil certo. Restrição por perfil (role) é a única fonte de verdade.
+  if (currentUser.role !== "owner") {
     tabsPermitidas = tabsPermitidas.filter(tab => tab !== "auditoria-boletos");
   }
 
@@ -1471,7 +1486,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-configuracoes"].forEach(groupId => {
+  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -12894,7 +12909,7 @@ function renderizarTabelaPonto(records) {
     const tr = document.createElement("tr");
     tr.className = "hover:bg-brand-900/30 transition-all border-b border-brand-900/20";
     tr.innerHTML = `
-      <td class="py-3 px-4 font-mono font-bold">${formatDate(d)}</td>
+      <td class="py-3 px-4 font-mono font-bold">${formatDate(new Date(d + "T12:00:00"))}</td>
       <td class="py-3 px-4 text-center font-semibold">${ent ? formatTime(ent) : "-"}</td>
       <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
       <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
@@ -13989,7 +14004,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
       tr.innerHTML = `
         <td class="py-3 px-4 font-bold">${linha.usuario}</td>
         <td class="py-3 px-4">${linha.operacao || "—"}</td>
-        <td class="py-3 px-4 font-mono">${formatDate(linha.data)}</td>
+        <td class="py-3 px-4 font-mono">${formatDate(new Date(linha.data + "T12:00:00"))}</td>
         <td class="py-3 px-4 text-center">${ent ? formatTime(ent) : "-"}</td>
         <td class="py-3 px-4 text-center text-brand-300">${sInt ? formatTime(sInt) : "-"}</td>
         <td class="py-3 px-4 text-center text-brand-300">${rInt ? formatTime(rInt) : "-"}</td>
@@ -14087,7 +14102,7 @@ async function gerarDocEspelhoPontoPDF() {
     const tMins = Math.floor((workedMs % 3600000) / 60000);
     const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
 
-    doc.text(formatDate(d), 17, y);
+    doc.text(formatDate(new Date(d + "T12:00:00")), 17, y);
     doc.text(ent ? formatTime(ent) : "-", 52, y);
     doc.text(sInt ? formatTime(sInt) : "-", 82, y);
     doc.text(rInt ? formatTime(rInt) : "-", 112, y);

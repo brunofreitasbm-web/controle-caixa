@@ -4476,3 +4476,54 @@ body.device-ios .sidebar {
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   z-index: 2;
 }
+
+/* ==========================================================================
+   PONTO — PAINEL ADMINISTRATIVO EM TELAS DE COMPUTADOR
+   Resumo da Jornada, Histórico Mensal e Relatório de Ponto por Operação
+   (webapp/index.html, dentro de #ponto-painel-admin) foram desenhados
+   mobile-first: colunas estreitas e fonte pequena mesmo com bastante largura
+   sobrando em monitor. Os ajustes abaixo só entram a partir de 1024px — o
+   layout de celular (a maioria do uso diário de bater ponto) não muda em
+   nada. Segue a mesma convenção de breakpoint "desktop-first override" já
+   usada no resto deste arquivo (@media max-width para mobile) e o padrão de
+   ganho extra em telas bem largas visto em .pv-grid (@media min-width:1600px).
+   ========================================================================== */
+@media (min-width: 1024px) {
+  /* Resumo da Jornada / Atestado / Histórico / Relatório: mais respiro */
+  #ponto-painel-admin .glass-card {
+    padding: 1.75rem;
+  }
+
+  /* Mini-cards de Meta Diária / Saldo Acumulado dentro do Resumo da Jornada */
+  .ponto-resumo-stats {
+    gap: 1rem;
+  }
+  .ponto-resumo-stats > div {
+    padding: 1rem 0.75rem;
+  }
+  .ponto-resumo-stats strong {
+    font-size: 1.4rem;
+  }
+
+  /* Histórico Mensal e Relatório de Ponto por Operação: tabelas menos
+     cramped — fonte e espaçamento de célula um pouco maiores. */
+  .ponto-tabela-desktop table {
+    font-size: 0.8125rem;
+  }
+  .ponto-tabela-desktop th,
+  .ponto-tabela-desktop td {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  /* Em monitores bem largos a câmera do registro de ponto não precisa de
+     1/3 da tela — o painel administrativo (Resumo/Histórico/Relatório)
+     ganha mais espaço horizontal. O !important é necessário aqui porque
+     tailwind-compiled.css é carregado depois de style.css no <head> e
+     "lg:grid-cols-3" venceria em empate de especificidade. */
+  .ponto-layout-grid {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+}

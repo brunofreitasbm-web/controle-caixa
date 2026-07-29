@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -362,20 +362,34 @@
         </div>
       </div>
 
-      <!-- ===================== ITENS DE TOPO (fora de Operações) ===================== -->
+      <!-- ===================== SEÇÃO: RH & EQUIPE =====================
+           Itens de gestão de pessoas — hoje só o Owner enxerga (ver
+           TABS_POR_ROLE): não são exclusivos de Cacau Show nem de FaçaAmigos,
+           por isso ficam num grupo à parte em vez de dentro de um dos dois
+           módulos de operação. Antes viviam soltos na nav (fora de qualquer
+           acordeão), o que os deixava sem cabeçalho/contexto. -->
+      <h3 class="sidebar-section-title">RH &amp; Equipe</h3>
+      <div class="sidebar-group collapsed" id="group-rh-equipe">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Perfis comportamentais (DISC) e cadastro de colaboradores dos dois módulos">
+          <span class="group-icon"><i class="fa-solid fa-user-group" style="color: #6366f1;"></i></span>
+          <span class="group-title">RH &amp; Equipe</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
+          <!-- DISC: perfis comportamentais dos colaboradores, dos dois módulos -->
+          <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
+            <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
+            <span class="tab-text">DISC</span>
+          </button>
 
-      <!-- DISC: perfis comportamentais dos colaboradores, dos dois módulos -->
-      <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
-        <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
-        <span class="tab-text">DISC</span>
-      </button>
-
-      <!-- Colaboradores: cadastro, PIN, unidade e perfil — promovido para o
-           menu principal (antes só acessível via Configurações). -->
-      <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores" data-tip="Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)">
-        <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
-        <span class="tab-text">Colaboradores</span>
-      </button>
+          <!-- Colaboradores: cadastro, PIN, unidade e perfil — promovido para o
+               menu principal (antes só acessível via Configurações). -->
+          <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores" data-tip="Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)">
+            <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
+            <span class="tab-text">Colaboradores</span>
+          </button>
+        </div>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -2747,8 +2761,8 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 ponto-layout-grid">
+
         <!-- Action / Capture Card -->
         <div class="lg:col-span-1 space-y-6">
           <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col items-center">
@@ -2860,7 +2874,7 @@
                   </div>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-2 pt-2 text-center text-xs">
+                <div class="grid grid-cols-2 gap-2 pt-2 text-center text-xs ponto-resumo-stats">
                   <div class="bg-brand-900/40 p-2.5 rounded-xl border border-brand-800/80">
                     <span class="block text-[10px] text-brand-400 font-bold uppercase">Meta Diária</span>
                     <strong class="text-sm text-brand-100 mt-1 block">08:00</strong>
@@ -2931,7 +2945,7 @@
               </div>
             </div>
             
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto ponto-tabela-desktop">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
@@ -2966,7 +2980,7 @@
               </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto ponto-tabela-desktop">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="bg-brand-950/90 border-b border-brand-900 text-brand-300 uppercase tracking-wider font-bold">
@@ -3926,6 +3940,6 @@
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
 <script src="pasta-auditoria.js?v=1"></script>
-<script src="app.js?v=39"></script>
+<script src="app.js?v=40"></script>
 </body>
 </html>
