@@ -542,10 +542,16 @@ let tipoOperacaoSelecionado = null;
 let fotoDataUrl = null;
 let retiradaAlvoId = null;
 
+// Envelopes marcados para retirada em lote. Precisa viver fora de
+// renderDashboard()/renderFaDashboard() — cada toggle de checkbox chama a
+// própria função de novo, e um `let` local seria recriado vazio a cada render,
+// perdendo a seleção antes do usuário conseguir marcar mais de um envelope.
+let selecionadosPendentes = new Set();
+let selecionadosFAPendentes = new Set();
+
 // Estado específico do FaçaAmigos
 let faTipoOperacaoSelecionado = null;
 let faFotoDataUrl = null;
-let faRetiradaAlvoId = null;
 
 function carregarJSON(key, fallback) {
   try {
@@ -2778,8 +2784,6 @@ function renderFaDashboard() {
     barChart.appendChild(row);
   });
 
-  let selecionadosFAPendentes = new Set();
-
   function atualizarBatchBarFAPendentes(filtrados) {
     const bar = document.getElementById("fa-batch-actions-pendentes");
     const countInfo = document.getElementById("fa-batch-count-info");
@@ -3865,51 +3869,6 @@ async function salvarRegraFaBonificacao() {
   }
 }
 
-// ==================== FACADE: Modal confirmar retirada FA ====================
-// Intercept the existing modal-confirmar for FA mode
-const _originalModalConfirmar = document.getElementById("modal-confirmar-listener");
-document.getElementById("modal-confirmar").addEventListener("click", async () => {
-  // handled inside modal-confirmar click
-});
-
-// Override modal-confirmar button to support FA mode
-const modalConfirmarBtn = document.getElementById("modal-confirmar");
-const _originalConfirmarClick = modalConfirmarBtn.onclick;
-modalConfirmarBtn.addEventListener("click", async function faConfirmarHandler() {
-  if (this.dataset.faMode !== "true") return;
-  this.dataset.faMode = "";
-
-  const data = document.getElementById("retirada-data").value;
-  const responsavel = document.getElementById("retirada-responsavel").value.trim();
-  if (!data || !responsavel) {
-    showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
-    return;
-  }
-
-  const r = registrosFA.find(x => x.id === faRetiradaAlvoId);
-  if (!r) return;
-  const dataRetirada = new Date(data).toISOString();
-
-  const updates = {
-    status: "retirado",
-    dataRetirada: dataRetirada,
-    retiradoPor: responsavel,
-    confirmadoPorApp: currentUser.nome,
-    autorizadoPor: null
-  };
-
-  await atualizarRegistroFAAPI(faRetiradaAlvoId, updates);
-  r.status = "retirado";
-  r.dataRetirada = dataRetirada;
-  r.retiradoPor = responsavel;
-  r.confirmadoPorApp = currentUser.nome;
-
-  document.getElementById("modal-retirada").classList.add("hidden");
-  faRetiradaAlvoId = null;
-  renderFaDashboard();
-  showToast("Retirada FA confirmada com sucesso!", "sucesso");
-});
-
 // --- Notificações System ---
 function obterNotificacoesPendentes() {
   if (!currentUser || currentUser.role !== "owner") return [];
@@ -4160,8 +4119,6 @@ function renderDashboard() {
     `;
     barChart.appendChild(row);
   });
-
-  let selecionadosPendentes = new Set();
 
   function atualizarBatchBarPendentes(filtrados) {
     const bar = document.getElementById("batch-actions-pendentes");
