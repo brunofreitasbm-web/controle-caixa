@@ -3598,13 +3598,31 @@
       <input type="text" id="retirada-responsavel" placeholder="Ex: Transportadora Malote Seguro / Nome">
     </div>
     <div class="field hidden" id="autorizacao-wrap">
-      <label for="autorizacao-pin">PIN de autorização (Bruno ou Isabella) *</label>
-      <input type="password" id="autorizacao-pin" inputmode="numeric" maxlength="4" placeholder="****">
-      <span class="hint">Alexandra precisa de autorização de Bruno ou Isabella para confirmar a retirada.</span>
+      <span class="hint">Isso vai enviar uma solicitação para Bruno e Isabella autorizarem a retirada com o PIN deles. Você não precisa digitar o PIN de ninguém aqui.</span>
     </div>
     <div class="modal-actions">
       <button id="modal-cancelar" class="btn-secondary">Cancelar</button>
       <button id="modal-confirmar" class="btn-primary">Confirmar Retirada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: autorização de retirada solicitada pela Líder de Operações.
+     Abre sozinho na tela de Bruno/Isabella (evento em tempo real + push)
+     assim que Alexandra/LiderOP marca envelope(s) para retirada. -->
+<div id="modal-autorizar-retirada" class="modal-overlay hidden" role="dialog" aria-labelledby="autorizar-retirada-title" aria-modal="true">
+  <div class="modal">
+    <h3 id="autorizar-retirada-title">🔑 Autorizar Retirada</h3>
+    <p class="modal-sub" id="autorizar-retirada-info"></p>
+    <div class="field">
+      <label for="autorizar-retirada-pin">Seu PIN *</label>
+      <input type="password" id="autorizar-retirada-pin" inputmode="numeric" maxlength="4" placeholder="****" autocomplete="off">
+      <span class="hint">Digite o seu próprio PIN para autorizar esta retirada.</span>
+    </div>
+    <p class="hint hidden" id="autorizar-retirada-erro" style="color: var(--red);"></p>
+    <div class="modal-actions">
+      <button id="autorizar-retirada-recusar" class="btn-secondary">Recusar</button>
+      <button id="autorizar-retirada-confirmar" class="btn-primary">Autorizar</button>
     </div>
   </div>
 </div>
@@ -3631,7 +3649,12 @@
 <div id="modal-mapa-localizacao" class="modal-overlay hidden" role="dialog" aria-labelledby="mapa-localizacao-title" aria-modal="true">
   <div class="modal" style="max-width: 600px;">
     <h3 id="mapa-localizacao-title"><i class="fa-solid fa-map-location-dot"></i> Escolher localização — <span id="mapa-localizacao-operacao"></span></h3>
-    <p class="modal-sub">Clique no mapa no ponto exato da loja. Essa localização é usada na cerca virtual do Ponto.</p>
+    <p class="modal-sub">Clique no mapa no ponto exato da loja, ou use o GPS estando dentro dela. Essa localização é usada na cerca virtual do Ponto.</p>
+    <div class="modal-actions modal-actions-center" style="margin-bottom: 8px;">
+      <button type="button" id="btn-mapa-localizacao-gps" class="btn-secondary">
+        <i class="fa-solid fa-location-crosshairs"></i> Usar minha localização atual (GPS)
+      </button>
+    </div>
     <div id="mapa-localizacao-mapa" style="width: 100%; height: 360px; border-radius: 12px; margin: 12px 0;"></div>
     <p class="text-xs text-muted" id="mapa-localizacao-coords">Nenhum ponto selecionado ainda.</p>
     <div class="modal-actions modal-actions-center" style="margin-top: 14px;">
