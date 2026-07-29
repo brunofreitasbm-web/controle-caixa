@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v37'; // v37: atualiza cache com todas as alterações de hoje
+const CACHE_NAME = 'ponto-pwa-v38'; // v38: corrige sidebar (Pasta de Auditoria) e modulo de Ponto
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
