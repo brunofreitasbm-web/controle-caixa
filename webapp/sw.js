@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v39'; // v39: corrige relatorio de ponto por operacao, layout desktop e vazamento CS/FA na sidebar
+const CACHE_NAME = 'ponto-pwa-v41'; // v41: corrige rolagem dos menus da sidebar (grupos eram espremidos pelo flexbox em vez da nav rolar)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

@@ -241,6 +241,14 @@ body {
   pointer-events: auto;
 }
 
+/* Trava a rolagem da página por trás enquanto o drawer mobile está aberto
+   (sem isso, era possível arrastar o conteúdo atrás do overlay escuro). */
+html.sidebar-mobile-open,
+html.sidebar-mobile-open body {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 .sidebar {
   width: 270px;
   background: var(--sidebar-bg);
@@ -270,8 +278,13 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: white;
-  width: 34px;
-  height: 34px;
+  /* 44x44 é o alvo mínimo de toque recomendado (Apple HIG / Material) —
+     antes eram 34px, pequeno demais pra fechar o menu com o polegar. */
+  width: 44px;
+  height: 44px;
+  /* Sem isso, o header (brand + botão em space-between) espreme o botão
+     abaixo do width especificado quando o texto da marca não cabe. */
+  flex-shrink: 0;
   border-radius: 50%;
   cursor: pointer;
   font-size: 1rem;
@@ -349,6 +362,10 @@ body {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  /* Rolagem com inércia no iOS + evita que o "estouro" no topo/fim da lista
+     do menu vaze pra rolagem da página por trás do drawer. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .sidebar-nav::-webkit-scrollbar {
@@ -366,6 +383,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* .sidebar-nav é flex-column e cada grupo é um item dela. Com
+     overflow:hidden, a "automatic minimum size" do flex vira 0 — sem
+     flex-shrink:0 o item aceita ser espremido pelo algoritmo de flex-shrink
+     pra caber no espaço da nav, cortando os botões do grupo (parecia que o
+     conteúdo tinha sumido) em vez de deixar a nav rolar normalmente. */
+  flex-shrink: 0;
 }
 
 .sidebar-section-title {
@@ -438,7 +461,11 @@ body {
   flex-direction: column;
   gap: 4px;
   padding: 6px 8px 8px 8px;
-  max-height: 500px;
+  /* Alto o bastante pra nunca cortar o grupo com mais itens (Cacau Show,
+     ~13 botões pro perfil Owner) — 500px cortava os últimos itens da lista.
+     Não afeta a velocidade da transição: o max-height é só o alvo da
+     animação, quem define a duração é a propriedade transition abaixo. */
+  max-height: 1600px;
   opacity: 1;
   overflow: hidden;
   transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, padding 0.3s ease;
@@ -518,6 +545,10 @@ body {
 /* SIDEBAR FOOTER */
 .sidebar-footer {
   padding: 16px 14px;
+  /* env() com fallback: soma o inset só em telas que de fato têm gesture
+     bar/home indicator (iPhone com notch, Android com navegação por gesto);
+     nas demais fica igual a 16px. */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.2);
   display: flex;
@@ -585,8 +616,9 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
-  width: 40px;
-  height: 40px;
+  /* 44x44: alvo mínimo de toque recomendado (era 40px). */
+  width: 44px;
+  height: 44px;
   cursor: pointer;
   flex-direction: column;
   justify-content: center;
@@ -2921,7 +2953,13 @@ body.tema-fa .topbar {
 
   .sidebar {
     transform: translateX(-100%);
-    width: 285px;
+    /* min(): em telas bem estreitas (ex.: 320-360px, Android de entrada)
+       285px fixos deixavam quase nada de backdrop visível; agora nunca
+       passa de 86% da largura da tela. */
+    width: min(285px, 86vw);
+    /* Bloqueia o "puxa-empurra" de rolagem entre o drawer e a página por
+       trás dele quando a lista de tabs chega no topo/fim. */
+    overscroll-behavior: contain;
   }
 
   .sidebar.open {
@@ -3983,14 +4021,19 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   color: white !important;
 }
 
-/* Device identification and spacing adjustments (Safe areas) */
-body.device-ios .topbar {
-  padding-top: env(safe-area-inset-top);
-  min-height: calc(70px + env(safe-area-inset-top));
+/* Safe areas (notch/status bar no iOS, cutout/status bar no Android).
+   Antes dependia de uma classe "device-ios" no <body> que nunca chegava a
+   ser aplicada no app principal (só existe em bluedox.js, outra tela) —
+   ou seja, esse ajuste nunca rodava de verdade e o topbar/sidebar ficavam
+   por baixo do notch/status bar. Usa env() direto, com fallback 0px pra
+   não afetar telas sem notch/inset. */
+.topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: calc(70px + env(safe-area-inset-top, 0px));
 }
 
-body.device-ios .sidebar {
-  padding-top: env(safe-area-inset-top);
+.sidebar {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Fix point tab button contrast and colors */

@@ -1845,11 +1845,20 @@ const btnCloseSidebar = document.getElementById("btn-close-sidebar");
 function abrirSidebarMobile() {
   if (sidebarEl) sidebarEl.classList.add("open");
   if (sidebarOverlayEl) sidebarOverlayEl.classList.add("open");
+  // Trava o scroll da página por trás do drawer (Android e iOS) e manda o
+  // foco pro botão de fechar, pra quem navega por teclado/leitor de tela.
+  document.documentElement.classList.add("sidebar-mobile-open");
+  if (btnCloseSidebar) btnCloseSidebar.focus();
 }
 
 function fecharSidebarMobile() {
+  const estavaAberta = sidebarEl && sidebarEl.classList.contains("open");
   if (sidebarEl) sidebarEl.classList.remove("open");
   if (sidebarOverlayEl) sidebarOverlayEl.classList.remove("open");
+  document.documentElement.classList.remove("sidebar-mobile-open");
+  // Devolve o foco pro hamburger só se o drawer realmente estava aberto,
+  // pra não roubar o foco de outro elemento em cada troca de aba.
+  if (estavaAberta && btnHamburger) btnHamburger.focus();
 }
 
 if (btnHamburger) btnHamburger.addEventListener("click", abrirSidebarMobile);
