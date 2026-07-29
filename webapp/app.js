@@ -101,9 +101,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
-  consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
+  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -12551,15 +12551,47 @@ function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
   return canvas.toDataURL("image/jpeg", 0.8);
 }
 
+// Sequência esperada de marcações no dia: ENTRADA -> SAIDA_INTERVALO -> RETORNO_INTERVALO -> SAIDA -> (novo dia) ENTRADA
+const PONTO_PROXIMO_TIPO_ESPERADO = {
+  null: "ENTRADA",
+  ENTRADA: "SAIDA_INTERVALO",
+  SAIDA_INTERVALO: "RETORNO_INTERVALO",
+  RETORNO_INTERVALO: "SAIDA",
+  SAIDA: "ENTRADA" // dia fechado; próxima marcação é a entrada do novo dia
+};
+
+const PONTO_TIPO_LABEL = {
+  ENTRADA: "Entrada",
+  SAIDA_INTERVALO: "Saída para intervalo",
+  RETORNO_INTERVALO: "Retorno do intervalo",
+  SAIDA: "Saída"
+};
+
+// Retorna o último tipo de marcação já registrado hoje (fuso local), ou null se nenhum.
+async function obterUltimoTipoHoje() {
+  const hojeStr = pontoDataLocal(new Date().toISOString());
+  const registrosHoje = await pontoDb.time_records
+    .filter(r => r.usuario === currentUser.nome && pontoDataLocal(r.timestamp) === hojeStr)
+    .toArray();
+  if (registrosHoje.length === 0) return null;
+  registrosHoje.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return registrosHoje[registrosHoje.length - 1].tipo;
+}
+
+let pontoMarcacaoEmAndamento = false;
+
 async function registrarMarcacaoPonto(tipo) {
+  if (pontoMarcacaoEmAndamento) return;
+
   if (!pontoGpsCoords) {
     showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
     return;
   }
 
+  const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
+
   // Geofencing Check (isento para usuários em NOMES_ISENTOS_GPS)
   if (!usuarioIsentoGPS()) {
-    const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
     const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
     const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
 
@@ -12580,54 +12612,77 @@ async function registrarMarcacaoPonto(tipo) {
     return;
   }
 
-  // Photo Capture
-  let photoBase64 = null;
-  const video = document.getElementById("ponto-video");
-  const canvas = document.getElementById("ponto-canvas");
-  
-  if (pontoStream && video && canvas) {
-    photoBase64 = capturarFrameRetrato(video, canvas);
-    if (!photoBase64) {
+  pontoMarcacaoEmAndamento = true;
+  const botoesPonto = ["btn-ponto-entrada", "btn-ponto-saida-int", "btn-ponto-retorno-int", "btn-ponto-saida"]
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  botoesPonto.forEach(btn => { btn.disabled = true; btn.classList.add("opacity-50", "pointer-events-none"); });
+
+  try {
+    // Validação de sequência: impede pular etapas (ex.: Saída sem Entrada, Entrada em duplicidade)
+    const ultimoTipo = await obterUltimoTipoHoje();
+    const esperado = PONTO_PROXIMO_TIPO_ESPERADO[ultimoTipo];
+    if (tipo !== esperado) {
+      const labelEsperado = PONTO_TIPO_LABEL[esperado] || esperado;
+      showToast(`Marcação fora de ordem. A próxima marcação esperada é: ${labelEsperado}.`, "erro");
+      return;
+    }
+
+    // Photo Capture
+    let photoBase64 = null;
+    const video = document.getElementById("ponto-video");
+    const canvas = document.getElementById("ponto-canvas");
+
+    if (pontoStream && video && canvas) {
+      photoBase64 = capturarFrameRetrato(video, canvas);
+      if (!photoBase64) {
+        showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+        return;
+      }
+    } else {
       showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
       return;
     }
-  } else {
-    showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
-    return;
+
+    // Chained Integrity Hash SHA-256
+    const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
+    const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
+    const timestamp = new Date().toISOString();
+    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+    const currentHash = await calcularHashSha256(rawString);
+
+    const newRecord = {
+      id: `${currentUser.nome}_${Date.now()}`,
+      usuario: currentUser.nome,
+      timestamp,
+      tipo,
+      operacao: storeName,
+      gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+      accuracy: pontoGpsAccuracy,
+      photo: photoBase64,
+      hash: currentHash,
+      syncStatus: "PENDING"
+    };
+
+    await pontoDb.time_records.put(newRecord);
+    await pontoDb.offline_queue.put({
+      id: newRecord.id,
+      action: "SYNC_PUNCH",
+      timestamp: Date.now()
+    });
+
+    showToast("Ponto registrado localmente com sucesso!", "sucesso");
+
+    // Recalculate daily worked segments
+    atualizarHistoricoPonto();
+    processarFilaOfflinePonto();
+  } catch (err) {
+    console.error("Erro ao registrar marcação de ponto:", err);
+    showToast("Não foi possível registrar o ponto. Tente novamente.", "erro");
+  } finally {
+    pontoMarcacaoEmAndamento = false;
+    botoesPonto.forEach(btn => { btn.disabled = false; btn.classList.remove("opacity-50", "pointer-events-none"); });
   }
-
-  // Chained Integrity Hash SHA-256
-  const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
-  const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
-  const timestamp = new Date().toISOString();
-  const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
-  const currentHash = await calcularHashSha256(rawString);
-
-  const newRecord = {
-    id: `${currentUser.nome}_${Date.now()}`,
-    usuario: currentUser.nome,
-    timestamp,
-    tipo,
-    operacao: storeName,
-    gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
-    accuracy: pontoGpsAccuracy,
-    photo: photoBase64,
-    hash: currentHash,
-    syncStatus: "PENDING"
-  };
-
-  await pontoDb.time_records.put(newRecord);
-  await pontoDb.offline_queue.put({
-    id: newRecord.id,
-    action: "SYNC_PUNCH",
-    timestamp: Date.now()
-  });
-
-  showToast("Ponto registrado localmente com sucesso!", "sucesso");
-  
-  // Recalculate daily worked segments
-  atualizarHistoricoPonto();
-  processarFilaOfflinePonto();
 }
 
 async function calcularHashSha256(str) {
@@ -12783,23 +12838,34 @@ async function atualizarHistoricoPonto() {
   }
 }
 
+// Converte um timestamp ISO para a data local (fuso do dispositivo, YYYY-MM-DD).
+// Usar timestamp.split("T")[0] agrupa pela data em UTC, o que faz marcações
+// feitas à noite (horário do Brasil, UTC-3) "virarem" o dia seguinte errado.
+function pontoDataLocal(timestampIso) {
+  const dt = new Date(timestampIso);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function renderizarTabelaPonto(records) {
   const tbody = document.getElementById("ponto-historico-tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  // Group records by date (YYYY-MM-DD)
+  // Group records by date (YYYY-MM-DD, fuso local)
   const grouped = {};
   records.forEach(r => {
-    const dStr = r.timestamp.split("T")[0];
+    const dStr = pontoDataLocal(r.timestamp);
     if (!grouped[dStr]) grouped[dStr] = {};
     grouped[dStr][r.tipo] = r.timestamp;
   });
 
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-  
+
   let totalWorkedMsToday = 0;
-  const dTodayStr = new Date().toISOString().split("T")[0];
+  const dTodayStr = pontoDataLocal(new Date().toISOString());
 
   dates.forEach(d => {
     const day = grouped[d];
@@ -13903,7 +13969,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
     // Agrupar por colaboradora + dia (YYYY-MM-DD)
     const grouped = {};
     registros.forEach(r => {
-      const dStr = r.timestamp.split("T")[0];
+      const dStr = pontoDataLocal(r.timestamp);
       const key = `${r.usuario}_${dStr}`;
       if (!grouped[key]) grouped[key] = { usuario: r.usuario, operacao: r.operacao, data: dStr };
       grouped[key][r.tipo] = r.timestamp;
@@ -13992,7 +14058,7 @@ async function gerarDocEspelhoPontoPDF() {
   // Group records by date
   const grouped = {};
   records.forEach(r => {
-    const dStr = r.timestamp.split("T")[0];
+    const dStr = pontoDataLocal(r.timestamp);
     if (!grouped[dStr]) grouped[dStr] = {};
     grouped[dStr][r.tipo] = r.timestamp;
   });

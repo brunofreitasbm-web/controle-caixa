@@ -2645,6 +2645,13 @@ body.tema-fa .topbar {
   transform: scaleX(-1); /* espelha, como um espelho real */
 }
 
+/* Pré-visualização da câmera do Registro de Ponto: mesma lógica de espelhamento
+   da biometria (câmera frontal deve se comportar como um espelho real).
+   A foto realmente capturada/salva NÃO é espelhada — ver capturarFrameRetrato(). */
+#ponto-video {
+  transform: scaleX(-1);
+}
+
 .camera-universal-mask {
   position: absolute;
   inset: 0;
