@@ -3619,7 +3619,12 @@
 <div id="modal-mapa-localizacao" class="modal-overlay hidden" role="dialog" aria-labelledby="mapa-localizacao-title" aria-modal="true">
   <div class="modal" style="max-width: 600px;">
     <h3 id="mapa-localizacao-title"><i class="fa-solid fa-map-location-dot"></i> Escolher localização — <span id="mapa-localizacao-operacao"></span></h3>
-    <p class="modal-sub">Clique no mapa no ponto exato da loja. Essa localização é usada na cerca virtual do Ponto.</p>
+    <p class="modal-sub">Clique no mapa no ponto exato da loja, ou use o GPS estando dentro dela. Essa localização é usada na cerca virtual do Ponto.</p>
+    <div class="modal-actions modal-actions-center" style="margin-bottom: 8px;">
+      <button type="button" id="btn-mapa-localizacao-gps" class="btn-secondary">
+        <i class="fa-solid fa-location-crosshairs"></i> Usar minha localização atual (GPS)
+      </button>
+    </div>
     <div id="mapa-localizacao-mapa" style="width: 100%; height: 360px; border-radius: 12px; margin: 12px 0;"></div>
     <p class="text-xs text-muted" id="mapa-localizacao-coords">Nenhum ponto selecionado ainda.</p>
     <div class="modal-actions modal-actions-center" style="margin-top: 14px;">

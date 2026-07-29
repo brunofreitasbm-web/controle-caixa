@@ -10144,7 +10144,7 @@ function configurarIconesLeaflet() {
   L.Icon.Default.prototype._iconsConfigurados = true;
 }
 
-function selecionarPontoMapa(lat, lng) {
+function selecionarPontoMapa(lat, lng, accuracy) {
   mapaLocalizacaoCoordsSelecionadas = { lat, lng };
   if (mapaLocalizacaoMarker) {
     mapaLocalizacaoMarker.setLatLng([lat, lng]);
@@ -10156,9 +10156,49 @@ function selecionarPontoMapa(lat, lng) {
     });
   }
   const coordsLabel = document.getElementById("mapa-localizacao-coords");
-  if (coordsLabel) coordsLabel.textContent = `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  if (coordsLabel) {
+    coordsLabel.textContent = accuracy
+      ? `Selecionado pelo GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)} (precisão: ${Math.round(accuracy)}m)`
+      : `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
   const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
   if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+// Lê o GPS do próprio aparelho de quem está configurando — precisa estar
+// fisicamente dentro da loja para o pino sair mais preciso que clicar no
+// mapa de olho, que é a causa mais comum de cerca virtual desalinhada.
+function usarGpsAtualMapaLocalizacao() {
+  const btn = document.getElementById("btn-mapa-localizacao-gps");
+  if (!navigator.geolocation) {
+    showToast("Este navegador não suporta geolocalização.", "erro");
+    return;
+  }
+  if (!mapaLocalizacaoInstance) return;
+
+  const textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Obtendo localização…';
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      const { latitude, longitude, accuracy } = pos.coords;
+      mapaLocalizacaoInstance.setView([latitude, longitude], 18);
+      selecionarPontoMapa(latitude, longitude, accuracy);
+      if (accuracy > 30) {
+        showToast(`Localização obtida, mas com precisão baixa (${Math.round(accuracy)}m). Se possível, tente de novo perto de uma janela ou área aberta.`, "erro");
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      console.warn("Erro ao obter GPS no picker de localização:", err);
+      showToast("Não foi possível obter sua localização atual. Verifique a permissão de GPS do navegador.", "erro");
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
 }
 
 function abrirMapaLocalizacao(operacao) {
@@ -10212,6 +10252,11 @@ function abrirMapaLocalizacao(operacao) {
     }
     if (temCoordenadas) selecionarPontoMapa(latAtual, lngAtual);
   }, 50);
+}
+
+const btnMapaLocalizacaoGps = document.getElementById("btn-mapa-localizacao-gps");
+if (btnMapaLocalizacaoGps) {
+  btnMapaLocalizacaoGps.addEventListener("click", usarGpsAtualMapaLocalizacao);
 }
 
 const btnMapaLocalizacaoCancelar = document.getElementById("btn-mapa-localizacao-cancelar");
