@@ -529,7 +529,10 @@ function registrarLimparErroAoDigitar() {
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
 const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra", "LiderOP"];
-const AUTORIZADORES = ["Bruno", "Isabella"];
+// Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
+// PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
+// que abre um modal de autorização sozinho na tela dos owners.
+const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra", "LiderOP"];
 
 let API_ONLINE = false;
 let registros = [];
@@ -986,6 +989,57 @@ async function excluirRegistroFAAPI(id) {
   return false;
 }
 
+// ==================== SOLICITAÇÃO DE RETIRADA (autorização remota) ====================
+// Fluxo: Alexandra/LiderOP propõe a retirada de um ou mais envelopes sem saber
+// o PIN de Bruno/Isabella. O servidor cria a solicitação, avisa os owners por
+// push e evento em tempo real, e cada owner autoriza (ou recusa) digitando o
+// PRÓPRIO PIN no PRÓPRIO aparelho — nunca no da Líder de Operações.
+async function criarSolicitacaoRetiradaAPI(dados) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados)
+  });
+  if (!res.ok) {
+    const erro = await res.json().catch(() => ({}));
+    throw new Error(erro.error || "Falha ao criar solicitação de retirada.");
+  }
+  return res.json();
+}
+
+async function buscarSolicitacoesRetiradaPendentesAPI() {
+  try {
+    const res = await fetch(`${API_BASE}/solicitacoes-retirada?status=pendente`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    console.error("Erro ao buscar solicitações de retirada pendentes:", e);
+    return [];
+  }
+}
+
+async function autorizarSolicitacaoRetiradaAPI(id, pin) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/autorizar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, pin })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao autorizar retirada.");
+  return data;
+}
+
+async function recusarSolicitacaoRetiradaAPI(id, motivo) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/recusar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, motivo })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao recusar retirada.");
+  return data;
+}
+
 async function salvarConfigAPI(chave, valor) {
   if (API_ONLINE) {
     try {
@@ -1302,6 +1356,13 @@ function entrarNoApp() {
   }
 
   inscreverPushNotificacoes();
+
+  // Se existir alguma retirada aguardando autorização, abre o modal de PIN
+  // sozinho assim que o owner entra no app (cobre o caso de ele estar offline
+  // quando a Líder de Operações fez a solicitação).
+  if (currentUser.role === "owner") {
+    carregarSolicitacoesRetiradaPendentes();
+  }
 
   // Exibir botão de trocar módulo para todos os perfis permitidos
   const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
@@ -4249,7 +4310,6 @@ document.getElementById("filtro-loja-pendentes").addEventListener("change", rend
 // --- Modal retirada ---
 const modalRetirada = document.getElementById("modal-retirada");
 const autorizacaoWrap = document.getElementById("autorizacao-wrap");
-const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
 function abrirModalRetirada(target) {
   if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
@@ -4272,10 +4332,13 @@ function abrirModalRetirada(target) {
 
   setAgora(document.getElementById("retirada-data"));
   document.getElementById("retirada-responsavel").value = "";
-  autorizacaoPinInput.value = "";
+  // Garante que um faMode="true" deixado por um Cancelar no modal FA (que não
+  // limpa a flag) não vaze para esta confirmação do Cacau Show.
+  document.getElementById("modal-confirmar").dataset.faMode = "false";
 
-  const precisaAutorizacao = currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP";
+  const precisaAutorizacao = LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome);
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
+  document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
 
   modalRetirada.classList.remove("hidden");
 }
@@ -4293,26 +4356,48 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     return;
   }
 
-  let autorizadoPor = null;
-  if (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP") {
-    const pinDigitado = autorizacaoPinInput.value.trim();
-    autorizadoPor = AUTORIZADORES.find(nome => pins[nome] && pins[nome] === pinDigitado);
-    if (!autorizadoPor) {
-      showModal("PIN de autorização inválido. Peça para Bruno ou Isabella autorizar com o PIN deles.", { icon: "🔑", title: "Autorização necessária" });
-      return;
-    }
-  }
-
   const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
   const targets = Array.isArray(retiradaAlvoId) ? retiradaAlvoId : [retiradaAlvoId];
   const dataRetirada = new Date(data).toISOString();
+
+  // Alexandra/LiderOP não confirmam sozinhas: a retirada vira uma solicitação
+  // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
+  if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
+    const listaOrigem = isFA ? registrosFA : registros;
+    const selecionados = listaOrigem.filter(r => targets.includes(r.id));
+    const valorTotal = selecionados.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    const loja = selecionados[0] ? selecionados[0].loja : "";
+
+    setLoading("modal-confirmar", true);
+    try {
+      await criarSolicitacaoRetiradaAPI({
+        id: uid(),
+        tipo: isFA ? "fa" : "cshow",
+        registroIds: targets,
+        loja,
+        valorTotal,
+        responsavel,
+        dataRetirada,
+        actorUsuario: currentUser.nome
+      });
+      delete document.getElementById("modal-confirmar").dataset.faMode;
+      modalRetirada.classList.add("hidden");
+      retiradaAlvoId = null;
+      showToast("Solicitação enviada! Bruno ou Isabella vão autorizar no aparelho deles.", "sucesso");
+    } catch (e) {
+      showModal(e.message || "Erro ao enviar solicitação de retirada.", { icon: "⚠️", title: "Falha ao solicitar" });
+    } finally {
+      setLoading("modal-confirmar", false);
+    }
+    return;
+  }
 
   const updates = {
     status: "retirado",
     dataRetirada: dataRetirada,
     retiradoPor: responsavel,
     confirmadoPorApp: currentUser.nome,
-    autorizadoPor: autorizadoPor
+    autorizadoPor: null
   };
 
   for (const id of targets) {
@@ -4333,7 +4418,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
         r.confirmadoPorApp = currentUser.nome;
-        r.autorizadoPor = autorizadoPor;
+        r.autorizadoPor = null;
       }
     }
   }
@@ -4350,6 +4435,109 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
   }
 });
+
+// --- Modal autorizar retirada (owner) ---
+// Abre sozinho na tela de Bruno/Isabella quando Alexandra/LiderOP solicita uma
+// retirada (evento em tempo real) ou quando o owner entra no app e existe
+// alguma solicitação pendente. Fila simples: mostra uma de cada vez.
+let filaAutorizacaoRetirada = [];
+let solicitacaoRetiradaAtual = null;
+
+const modalAutorizarRetirada = document.getElementById("modal-autorizar-retirada");
+const autorizarRetiradaPinInput = document.getElementById("autorizar-retirada-pin");
+const autorizarRetiradaErro = document.getElementById("autorizar-retirada-erro");
+
+function souOwnerAutorizador() {
+  return !!currentUser && currentUser.role === "owner";
+}
+
+function enfileirarSolicitacaoRetirada(solicitacao) {
+  if (!souOwnerAutorizador() || !solicitacao || !solicitacao.id) return;
+  const jaExiste = (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === solicitacao.id) ||
+    filaAutorizacaoRetirada.some(s => s.id === solicitacao.id);
+  if (jaExiste) return;
+  filaAutorizacaoRetirada.push(solicitacao);
+  mostrarProximaSolicitacaoRetirada();
+}
+
+function removerSolicitacaoDaFila(id, mensagemSeAberta) {
+  filaAutorizacaoRetirada = filaAutorizacaoRetirada.filter(s => s.id !== id);
+  if (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === id) {
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    if (mensagemSeAberta) showToast(mensagemSeAberta, "info");
+    mostrarProximaSolicitacaoRetirada();
+  }
+}
+
+function mostrarProximaSolicitacaoRetirada() {
+  if (solicitacaoRetiradaAtual || filaAutorizacaoRetirada.length === 0) return;
+  solicitacaoRetiradaAtual = filaAutorizacaoRetirada.shift();
+  const s = solicitacaoRetiradaAtual;
+
+  const qtd = (s.registroIds || []).length;
+  const qtdTexto = qtd > 1 ? `${qtd} envelopes` : "1 envelope";
+  const dataFmt = s.dataRetirada ? new Date(s.dataRetirada).toLocaleString("pt-BR") : "-";
+  document.getElementById("autorizar-retirada-info").textContent =
+    `${s.solicitadoPor} pediu retirada de ${qtdTexto} — ${formatBRL(s.valorTotal || 0)} — Loja ${s.loja || "-"}. Responsável: ${s.responsavel || "-"}. Data proposta: ${dataFmt}.`;
+
+  autorizarRetiradaPinInput.value = "";
+  autorizarRetiradaErro.classList.add("hidden");
+  autorizarRetiradaErro.textContent = "";
+  modalAutorizarRetirada.classList.remove("hidden");
+  autorizarRetiradaPinInput.focus();
+}
+
+document.getElementById("autorizar-retirada-confirmar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const pin = autorizarRetiradaPinInput.value.trim();
+  if (!pin) {
+    autorizarRetiradaErro.textContent = "Digite o seu PIN.";
+    autorizarRetiradaErro.classList.remove("hidden");
+    return;
+  }
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-confirmar", true);
+  try {
+    await autorizarSolicitacaoRetiradaAPI(id, pin);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Retirada autorizada com sucesso!", "sucesso");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    autorizarRetiradaErro.textContent = e.message || "PIN inválido.";
+    autorizarRetiradaErro.classList.remove("hidden");
+  } finally {
+    setLoading("autorizar-retirada-confirmar", false);
+  }
+});
+
+document.getElementById("autorizar-retirada-recusar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const confirmar = await showConfirm("Recusar esta solicitação de retirada? A Líder de Operações precisará revisar e enviar novamente.", { icon: "🚫", title: "Recusar retirada", confirmText: "Recusar", confirmClass: "btn-danger" });
+  if (!confirmar) return;
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-recusar", true);
+  try {
+    await recusarSolicitacaoRetiradaAPI(id, null);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Solicitação de retirada recusada.", "info");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    showModal(e.message || "Erro ao recusar retirada.", { icon: "⚠️", title: "Falha ao recusar" });
+  } finally {
+    setLoading("autorizar-retirada-recusar", false);
+  }
+});
+
+async function carregarSolicitacoesRetiradaPendentes() {
+  if (!souOwnerAutorizador()) return;
+  const pendentes = await buscarSolicitacoesRetiradaPendentesAPI();
+  pendentes.forEach(enfileirarSolicitacaoRetirada);
+}
 
 // --- Modal foto ---
 const modalFoto = document.getElementById("modal-foto");
@@ -14203,6 +14391,23 @@ function _rtRegistrarHandlers() {
     _rtRegistroAlterado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, _rtRenderRegistrosFa));
   RT.on("registroFa.excluido", (payload) =>
     _rtRegistroExcluido(registrosFA, STORAGE_KEY_FA, payload.id, _rtRenderRegistrosFa));
+
+  // Autorização remota de retirada: abre o modal sozinho na tela do owner.
+  RT.on("retirada.solicitada", (payload) => {
+    enfileirarSolicitacaoRetirada(payload);
+  });
+  RT.on("retirada.autorizada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já autorizada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showToast(`Sua retirada foi autorizada por ${payload.autorizadoPor}!`, "sucesso");
+    }
+  });
+  RT.on("retirada.recusada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já recusada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showModal(`Sua solicitação de retirada foi recusada por ${payload.autorizadoPor}.${payload.motivo ? " Motivo: " + payload.motivo : ""}`, { icon: "🚫", title: "Retirada recusada" });
+    }
+  });
 
   const TABS_BOLETOS = ["boletos", "auditoria-boletos", "importacoes"];
   ["boleto.importados", "boleto.pago", "boleto.excluido"].forEach(tipo => {
