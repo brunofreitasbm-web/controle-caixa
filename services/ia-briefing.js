@@ -54,15 +54,20 @@ const reais = n => `R$ ${Number(n || 0).toLocaleString('pt-BR', { minimumFractio
 async function apurar(dataRef) {
   const ontem = somarDias(dataRef, -1);
 
-  // Faturamento por loja: metas_vendas guarda o valor POR intervalo de hora
-  // (não acumulado), então a soma do dia é o faturamento do dia.
+  // Faturamento por loja: metas_vendas armazena a venda acumulada do dia até aquele horário.
+  // Por operação, adotamos o valor faturado no último horário registrado (loja aberta), não a soma dos lançamentos.
   const vendas = await dbAllAsync(
-    'SELECT operacao, SUM(valor) AS total, COUNT(*) AS checkins FROM metas_vendas WHERE data = ? GROUP BY operacao',
+    'SELECT operacao, valor, horaslot FROM metas_vendas WHERE data = ? ORDER BY horaslot ASC',
     [ontem]
   );
   const vendasPorLoja = {};
   (vendas || []).forEach(v => {
-    vendasPorLoja[v.operacao] = { total: Number(v.total) || 0, checkins: Number(v.checkins) || 0 };
+    if (!vendasPorLoja[v.operacao]) {
+      vendasPorLoja[v.operacao] = { total: 0, checkins: 0 };
+    }
+    // O valor do último horário lançado da loja é a venda acumulada do dia
+    vendasPorLoja[v.operacao].total = Number(v.valor) || 0;
+    vendasPorLoja[v.operacao].checkins += 1;
   });
 
   // Meta do dia: só 'diaria' e 'manual' valem como meta do dia. 'mensal'

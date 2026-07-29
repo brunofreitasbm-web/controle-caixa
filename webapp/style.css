@@ -4448,3 +4448,24 @@ body.device-ios .sidebar {
   .ia-loja-linha { grid-template-columns: 1fr 1fr; row-gap: 2px; }
   .ia-card-topo { align-items: flex-start; }
 }
+
+/* --- Destaque de Último Acesso no Login --- */
+.login-user-card.ultimo-acesso {
+  position: relative;
+  border: 2px solid #8b263e !important;
+  background: linear-gradient(135deg, rgba(139, 38, 62, 0.08) 0%, rgba(255, 213, 128, 0.15) 100%) !important;
+  box-shadow: 0 4px 14px rgba(139, 38, 62, 0.2);
+}
+.login-user-badge {
+  position: absolute;
+  top: -8px;
+  right: 6px;
+  background: #8b263e;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  z-index: 2;
+}

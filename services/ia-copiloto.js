@@ -40,10 +40,12 @@ async function apurarRitmo({ loja, data, horaSlot }) {
   const fechamentoMin = fh * 60 + fm;
 
   const vendasHoje = await dbAllAsync(
-    'SELECT horaslot AS "horaSlot", valor FROM metas_vendas WHERE operacao = ? AND data = ?',
+    'SELECT horaslot AS "horaSlot", valor FROM metas_vendas WHERE operacao = ? AND data = ? ORDER BY horaslot ASC',
     [loja, data]
   );
-  const vendido = (vendasHoje || []).reduce((s, v) => s + (Number(v.valor) || 0), 0);
+  const vendido = (vendasHoje && vendasHoje.length > 0)
+    ? Number(vendasHoje[vendasHoje.length - 1].valor) || 0
+    : 0;
 
   const metaRow = await dbGetAsync(
     "SELECT valor FROM metas_diarias_lojas WHERE loja = ? AND data = ? AND origem IN ('diaria', 'manual')",

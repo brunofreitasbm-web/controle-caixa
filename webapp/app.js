@@ -100,10 +100,10 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "pasta-auditoria-cs", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
-  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
+  consultora_fa: ["faca-amigos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1194,12 +1194,15 @@ function getEmojiUsuario(nome) {
 
 function renderLoginUserGrid() {
   loginUserGrid.innerHTML = "";
+  const ultimoUsuario = localStorage.getItem("ultimo_usuario_login");
   USERS.forEach(u => {
+    const isUltimo = u.nome === ultimoUsuario;
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "login-user-card";
+    card.className = "login-user-card" + (isUltimo ? " ultimo-acesso" : "");
     card.setAttribute("role", "listitem");
     card.innerHTML = `
+      ${isUltimo ? '<span class="login-user-badge">⚡ Último Acesso</span>' : ''}
       <span class="login-user-avatar">${getEmojiUsuario(u.nome)}</span>
       <span class="login-user-name">${u.nome}</span>
     `;
@@ -1333,6 +1336,7 @@ loginEntrarBtn.addEventListener("click", async () => {
 
   currentUser = user;
   localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+  localStorage.setItem("ultimo_usuario_login", user.nome);
   resetLoginForm();
   entrarNoApp();
 });
@@ -2879,22 +2883,6 @@ function renderFaDashboard() {
 
   document.getElementById("fa-dash-total-geral").textContent = formatBRL(totalGeral) + " em trânsito";
 
-  const barChart = document.getElementById("fa-bar-chart");
-  barChart.innerHTML = "";
-  const maiorValor = Math.max(...Object.values(totaisPorLoja), 1);
-  LOJAS_FA.forEach(loja => {
-    const total = totaisPorLoja[loja];
-    const pct = Math.round((total / maiorValor) * 100);
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    row.innerHTML = `
-      <span>${loja}</span>
-      <div class="bar-track"><div class="bar-fill fa-bar-fill" style="width:${pct}%"></div></div>
-      <span class="bar-value">${formatBRL(total)}</span>
-    `;
-    barChart.appendChild(row);
-  });
-
   function atualizarBatchBarFAPendentes(filtrados) {
     const bar = document.getElementById("fa-batch-actions-pendentes");
     const countInfo = document.getElementById("fa-batch-count-info");
@@ -2904,7 +2892,7 @@ function renderFaDashboard() {
 
     if (selecionadosFAPendentes.size > 0) {
       bar.classList.remove("hidden");
-      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(r.id));
+      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(String(r.id)));
       const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
       countInfo.textContent = `${selecionadosFAPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
     } else {
@@ -2912,7 +2900,7 @@ function renderFaDashboard() {
     }
 
     if (selectAllCheckbox) {
-      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(r.id));
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(String(r.id)));
       selectAllCheckbox.indeterminate = selecionadosFAPendentes.size > 0 && !selectAllCheckbox.checked;
     }
   }
@@ -2925,15 +2913,15 @@ function renderFaDashboard() {
   const podeRetirar = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
 
   // Limpar IDs selecionados que não estão mais na lista de filtrados
-  const idsFiltrados = new Set(filtrados.map(r => r.id));
-  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].filter(id => idsFiltrados.has(id)));
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].map(String).filter(id => idsFiltrados.has(id)));
 
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
-      const isSelected = selecionadosFAPendentes.has(r.id);
+      const isSelected = selecionadosFAPendentes.has(String(r.id));
       const tr = document.createElement("tr");
       if (isSelected) tr.classList.add("selected-row");
 
@@ -2964,7 +2952,7 @@ function renderFaDashboard() {
   if (selectAll) {
     selectAll.onclick = () => {
       if (selectAll.checked) {
-        filtrados.forEach(r => selecionadosFAPendentes.add(r.id));
+        filtrados.forEach(r => selecionadosFAPendentes.add(String(r.id)));
       } else {
         selecionadosFAPendentes.clear();
       }
@@ -2976,7 +2964,7 @@ function renderFaDashboard() {
   tbody.querySelectorAll(".chk-fa-pendente").forEach(chk => {
     chk.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = chk.dataset.id;
+      const id = String(chk.dataset.id);
       if (chk.checked) {
         selecionadosFAPendentes.add(id);
       } else {
@@ -2996,7 +2984,7 @@ function renderFaDashboard() {
   }
 
   tbody.querySelectorAll(".fa-btn-retirar").forEach(btn => {
-    btn.addEventListener("click", () => abrirModalRetiradaFA(btn.dataset.id));
+    btn.addEventListener("click", () => abrirModalRetiradaFA(String(btn.dataset.id)));
   });
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
@@ -3013,7 +3001,8 @@ function abrirModalRetiradaFA(target) {
   const isBatch = Array.isArray(target);
 
   if (isBatch) {
-    const selecionadosList = registrosFA.filter(x => target.includes(x.id));
+    const targetStrs = target.map(String);
+    const selecionadosList = registrosFA.filter(x => targetStrs.includes(String(x.id)));
     const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     document.getElementById("modal-sub-info").textContent =
       `[FaçaAmigos - Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
@@ -4241,7 +4230,7 @@ function renderDashboard() {
 
     if (selecionadosPendentes.size > 0) {
       bar.classList.remove("hidden");
-      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(r.id));
+      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(String(r.id)));
       const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
       countInfo.textContent = `${selecionadosPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
     } else {
@@ -4249,7 +4238,7 @@ function renderDashboard() {
     }
 
     if (selectAllCheckbox) {
-      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(r.id));
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(String(r.id)));
       selectAllCheckbox.indeterminate = selecionadosPendentes.size > 0 && !selectAllCheckbox.checked;
     }
   }
@@ -4261,15 +4250,15 @@ function renderDashboard() {
   const podeRetirar = RETIRADA_PERMITIDA.includes(currentUser.nome);
 
   // Limpar IDs selecionados que não estão mais na lista de filtrados
-  const idsFiltrados = new Set(filtrados.map(r => r.id));
-  selecionadosPendentes = new Set([...selecionadosPendentes].filter(id => idsFiltrados.has(id)));
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosPendentes = new Set([...selecionadosPendentes].map(String).filter(id => idsFiltrados.has(id)));
 
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
-      const isSelected = selecionadosPendentes.has(r.id);
+      const isSelected = selecionadosPendentes.has(String(r.id));
       const tr = document.createElement("tr");
       if (isSelected) tr.classList.add("selected-row");
 
@@ -4300,7 +4289,7 @@ function renderDashboard() {
   if (selectAll) {
     selectAll.onclick = () => {
       if (selectAll.checked) {
-        filtrados.forEach(r => selecionadosPendentes.add(r.id));
+        filtrados.forEach(r => selecionadosPendentes.add(String(r.id)));
       } else {
         selecionadosPendentes.clear();
       }
@@ -4312,7 +4301,7 @@ function renderDashboard() {
   tbody.querySelectorAll(".chk-pendente").forEach(chk => {
     chk.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = chk.dataset.id;
+      const id = String(chk.dataset.id);
       if (chk.checked) {
         selecionadosPendentes.add(id);
       } else {
@@ -4332,7 +4321,7 @@ function renderDashboard() {
   }
 
   tbody.querySelectorAll(".btn-retirar").forEach(btn => {
-    btn.addEventListener("click", () => abrirModalRetirada(btn.dataset.id));
+    btn.addEventListener("click", () => abrirModalRetirada(String(btn.dataset.id)));
   });
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
@@ -4340,9 +4329,6 @@ function renderDashboard() {
 }
 
 function fotoCelula(r) {
-  // Só renderiza <img> se fotoEnvelope for realmente uma imagem (data URI ou
-  // URL http). Qualquer outro valor (ex.: texto de erro/placeholder vindo de
-  // uma sincronização malformada) vira um GET quebrado para o servidor.
   if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
     return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
   }
@@ -4371,12 +4357,13 @@ function abrirModalRetirada(target) {
   const isBatch = Array.isArray(target);
 
   if (isBatch) {
-    const selecionadosList = registros.filter(x => target.includes(x.id));
+    const targetStrs = target.map(String);
+    const selecionadosList = registros.filter(x => targetStrs.includes(String(x.id)));
     const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     document.getElementById("modal-sub-info").textContent =
       `[Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
   } else {
-    const r = registros.find(x => x.id === target);
+    const r = registros.find(x => String(x.id) === String(target));
     if (r) {
       document.getElementById("modal-sub-info").textContent =
         `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
@@ -4423,7 +4410,6 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     return;
   }
 
-
   const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
   const rawTarget = retiradaAlvoId || faRetiradaAlvoId;
   const targets = Array.isArray(rawTarget) ? rawTarget : (rawTarget ? [rawTarget] : []);
@@ -4435,7 +4421,8 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
   // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
   if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
     const listaOrigem = isFA ? registrosFA : registros;
-    const selecionados = listaOrigem.filter(r => targets.includes(r.id));
+    const targetStrs = targets.map(String);
+    const selecionados = listaOrigem.filter(r => targetStrs.includes(String(r.id)));
     const valorTotal = selecionados.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     const loja = selecionados[0] ? selecionados[0].loja : "";
 
@@ -4471,20 +4458,22 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     autorizadoPor: null
   };
 
-  for (const id of targets) {
+  for (const rawId of targets) {
+    const idStr = String(rawId);
     if (isFA) {
-      await atualizarRegistroFAAPI(id, updates);
-      const r = registrosFA.find(x => x.id === id);
+      await atualizarRegistroFAAPI(rawId, updates);
+      const r = registrosFA.find(x => String(x.id) === idStr);
       if (r) {
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
         r.confirmadoPorApp = currentUser ? currentUser.nome : "";
       }
-      selecionadosFAPendentes.delete(id);
+      selecionadosFAPendentes.delete(idStr);
+      selecionadosFAPendentes.delete(rawId);
     } else {
-      await atualizarRegistroAPI(id, updates);
-      const r = registros.find(x => x.id === id);
+      await atualizarRegistroAPI(rawId, updates);
+      const r = registros.find(x => String(x.id) === idStr);
       if (r) {
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
@@ -4492,7 +4481,8 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
         r.confirmadoPorApp = currentUser ? currentUser.nome : "";
         r.autorizadoPor = null;
       }
-      selecionadosPendentes.delete(id);
+      selecionadosPendentes.delete(idStr);
+      selecionadosPendentes.delete(rawId);
     }
   }
 
