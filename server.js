@@ -48,8 +48,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
-// Servir os arquivos estáticos da webapp (v1). A v2 (React) foi arquivada em
-// archive/frontend-v2 e não é mais servida.
+// Servir os arquivos estáticos da webapp
 app.use(express.static(path.join(__dirname, 'webapp')));
 
 // Registrar Rotas Modularizadas

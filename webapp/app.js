@@ -9,7 +9,7 @@ let API_BASE = window.location.protocol === "file:"
 const STORAGE_KEY = "cacaushow_controle_caixa_v1";
 const USER_KEY = "cacaushow_current_user";
 const PIN_KEY = "cacaushow_pins_v1";
-const CONFIG_KEY = "cacaushow_config_v2";
+const CONFIG_KEY = "cacaushow_config";
 const THEME_KEY = "cacaushow_theme";
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
 let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dinamicamente do config)
@@ -12098,7 +12098,7 @@ function inicializarPontoDb() {
     offline_queue: "id, action, timestamp",
     attachments: "id"
   });
-  // v2: adiciona índice `usuario` em time_records, necessário para
+  // Schema update: adiciona índice `usuario` em time_records, necessário para
   // .where("usuario").equals(...) usado em atualizarHistoricoPonto e sincronização.
   pontoDb.version(2).stores({
     time_records: "id, timestamp, tipo, syncStatus, usuario",
