@@ -192,6 +192,21 @@ router.post('/colaboradores/:nome/reset-biometria', requireOwner, (req, res) => 
   });
 });
 
+// Redefinição excepcional de biometria de TODOS os colaboradores — apenas
+// Admin/Owner. Mesma limpeza do reset individual, aplicada em massa.
+router.post('/colaboradores/reset-biometria-todos', requireOwner, (req, res) => {
+  db.run('UPDATE colaboradores SET hasBiometricEnrolled = 0', [], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    db.run('DELETE FROM ponto_biometria', [], (err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      db.run('DELETE FROM biometria_tentativas', [], (err3) => {
+        if (err3) return res.status(500).json({ error: err3.message });
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
 router.delete('/colaboradores/:nome', (req, res) => {
   const { nome } = req.params;
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
