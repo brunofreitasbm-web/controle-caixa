@@ -21,7 +21,8 @@ const REGRAS_PADRAO_NOTIFICACAO = {
   conferencia_nfe: { colab: false, lider: true, owner: true },
   divergencia_caixa: { colab: false, lider: true, owner: true },
   meta_lembrete: { colab: true, lider: false, owner: false, colab_ch: 'push' },
-  meta_atraso: { colab: false, lider: true, owner: true }
+  meta_atraso: { colab: false, lider: true, owner: true },
+  retirada_solicitada: { colab: false, lider: false, owner: true }
 };
 
 // A tela de Configurações (webapp/app.js) grava as chaves com hífen
@@ -38,7 +39,8 @@ const ALIASES_TIPO_NOTIFICACAO = {
   conferencia_nfe: ['conferencia_nfe', 'nfe'],
   divergencia_caixa: ['divergencia_caixa', 'divergencia'],
   meta_lembrete: ['meta_lembrete', 'meta-lembrete'],
-  meta_atraso: ['meta_atraso', 'meta-atraso']
+  meta_atraso: ['meta_atraso', 'meta-atraso'],
+  retirada_solicitada: ['retirada_solicitada']
 };
 
 function tipoCanonicoNotificacao(notificationType) {
@@ -305,6 +307,19 @@ function enviarResumoAtrasoMeta(resumoPorLoja) {
   });
 }
 
+// Autorização de retirada pendente: ao contrário dos demais avisos, este não
+// respeita a chave mestra "notificacoesEventosAtivas" — sem o push, Bruno/
+// Isabella podem nunca saber que existe uma retirada esperando o PIN deles,
+// e a chave é pensada para silenciar avisos informativos, não uma ação que a
+// Líder de Operações está bloqueada até alguém autorizar.
+function enviarNotificacaoRetiradaSolicitada(loja, valorTotal, quantidade, solicitadoPor) {
+  const valorFmt = Number(valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const title = '🔑 Retirada aguardando sua autorização';
+  const qtdTexto = quantidade > 1 ? `${quantidade} envelopes` : '1 envelope';
+  const body = `${solicitadoPor} pediu para retirar ${qtdTexto} (R$ ${valorFmt}) da loja ${loja}. Abra o app para autorizar com seu PIN.`;
+  enviarNotificacaoPushInterno(title, body, null, 'retirada_solicitada');
+}
+
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) {
@@ -417,6 +432,7 @@ module.exports = {
   enviarEmailNotificacao,
   enviarEmailGenerico,
   enviarNotificacaoPush,
+  enviarNotificacaoRetiradaSolicitada,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
   META_JANELA_FECHAMENTO_DEPOIS_MIN,
