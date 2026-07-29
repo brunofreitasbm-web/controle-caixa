@@ -542,6 +542,9 @@ let tipoOperacaoSelecionado = null;
 let fotoDataUrl = null;
 let retiradaAlvoId = null;
 
+let selecionadosPendentes = new Set();
+let selecionadosFAPendentes = new Set();
+
 // Estado específico do FaçaAmigos
 let faTipoOperacaoSelecionado = null;
 let faFotoDataUrl = null;
@@ -837,6 +840,9 @@ async function salvarRegistroAPI(reg) {
   // Fallback Local
   registros.push(reg);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
   return false;
 }
 
@@ -858,6 +864,9 @@ async function atualizarRegistroAPI(id, dados) {
   if (idx !== -1) {
     registros[idx] = { ...registros[idx], ...dados };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
   return false;
 }
@@ -929,6 +938,9 @@ async function salvarRegistroFAAPI(reg) {
   // Fallback Local
   registrosFA.push(reg);
   localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
   return false;
 }
 
@@ -950,6 +962,9 @@ async function atualizarRegistroFAAPI(id, dados) {
   if (idx !== -1) {
     registrosFA[idx] = { ...registrosFA[idx], ...dados };
     localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
   return false;
 }
@@ -1976,6 +1991,7 @@ function atualizarCamposPorOperacao() {
     fieldFaturado.classList.add("hidden");
     valorFaturadoInput.required = false;
     fieldSangria.classList.add("hidden");
+    document.getElementById("field-sangria-motivo").classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
@@ -1984,8 +2000,20 @@ function atualizarCamposPorOperacao() {
     valorFaturadoInput.required = true;
     fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarSangriaMotivo();
   }
 }
+
+function atualizarSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("sangria").value);
+  const field = document.getElementById("field-sangria-motivo");
+  const mostrar = tipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("sangria-motivo").value = "";
+  }
+}
+document.getElementById("sangria").addEventListener("input", atualizarSangriaMotivo);
 
 function atualizarFaCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("fa-field-valor-envelope");
@@ -2001,6 +2029,7 @@ function atualizarFaCamposPorOperacao() {
     fieldFaturado.classList.add("hidden");
     valorFaturadoInput.required = false;
     fieldSangria.classList.add("hidden");
+    document.getElementById("fa-field-sangria-motivo").classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
@@ -2009,8 +2038,20 @@ function atualizarFaCamposPorOperacao() {
     valorFaturadoInput.required = true;
     fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarFaSangriaMotivo();
   }
 }
+
+function atualizarFaSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("fa-sangria").value);
+  const field = document.getElementById("fa-field-sangria-motivo");
+  const mostrar = faTipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("fa-sangria-motivo").value = "";
+  }
+}
+document.getElementById("fa-sangria").addEventListener("input", atualizarFaSangriaMotivo);
 
 // --- Sugestão automática de Fundo de Caixa (Cacau Show) ---
 document.getElementById("loja").addEventListener("change", () => {
@@ -2251,6 +2292,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
   const valorFaturadoRaw = document.getElementById("valor-faturado").value;
   const sangriaRaw = document.getElementById("sangria").value;
+  const sangriaMotivo = document.getElementById("sangria-motivo").value.trim();
   const observacoes = document.getElementById("observacoes").value;
 
   limparErrosInline("");
@@ -2292,6 +2334,9 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
       marcarErro(document.getElementById("sangria"), document.getElementById("sangria-error"));
     }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("sangria-motivo"), document.getElementById("sangria-motivo-error"));
+    }
     if (!fotoDataUrl) {
       marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
     }
@@ -2307,6 +2352,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
   const valorFaturado = tipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
   const sangria = tipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
 
   const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
@@ -2330,6 +2376,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
     valorFaturado,
     sangria,
+    sangriaMotivo: sangriaMotivoFinal,
     observacoes: observacoes || null,
     fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
     status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2417,6 +2464,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
   const valorFaturadoRaw = document.getElementById("fa-valor-faturado").value;
   const sangriaRaw = document.getElementById("fa-sangria").value;
+  const sangriaMotivo = document.getElementById("fa-sangria-motivo").value.trim();
   const observacoes = document.getElementById("fa-observacoes").value;
 
   limparErrosInline("fa");
@@ -2458,6 +2506,9 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
       marcarErro(document.getElementById("fa-sangria"), document.getElementById("fa-sangria-error"));
     }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("fa-sangria-motivo"), document.getElementById("fa-sangria-motivo-error"));
+    }
     if (!faFotoDataUrl) {
       marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
     }
@@ -2473,6 +2524,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
   const valorFaturado = faTipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
   const sangria = faTipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
 
   const duplicado = registrosFA.some(r =>
     r.loja === loja &&
@@ -2496,6 +2548,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     valorEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
     valorFaturado,
     sangria,
+    sangriaMotivo: sangriaMotivoFinal,
     observacoes: observacoes || null,
     fotoEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? faFotoDataUrl : null,
     status: faTipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2574,7 +2627,7 @@ function mensagemAviso(r) {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}\n` +
-    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}\n` : "") +
+    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}\n` : "") +
     pctMetaLinha
   );
 }
@@ -2635,7 +2688,7 @@ function mensagemAvisoFA(r, linhaVendas = "") {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
-    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "") +
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}` : "") +
     linhaVendas
   );
 }
@@ -2777,8 +2830,6 @@ function renderFaDashboard() {
     `;
     barChart.appendChild(row);
   });
-
-  let selecionadosFAPendentes = new Set();
 
   function atualizarBatchBarFAPendentes(filtrados) {
     const bar = document.getElementById("fa-batch-actions-pendentes");
@@ -3865,50 +3916,7 @@ async function salvarRegraFaBonificacao() {
   }
 }
 
-// ==================== FACADE: Modal confirmar retirada FA ====================
-// Intercept the existing modal-confirmar for FA mode
-const _originalModalConfirmar = document.getElementById("modal-confirmar-listener");
-document.getElementById("modal-confirmar").addEventListener("click", async () => {
-  // handled inside modal-confirmar click
-});
 
-// Override modal-confirmar button to support FA mode
-const modalConfirmarBtn = document.getElementById("modal-confirmar");
-const _originalConfirmarClick = modalConfirmarBtn.onclick;
-modalConfirmarBtn.addEventListener("click", async function faConfirmarHandler() {
-  if (this.dataset.faMode !== "true") return;
-  this.dataset.faMode = "";
-
-  const data = document.getElementById("retirada-data").value;
-  const responsavel = document.getElementById("retirada-responsavel").value.trim();
-  if (!data || !responsavel) {
-    showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
-    return;
-  }
-
-  const r = registrosFA.find(x => x.id === faRetiradaAlvoId);
-  if (!r) return;
-  const dataRetirada = new Date(data).toISOString();
-
-  const updates = {
-    status: "retirado",
-    dataRetirada: dataRetirada,
-    retiradoPor: responsavel,
-    confirmadoPorApp: currentUser.nome,
-    autorizadoPor: null
-  };
-
-  await atualizarRegistroFAAPI(faRetiradaAlvoId, updates);
-  r.status = "retirado";
-  r.dataRetirada = dataRetirada;
-  r.retiradoPor = responsavel;
-  r.confirmadoPorApp = currentUser.nome;
-
-  document.getElementById("modal-retirada").classList.add("hidden");
-  faRetiradaAlvoId = null;
-  renderFaDashboard();
-  showToast("Retirada FA confirmada com sucesso!", "sucesso");
-});
 
 // --- Notificações System ---
 function obterNotificacoesPendentes() {
@@ -4161,8 +4169,6 @@ function renderDashboard() {
     barChart.appendChild(row);
   });
 
-  let selecionadosPendentes = new Set();
-
   function atualizarBatchBarPendentes(filtrados) {
     const bar = document.getElementById("batch-actions-pendentes");
     const countInfo = document.getElementById("batch-count-info");
@@ -4295,7 +4301,7 @@ const autorizacaoWrap = document.getElementById("autorizacao-wrap");
 const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
 function abrirModalRetirada(target) {
-  if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
+  if (!currentUser || !RETIRADA_PERMITIDA.includes(currentUser.nome)) {
     showModal("Apenas Bruno, Isabella, Alexandra ou LiderOP podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
@@ -4309,15 +4315,28 @@ function abrirModalRetirada(target) {
       `[Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
   } else {
     const r = registros.find(x => x.id === target);
-    document.getElementById("modal-sub-info").textContent =
-      `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+    if (r) {
+      document.getElementById("modal-sub-info").textContent =
+        `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+    }
   }
 
   setAgora(document.getElementById("retirada-data"));
-  document.getElementById("retirada-responsavel").value = "";
+  
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  const respInput = document.getElementById("retirada-responsavel");
+  if (respInput) {
+    respInput.value = isOwner ? currentUser.nome : "";
+  }
+
+  const respLabel = document.querySelector("label[for='retirada-responsavel']");
+  if (respLabel) {
+    respLabel.textContent = isOwner ? "Responsável pela Retirada (Opcional para Owner)" : "Responsável pela Retirada *";
+  }
+
   autorizacaoPinInput.value = "";
 
-  const precisaAutorizacao = currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP";
+  const precisaAutorizacao = currentUser && (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
 
   modalRetirada.classList.remove("hidden");
@@ -4330,14 +4349,20 @@ document.getElementById("modal-cancelar").addEventListener("click", () => {
 
 document.getElementById("modal-confirmar").addEventListener("click", async () => {
   const data = document.getElementById("retirada-data").value;
-  const responsavel = document.getElementById("retirada-responsavel").value.trim();
+  let responsavel = document.getElementById("retirada-responsavel").value.trim();
+
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  if (!responsavel && isOwner) {
+    responsavel = currentUser.nome;
+  }
+
   if (!data || !responsavel) {
     showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
     return;
   }
 
   let autorizadoPor = null;
-  if (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP") {
+  if (currentUser && (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP")) {
     const pinDigitado = autorizacaoPinInput.value.trim();
     autorizadoPor = AUTORIZADORES.find(nome => pins[nome] && pins[nome] === pinDigitado);
     if (!autorizadoPor) {
@@ -4347,14 +4372,17 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
   }
 
   const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
-  const targets = Array.isArray(retiradaAlvoId) ? retiradaAlvoId : [retiradaAlvoId];
+  const rawTarget = retiradaAlvoId || faRetiradaAlvoId;
+  const targets = Array.isArray(rawTarget) ? rawTarget : (rawTarget ? [rawTarget] : []);
+  if (targets.length === 0) return;
+
   const dataRetirada = new Date(data).toISOString();
 
   const updates = {
     status: "retirado",
     dataRetirada: dataRetirada,
     retiradoPor: responsavel,
-    confirmadoPorApp: currentUser.nome,
+    confirmadoPorApp: currentUser ? currentUser.nome : "",
     autorizadoPor: autorizadoPor
   };
 
@@ -4366,8 +4394,9 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser.nome;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
       }
+      selecionadosFAPendentes.delete(id);
     } else {
       await atualizarRegistroAPI(id, updates);
       const r = registros.find(x => x.id === id);
@@ -4375,15 +4404,17 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser.nome;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
         r.autorizadoPor = autorizadoPor;
       }
+      selecionadosPendentes.delete(id);
     }
   }
 
   delete document.getElementById("modal-confirmar").dataset.faMode;
   modalRetirada.classList.add("hidden");
   retiradaAlvoId = null;
+  faRetiradaAlvoId = null;
 
   if (isFA) {
     renderFaDashboard();
@@ -4928,6 +4959,9 @@ if (syncBadgeEl) {
     const queue = getSyncQueue();
     if (queue.length === 0) return;
     showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+    if (API_ONLINE) {
+      processarFilaSync();
+    }
   };
   syncBadgeEl.addEventListener("click", explicarSyncBadge);
   syncBadgeEl.addEventListener("keydown", (e) => {
@@ -4957,6 +4991,18 @@ async function processarFilaSync() {
         });
       } else if (item.type === "UPDATE") {
         res = await fetch(`${API_BASE}/registros/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_CREATE") {
+        res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_UPDATE") {
+        res = await fetch(`${API_BASE}/registros-fa/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(item.data)
@@ -5004,20 +5050,26 @@ async function processarFilaSync() {
   }
 }
 
-// Tentar sincronizar quando a API voltar online
+// Tentar sincronizar quando a API voltar online ou durante verificações
 const _originalCheckApi = checkApiConnection;
 checkApiConnection = async function () {
   const wasOffline = !API_ONLINE;
   await _originalCheckApi();
-  if (wasOffline && API_ONLINE) {
+  if (API_ONLINE && getSyncQueue().length > 0) {
     processarFilaSync();
-    // Também é aqui que a primeira carga do inventário compartilhado acontece
-    // quando o app abre offline e a conexão só sobe depois.
+  }
+  if (wasOffline && API_ONLINE) {
     if (typeof iniciarSincronizacaoDoInventario === "function") {
       iniciarSincronizacaoDoInventario();
     }
   }
 };
+
+window.addEventListener("online", () => {
+  if (typeof checkApiConnection === "function") {
+    checkApiConnection();
+  }
+});
 
 // Badge de sync pendente
 atualizarBadgeSync();
@@ -10952,7 +11004,7 @@ function renderRhTable() {
             <option value="4304" ${store === '4304' ? 'selected' : ''}>4304 - Icoaraci</option>
           </optgroup>
           <optgroup label="Faça Amigos">
-            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>Faça Amigos - Parque</option>
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>FaçaAmigos Circuito</option>
             <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>Faça Amigos - Playground</option>
             <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>Faça Amigos - Grão-Pará</option>
           </optgroup>
@@ -12140,6 +12192,13 @@ function pararDeteccaoFacial() {
   pontoFaceVerificada = false;
 }
 
+// Usuários isentos da verificação de GPS/geofencing no bate-ponto.
+const NOMES_ISENTOS_GPS = ["Bruno", "Isabella", "Alexandra"];
+
+function usuarioIsentoGPS() {
+  return currentUser && NOMES_ISENTOS_GPS.includes(currentUser.nome);
+}
+
 function ativarGPSPonto() {
   const gpsStatus = document.getElementById("ponto-gps-status");
   const gpsCoords = document.getElementById("ponto-gps-coords");
@@ -12168,10 +12227,13 @@ function ativarGPSPonto() {
       const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
       const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
       const dist = calcularDistanciaHaversine(pos.coords.latitude, pos.coords.longitude, storeLoc.lat, storeLoc.lng);
-      
+
       gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
 
-      if (pos.coords.accuracy > 30) {
+      if (usuarioIsentoGPS()) {
+        gpsStatus.className = "text-emerald-500 font-black";
+        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK (verificação isenta)`;
+      } else if (pos.coords.accuracy > 30) {
         gpsStatus.className = "text-amber-500 font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
       } else if (dist > GEOFENCE_RAIO_METROS) {
@@ -12239,19 +12301,21 @@ async function registrarMarcacaoPonto(tipo) {
     return;
   }
 
-  // Geofencing Check
-  const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
-  const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
-  const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
-  
-  if (pontoGpsAccuracy > 30) {
-    showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
-    return;
-  }
-  
-  if (dist > GEOFENCE_RAIO_METROS) {
-    showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
-    return;
+  // Geofencing Check (isento para usuários em NOMES_ISENTOS_GPS)
+  if (!usuarioIsentoGPS()) {
+    const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
+    const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+    const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
+
+    if (pontoGpsAccuracy > 30) {
+      showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
+      return;
+    }
+
+    if (dist > GEOFENCE_RAIO_METROS) {
+      showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
+      return;
+    }
   }
 
   // Biometria facial: obrigatória sempre que a câmera está ativa

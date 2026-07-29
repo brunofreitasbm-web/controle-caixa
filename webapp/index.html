@@ -530,6 +530,12 @@
           </div>
         </div>
 
+        <div class="field hidden" id="field-sangria-motivo">
+          <label for="sangria-motivo">Motivo da Sangria *</label>
+          <input type="text" id="sangria-motivo" placeholder="Justifique o motivo da sangria">
+          <div id="sangria-motivo-error" class="input-error-msg hidden">Informe o motivo da sangria</div>
+        </div>
+
         <div class="field">
           <label for="observacoes">Observações</label>
           <input type="text" id="observacoes" placeholder="Alguma divergência ou observação?">
@@ -605,6 +611,10 @@
               <option>Desligado</option>
             </select>
           </div>
+        </div>
+        <div id="batch-actions-pendentes" class="batch-actions-bar hidden">
+          <span id="batch-count-info">0 envelope(s) selecionado(s) (R$ 0,00)</span>
+          <button id="btn-batch-retirar" class="btn-primary btn-batch">Marcar selecionados como retirados</button>
         </div>
         <div class="table-wrap">
           <table id="tabela-pendentes" aria-label="Envelopes aguardando retirada">
@@ -860,6 +870,12 @@
               <input type="text" id="fa-sangria" inputmode="numeric" placeholder="R$ 0,00">
               <div id="fa-sangria-error" class="input-error-msg hidden">Valor inválido</div>
             </div>
+          </div>
+
+          <div class="field hidden" id="fa-field-sangria-motivo">
+            <label for="fa-sangria-motivo">Motivo da Sangria *</label>
+            <input type="text" id="fa-sangria-motivo" placeholder="Justifique o motivo da sangria">
+            <div id="fa-sangria-motivo-error" class="input-error-msg hidden">Informe o motivo da sangria</div>
           </div>
 
           <div class="field">

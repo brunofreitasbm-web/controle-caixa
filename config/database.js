@@ -200,6 +200,7 @@ function initDb(onSuccess) {
           valorEnvelope REAL,
           valorFaturado REAL,
           sangria REAL,
+          sangriaMotivo TEXT,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -221,6 +222,7 @@ function initDb(onSuccess) {
           valorEnvelope REAL,
           valorFaturado REAL,
           sangria REAL,
+          sangriaMotivo TEXT,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -544,6 +546,19 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE registros_fa ADD COLUMN sangria REAL', [], () => resolve());
+        });
+      });
+
+      // Justificativa obrigatória para sangria > R$ 0,01
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN sangriaMotivo TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN sangriaMotivo TEXT', [], () => resolve());
         });
       });
 
