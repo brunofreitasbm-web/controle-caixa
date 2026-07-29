@@ -383,6 +383,12 @@ html.sidebar-mobile-open body {
   border: 1px solid rgba(255, 255, 255, 0.05);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* .sidebar-nav é flex-column e cada grupo é um item dela. Com
+     overflow:hidden, a "automatic minimum size" do flex vira 0 — sem
+     flex-shrink:0 o item aceita ser espremido pelo algoritmo de flex-shrink
+     pra caber no espaço da nav, cortando os botões do grupo (parecia que o
+     conteúdo tinha sumido) em vez de deixar a nav rolar normalmente. */
+  flex-shrink: 0;
 }
 
 .sidebar-section-title {

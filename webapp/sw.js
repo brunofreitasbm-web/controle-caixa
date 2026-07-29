@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v40'; // v40: otimiza sidebar mobile (safe-area iOS/Android, trava de scroll, alvos de toque, grupos longos sem corte)
+const CACHE_NAME = 'ponto-pwa-v41'; // v41: corrige rolagem dos menus da sidebar (grupos eram espremidos pelo flexbox em vez da nav rolar)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
