@@ -3631,6 +3631,20 @@ async function carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, 
 
 function renderFaMetaDashboard(resultado, regra) {
   const pctExibicao = resultado.pctConversaoMensal * 100;
+  const ouroPercent = (regra.ouroPercentMin || 0.5) * 100;
+  const diamantePercent = (regra.diamantePercentMin || 0.6) * 100;
+
+  // Zonas da trilha Bronze -> Ouro -> Diamante (relativas à escala fixa de 0-100%)
+  const zonaBronzeEl = document.getElementById("fa-meta-zona-bronze");
+  const zonaOuroEl = document.getElementById("fa-meta-zona-ouro");
+  const zonaDiamanteEl = document.getElementById("fa-meta-zona-diamante");
+  if (zonaBronzeEl) zonaBronzeEl.style.width = `${ouroPercent}%`;
+  if (zonaOuroEl) zonaOuroEl.style.width = `${Math.max(0, diamantePercent - ouroPercent)}%`;
+  if (zonaDiamanteEl) zonaDiamanteEl.style.width = `${Math.max(0, 100 - diamantePercent)}%`;
+  const marcaOuroEl = document.getElementById("fa-meta-marca-ouro");
+  const marcaDiamanteEl = document.getElementById("fa-meta-marca-diamante");
+  if (marcaOuroEl) marcaOuroEl.style.left = `${ouroPercent}%`;
+  if (marcaDiamanteEl) marcaDiamanteEl.style.left = `${diamantePercent}%`;
 
   // Gauge
   const gaugeBar = document.getElementById("fa-meta-gauge-bar");
@@ -3638,19 +3652,85 @@ function renderFaMetaDashboard(resultado, regra) {
   gaugeBar.style.background = resultado.tierNome === "diamante" ? "#2563eb" : (resultado.tierNome === "ouro" ? "#d4af37" : "#94a3b8");
   document.getElementById("fa-meta-conversao-mensal-label").textContent = `${pctExibicao.toFixed(1)}%`;
 
-  // Mensagem motivacional
+  // Etapa atual da jornada Bronze -> Ouro -> Diamante: trata o próximo tier
+  // como o marco em foco, em vez de comparar sempre com o Diamante (o mais distante).
+  let etapaNum, etapaLabel, etapaAlvoPercent;
+  if (resultado.tierNome === "diamante") {
+    etapaNum = 3; etapaLabel = "Diamante conquistado! 💎"; etapaAlvoPercent = diamantePercent;
+  } else if (resultado.tierNome === "ouro") {
+    etapaNum = 2; etapaLabel = "Rumo ao Diamante"; etapaAlvoPercent = diamantePercent;
+  } else {
+    etapaNum = 1; etapaLabel = "Rumo ao Ouro"; etapaAlvoPercent = ouroPercent;
+  }
+  const etapaAtualLabel = document.getElementById("fa-meta-etapa-atual-label");
+  if (etapaAtualLabel) etapaAtualLabel.textContent = `Etapa ${etapaNum} de 3 · ${etapaLabel}`;
+
+  // Chips das 3 etapas com estado concluída / foco atual / a seguir
+  const etapasWrap = document.getElementById("fa-meta-etapas");
+  if (etapasWrap) {
+    etapasWrap.innerHTML = "";
+    const etapas = [
+      { titulo: "Bronze", icone: "🥉", numEtapa: 1, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Ouro", icone: "🥇", numEtapa: 2, alvo: `${ouroPercent.toFixed(0)}%`, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Diamante", icone: "💎", numEtapa: 3, alvo: `${diamantePercent.toFixed(0)}%`, concluida: resultado.tierNome === "diamante" }
+    ];
+    etapas.forEach(et => {
+      const atual = !et.concluida && et.numEtapa === etapaNum;
+      const chip = document.createElement("span");
+      chip.style.cssText = "padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; border:1px solid var(--border); white-space:nowrap;";
+      if (et.concluida) {
+        chip.textContent = `✅ ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "#dcfce7"; chip.style.color = "#166534"; chip.style.borderColor = "#86efac";
+      } else if (atual) {
+        chip.textContent = `${et.icone} ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""} — foco agora`;
+        chip.style.background = "#fef3c7"; chip.style.color = "#92400e"; chip.style.borderColor = "#fbbf24";
+        chip.style.boxShadow = "0 0 0 2px rgba(251,191,36,0.35)";
+      } else {
+        chip.textContent = `🔒 ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "var(--cream)"; chip.style.color = "var(--muted)";
+      }
+      etapasWrap.appendChild(chip);
+    });
+  }
+
+  // Mensagem motivacional por etapa (marco próximo, não o Diamante direto)
   const msgEl = document.getElementById("fa-meta-mensagem-motivacional");
   if (resultado.tierNome === "diamante") {
     msgEl.textContent = "💎 Bônus Diamante conquistado! Você é fera!";
     msgEl.style.color = "#2563eb";
   } else if (resultado.tierNome === "ouro") {
-    const faltaDiamante = ((regra.diamantePercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
+    const faltaDiamante = (diamantePercent - pctExibicao).toFixed(1);
     msgEl.textContent = `🥇 Bônus Ouro garantido! Faltam ${faltaDiamante} pontos percentuais para o Diamante 💎`;
     msgEl.style.color = "#b8860b";
   } else {
-    const faltaOuro = ((regra.ouroPercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
-    msgEl.textContent = `Continue vendendo planos de 1h e 2h! Faltam ${faltaOuro} pontos percentuais para o Bônus Ouro 🥉`;
+    const faltaOuro = (ouroPercent - pctExibicao).toFixed(1);
+    const pctEtapa = ouroPercent > 0 ? Math.min(100, Math.round((pctExibicao / ouroPercent) * 100)) : 0;
+    msgEl.textContent = `Você já está ${pctEtapa}% do caminho para o Ouro! Faltam ${faltaOuro} pontos percentuais. Continue vendendo planos de 1h e 2h! 🥉`;
     msgEl.style.color = "var(--muted)";
+  }
+
+  // Ritmo diário sugerido: pega o ritmo médio de atendimentos já registrado
+  // neste mês, projeta o total até o fim do mês e traduz a meta percentual
+  // em uma quantidade concreta de vendas de 1h/2h por dia no período restante.
+  const ritmoEl = document.getElementById("fa-meta-ritmo-diario");
+  if (ritmoEl) {
+    const hojeLoc = new Date();
+    const diasNoMesLoc = new Date(hojeLoc.getFullYear(), hojeLoc.getMonth() + 1, 0).getDate();
+    const diasDecorridosLoc = Math.max(1, hojeLoc.getDate());
+    const diasRestantesLoc = Math.max(1, diasNoMesLoc - hojeLoc.getDate() + 1);
+    const mediaAtendDia = resultado.totalAtend / diasDecorridosLoc;
+    if (resultado.tierNome === "diamante" || mediaAtendDia <= 0) {
+      ritmoEl.textContent = "";
+    } else {
+      const projecaoAtendMes = mediaAtendDia * diasNoMesLoc;
+      const totalLongos = resultado.totalV1h + resultado.totalV2h;
+      const neededLongosTotal = (etapaAlvoPercent / 100) * projecaoAtendMes;
+      const faltamLongos = Math.max(0, Math.ceil(neededLongosTotal - totalLongos));
+      const ritmoDiaLongos = Math.ceil(faltamLongos / diasRestantesLoc);
+      ritmoEl.textContent = ritmoDiaLongos > 0
+        ? `Ritmo sugerido: pelo menos ${ritmoDiaLongos} venda(s) de 1h/2h por dia nos próximos ${diasRestantesLoc} dia(s) para garantir "${etapaLabel}" ⏱️`
+        : "";
+    }
   }
 
   // Cards de resumo do mês
