@@ -3819,37 +3819,126 @@ function renderFaLocacoesDashboard(lancamentos, regra) {
 
   const bonusTotalAtendente = bonusVolume + bonusExcedente;
 
-  // Progresso do mês contra a meta comercial (Plano de Negócios)
-  const pct = (regra.metaMes || 840) > 0 ? Math.min(100, (totalMes / (regra.metaMes || 840)) * 100) : 0;
+  // Jornada do mês em 3 etapas (Piso -> Meta -> Super-Meta), cada uma tratada como
+  // um marco próximo e alcançável em vez de comparar sempre contra o total do mês —
+  // isso evita o efeito "0 / 840" que passa a sensação de estar muito longe da meta.
+  const piso = regra.pisoMes || 480;
+  const meta = regra.metaMes || 840;
+  const superMeta = regra.superMetaMes || 1110;
+  const escala = Math.max(superMeta, meta, piso, 1);
+
+  const pctZonaPiso = (piso / escala) * 100;
+  const pctZonaMeta = ((meta - piso) / escala) * 100;
+  const pctZonaSuper = 100 - pctZonaPiso - pctZonaMeta;
+  const zonaPisoEl = document.getElementById("fa-loc-zona-piso");
+  const zonaMetaEl = document.getElementById("fa-loc-zona-meta");
+  const zonaSuperEl = document.getElementById("fa-loc-zona-super");
+  if (zonaPisoEl) zonaPisoEl.style.width = `${pctZonaPiso}%`;
+  if (zonaMetaEl) zonaMetaEl.style.width = `${pctZonaMeta}%`;
+  if (zonaSuperEl) zonaSuperEl.style.width = `${pctZonaSuper}%`;
+
+  const pct = Math.min(100, (totalMes / escala) * 100);
   const bar = document.getElementById("fa-loc-gauge-bar");
   if (bar) {
     bar.style.width = `${pct}%`;
-    bar.style.background = totalMes >= (regra.metaMes || 840) ? "#16a34a" : (totalMes >= (regra.pisoMes || 480) ? "#d4af37" : "#dc2626");
+    bar.style.background = totalMes >= meta ? "#16a34a" : (totalMes >= piso ? "#d4af37" : "#dc2626");
   }
-  const labelMes = document.getElementById("fa-loc-mes-label");
-  if (labelMes) labelMes.textContent = `${totalMes} / ${regra.metaMes || 840} locações`;
 
-  // Marcas de piso e super-meta na barra (relativas à meta = 100%)
+  // Marcas de piso e meta na barra (relativas à escala total = super-meta ou meta, o que for maior)
   const marcaPiso = document.getElementById("fa-loc-marca-piso");
-  const marcaSuper = document.getElementById("fa-loc-marca-super");
-  if (marcaPiso) marcaPiso.style.left = `${Math.min(100, ((regra.pisoMes || 480) / (regra.metaMes || 840)) * 100)}%`;
-  if (marcaSuper) marcaSuper.style.left = `${Math.min(100, ((regra.superMetaMes || 1110) / (regra.metaMes || 840)) * 100)}%`;
+  const marcaMeta = document.getElementById("fa-loc-marca-meta");
+  if (marcaPiso) marcaPiso.style.left = `${pctZonaPiso}%`;
+  if (marcaMeta) marcaMeta.style.left = `${pctZonaPiso + pctZonaMeta}%`;
 
-  // Mensagem motivacional por faixa comercial (Plano de Negócios)
+  // Dividindo as metas mensais dia a dia: média necessária por dia do mês para
+  // cada marco, além do ritmo recalculado com base no que ainda falta e nos dias restantes.
+  const hojeLoc = new Date();
+  const diasNoMesLoc = new Date(hojeLoc.getFullYear(), hojeLoc.getMonth() + 1, 0).getDate();
+  const diasRestantesLoc = Math.max(1, diasNoMesLoc - hojeLoc.getDate() + 1);
+  const mediaDiaPiso = Math.ceil(piso / diasNoMesLoc);
+  const mediaDiaMeta = Math.ceil(meta / diasNoMesLoc);
+  const mediaDiaSuper = Math.ceil(superMeta / diasNoMesLoc);
+
+  // Etapa atual da jornada: qual marco é o próximo foco
+  let etapaNum, etapaLabel, etapaAlvo;
+  if (totalMes >= superMeta) {
+    etapaNum = 3; etapaLabel = "Super-Meta batida! 🏆"; etapaAlvo = superMeta;
+  } else if (totalMes >= meta) {
+    etapaNum = 3; etapaLabel = "Super-Meta"; etapaAlvo = superMeta;
+  } else if (totalMes >= piso) {
+    etapaNum = 2; etapaLabel = "Meta do Mês"; etapaAlvo = meta;
+  } else {
+    etapaNum = 1; etapaLabel = "Ponto de Equilíbrio"; etapaAlvo = piso;
+  }
+  const etapaAtualLabel = document.getElementById("fa-loc-etapa-atual-label");
+  if (etapaAtualLabel) etapaAtualLabel.textContent = `Etapa ${Math.min(etapaNum, 3)} de 3 · ${etapaLabel}`;
+
+  const labelMes = document.getElementById("fa-loc-mes-label");
+  if (labelMes) labelMes.textContent = totalMes >= superMeta ? `${totalMes} locações 🎉` : `${totalMes} / ${etapaAlvo} locações`;
+
+  // Chips das 3 etapas com estado concluída / foco atual / a seguir e o ritmo médio/dia de cada uma
+  const etapasWrap = document.getElementById("fa-loc-etapas");
+  if (etapasWrap) {
+    etapasWrap.innerHTML = "";
+    const etapas = [
+      { titulo: "Piso", icone: "🎯", alvo: piso, mediaDia: mediaDiaPiso },
+      { titulo: "Meta", icone: "🥇", alvo: meta, mediaDia: mediaDiaMeta },
+      { titulo: "Super-Meta", icone: "🏆", alvo: superMeta, mediaDia: mediaDiaSuper }
+    ];
+    etapas.forEach((et, idx) => {
+      const numEtapa = idx + 1;
+      const concluida = totalMes >= et.alvo;
+      const atual = !concluida && numEtapa === etapaNum;
+      const chip = document.createElement("span");
+      chip.style.cssText = "padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; border:1px solid var(--border); white-space:nowrap;";
+      if (concluida) {
+        chip.textContent = `✅ ${et.titulo} (${et.alvo})`;
+        chip.style.background = "#dcfce7";
+        chip.style.color = "#166534";
+        chip.style.borderColor = "#86efac";
+      } else if (atual) {
+        chip.textContent = `${et.icone} ${et.titulo} (${et.alvo}) · ~${et.mediaDia}/dia — foco agora`;
+        chip.style.background = "#fef3c7";
+        chip.style.color = "#92400e";
+        chip.style.borderColor = "#fbbf24";
+        chip.style.boxShadow = "0 0 0 2px rgba(251,191,36,0.35)";
+      } else {
+        chip.textContent = `🔒 ${et.titulo} (${et.alvo}) · ~${et.mediaDia}/dia`;
+        chip.style.background = "var(--cream)";
+        chip.style.color = "var(--muted)";
+      }
+      etapasWrap.appendChild(chip);
+    });
+  }
+
+  // Mensagem motivacional por etapa (marco próximo, não o total do mês)
   const msg = document.getElementById("fa-loc-mensagem-motivacional");
   if (msg) {
-    if (totalMes >= (regra.superMetaMes || 1110)) {
+    if (totalMes >= superMeta) {
       msg.textContent = `🏆 Super-meta batida! Desempenho excelente no mês!`;
       msg.style.color = "#16a34a";
-    } else if (totalMes >= (regra.metaMes || 840)) {
-      msg.textContent = `🎉 Meta do mês batida! Faltam ${(regra.superMetaMes || 1110) - totalMes} locações para a super-meta 🏆`;
+    } else if (totalMes >= meta) {
+      msg.textContent = `🎉 Meta do mês batida! Faltam ${superMeta - totalMes} locações para a Super-Meta 🏆`;
       msg.style.color = "#16a34a";
-    } else if (totalMes >= (regra.pisoMes || 480)) {
-      msg.textContent = `💪 Piso garantido! Faltam ${(regra.metaMes || 840) - totalMes} locações para a meta 🎯`;
+    } else if (totalMes >= piso) {
+      msg.textContent = `💪 Piso garantido! Faltam ${meta - totalMes} locações para a Meta 🎯`;
       msg.style.color = "#d97706";
     } else {
-      msg.textContent = `Faltam ${(regra.pisoMes || 480) - totalMes} locações para garantir o ponto de equilíbrio do mês. Bora focar nas vendas! 🧸`;
+      const pctEtapa = piso > 0 ? Math.round((totalMes / piso) * 100) : 0;
+      msg.textContent = `Você já está ${pctEtapa}% do caminho para o Piso! Faltam ${piso - totalMes} locações. Bora focar nas vendas! 🧸`;
       msg.style.color = "var(--muted)";
+    }
+  }
+
+  // Ritmo diário sugerido: reparte o que falta para a etapa atual pelos dias restantes do mês
+  const ritmoEl = document.getElementById("fa-loc-ritmo-diario");
+  if (ritmoEl) {
+    const faltamParaEtapa = Math.max(0, etapaAlvo - totalMes);
+    if (faltamParaEtapa > 0) {
+      const ritmoDia = Math.ceil(faltamParaEtapa / diasRestantesLoc);
+      ritmoEl.textContent = `Ritmo sugerido: ${ritmoDia} locações/dia nos próximos ${diasRestantesLoc} dia(s) para garantir "${etapaLabel}" ⏱️`;
+    } else {
+      ritmoEl.textContent = "";
     }
   }
 
