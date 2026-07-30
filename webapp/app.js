@@ -9993,6 +9993,18 @@ window.carregarAuditoriaBoletos = function() {
 
   tbody.innerHTML = "";
 
+  // Data de hoje (zerada) e parser de "DD/MM/AAAA" — usados abaixo para achar
+  // boletos cujo vencimento já passou sem a NF-e correspondente ter sido lançada.
+  const auditoriaHoje = new Date();
+  auditoriaHoje.setHours(0, 0, 0, 0);
+  const parseDataBoletoBR = (str) => {
+    if (!str) return null;
+    const partes = str.split('/');
+    if (partes.length !== 3) return null;
+    const data = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+    return isNaN(data.getTime()) ? null : data;
+  };
+
   // 1. Group boletos by base document number and store (e.g. "123456" + "_" + "9175")
   // Prioriza "docFaturamento" (o número que realmente corresponde à NF-e no
   // relatório de títulos, ex.: "003902732-001" → "3902732"); boletos antigos,
@@ -10090,6 +10102,7 @@ window.carregarAuditoriaBoletos = function() {
     let statusClass = "bg-success-soft text-success border border-success";
     let isDivergent = false;
     let descDivergencia = "";
+    let boletosVencidosSemNfe = [];
 
     if (nfe) {
       valorNfe = nfe.info.valorTotal || 0;
@@ -10184,6 +10197,16 @@ window.carregarAuditoriaBoletos = function() {
       statusText = "Sem NF-e";
       descDivergencia = "Nenhuma NF-e importada correspondente a este título";
       statusClass = "bg-warning-soft text-warning border border-warning";
+
+      // Regra crítica: boleto em aberto cujo vencimento já passou e a NF-e
+      // correspondente nunca foi lançada. É dinheiro prestes a sair sem nota —
+      // por isso vira alerta separado abaixo (após a 2ª tentativa de conciliar
+      // por valor), com apelo visual forte e pedido de abertura de SAF.
+      boletosVencidosSemNfe = bg.boletosRef.filter(b => {
+        if (b.status !== "Aberto") return false;
+        const dataVenc = parseDataBoletoBR(b.vencimento);
+        return dataVenc && dataVenc < auditoriaHoje;
+      });
     } else if (nfe && !bg) {
       isDivergent = true;
       statusText = "Sem Boleto";
@@ -10200,17 +10223,57 @@ window.carregarAuditoriaBoletos = function() {
       statusText: statusText,
       statusClass: statusClass,
       descDivergencia: descDivergencia,
-      isDivergent: isDivergent
+      isDivergent: isDivergent,
+      boletosVencidosSemNfe: boletosVencidosSemNfe
     });
   });
 
   conciliarOrfaosPorValor(auditList);
+
+  // Regra: boleto lançado, vencido, e a NF-e nunca deu entrada até lá — quem
+  // a conciliação por valor acima não resolveu (ou seja, não existe NF-e
+  // nenhuma sobrando pra casar) vira alerta crítico "picante", separado das
+  // divergências comuns, com o(s) boleto(s) nomeados e o pedido de abrir uma
+  // SAF para cancelar o título antes que ele seja pago sem nota.
+  const alertasSAF = [];
+  auditList.forEach(item => {
+    if (item.statusText !== "Sem NF-e" || !item.boletosVencidosSemNfe || !item.boletosVencidosSemNfe.length) return;
+
+    const docs = item.boletosVencidosSemNfe.map(b => b.documento).join(", ");
+    item.statusText = "🔥 Vencido sem NF-e";
+    item.statusClass = "bg-danger-solid text-white border-2 border-danger animate-pulse font-black";
+    item.descDivergencia = `Boleto ${docs} venceu sem a NF-e correspondente ter sido lançada — abrir SAF para cancelamento`;
+    item.exigeSAF = true;
+
+    item.boletosVencidosSemNfe.forEach(b => {
+      alertasSAF.push({ loja: item.loja, documento: b.documento, valor: b.valor, vencimento: b.vencimento });
+    });
+  });
 
   divergenciasCount = auditList.filter(i => i.isDivergent).length;
 
   // Notificação "⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos" desativada
   // a pedido — a tabela/contadores de divergência abaixo continuam normais,
   // só o disparo para Bruno/Isabella/Alexandra foi removido.
+
+  const alertaSafBox = document.getElementById("auditoria-alerta-saf");
+  const alertaSafLista = document.getElementById("auditoria-alerta-saf-lista");
+  if (alertaSafBox && alertaSafLista) {
+    if (alertasSAF.length > 0) {
+      alertaSafBox.classList.remove("hidden");
+      alertaSafLista.innerHTML = alertasSAF.map(a => `
+        <li class="flex flex-wrap items-center gap-2 bg-danger-soft border border-danger rounded-lg px-3 py-2">
+          <span class="px-2 py-0.5 rounded-full bg-danger-solid text-white text-[10px] uppercase tracking-wider">${nomeLoja(a.loja)}</span>
+          <span class="font-mono">Doc. ${a.documento}</span>
+          <span class="text-danger">Venceu em ${a.vencimento}</span>
+          <span class="ml-auto font-mono font-bold">${formatBRL(a.valor)}</span>
+        </li>
+      `).join("");
+    } else {
+      alertaSafBox.classList.add("hidden");
+      alertaSafLista.innerHTML = "";
+    }
+  }
 
   const statNfe = document.getElementById("stat-audit-nfe-total");
   const statBoleto = document.getElementById("stat-audit-boleto-total");
@@ -10247,14 +10310,16 @@ window.carregarAuditoriaBoletos = function() {
     return;
   }
 
-  // Divergências primeiro, depois os pares conciliados por valor (que ainda
-  // pedem revisão), e por fim o que já está conciliado por documento.
-  const prioridade = item => item.isDivergent ? 0 : (item.statusText === "Conciliado por Valor" ? 1 : 2);
+  // Crítico (boleto vencido sem NF-e — abrir SAF) primeiro, depois as demais
+  // divergências, os pares conciliados por valor (que ainda pedem revisão), e
+  // por fim o que já está conciliado por documento.
+  const prioridade = item => item.exigeSAF ? -1 : (item.isDivergent ? 0 : (item.statusText === "Conciliado por Valor" ? 1 : 2));
   auditList.sort((a, b) => prioridade(a) - prioridade(b) || a.loja.localeCompare(b.loja));
 
   // Cada faixa de prioridade ganha uma linha-título, para separar o que exige
   // ação do que já está resolvido.
   const GRUPOS = [
+    { chave: -1, titulo: "🔥 Crítico — boleto vencido sem NF-e: abrir SAF para cancelamento", classe: "bg-danger-solid text-white" },
     { chave: 0, titulo: "Divergências — exigem ação", classe: "bg-danger-soft text-danger" },
     { chave: 1, titulo: "Conciliado por valor — revisar (documento não confere)", classe: "bg-warning-soft text-warning" },
     { chave: 2, titulo: "Conciliado", classe: "bg-success-soft text-success" }

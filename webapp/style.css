@@ -1676,6 +1676,14 @@ tr.selected-row {
   font-weight: 500;
 }
 
+/* Fundo sólido de perigo (não o tint suave de .bg-danger-soft) — usado só no
+   alerta "picante" de boleto vencido sem NF-e, pra destacar mais que uma
+   divergência comum. */
+.bg-danger-solid {
+  background: var(--tone-danger-line);
+  color: #fff;
+}
+
 /* OFFLINE STATUS PILL */
 .offline-banner {
   background: var(--tone-warning-soft);

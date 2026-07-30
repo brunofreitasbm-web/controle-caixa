@@ -2403,6 +2403,26 @@
           </div>
         </div>
 
+        <!-- Comunicado: boleto vencido sem a NF-e correspondente ter sido lançada.
+             Fica escondido quando não há nenhum caso — só aparece quando exige
+             ação (abrir SAF para pedir o cancelamento do título). -->
+        <div id="auditoria-alerta-saf" class="hidden rounded-2xl border-2 border-danger bg-danger-soft p-4 shadow-lg">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 shrink-0 rounded-full bg-danger-solid text-white flex items-center justify-center text-lg animate-pulse">
+              <i class="fa-solid fa-fire"></i>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-sm font-black text-danger uppercase tracking-wide">
+                🚨 Comunicado: boleto vencido sem NF-e — abrir SAF para cancelamento
+              </h3>
+              <p class="text-xs text-ink-strong mt-1">
+                Estes boletos já venceram e a NF-e correspondente nunca deu entrada no sistema. Abra uma SAF pedindo o cancelamento de cada título abaixo o quanto antes.
+              </p>
+              <ul id="auditoria-alerta-saf-lista" class="mt-3 space-y-1.5 text-xs font-bold"></ul>
+            </div>
+          </div>
+        </div>
+
         <!-- Filtros e Controles -->
         <div class="glass-card p-4 rounded-2xl border border-subtle flex flex-col sm:flex-row justify-between items-center gap-4">
           <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -2469,6 +2489,7 @@
             <!-- Legenda dos grupos: a tabela vem agrupada por situação, das
                  pendências reais no topo até o que já está conciliado. -->
             <div class="flex flex-wrap gap-2 text-[10px] font-bold">
+              <span class="px-2.5 py-1 rounded-full bg-danger-solid text-white border border-danger animate-pulse">🔥 Vencido sem NF-e — Abrir SAF</span>
               <span class="px-2.5 py-1 rounded-full bg-danger-soft text-danger border border-danger">Divergências</span>
               <span class="px-2.5 py-1 rounded-full bg-warning-soft text-warning border border-warning">Conciliado por Valor (revisar)</span>
               <span class="px-2.5 py-1 rounded-full bg-success-soft text-success border border-success">Conciliado</span>
