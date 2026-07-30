@@ -1178,13 +1178,19 @@ let loginUsuarioSelecionado = null;
 
 // Emojis amigáveis/carinhosos para o avatar de cada colaborador(a) — sem
 // nenhuma relação com aparência ou características pessoais. A escolha é
-// estável por nome (mesma pessoa sempre vê o mesmo emoji).
+// estável durante a semana (todo mundo vê sempre o mesmo emoji enquanto a
+// semana não vira) e roda automaticamente 1x por semana para todos.
 const EMOJIS_AMIGAVEIS = ['😊', '🤗', '🥰', '😄', '✨', '🌟', '💛', '🌸', '🍀', '🌻', '💫', '🌈', '😇', '🧡'];
 
+function getSemanaAtual() {
+  return Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+}
+
 function getEmojiUsuario(nome) {
+  const chave = `${nome}-${getSemanaAtual()}`;
   let hash = 0;
-  for (let i = 0; i < nome.length; i++) {
-    hash = (hash * 31 + nome.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < chave.length; i++) {
+    hash = (hash * 31 + chave.charCodeAt(i)) >>> 0;
   }
   return EMOJIS_AMIGAVEIS[hash % EMOJIS_AMIGAVEIS.length];
 }
