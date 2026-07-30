@@ -11,7 +11,7 @@ const BCRYPT_ROUNDS = 10;
 router.get('/logs', (req, res) => {
   const { usuario } = req.query;
   const userLower = (usuario || '').trim().toLowerCase();
-  if (userLower !== 'bruno' && userLower !== 'isabella' && userLower !== 'alexandra' && userLower !== 'liderop') {
+  if (userLower !== 'bruno' && userLower !== 'isabella' && userLower !== 'alexandra') {
     return res.status(403).json({ error: 'Acesso negado. Sem permissão para ver os logs.' });
   }
   db.all('SELECT * FROM logs_auditoria ORDER BY data DESC LIMIT 100', [], (err, rows) => {
@@ -247,8 +247,7 @@ router.post('/notificar-gestao', (req, res) => {
     const EMAIL_MAP = {
       'bruno': 'brunofreitasbm@gmail.com',
       'isabella': 'isabella.vgoncalves@gmail.com',
-      'alexandra': 'alexandracabral733@gmail.com',
-      'liderop': 'alexandracabral733@gmail.com'
+      'alexandra': 'alexandracabral733@gmail.com'
     };
 
     const targetEmails = destinatarios

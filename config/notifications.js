@@ -96,8 +96,7 @@ function obterEmailsDestinatarios(notificationType, callback) {
       const EMAIL_MAP = {
         'bruno': 'brunofreitasbm@gmail.com',
         'isabella': 'isabella.vgoncalves@gmail.com',
-        'alexandra': 'alexandracabral733@gmail.com',
-        'liderop': 'alexandracabral733@gmail.com'
+        'alexandra': 'alexandracabral733@gmail.com'
       };
 
       let recipientNames = colabs
