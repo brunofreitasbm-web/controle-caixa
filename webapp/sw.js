@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v42'; // v42: merge do design system claro + layout adaptativo com o main (rolagem/segura da sidebar mobile)
+const CACHE_NAME = 'ponto-pwa-v43'; // v43: design system claro + layout adaptativo, sem Pasta de Auditoria, com troca rápida de módulo (Owner)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,7 +7,6 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/realtime.js',
   '/insights-ia.js',
-  '/pasta-auditoria.js',
   '/camera-universal.js',
   '/mensagens-pos-visita.js',
   '/mensagens-aniversario.js',

@@ -141,7 +141,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -409,10 +409,6 @@
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventários</span>
           </button>
-          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-cs" data-tab="pasta-auditoria-cs" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-cs" data-tip="Pasta de auditoria com os documentos e comprovantes do Cacau Show">
-            <span class="tab-icon"><i class="fa-solid fa-folder-open"></i></span>
-            <span class="tab-text">Pasta de Auditoria</span>
-          </button>
         </div>
       </div>
 
@@ -461,10 +457,6 @@
           <button class="tab-btn hidden" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
             <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
             <span class="tab-text">Registro de Ponto</span>
-          </button>
-          <button class="tab-btn hidden" id="tab-btn-pasta-auditoria-fa" data-tab="pasta-auditoria-fa" role="tab" aria-selected="false" aria-controls="tab-pasta-auditoria-fa" data-tip="Pasta de documentação com os arquivos e comprovantes do FaçaAmigos">
-            <span class="tab-icon"><i class="fa-solid fa-folder-open" style="color: #ff7a00;"></i></span>
-            <span class="tab-text">Pasta de Documentação</span>
           </button>
         </div>
       </div>
@@ -547,6 +539,17 @@
         </div>
       </div>
       <div class="user-box">
+        <!-- Troca rápida de módulo: só para Owner (é quem opera os dois
+             negócios no mesmo dia). Demais perfis continuam usando o botão
+             "Trocar Módulo" abaixo, que abre a tela cheia de seleção. -->
+        <div id="owner-module-switch" class="owner-module-switch hidden" role="group" aria-label="Troca rápida de módulo">
+          <button type="button" id="btn-switch-cacau" class="module-switch-btn" data-modulo="cacau-show" title="Ir direto para o módulo Cacau Show">
+            <i class="fa-solid fa-cookie-bite"></i><span>Cacau Show</span>
+          </button>
+          <button type="button" id="btn-switch-faca" class="module-switch-btn" data-modulo="faca-amigos" title="Ir direto para o módulo Faça Amigos">
+            <i class="fa-solid fa-heart"></i><span>Faça Amigos</span>
+          </button>
+        </div>
         <button id="btn-topbar-trocar-modulo" class="btn-mini-outline hidden" title="Alternar entre Cacau Show e Faça Amigos"><i class="fa-solid fa-right-left"></i> Trocar Módulo</button>
         <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo"><i class="fa-solid fa-mobile-screen-button"></i> Instalar App</button>
         <div class="notifications-wrapper">
@@ -2503,178 +2506,6 @@
       </div>
     </section>
 
-    <!-- ===================== PASTA DE AUDITORIA: CACAU SHOW ===================== -->
-    <section id="tab-pasta-auditoria-cs" class="tab-panel hidden" role="tabpanel" data-negocio="cacau-show">
-      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
-          <div>
-            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-folder-open text-brand-300"></i> Pasta de Auditoria — Cacau Show
-            </h2>
-            <p class="text-xs text-brand-100 mt-1">CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas e outros documentos legais.</p>
-          </div>
-          <button class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center" data-abrir-upload-pasta-auditoria="cacau-show">
-            <i class="fa-solid fa-upload"></i> Enviar Documento
-          </button>
-        </div>
-
-        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row flex-wrap items-center gap-3">
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="unidade" data-negocio="cacau-show">
-            <option value="">Todas as Unidades</option>
-            <option value="Marambaia">Marambaia</option>
-            <option value="Icoaraci">Icoaraci</option>
-            <option value="Mário Covas">Mário Covas</option>
-            <option value="Venda Direta">Venda Direta</option>
-          </select>
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="categoria" data-negocio="cacau-show">
-            <option value="">Todas as Categorias</option>
-            <option value="CNPJ">CNPJ</option>
-            <option value="Contrato Social">Contrato Social</option>
-            <option value="Alvará">Alvará</option>
-            <option value="Habite-se">Habite-se</option>
-            <option value="Seguro">Seguro</option>
-            <option value="Contrato Trabalhista">Contrato Trabalhista</option>
-            <option value="Outro">Outro</option>
-          </select>
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="vencimento" data-negocio="cacau-show">
-            <option value="">Vencimento: Todos</option>
-            <option value="vencidos">Vencidos</option>
-            <option value="30dias">Vence em 30 dias</option>
-          </select>
-        </div>
-
-        <div class="card bg-paper p-6 rounded-2xl border border-border">
-          <div class="table-wrap">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr class="border-b border-border uppercase tracking-wider font-bold">
-                  <th class="py-3 px-4">Documento</th>
-                  <th class="py-3 px-3">Categoria</th>
-                  <th class="py-3 px-3">Unidade</th>
-                  <th class="py-3 px-3">Vencimento</th>
-                  <th class="py-3 px-3">Enviado por</th>
-                  <th class="py-3 px-4 text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="pasta-auditoria-cs-tbody" class="divide-y divide-brand-900/40">
-                <tr class="text-brand-400 text-center"><td colspan="6" class="py-8">Carregando...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== PASTA DE AUDITORIA: FAÇA AMIGOS ===================== -->
-    <section id="tab-pasta-auditoria-fa" class="tab-panel hidden" role="tabpanel" data-negocio="faca-amigos">
-      <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
-          <div>
-            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-folder-open" style="color: #ff7a00;"></i> Pasta de Auditoria — Faça Amigos
-            </h2>
-            <p class="text-xs text-brand-100 mt-1">CNPJ, contrato social, alvará, habite-se, seguro, contratos trabalhistas e outros documentos legais.</p>
-          </div>
-          <button class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-brand-700 hover:bg-brand-650 text-white w-full sm:w-auto justify-center" data-abrir-upload-pasta-auditoria="faca-amigos">
-            <i class="fa-solid fa-upload"></i> Enviar Documento
-          </button>
-        </div>
-
-        <div class="glass-card p-4 rounded-2xl border border-brand-900/60 flex flex-col sm:flex-row flex-wrap items-center gap-3">
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="unidade" data-negocio="faca-amigos">
-            <option value="">Todas as Unidades</option>
-            <option value="Grão Pará">Grão Pará</option>
-            <option value="ParqueShopping">ParqueShopping</option>
-            <option value="Parque Circuito">Parque Circuito</option>
-          </select>
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="categoria" data-negocio="faca-amigos">
-            <option value="">Todas as Categorias</option>
-            <option value="CNPJ">CNPJ</option>
-            <option value="Contrato Social">Contrato Social</option>
-            <option value="Alvará">Alvará</option>
-            <option value="Habite-se">Habite-se</option>
-            <option value="Seguro">Seguro</option>
-            <option value="Contrato Trabalhista">Contrato Trabalhista</option>
-            <option value="Outro">Outro</option>
-          </select>
-          <select class="bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-brand-500 cursor-pointer w-full sm:w-auto" data-pasta-auditoria-filtro="vencimento" data-negocio="faca-amigos">
-            <option value="">Vencimento: Todos</option>
-            <option value="vencidos">Vencidos</option>
-            <option value="30dias">Vence em 30 dias</option>
-          </select>
-        </div>
-
-        <div class="card bg-paper p-6 rounded-2xl border border-border">
-          <div class="table-wrap">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr class="border-b border-border uppercase tracking-wider font-bold">
-                  <th class="py-3 px-4">Documento</th>
-                  <th class="py-3 px-3">Categoria</th>
-                  <th class="py-3 px-3">Unidade</th>
-                  <th class="py-3 px-3">Vencimento</th>
-                  <th class="py-3 px-3">Enviado por</th>
-                  <th class="py-3 px-4 text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="pasta-auditoria-fa-tbody" class="divide-y divide-brand-900/40">
-                <tr class="text-brand-400 text-center"><td colspan="6" class="py-8">Carregando...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== MODAL: ENVIAR DOCUMENTO (Pasta de Auditoria) ===================== -->
-    <div id="modal-upload-pasta-auditoria" class="modal-overlay hidden" role="dialog" aria-modal="true">
-      <div class="modal" style="max-width: 460px;">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="font-display text-lg font-bold text-white">Enviar Documento</h3>
-          <button type="button" id="btn-fechar-upload-pasta-auditoria" class="text-brand-300 hover:text-white" aria-label="Fechar">✕</button>
-        </div>
-        <form id="form-upload-pasta-auditoria" class="space-y-3">
-          <input type="hidden" id="pasta-auditoria-form-negocio" value="">
-          <div>
-            <label class="text-xs font-bold text-brand-300">Unidade</label>
-            <select id="pasta-auditoria-form-unidade" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold mt-1"></select>
-          </div>
-          <div>
-            <label class="text-xs font-bold text-brand-300">Categoria</label>
-            <select id="pasta-auditoria-form-categoria" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold mt-1">
-              <option value="CNPJ">CNPJ</option>
-              <option value="Contrato Social">Contrato Social</option>
-              <option value="Alvará">Alvará</option>
-              <option value="Habite-se">Habite-se</option>
-              <option value="Seguro">Seguro</option>
-              <option value="Contrato Trabalhista">Contrato Trabalhista</option>
-              <option value="Outro">Outro</option>
-            </select>
-          </div>
-          <div id="pasta-auditoria-form-categoria-outro-wrap" class="hidden">
-            <label class="text-xs font-bold text-brand-300">Qual documento?</label>
-            <input type="text" id="pasta-auditoria-form-categoria-outro" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1">
-          </div>
-          <div>
-            <label class="text-xs font-bold text-brand-300">Arquivo (PDF, imagem ou planilha)</label>
-            <input type="file" id="pasta-auditoria-form-arquivo" accept=".pdf,image/*,.xls,.xlsx" class="w-full text-xs mt-1" required>
-          </div>
-          <div>
-            <label class="text-xs font-bold text-brand-300">Data de Vencimento (opcional)</label>
-            <input type="date" id="pasta-auditoria-form-vencimento" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1">
-            <p class="text-[10px] text-brand-400 mt-1">Se o arquivo for um PDF e você deixar em branco, a IA tenta encontrar a validade no documento — você confirma antes de salvar.</p>
-          </div>
-          <div>
-            <label class="text-xs font-bold text-brand-300">Observações (opcional)</label>
-            <textarea id="pasta-auditoria-form-observacoes" class="w-full bg-brand-900 text-brand-100 border border-brand-700/80 rounded-lg px-2.5 py-1.5 text-xs mt-1" rows="2"></textarea>
-          </div>
-          <button type="submit" id="btn-salvar-upload-pasta-auditoria" class="btn-primary py-2 px-4 rounded-xl text-xs font-bold w-full bg-brand-700 hover:bg-brand-650 text-white">
-            Enviar
-          </button>
-        </form>
-      </div>
-    </div>
-
     <!-- ===================== MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC ===================== -->
     <section id="tab-rh-modulo" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-rh-modulo">
       <div class="section-header mb-6">
@@ -4067,7 +3898,6 @@
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
-<script src="pasta-auditoria.js?v=1"></script>
-<script src="app.js?v=41"></script>
+<script src="app.js?v=42"></script>
 </body>
 </html>

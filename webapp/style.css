@@ -774,6 +774,69 @@ html.sidebar-mobile-open body {
   background: var(--surface-hover);
 }
 
+/* Troca rápida de módulo (Owner): dois botões fixos na topbar (que já é
+   sticky no topo) para alternar Cacau Show <-> Faça Amigos num clique só,
+   sem passar pela tela cheia de seleção de módulo. Estado ativo segue a
+   mesma tríade tint/borda/tinta escura do resto do sistema — nunca
+   preenchimento sólido com rótulo branco. */
+.owner-module-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--edge-default);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.module-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.module-switch-btn:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+/* Cacau Show usa o acento neutro do sistema (o módulo não tem mais
+   identidade de cor própria — ver alias --wine/--gold no topo do arquivo). */
+.module-switch-btn[data-modulo="cacau-show"].active {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--tone-accent-line);
+}
+
+/* Faça Amigos: mesma dupla coral-tint/coral-ink (9,1:1 AAA) usada dentro do
+   módulo — repetida aqui em vez de referenciada porque esse botão vive na
+   topbar, fora de .fa-section/.fa-tab-panel (único escopo onde essas
+   variáveis existem). */
+.module-switch-btn[data-modulo="faca-amigos"].active {
+  background: #FFE9F1;
+  color: #8A0038;
+  border-color: var(--coral);
+}
+
+@media (max-width: 640px) {
+  .module-switch-btn span {
+    display: none;
+  }
+  .module-switch-btn {
+    padding: 8px 12px;
+  }
+}
+
 /* ==========================================================================
    MAIN CONTENT & CARDS
    ========================================================================== */
