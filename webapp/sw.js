@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v41'; // v41: corrige rolagem dos menus da sidebar (grupos eram espremidos pelo flexbox em vez da nav rolar)
+const CACHE_NAME = 'ponto-pwa-v42'; // v42: remove Pasta de Auditoria/Documentação, corrige vazamento CS/FA na sidebar e adiciona troca rápida de módulo (Owner)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,7 +7,6 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/realtime.js',
   '/insights-ia.js',
-  '/pasta-auditoria.js',
   '/camera-universal.js',
   '/mensagens-pos-visita.js',
   '/mensagens-aniversario.js',

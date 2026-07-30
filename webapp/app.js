@@ -98,9 +98,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
-  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
+  consultora_fa: ["faca-amigos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1404,6 +1404,14 @@ function ajustarCardsModulos() {
   if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
   if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
   if (btnPonto) btnPonto.classList.toggle("hidden", false); // Ponto é para todos os colaboradores
+
+  // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
+  // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
+  // demais perfis continuam usando "Trocar Módulo" (tela cheia de seleção).
+  const ownerSwitch = document.getElementById("owner-module-switch");
+  const btnTopbarTrocarModulo = document.getElementById("btn-topbar-trocar-modulo");
+  if (ownerSwitch) ownerSwitch.classList.toggle("hidden", role !== "owner");
+  if (btnTopbarTrocarModulo) btnTopbarTrocarModulo.classList.toggle("hidden", role === "owner");
 }
 
 function iniciarModuloBase(moduloOpcional) {
@@ -1429,15 +1437,14 @@ function iniciarModuloBase(moduloOpcional) {
       // controle-ponto continua liberado aqui: virou item normal de menu para
       // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
       // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
-      // "faca-amigos" em si) — "pasta-auditoria-fa"/"pos-visita"/"aniversarios"
-      // também estão na lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro
-      // do módulo Cacau Show antes desta correção (grupo FaçaAmigos aparecia
-      // com "Pasta de Documentação" mesmo com o owner no módulo Cacau Show).
-      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa"];
+      // "faca-amigos" em si) — "pos-visita"/"aniversarios" também estão na
+      // lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro do módulo
+      // Cacau Show antes desta correção.
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios"];
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa", "controle-ponto", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1449,6 +1456,11 @@ function iniciarModuloBase(moduloOpcional) {
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
   }
+
+  // Realça na topbar (Owner) qual dos dois módulos está ativo agora.
+  document.querySelectorAll(".module-switch-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.modulo === moduloOpcional);
+  });
 
   // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
   // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
@@ -1490,13 +1502,12 @@ function iniciarModuloBase(moduloOpcional) {
     group.classList.toggle("hidden", !temTabVisivel);
   });
 
-  // "controle-ponto" (Registro de Ponto) tem um botão próprio dentro de cada
-  // grupo (Cacau Show e Faça Amigos) só para poder ficar visível dentro do
-  // módulo certo — como os dois compartilham o mesmo data-tab, o filtro
-  // genérico acima os libera ao mesmo tempo e o grupo do módulo errado volta
-  // a aparecer inteiro na sidebar por causa desse único item em comum. Força
-  // o grupo do outro módulo a ficar escondido quando o owner está navegando
-  // dentro de um módulo específico.
+  // "Registro de Ponto" existe duplicado nos dois grupos (Cacau Show e Faça
+  // Amigos) pra aparecer dentro do módulo em que a pessoa está. Isso faz o
+  // check acima (any tab-btn visível) achar o grupo do OUTRO negócio "não
+  // vazio" e deixá-lo visível — ex.: dentro do módulo Faça Amigos, o grupo
+  // "CACAU SHOW" aparecia na sidebar só por causa do Ponto compartilhado.
+  // Cada módulo é fechado: nunca mostra o grupo do outro negócio, ponto final.
   if (moduloOpcional === "faca-amigos") {
     document.getElementById("group-controle-caixa")?.classList.add("hidden");
   } else if (moduloOpcional === "cacau-show") {
@@ -1708,6 +1719,12 @@ if (btnModPonto) {
   });
 }
 
+// Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
+// num clique só, pro módulo escolhido.
+document.querySelectorAll(".module-switch-btn").forEach(btn => {
+  btn.addEventListener("click", () => iniciarModuloBase(btn.dataset.modulo));
+});
+
 // Botão Trocar Módulo na Topbar / Sidebar
 const trocarModuloHandler = () => {
   appEl.classList.add("hidden");
@@ -1761,7 +1778,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios", "pasta-auditoria-cs", "pasta-auditoria-fa"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1831,8 +1848,6 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
-  if (tabName === "pasta-auditoria-cs" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("cacau-show");
-  if (tabName === "pasta-auditoria-fa" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("faca-amigos");
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();
@@ -13908,6 +13923,21 @@ async function carregarMetaHoraHora() {
     }
   }
 
+  // Venda é ACUMULADA: um intervalo não pode ficar menor que um anterior já
+  // confirmado nem maior que um posterior já confirmado (normalmente sinal
+  // de erro de digitação). Usado tanto para dar a dica no input quanto para
+  // validar antes de enviar ao servidor (que também valida, por segurança).
+  const limitesParaSlot = slotMin => {
+    let minPermitido = 0;
+    let maxPermitido = Infinity;
+    vendasOrdenadas.forEach(v => {
+      const vMin = minutosDoDiaPorHora(v.horaSlot);
+      if (vMin < slotMin && v.valor > minPermitido) minPermitido = v.valor;
+      if (vMin > slotMin && v.valor < maxPermitido) maxPermitido = v.valor;
+    });
+    return { minPermitido, maxPermitido };
+  };
+
   // Grade hora a hora: check-in por intervalo, com trava de 30min
   const tbody = document.getElementById("meta-hora-a-hora-tbody");
   if (tbody) {
@@ -13945,9 +13975,13 @@ async function carregarMetaHoraHora() {
         const tituloBotao = dentroDaJanela
           ? "Confirmar o total acumulado deste intervalo"
           : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
+        const { minPermitido } = limitesParaSlot(slotMin);
+        const tituloInput = minPermitido > 0
+          ? `Venda ACUMULADA do dia até agora, não o valor desta hora. Não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior.`
+          : "Venda ACUMULADA do dia até agora, não o valor desta hora";
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
-            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
+            <input type="number" id="${inputId}" step="0.01" min="${minPermitido}" placeholder="Total do dia" title="${tituloInput}" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
             <button type="button" ${desabilitado} title="${tituloBotao}" class="${classeBotao}" data-confirmar-slot="${slotStr}">Confirmar</button>
           </div>
         `;
@@ -13969,12 +14003,27 @@ async function carregarMetaHoraHora() {
     tbody.querySelectorAll("[data-confirmar-slot]").forEach(btn => {
       btn.addEventListener("click", () => {
         const slotStr = btn.dataset.confirmarSlot;
-        const input = document.getElementById(`meta-slot-input-${minutosDoDiaPorHora(slotStr)}`);
-        const valor = parseFloat(input ? input.value : "");
+        const slotMin = minutosDoDiaPorHora(slotStr);
+        const input = document.getElementById(`meta-slot-input-${slotMin}`);
+        // Aceita vírgula como separador decimal (formato brasileiro digitado
+        // por engano em um campo numérico) para não descartar o valor digitado.
+        const valorDigitado = (input ? input.value : "").replace(",", ".");
+        const valor = parseFloat(valorDigitado);
         if (Number.isNaN(valor) || valor < 0) {
           showToast("Informe um valor válido para o intervalo.", "erro");
           return;
         }
+
+        const { minPermitido, maxPermitido } = limitesParaSlot(slotMin);
+        if (valor < minPermitido) {
+          showToast(`O valor não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior, pois a venda é acumulada e só pode aumentar ao longo do dia.`, "erro");
+          return;
+        }
+        if (valor > maxPermitido) {
+          showToast(`O valor não pode ser maior que ${formatBRL(maxPermitido)}, já confirmado em um intervalo posterior. Confira se não houve erro de digitação.`, "erro");
+          return;
+        }
+
         confirmarIntervaloMeta(slotStr, valor);
       });
     });
