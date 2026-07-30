@@ -1517,6 +1517,26 @@ function iniciarModuloBase(moduloOpcional) {
     document.getElementById("group-faca-amigos")?.classList.add("hidden");
   }
 
+  // Expande de cara o grupo do módulo em que a pessoa acabou de entrar — antes
+  // era preciso clicar no cabeçalho pra revelar as próprias funções do módulo
+  // ativo, um clique a mais toda vez que a página recarregava. Os demais
+  // grupos-acordeão (do outro negócio, se visível pro perfil) continuam
+  // recolhidos; "Insights IA" é atalho direto e não entra nesse controle.
+  const GRUPO_POR_MODULO = {
+    "cacau-show": "group-controle-caixa",
+    "faca-amigos": "group-faca-amigos",
+    "rh-modulo": "group-rh-equipe",
+  };
+  const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
+  document.querySelectorAll(".sidebar-group").forEach(group => {
+    const header = group.querySelector(".sidebar-group-header");
+    if (!header || header.classList.contains("is-direct")) return;
+    const deveExpandir = group.id === grupoDoModuloAtivo;
+    group.classList.toggle("expanded", deveExpandir);
+    group.classList.toggle("collapsed", !deveExpandir);
+    header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
+  });
+
   // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
   // pra que o operador veja o número piscando assim que entra no módulo.
   if (tabsPermitidas.includes("pos-visita")) buscarContagemPosVisitaPendentes();
