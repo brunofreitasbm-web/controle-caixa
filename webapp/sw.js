@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v47'; // v47: corrige deteccao do multiplicador caixa->unidade (padrao real GX{n}UN) e adiciona coluna Entrada (CX) ao lado de Entrada (UN)
+const CACHE_NAME = 'ponto-pwa-v48'; // v48: credita unidades reais em QTD Inventariada ao concluir conferencia (idempotente por NF)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

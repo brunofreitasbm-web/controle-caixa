@@ -794,9 +794,20 @@ function mesclarNfs(locais, doServidor) {
     }
 
     const contagemLocal = {};
+    const creditoLocal = {};
     nfLocal.products.forEach(p => {
       if (p && p.code !== undefined && p.countedQty !== '' && p.countedQty !== undefined && p.countedQty !== null) {
         contagemLocal[p.code] = p.countedQty;
+      }
+      // Guarda o crédito de estoque já aplicado localmente (ver autoCreditNfProductToInventory)
+      // para não se perder se o PUT que devia ter sincronizado isso com o servidor falhou —
+      // sem isso, o próximo cálculo trataria a linha como "nunca creditada" e creditaria de novo.
+      if (p && p.code !== undefined && p.stockCreditApplied) {
+        creditoLocal[p.code] = {
+          stockCreditedUnits: p.stockCreditedUnits,
+          stockCreditApplied: p.stockCreditApplied,
+          stockCreditedAt: p.stockCreditedAt
+        };
       }
     });
 
@@ -804,6 +815,9 @@ function mesclarNfs(locais, doServidor) {
       const semValorNoServidor = p.countedQty === '' || p.countedQty === undefined || p.countedQty === null;
       if (semValorNoServidor && contagemLocal[p.code] !== undefined) {
         p.countedQty = contagemLocal[p.code];
+      }
+      if (!p.stockCreditApplied && creditoLocal[p.code] !== undefined) {
+        Object.assign(p, creditoLocal[p.code]);
       }
     });
 
@@ -7532,9 +7546,9 @@ function detectBoxMultiplier(detElement, xProdText) {
     if (val > 0) return val;
   }
 
-  const uCom = detElement.querySelector('uCom') ? detElement.querySelector('uCom').textContent.toUpperCase() : '';
-  const qCom = detElement.querySelector('qCom') ? parseFloat(detElement.querySelector('qCom').textContent) : 1;
-  const qTrib = detElement.querySelector('qTrib') ? parseFloat(detElement.querySelector('qTrib').textContent) : 1;
+  const uCom = detElement && detElement.querySelector('uCom') ? detElement.querySelector('uCom').textContent.toUpperCase() : '';
+  const qCom = detElement && detElement.querySelector('qCom') ? parseFloat(detElement.querySelector('qCom').textContent) : 1;
+  const qTrib = detElement && detElement.querySelector('qTrib') ? parseFloat(detElement.querySelector('qTrib').textContent) : 1;
 
   if ((uCom.includes('CX') || uCom.includes('BOX') || uCom.includes('FD')) && qTrib > qCom && qCom > 0) {
     return Math.round(qTrib / qCom);
@@ -8790,6 +8804,16 @@ function concluirConferenciaAtiva() {
       });
     }
 
+    // 2b. Envia os produtos atualizados (com os flags stockCredited*) para o servidor —
+    // sem isso, o próximo merge (mesclarNfs) pode perder esses flags e recreditar o estoque.
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs/${numNF}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
+      }).catch(err => console.error('Erro ao sincronizar crédito de estoque da conferência:', err));
+    }
+
     // 3. Notify management of completion
     if (!currentNf._notificadoConclusao) {
       currentNf._notificadoConclusao = true;
@@ -8809,8 +8833,12 @@ function autoCreditNfProductToInventory(nfInfo, p) {
   const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
   if (countedBoxes <= 0) return;
 
-  const totalUnits = Math.round(countedBoxes * (p.boxMultiplier || 1));
-  
+  // Recalcula o multiplicador a partir da descrição na hora do crédito, em vez de
+  // confiar no p.boxMultiplier salvo na importação — cobre NFs importadas por Excel
+  // (nunca setam boxMultiplier) e garante que a regra de sufixo mais recente sempre vale.
+  const multiplier = detectBoxMultiplier(null, p.description || '') || 1;
+  const totalUnits = Math.round(countedBoxes * multiplier);
+
   // Buscar item existente diretamente do localStorage da loja de destino
   const key = `cacaushow_db_inventory_${targetStore}_${p.code}`;
   const localData = localStorage.getItem(key);
@@ -8839,6 +8867,21 @@ function autoCreditNfProductToInventory(nfInfo, p) {
     invProd.qtdEntradaCaixas = countedBoxes;
   }
 
+  // Credita em QTD Inventariada (countedQty) só a DIFERENÇA entre o total de unidades
+  // desta conferência e o que já foi creditado antes para esta mesma linha de NF — assim
+  // concluir de novo (ex: depois de editar a contagem) nunca soma o total inteiro outra vez.
+  const previamenteCreditado = p.stockCreditedUnits || 0;
+  const deltaUnidades = totalUnits - previamenteCreditado;
+  if (deltaUnidades !== 0) {
+    const estoqueAtual = invProd.countedQty === '' || invProd.countedQty === undefined || invProd.countedQty === null
+      ? 0
+      : Number(invProd.countedQty);
+    invProd.countedQty = String(Math.max(0, estoqueAtual + deltaUnidades));
+    p.stockCreditedUnits = totalUnits;
+    p.stockCreditApplied = true;
+    p.stockCreditedAt = new Date().toISOString();
+  }
+
   dbBridge.saveInventoryItem(targetStore, invProd);
 
   // Se a loja de destino for a loja ativa, atualiza também a lista em memória
@@ -8847,6 +8890,7 @@ function autoCreditNfProductToInventory(nfInfo, p) {
     if (existingIndex > -1) {
       products[existingIndex] = {
         ...products[existingIndex],
+        countedQty: invProd.countedQty,
         dataEntrada: invProd.dataEntrada,
         qtdEntradaUnidades: invProd.qtdEntradaUnidades,
         qtdEntradaCaixas: invProd.qtdEntradaCaixas
