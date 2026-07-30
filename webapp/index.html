@@ -1300,17 +1300,28 @@
 
           <!-- Progresso do mês -->
           <div class="card">
-            <h3>Progresso do Mês (Locações)</h3>
-            <div style="display:flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 6px;">
-              <span>Locações acumuladas</span>
-              <span id="fa-loc-mes-label">0 / 0</span>
+            <h3>🚀 Jornada do Mês (Locações)</h3>
+
+            <!-- Trilha de etapas: Piso -> Meta -> Super-Meta -->
+            <div id="fa-loc-etapas" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;"></div>
+
+            <div style="display:flex; justify-content: space-between; align-items:baseline; margin-bottom: 6px;">
+              <span id="fa-loc-etapa-atual-label" style="font-size:0.8rem; font-weight:700; color: var(--muted);">Etapa 1 de 3 · Ponto de Equilíbrio</span>
+              <span id="fa-loc-mes-label" style="font-size:0.95rem; font-weight:800;">0 / 0</span>
             </div>
-            <div style="position: relative; width: 100%; height: 18px; background: var(--cream); border-radius: 999px; border: 1px solid var(--border); overflow: hidden;">
-              <div id="fa-loc-gauge-bar" style="height: 100%; width: 0%; background: #cbd5e1; transition: width 0.5s ease, background 0.5s ease;"></div>
-              <div id="fa-loc-marca-piso" style="position:absolute; top:0; bottom:0; width:2px; background:#dc2626;" title="Piso"></div>
-              <div id="fa-loc-marca-super" style="position:absolute; top:0; bottom:0; width:2px; background:#16a34a;" title="Super-meta"></div>
+
+            <!-- Barra segmentada com zonas Piso / Meta / Super-Meta -->
+            <div style="position: relative; width: 100%; height: 22px; border-radius: 999px; border: 1px solid var(--border); overflow: hidden; display:flex;">
+              <div id="fa-loc-zona-piso" style="height:100%; background:#fee2e2;"></div>
+              <div id="fa-loc-zona-meta" style="height:100%; background:#fef3c7;"></div>
+              <div id="fa-loc-zona-super" style="height:100%; background:#dcfce7;"></div>
+              <div id="fa-loc-gauge-bar" style="position:absolute; left:0; top:0; height: 100%; width: 0%; background: #cbd5e1; border-radius: 999px 0 0 999px; transition: width 0.6s ease, background 0.5s ease;"></div>
+              <div id="fa-loc-marca-piso" style="position:absolute; top:0; bottom:0; width:2px; background:#991b1b;" title="Piso"></div>
+              <div id="fa-loc-marca-meta" style="position:absolute; top:0; bottom:0; width:2px; background:#92400e;" title="Meta"></div>
             </div>
+
             <p id="fa-loc-mensagem-motivacional" style="margin-top: 12px; font-size: 0.95rem; font-weight: 700; text-align: center;">Registre as locações para acompanhar a meta do mês!</p>
+            <p id="fa-loc-ritmo-diario" style="margin-top: 4px; font-size: 0.8rem; color: var(--muted); text-align: center;"></p>
           </div>
 
           <!-- Cards de resumo -->
