@@ -87,14 +87,11 @@ let USERS = [
   { nome: "Vitória", role: "consultora" },
   { nome: "Débora", role: "consultora" },
   { nome: "Alexandra", role: "consultora_dashboard" },
-  { nome: "LiderOP", role: "consultora_dashboard" },
   { nome: "Janine", role: "consultora" },
   { nome: "Estheffany", role: "consultora" },
   { nome: "Sabrina", role: "consultora" },
-  { nome: "Treinamento Cacau Show", role: "consultora" },
   { nome: "Alice", role: "consultora_fa" },
   { nome: "Alessandra", role: "consultora_fa" },
-  { nome: "Treinamento Faça Amigos", role: "consultora_fa" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
 ];
@@ -528,11 +525,11 @@ function registrarLimparErroAoDigitar() {
 
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
-const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra", "LiderOP"];
+const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
 // Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
 // PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
 // que abre um modal de autorização sozinho na tela dos owners.
-const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra", "LiderOP"];
+const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra"];
 
 let API_ONLINE = false;
 let registros = [];
@@ -1002,7 +999,7 @@ async function excluirRegistroFAAPI(id) {
 }
 
 // ==================== SOLICITAÇÃO DE RETIRADA (autorização remota) ====================
-// Fluxo: Alexandra/LiderOP propõe a retirada de um ou mais envelopes sem saber
+// Fluxo: Alexandra propõe a retirada de um ou mais envelopes sem saber
 // o PIN de Bruno/Isabella. O servidor cria a solicitação, avisa os owners por
 // push e evento em tempo real, e cada owner autoriza (ou recusa) digitando o
 // PRÓPRIO PIN no PRÓPRIO aparelho — nunca no da Líder de Operações.
@@ -1467,7 +1464,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
   // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
-  // também uma lista de nomes cravados aqui (["Alexandra","LiderOP","Bruno","Isabella"])
+  // também uma lista de nomes cravados aqui (["Alexandra","Bruno","Isabella"])
   // que duplicava essa checagem — se um(a) novo(a) Líder de Operações fosse
   // contratado(a) com outro nome, o botão sumia silenciosamente pra ela mesmo
   // tendo o perfil certo. Restrição por perfil (role) é a única fonte de verdade.
@@ -1516,6 +1513,26 @@ function iniciarModuloBase(moduloOpcional) {
   } else if (moduloOpcional === "cacau-show") {
     document.getElementById("group-faca-amigos")?.classList.add("hidden");
   }
+
+  // Expande de cara o grupo do módulo em que a pessoa acabou de entrar — antes
+  // era preciso clicar no cabeçalho pra revelar as próprias funções do módulo
+  // ativo, um clique a mais toda vez que a página recarregava. Os demais
+  // grupos-acordeão (do outro negócio, se visível pro perfil) continuam
+  // recolhidos; "Insights IA" é atalho direto e não entra nesse controle.
+  const GRUPO_POR_MODULO = {
+    "cacau-show": "group-controle-caixa",
+    "faca-amigos": "group-faca-amigos",
+    "rh-modulo": "group-rh-equipe",
+  };
+  const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
+  document.querySelectorAll(".sidebar-group").forEach(group => {
+    const header = group.querySelector(".sidebar-group-header");
+    if (!header || header.classList.contains("is-direct")) return;
+    const deveExpandir = group.id === grupoDoModuloAtivo;
+    group.classList.toggle("expanded", deveExpandir);
+    group.classList.toggle("collapsed", !deveExpandir);
+    header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
+  });
 
   // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
   // pra que o operador veja o número piscando assim que entra no módulo.
@@ -4415,7 +4432,7 @@ function renderDashboard() {
         <td>${avisoCelula(r)}</td>
         <td>${podeRetirar
           ? `<button class="btn-retirar" data-id="${r.id}">Marcar retirado</button>`
-          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella, Alexandra ou LiderOP</span>`}</td>
+          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella ou Alexandra</span>`}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -4490,7 +4507,7 @@ const autorizacaoWrap = document.getElementById("autorizacao-wrap");
 
 function abrirModalRetirada(target) {
   if (!currentUser || !RETIRADA_PERMITIDA.includes(currentUser.nome)) {
-    showModal("Apenas Bruno, Isabella, Alexandra ou LiderOP podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
+    showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
   retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
@@ -4524,7 +4541,7 @@ function abrirModalRetirada(target) {
 
   autorizacaoPinInput.value = "";
 
-  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra", "LiderOP"]).includes(currentUser ? currentUser.nome : "");
+  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra"]).includes(currentUser ? currentUser.nome : "");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
   document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
 
@@ -4557,7 +4574,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
 
   const dataRetirada = new Date(data).toISOString();
 
-  // Alexandra/LiderOP não confirmam sozinhas: a retirada vira uma solicitação
+  // Alexandra não confirma sozinha: a retirada vira uma solicitação
   // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
   if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
     const listaOrigem = isFA ? registrosFA : registros;
@@ -4641,7 +4658,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
 });
 
 // --- Modal autorizar retirada (owner) ---
-// Abre sozinho na tela de Bruno/Isabella quando Alexandra/LiderOP solicita uma
+// Abre sozinho na tela de Bruno/Isabella quando Alexandra solicita uma
 // retirada (evento em tempo real) ou quando o owner entra no app e existe
 // alguma solicitação pendente. Fila simples: mostra uma de cada vez.
 let filaAutorizacaoRetirada = [];
@@ -5169,7 +5186,7 @@ document.getElementById("session-logout").addEventListener("click", () => {
 // RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
 // ==========================================================================
 const RESUMO_KEY = "cacaushow_ultimo_resumo";
-const RESUMO_USUARIOS = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
+const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
 
 function mostrarResumoMatinal() {
   if (!currentUser || !RESUMO_USUARIOS.includes(currentUser.nome)) return;
@@ -8887,7 +8904,7 @@ function triggerInventoryStartedNotification() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
         assunto: `📋 Inventário Iniciado - Loja ${getLojaNomePorCodigo(currentStore)}`,
         mensagem: `A colaboradora ${currentUser.nome} iniciou a contagem física do Inventário de Estoque na Loja ${getLojaNomePorCodigo(currentStore)}.`,
         operador: currentUser.nome
@@ -9140,7 +9157,7 @@ function exportExcel() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
       assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
       mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
       operador: currentUser.nome
@@ -9158,7 +9175,7 @@ function exportExcel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+          destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
           assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
           mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
           operador: currentUser.nome
@@ -9166,7 +9183,7 @@ function exportExcel() {
       }).catch(err => console.error('Erro na notificação de conclusão total:', err));
 
       showModal(
-        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella, Alexandra e LiderOP.`,
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella e Alexandra.`,
         {
           icon: "🚀",
           title: "Inventário Mensal Finalizado",
@@ -10193,7 +10210,7 @@ window.carregarAuditoriaBoletos = function() {
 
   // Notificação "⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos" desativada
   // a pedido — a tabela/contadores de divergência abaixo continuam normais,
-  // só o disparo para Bruno/Isabella/Alexandra/LiderOP foi removido.
+  // só o disparo para Bruno/Isabella/Alexandra foi removido.
 
   const statNfe = document.getElementById("stat-audit-nfe-total");
   const statBoleto = document.getElementById("stat-audit-boleto-total");
@@ -11350,7 +11367,6 @@ function obterListaColaboradores() {
   }
   return [
     { nome: "Alexandra", role: "consultora_dashboard" },
-    { nome: "LiderOP", role: "consultora_dashboard" },
     { nome: "Bruno", role: "owner" },
     { nome: "Isabella", role: "owner" }
   ];
@@ -11390,7 +11406,7 @@ function getStoreForColab(nome) {
     return profiles[nome].store;
   }
   if (nome === "Bruno" || nome === "Isabella") return "all";
-  if (nome === "Alexandra" || nome === "LiderOP") return "9201";
+  if (nome === "Alexandra") return "9201";
   return "9175";
 }
 
@@ -14050,6 +14066,21 @@ async function carregarMetaHoraHora() {
     }
   }
 
+  // Venda é ACUMULADA: um intervalo não pode ficar menor que um anterior já
+  // confirmado nem maior que um posterior já confirmado (normalmente sinal
+  // de erro de digitação). Usado tanto para dar a dica no input quanto para
+  // validar antes de enviar ao servidor (que também valida, por segurança).
+  const limitesParaSlot = slotMin => {
+    let minPermitido = 0;
+    let maxPermitido = Infinity;
+    vendasOrdenadas.forEach(v => {
+      const vMin = minutosDoDiaPorHora(v.horaSlot);
+      if (vMin < slotMin && v.valor > minPermitido) minPermitido = v.valor;
+      if (vMin > slotMin && v.valor < maxPermitido) maxPermitido = v.valor;
+    });
+    return { minPermitido, maxPermitido };
+  };
+
   // Grade hora a hora: check-in por intervalo, com trava de 30min
   const tbody = document.getElementById("meta-hora-a-hora-tbody");
   if (tbody) {
@@ -14087,6 +14118,10 @@ async function carregarMetaHoraHora() {
         const tituloBotao = dentroDaJanela
           ? "Confirmar o total acumulado deste intervalo"
           : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
+        const { minPermitido } = limitesParaSlot(slotMin);
+        const tituloInput = minPermitido > 0
+          ? `Venda ACUMULADA do dia até agora, não o valor desta hora. Não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior.`
+          : "Venda ACUMULADA do dia até agora, não o valor desta hora";
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
             <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-surface-1 border border-subtle text-ink rounded-lg px-2 py-1 text-xs">
@@ -14111,12 +14146,27 @@ async function carregarMetaHoraHora() {
     tbody.querySelectorAll("[data-confirmar-slot]").forEach(btn => {
       btn.addEventListener("click", () => {
         const slotStr = btn.dataset.confirmarSlot;
-        const input = document.getElementById(`meta-slot-input-${minutosDoDiaPorHora(slotStr)}`);
-        const valor = parseFloat(input ? input.value : "");
+        const slotMin = minutosDoDiaPorHora(slotStr);
+        const input = document.getElementById(`meta-slot-input-${slotMin}`);
+        // Aceita vírgula como separador decimal (formato brasileiro digitado
+        // por engano em um campo numérico) para não descartar o valor digitado.
+        const valorDigitado = (input ? input.value : "").replace(",", ".");
+        const valor = parseFloat(valorDigitado);
         if (Number.isNaN(valor) || valor < 0) {
           showToast("Informe um valor válido para o intervalo.", "erro");
           return;
         }
+
+        const { minPermitido, maxPermitido } = limitesParaSlot(slotMin);
+        if (valor < minPermitido) {
+          showToast(`O valor não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior, pois a venda é acumulada e só pode aumentar ao longo do dia.`, "erro");
+          return;
+        }
+        if (valor > maxPermitido) {
+          showToast(`O valor não pode ser maior que ${formatBRL(maxPermitido)}, já confirmado em um intervalo posterior. Confira se não houve erro de digitação.`, "erro");
+          return;
+        }
+
         confirmarIntervaloMeta(slotStr, valor);
       });
     });
