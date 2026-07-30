@@ -40,6 +40,7 @@ const realtimeRoutes = require('./routes/realtime');
 const inventarioRoutes = require('./routes/inventario');
 const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
+const retiradasRoutes = require('./routes/retiradas');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -58,6 +59,7 @@ app.use('/api', inventarioRoutes);
 app.use('/api', iaRoutes);
 app.use('/api', authRoutes);
 app.use('/api', caixaRoutes);
+app.use('/api', retiradasRoutes);
 app.use('/api', financeiroRoutes);
 app.use('/api', metasRoutes);
 app.use('/api/ponto', pontoRoutes);

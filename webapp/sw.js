@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v37'; // v37: design system claro + layout adaptativo
+const CACHE_NAME = 'ponto-pwa-v42'; // v42: merge do design system claro + layout adaptativo com o main (rolagem/segura da sidebar mobile)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,6 +8,12 @@ const ASSETS_TO_CACHE = [
   '/realtime.js',
   '/insights-ia.js',
   '/pasta-auditoria.js',
+  '/camera-universal.js',
+  '/mensagens-pos-visita.js',
+  '/mensagens-aniversario.js',
+  '/bluedox.html',
+  '/bluedox.css',
+  '/bluedox.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

@@ -200,6 +200,7 @@ function initDb(onSuccess) {
           valorEnvelope REAL,
           valorFaturado REAL,
           sangria REAL,
+          sangriaMotivo TEXT,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -221,6 +222,7 @@ function initDb(onSuccess) {
           valorEnvelope REAL,
           valorFaturado REAL,
           sangria REAL,
+          sangriaMotivo TEXT,
           observacoes TEXT,
           fotoEnvelope TEXT,
           status TEXT,
@@ -470,6 +472,27 @@ function initDb(onSuccess) {
         // trabalhistas etc.), separado por negócio (cacau-show/faca-amigos).
         // conteudo guarda o arquivo em base64, mesmo padrão de
         // registros.fotoEnvelope.
+        // Solicitação de retirada pendente de autorização: a Líder de Operações
+        // (Alexandra/LiderOP) propõe a retirada de um ou mais envelopes, mas não
+        // sabe o PIN de Bruno/Isabella — quem autoriza digita o PRÓPRIO PIN no
+        // PRÓPRIO aparelho, num modal que abre sozinho (evento em tempo real +
+        // push) assim que a solicitação é criada. registroIds guarda um array
+        // JSON porque uma retirada em lote autoriza vários envelopes de uma vez.
+        `CREATE TABLE IF NOT EXISTS solicitacoes_retirada (
+          id TEXT PRIMARY KEY,
+          tipo TEXT NOT NULL,
+          registroIds TEXT NOT NULL,
+          loja TEXT,
+          valorTotal REAL,
+          responsavel TEXT,
+          dataRetirada TEXT,
+          solicitadoPor TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pendente',
+          autorizadoPor TEXT,
+          motivoRecusa TEXT,
+          respondidoEm TEXT,
+          criadoEm TEXT NOT NULL
+        )`,
         `CREATE TABLE IF NOT EXISTS documentos_auditoria (
           id TEXT PRIMARY KEY,
           negocio TEXT NOT NULL,
@@ -544,6 +567,19 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE registros_fa ADD COLUMN sangria REAL', [], () => resolve());
+        });
+      });
+
+      // Justificativa obrigatória para sangria > R$ 0,01
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros ADD COLUMN sangriaMotivo TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE registros_fa ADD COLUMN sangriaMotivo TEXT', [], () => resolve());
         });
       });
 

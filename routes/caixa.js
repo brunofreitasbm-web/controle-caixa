@@ -122,13 +122,13 @@ router.post('/registros-fa', (req, res) => {
   db.run(
     `INSERT INTO registros_fa (
       id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
-      valorFaturado, sangria,
+      valorFaturado, sangria, sangriaMotivo,
       observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
       autorizadoPor, mensagemGerada, criadoEm
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
-      r.valorFaturado, r.sangria,
+      r.valorFaturado, r.sangria, r.sangriaMotivo || null,
       r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
       r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
     ],
@@ -224,13 +224,13 @@ router.post('/registros', (req, res) => {
   db.run(
     `INSERT INTO registros (
       id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
-      valorFaturado, sangria,
+      valorFaturado, sangria, sangriaMotivo,
       observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
       autorizadoPor, mensagemGerada, criadoEm
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
-      r.valorFaturado, r.sangria,
+      r.valorFaturado, r.sangria, r.sangriaMotivo || null,
       r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
       r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
     ],

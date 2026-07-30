@@ -9,7 +9,7 @@ let API_BASE = window.location.protocol === "file:"
 const STORAGE_KEY = "cacaushow_controle_caixa_v1";
 const USER_KEY = "cacaushow_current_user";
 const PIN_KEY = "cacaushow_pins_v1";
-const CONFIG_KEY = "cacaushow_config_v2";
+const CONFIG_KEY = "cacaushow_config";
 const THEME_KEY = "cacaushow_theme";
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
 let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dinamicamente do config)
@@ -100,7 +100,7 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "pasta-auditoria-cs", "configuracoes"],
+  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
   consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
   owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
@@ -529,7 +529,10 @@ function registrarLimparErroAoDigitar() {
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
 const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra", "LiderOP"];
-const AUTORIZADORES = ["Bruno", "Isabella"];
+// Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
+// PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
+// que abre um modal de autorização sozinho na tela dos owners.
+const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra", "LiderOP"];
 
 let API_ONLINE = false;
 let registros = [];
@@ -542,10 +545,16 @@ let tipoOperacaoSelecionado = null;
 let fotoDataUrl = null;
 let retiradaAlvoId = null;
 
+// Envelopes marcados para retirada em lote. Precisa viver fora de
+// renderDashboard()/renderFaDashboard() — cada toggle de checkbox chama a
+// própria função de novo, e um `let` local seria recriado vazio a cada render,
+// perdendo a seleção antes do usuário conseguir marcar mais de um envelope.
+let selecionadosPendentes = new Set();
+let selecionadosFAPendentes = new Set();
+
 // Estado específico do FaçaAmigos
 let faTipoOperacaoSelecionado = null;
 let faFotoDataUrl = null;
-let faRetiradaAlvoId = null;
 
 function carregarJSON(key, fallback) {
   try {
@@ -837,6 +846,9 @@ async function salvarRegistroAPI(reg) {
   // Fallback Local
   registros.push(reg);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
   return false;
 }
 
@@ -858,6 +870,9 @@ async function atualizarRegistroAPI(id, dados) {
   if (idx !== -1) {
     registros[idx] = { ...registros[idx], ...dados };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
   return false;
 }
@@ -929,6 +944,9 @@ async function salvarRegistroFAAPI(reg) {
   // Fallback Local
   registrosFA.push(reg);
   localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
   return false;
 }
 
@@ -950,6 +968,9 @@ async function atualizarRegistroFAAPI(id, dados) {
   if (idx !== -1) {
     registrosFA[idx] = { ...registrosFA[idx], ...dados };
     localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
   return false;
 }
@@ -978,6 +999,57 @@ async function excluirRegistroFAAPI(id) {
     return true;
   }
   return false;
+}
+
+// ==================== SOLICITAÇÃO DE RETIRADA (autorização remota) ====================
+// Fluxo: Alexandra/LiderOP propõe a retirada de um ou mais envelopes sem saber
+// o PIN de Bruno/Isabella. O servidor cria a solicitação, avisa os owners por
+// push e evento em tempo real, e cada owner autoriza (ou recusa) digitando o
+// PRÓPRIO PIN no PRÓPRIO aparelho — nunca no da Líder de Operações.
+async function criarSolicitacaoRetiradaAPI(dados) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados)
+  });
+  if (!res.ok) {
+    const erro = await res.json().catch(() => ({}));
+    throw new Error(erro.error || "Falha ao criar solicitação de retirada.");
+  }
+  return res.json();
+}
+
+async function buscarSolicitacoesRetiradaPendentesAPI() {
+  try {
+    const res = await fetch(`${API_BASE}/solicitacoes-retirada?status=pendente`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    console.error("Erro ao buscar solicitações de retirada pendentes:", e);
+    return [];
+  }
+}
+
+async function autorizarSolicitacaoRetiradaAPI(id, pin) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/autorizar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, pin })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao autorizar retirada.");
+  return data;
+}
+
+async function recusarSolicitacaoRetiradaAPI(id, motivo) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/recusar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, motivo })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao recusar retirada.");
+  return data;
 }
 
 async function salvarConfigAPI(chave, valor) {
@@ -1122,12 +1194,15 @@ function getEmojiUsuario(nome) {
 
 function renderLoginUserGrid() {
   loginUserGrid.innerHTML = "";
+  const ultimoUsuario = localStorage.getItem("ultimo_usuario_login");
   USERS.forEach(u => {
+    const isUltimo = u.nome === ultimoUsuario;
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "login-user-card";
+    card.className = "login-user-card" + (isUltimo ? " ultimo-acesso" : "");
     card.setAttribute("role", "listitem");
     card.innerHTML = `
+      ${isUltimo ? '<span class="login-user-badge">⚡ Último Acesso</span>' : ''}
       <span class="login-user-avatar">${getEmojiUsuario(u.nome)}</span>
       <span class="login-user-name">${u.nome}</span>
     `;
@@ -1261,6 +1336,7 @@ loginEntrarBtn.addEventListener("click", async () => {
 
   currentUser = user;
   localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+  localStorage.setItem("ultimo_usuario_login", user.nome);
   resetLoginForm();
   entrarNoApp();
 });
@@ -1297,6 +1373,13 @@ function entrarNoApp() {
 
   inscreverPushNotificacoes();
 
+  // Se existir alguma retirada aguardando autorização, abre o modal de PIN
+  // sozinho assim que o owner entra no app (cobre o caso de ele estar offline
+  // quando a Líder de Operações fez a solicitação).
+  if (currentUser.role === "owner") {
+    carregarSolicitacoesRetiradaPendentes();
+  }
+
   // Exibir botão de trocar módulo para todos os perfis permitidos
   const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
   if (btnTopbar) btnTopbar.classList.remove("hidden");
@@ -1332,6 +1415,15 @@ function iniciarModuloBase(moduloOpcional) {
 
   document.getElementById("user-badge").textContent = currentUser.nome;
 
+  // Quando chamado sem argumento (ex.: recarregar permissões depois que o role
+  // muda no servidor, ver carregarColaboradores()), reaproveita o último módulo
+  // ativo em vez de cair no bloco `else` abaixo — sem isso, o filtro de
+  // Cacau Show/FaçaAmigos/RH/Ponto era pulado por completo e a lista bruta de
+  // TABS_POR_ROLE (que mistura os módulos) vazava direto pra sidebar.
+  if (!moduloOpcional) {
+    moduloOpcional = localStorage.getItem("ultimoModulo_" + currentUser.nome) || moduloOpcional;
+  }
+
   let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
 
   if (moduloOpcional) {
@@ -1339,10 +1431,16 @@ function iniciarModuloBase(moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
       // controle-ponto continua liberado aqui: virou item normal de menu para
       // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
-      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "faca-amigos" && tab !== "rh-modulo");
+      // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
+      // "faca-amigos" em si) — "pasta-auditoria-fa"/"pos-visita"/"aniversarios"
+      // também estão na lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro
+      // do módulo Cacau Show antes desta correção (grupo FaçaAmigos aparecia
+      // com "Pasta de Documentação" mesmo com o owner no módulo Cacau Show).
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa"];
+      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa", "controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1355,13 +1453,13 @@ function iniciarModuloBase(moduloOpcional) {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
   }
 
-  const nomesPermitidosBoletos = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
-  if (!nomesPermitidosBoletos.includes(currentUser.nome)) {
-    tabsPermitidas = tabsPermitidas.filter(tab => tab !== "boletos");
-  }
-
-  const nomesPermitidosAuditoriaBoletos = ["Bruno", "Isabella"];
-  if (!nomesPermitidosAuditoriaBoletos.includes(currentUser.nome)) {
+  // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
+  // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
+  // também uma lista de nomes cravados aqui (["Alexandra","LiderOP","Bruno","Isabella"])
+  // que duplicava essa checagem — se um(a) novo(a) Líder de Operações fosse
+  // contratado(a) com outro nome, o botão sumia silenciosamente pra ela mesmo
+  // tendo o perfil certo. Restrição por perfil (role) é a única fonte de verdade.
+  if (currentUser.role !== "owner") {
     tabsPermitidas = tabsPermitidas.filter(tab => tab !== "auditoria-boletos");
   }
 
@@ -1388,8 +1486,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-logistica", "group-boletos", "group-pasta-auditoria", "group-insights-ia", "group-importacoes",
-   "group-metas", "group-meta-hora-hora", "group-fa-meta", "group-configuracoes"].forEach(groupId => {
+  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1819,11 +1916,20 @@ const btnCloseSidebar = document.getElementById("btn-close-sidebar");
 function abrirSidebarMobile() {
   if (sidebarEl) sidebarEl.classList.add("open");
   if (sidebarOverlayEl) sidebarOverlayEl.classList.add("open");
+  // Trava o scroll da página por trás do drawer (Android e iOS) e manda o
+  // foco pro botão de fechar, pra quem navega por teclado/leitor de tela.
+  document.documentElement.classList.add("sidebar-mobile-open");
+  if (btnCloseSidebar) btnCloseSidebar.focus();
 }
 
 function fecharSidebarMobile() {
+  const estavaAberta = sidebarEl && sidebarEl.classList.contains("open");
   if (sidebarEl) sidebarEl.classList.remove("open");
   if (sidebarOverlayEl) sidebarOverlayEl.classList.remove("open");
+  document.documentElement.classList.remove("sidebar-mobile-open");
+  // Devolve o foco pro hamburger só se o drawer realmente estava aberto,
+  // pra não roubar o foco de outro elemento em cada troca de aba.
+  if (estavaAberta && btnHamburger) btnHamburger.focus();
 }
 
 if (btnHamburger) btnHamburger.addEventListener("click", abrirSidebarMobile);
@@ -1893,6 +1999,24 @@ document.querySelectorAll(".sidebar-group-header").forEach(header => {
   });
 });
 
+// Toggle Cacau Show / FaçaAmigos dentro de Insights IA: Escala e Copiloto usam
+// dados de Meta Hora a Hora (só existe no Cacau Show), Coach de conversão usa
+// colaboradoras do FaçaAmigos — o toggle troca qual bloco fica visível, sem
+// duplicar cartões nem disparar chamadas novas (cada cartão só carrega quando
+// o usuário aperta "Analisar", como já era).
+document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const negocio = btn.dataset.iaNegocio;
+    document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(b => {
+      const ativo = b === btn;
+      b.classList.toggle("active", ativo);
+      b.setAttribute("aria-selected", ativo ? "true" : "false");
+    });
+    document.querySelectorAll(".ia-negocio-bloco").forEach(bloco => {
+      bloco.classList.toggle("hidden", bloco.dataset.iaNegocioBloco !== negocio);
+    });
+  });
+});
 
 // Sub-tab ativa do FaçaAmigos
 let faSubTabAtiva = "fa-registro";
@@ -2047,6 +2171,7 @@ function atualizarCamposPorOperacao() {
     fieldFaturado.classList.add("hidden");
     valorFaturadoInput.required = false;
     fieldSangria.classList.add("hidden");
+    document.getElementById("field-sangria-motivo").classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
@@ -2055,8 +2180,20 @@ function atualizarCamposPorOperacao() {
     valorFaturadoInput.required = true;
     fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarSangriaMotivo();
   }
 }
+
+function atualizarSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("sangria").value);
+  const field = document.getElementById("field-sangria-motivo");
+  const mostrar = tipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("sangria-motivo").value = "";
+  }
+}
+document.getElementById("sangria").addEventListener("input", atualizarSangriaMotivo);
 
 function atualizarFaCamposPorOperacao() {
   const fieldEnvelope = document.getElementById("fa-field-valor-envelope");
@@ -2072,6 +2209,7 @@ function atualizarFaCamposPorOperacao() {
     fieldFaturado.classList.add("hidden");
     valorFaturadoInput.required = false;
     fieldSangria.classList.add("hidden");
+    document.getElementById("fa-field-sangria-motivo").classList.add("hidden");
     fotoHint.textContent = "(não necessário na abertura)";
   } else {
     fieldEnvelope.classList.remove("hidden");
@@ -2080,8 +2218,20 @@ function atualizarFaCamposPorOperacao() {
     valorFaturadoInput.required = true;
     fieldSangria.classList.remove("hidden");
     fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarFaSangriaMotivo();
   }
 }
+
+function atualizarFaSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("fa-sangria").value);
+  const field = document.getElementById("fa-field-sangria-motivo");
+  const mostrar = faTipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("fa-sangria-motivo").value = "";
+  }
+}
+document.getElementById("fa-sangria").addEventListener("input", atualizarFaSangriaMotivo);
 
 // --- Sugestão automática de Fundo de Caixa (Cacau Show) ---
 document.getElementById("loja").addEventListener("change", () => {
@@ -2322,6 +2472,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
   const valorFaturadoRaw = document.getElementById("valor-faturado").value;
   const sangriaRaw = document.getElementById("sangria").value;
+  const sangriaMotivo = document.getElementById("sangria-motivo").value.trim();
   const observacoes = document.getElementById("observacoes").value;
 
   limparErrosInline("");
@@ -2363,6 +2514,9 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
       marcarErro(document.getElementById("sangria"), document.getElementById("sangria-error"));
     }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("sangria-motivo"), document.getElementById("sangria-motivo-error"));
+    }
     if (!fotoDataUrl) {
       marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
     }
@@ -2378,6 +2532,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
   const valorFaturado = tipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
   const sangria = tipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
 
   const duplicado = loja !== "Venda Direta" && registros.some(r =>
     r.loja === loja &&
@@ -2401,6 +2556,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
     valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
     valorFaturado,
     sangria,
+    sangriaMotivo: sangriaMotivoFinal,
     observacoes: observacoes || null,
     fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
     status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2488,6 +2644,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
   const valorFaturadoRaw = document.getElementById("fa-valor-faturado").value;
   const sangriaRaw = document.getElementById("fa-sangria").value;
+  const sangriaMotivo = document.getElementById("fa-sangria-motivo").value.trim();
   const observacoes = document.getElementById("fa-observacoes").value;
 
   limparErrosInline("fa");
@@ -2529,6 +2686,9 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
       marcarErro(document.getElementById("fa-sangria"), document.getElementById("fa-sangria-error"));
     }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("fa-sangria-motivo"), document.getElementById("fa-sangria-motivo-error"));
+    }
     if (!faFotoDataUrl) {
       marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
     }
@@ -2544,6 +2704,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   const valorEnvelope = parseMoeda(valorEnvelopeRaw);
   const valorFaturado = faTipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
   const sangria = faTipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
 
   const duplicado = registrosFA.some(r =>
     r.loja === loja &&
@@ -2567,6 +2728,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
     valorEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
     valorFaturado,
     sangria,
+    sangriaMotivo: sangriaMotivoFinal,
     observacoes: observacoes || null,
     fotoEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? faFotoDataUrl : null,
     status: faTipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
@@ -2645,7 +2807,7 @@ function mensagemAviso(r) {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}\n` +
-    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}\n` : "") +
+    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}\n` : "") +
     pctMetaLinha
   );
 }
@@ -2706,7 +2868,7 @@ function mensagemAvisoFA(r, linhaVendas = "") {
     `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
     `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
     `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
-    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}` : "") +
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}` : "") +
     linhaVendas
   );
 }
@@ -2833,24 +2995,6 @@ function renderFaDashboard() {
 
   document.getElementById("fa-dash-total-geral").textContent = formatBRL(totalGeral) + " em trânsito";
 
-  const barChart = document.getElementById("fa-bar-chart");
-  barChart.innerHTML = "";
-  const maiorValor = Math.max(...Object.values(totaisPorLoja), 1);
-  LOJAS_FA.forEach(loja => {
-    const total = totaisPorLoja[loja];
-    const pct = Math.round((total / maiorValor) * 100);
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    row.innerHTML = `
-      <span>${loja}</span>
-      <div class="bar-track"><div class="bar-fill fa-bar-fill" style="width:${pct}%"></div></div>
-      <span class="bar-value">${formatBRL(total)}</span>
-    `;
-    barChart.appendChild(row);
-  });
-
-  let selecionadosFAPendentes = new Set();
-
   function atualizarBatchBarFAPendentes(filtrados) {
     const bar = document.getElementById("fa-batch-actions-pendentes");
     const countInfo = document.getElementById("fa-batch-count-info");
@@ -2860,7 +3004,7 @@ function renderFaDashboard() {
 
     if (selecionadosFAPendentes.size > 0) {
       bar.classList.remove("hidden");
-      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(r.id));
+      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(String(r.id)));
       const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
       countInfo.textContent = `${selecionadosFAPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
     } else {
@@ -2868,7 +3012,7 @@ function renderFaDashboard() {
     }
 
     if (selectAllCheckbox) {
-      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(r.id));
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(String(r.id)));
       selectAllCheckbox.indeterminate = selecionadosFAPendentes.size > 0 && !selectAllCheckbox.checked;
     }
   }
@@ -2881,15 +3025,15 @@ function renderFaDashboard() {
   const podeRetirar = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
 
   // Limpar IDs selecionados que não estão mais na lista de filtrados
-  const idsFiltrados = new Set(filtrados.map(r => r.id));
-  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].filter(id => idsFiltrados.has(id)));
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].map(String).filter(id => idsFiltrados.has(id)));
 
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
-      const isSelected = selecionadosFAPendentes.has(r.id);
+      const isSelected = selecionadosFAPendentes.has(String(r.id));
       const tr = document.createElement("tr");
       if (isSelected) tr.classList.add("selected-row");
 
@@ -2920,7 +3064,7 @@ function renderFaDashboard() {
   if (selectAll) {
     selectAll.onclick = () => {
       if (selectAll.checked) {
-        filtrados.forEach(r => selecionadosFAPendentes.add(r.id));
+        filtrados.forEach(r => selecionadosFAPendentes.add(String(r.id)));
       } else {
         selecionadosFAPendentes.clear();
       }
@@ -2932,7 +3076,7 @@ function renderFaDashboard() {
   tbody.querySelectorAll(".chk-fa-pendente").forEach(chk => {
     chk.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = chk.dataset.id;
+      const id = String(chk.dataset.id);
       if (chk.checked) {
         selecionadosFAPendentes.add(id);
       } else {
@@ -2952,7 +3096,7 @@ function renderFaDashboard() {
   }
 
   tbody.querySelectorAll(".fa-btn-retirar").forEach(btn => {
-    btn.addEventListener("click", () => abrirModalRetiradaFA(btn.dataset.id));
+    btn.addEventListener("click", () => abrirModalRetiradaFA(String(btn.dataset.id)));
   });
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
@@ -2969,7 +3113,8 @@ function abrirModalRetiradaFA(target) {
   const isBatch = Array.isArray(target);
 
   if (isBatch) {
-    const selecionadosList = registrosFA.filter(x => target.includes(x.id));
+    const targetStrs = target.map(String);
+    const selecionadosList = registrosFA.filter(x => targetStrs.includes(String(x.id)));
     const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     document.getElementById("modal-sub-info").textContent =
       `[FaçaAmigos - Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
@@ -3936,50 +4081,6 @@ async function salvarRegraFaBonificacao() {
   }
 }
 
-// ==================== FACADE: Modal confirmar retirada FA ====================
-// Intercept the existing modal-confirmar for FA mode
-const _originalModalConfirmar = document.getElementById("modal-confirmar-listener");
-document.getElementById("modal-confirmar").addEventListener("click", async () => {
-  // handled inside modal-confirmar click
-});
-
-// Override modal-confirmar button to support FA mode
-const modalConfirmarBtn = document.getElementById("modal-confirmar");
-const _originalConfirmarClick = modalConfirmarBtn.onclick;
-modalConfirmarBtn.addEventListener("click", async function faConfirmarHandler() {
-  if (this.dataset.faMode !== "true") return;
-  this.dataset.faMode = "";
-
-  const data = document.getElementById("retirada-data").value;
-  const responsavel = document.getElementById("retirada-responsavel").value.trim();
-  if (!data || !responsavel) {
-    showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
-    return;
-  }
-
-  const r = registrosFA.find(x => x.id === faRetiradaAlvoId);
-  if (!r) return;
-  const dataRetirada = new Date(data).toISOString();
-
-  const updates = {
-    status: "retirado",
-    dataRetirada: dataRetirada,
-    retiradoPor: responsavel,
-    confirmadoPorApp: currentUser.nome,
-    autorizadoPor: null
-  };
-
-  await atualizarRegistroFAAPI(faRetiradaAlvoId, updates);
-  r.status = "retirado";
-  r.dataRetirada = dataRetirada;
-  r.retiradoPor = responsavel;
-  r.confirmadoPorApp = currentUser.nome;
-
-  document.getElementById("modal-retirada").classList.add("hidden");
-  faRetiradaAlvoId = null;
-  renderFaDashboard();
-  showToast("Retirada FA confirmada com sucesso!", "sucesso");
-});
 
 // --- Notificações System ---
 function obterNotificacoesPendentes() {
@@ -4232,8 +4333,6 @@ function renderDashboard() {
     barChart.appendChild(row);
   });
 
-  let selecionadosPendentes = new Set();
-
   function atualizarBatchBarPendentes(filtrados) {
     const bar = document.getElementById("batch-actions-pendentes");
     const countInfo = document.getElementById("batch-count-info");
@@ -4243,7 +4342,7 @@ function renderDashboard() {
 
     if (selecionadosPendentes.size > 0) {
       bar.classList.remove("hidden");
-      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(r.id));
+      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(String(r.id)));
       const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
       countInfo.textContent = `${selecionadosPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
     } else {
@@ -4251,7 +4350,7 @@ function renderDashboard() {
     }
 
     if (selectAllCheckbox) {
-      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(r.id));
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(String(r.id)));
       selectAllCheckbox.indeterminate = selecionadosPendentes.size > 0 && !selectAllCheckbox.checked;
     }
   }
@@ -4263,15 +4362,15 @@ function renderDashboard() {
   const podeRetirar = RETIRADA_PERMITIDA.includes(currentUser.nome);
 
   // Limpar IDs selecionados que não estão mais na lista de filtrados
-  const idsFiltrados = new Set(filtrados.map(r => r.id));
-  selecionadosPendentes = new Set([...selecionadosPendentes].filter(id => idsFiltrados.has(id)));
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosPendentes = new Set([...selecionadosPendentes].map(String).filter(id => idsFiltrados.has(id)));
 
   filtrados
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
     .forEach(r => {
       const dias = diffDias(r.dataOperacao);
       const risco = dias >= RISCO_DIAS;
-      const isSelected = selecionadosPendentes.has(r.id);
+      const isSelected = selecionadosPendentes.has(String(r.id));
       const tr = document.createElement("tr");
       if (isSelected) tr.classList.add("selected-row");
 
@@ -4302,7 +4401,7 @@ function renderDashboard() {
   if (selectAll) {
     selectAll.onclick = () => {
       if (selectAll.checked) {
-        filtrados.forEach(r => selecionadosPendentes.add(r.id));
+        filtrados.forEach(r => selecionadosPendentes.add(String(r.id)));
       } else {
         selecionadosPendentes.clear();
       }
@@ -4314,7 +4413,7 @@ function renderDashboard() {
   tbody.querySelectorAll(".chk-pendente").forEach(chk => {
     chk.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = chk.dataset.id;
+      const id = String(chk.dataset.id);
       if (chk.checked) {
         selecionadosPendentes.add(id);
       } else {
@@ -4334,7 +4433,7 @@ function renderDashboard() {
   }
 
   tbody.querySelectorAll(".btn-retirar").forEach(btn => {
-    btn.addEventListener("click", () => abrirModalRetirada(btn.dataset.id));
+    btn.addEventListener("click", () => abrirModalRetirada(String(btn.dataset.id)));
   });
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
@@ -4342,9 +4441,6 @@ function renderDashboard() {
 }
 
 function fotoCelula(r) {
-  // Só renderiza <img> se fotoEnvelope for realmente uma imagem (data URI ou
-  // URL http). Qualquer outro valor (ex.: texto de erro/placeholder vindo de
-  // uma sincronização malformada) vira um GET quebrado para o servidor.
   if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
     return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
   }
@@ -4363,10 +4459,9 @@ document.getElementById("filtro-loja-pendentes").addEventListener("change", rend
 // --- Modal retirada ---
 const modalRetirada = document.getElementById("modal-retirada");
 const autorizacaoWrap = document.getElementById("autorizacao-wrap");
-const autorizacaoPinInput = document.getElementById("autorizacao-pin");
 
 function abrirModalRetirada(target) {
-  if (!RETIRADA_PERMITIDA.includes(currentUser.nome)) {
+  if (!currentUser || !RETIRADA_PERMITIDA.includes(currentUser.nome)) {
     showModal("Apenas Bruno, Isabella, Alexandra ou LiderOP podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
@@ -4374,22 +4469,36 @@ function abrirModalRetirada(target) {
   const isBatch = Array.isArray(target);
 
   if (isBatch) {
-    const selecionadosList = registros.filter(x => target.includes(x.id));
+    const targetStrs = target.map(String);
+    const selecionadosList = registros.filter(x => targetStrs.includes(String(x.id)));
     const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
     document.getElementById("modal-sub-info").textContent =
       `[Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
   } else {
-    const r = registros.find(x => x.id === target);
-    document.getElementById("modal-sub-info").textContent =
-      `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+    const r = registros.find(x => String(x.id) === String(target));
+    if (r) {
+      document.getElementById("modal-sub-info").textContent =
+        `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+    }
   }
 
   setAgora(document.getElementById("retirada-data"));
-  document.getElementById("retirada-responsavel").value = "";
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  const respInput = document.getElementById("retirada-responsavel");
+  if (respInput) {
+    respInput.value = isOwner ? currentUser.nome : "";
+  }
+
+  const respLabel = document.querySelector("label[for='retirada-responsavel']");
+  if (respLabel) {
+    respLabel.textContent = isOwner ? "Responsável pela Retirada (Opcional para Owner)" : "Responsável pela Retirada *";
+  }
+
   autorizacaoPinInput.value = "";
 
-  const precisaAutorizacao = currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP";
+  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra", "LiderOP"]).includes(currentUser ? currentUser.nome : "");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
+  document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
 
   modalRetirada.classList.remove("hidden");
 }
@@ -4401,60 +4510,98 @@ document.getElementById("modal-cancelar").addEventListener("click", () => {
 
 document.getElementById("modal-confirmar").addEventListener("click", async () => {
   const data = document.getElementById("retirada-data").value;
-  const responsavel = document.getElementById("retirada-responsavel").value.trim();
+  let responsavel = document.getElementById("retirada-responsavel").value.trim();
+
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  if (!responsavel && isOwner) {
+    responsavel = currentUser.nome;
+  }
+
   if (!data || !responsavel) {
     showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
     return;
   }
 
-  let autorizadoPor = null;
-  if (currentUser.nome === "Alexandra" || currentUser.nome === "LiderOP") {
-    const pinDigitado = autorizacaoPinInput.value.trim();
-    autorizadoPor = AUTORIZADORES.find(nome => pins[nome] && pins[nome] === pinDigitado);
-    if (!autorizadoPor) {
-      showModal("PIN de autorização inválido. Peça para Bruno ou Isabella autorizar com o PIN deles.", { icon: "🔑", title: "Autorização necessária" });
-      return;
-    }
-  }
-
   const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
-  const targets = Array.isArray(retiradaAlvoId) ? retiradaAlvoId : [retiradaAlvoId];
+  const rawTarget = retiradaAlvoId || faRetiradaAlvoId;
+  const targets = Array.isArray(rawTarget) ? rawTarget : (rawTarget ? [rawTarget] : []);
+  if (targets.length === 0) return;
+
   const dataRetirada = new Date(data).toISOString();
+
+  // Alexandra/LiderOP não confirmam sozinhas: a retirada vira uma solicitação
+  // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
+  if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
+    const listaOrigem = isFA ? registrosFA : registros;
+    const targetStrs = targets.map(String);
+    const selecionados = listaOrigem.filter(r => targetStrs.includes(String(r.id)));
+    const valorTotal = selecionados.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    const loja = selecionados[0] ? selecionados[0].loja : "";
+
+    setLoading("modal-confirmar", true);
+    try {
+      await criarSolicitacaoRetiradaAPI({
+        id: uid(),
+        tipo: isFA ? "fa" : "cshow",
+        registroIds: targets,
+        loja,
+        valorTotal,
+        responsavel,
+        dataRetirada,
+        actorUsuario: currentUser.nome
+      });
+      delete document.getElementById("modal-confirmar").dataset.faMode;
+      modalRetirada.classList.add("hidden");
+      retiradaAlvoId = null;
+      showToast("Solicitação enviada! Bruno ou Isabella vão autorizar no aparelho deles.", "sucesso");
+    } catch (e) {
+      showModal(e.message || "Erro ao enviar solicitação de retirada.", { icon: "⚠️", title: "Falha ao solicitar" });
+    } finally {
+      setLoading("modal-confirmar", false);
+    }
+    return;
+  }
 
   const updates = {
     status: "retirado",
     dataRetirada: dataRetirada,
     retiradoPor: responsavel,
-    confirmadoPorApp: currentUser.nome,
-    autorizadoPor: autorizadoPor
+    confirmadoPorApp: currentUser ? currentUser.nome : "",
+    autorizadoPor: null
   };
 
-  for (const id of targets) {
+  for (const rawId of targets) {
+    const idStr = String(rawId);
     if (isFA) {
-      await atualizarRegistroFAAPI(id, updates);
-      const r = registrosFA.find(x => x.id === id);
+      await atualizarRegistroFAAPI(rawId, updates);
+      const r = registrosFA.find(x => String(x.id) === idStr);
       if (r) {
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser.nome;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
       }
+      selecionadosFAPendentes.delete(idStr);
+      selecionadosFAPendentes.delete(rawId);
     } else {
-      await atualizarRegistroAPI(id, updates);
-      const r = registros.find(x => x.id === id);
+      await atualizarRegistroAPI(rawId, updates);
+      const r = registros.find(x => String(x.id) === idStr);
       if (r) {
         r.status = "retirado";
         r.dataRetirada = dataRetirada;
         r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser.nome;
-        r.autorizadoPor = autorizadoPor;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+        r.autorizadoPor = null;
       }
+      selecionadosPendentes.delete(idStr);
+      selecionadosPendentes.delete(rawId);
     }
   }
 
   delete document.getElementById("modal-confirmar").dataset.faMode;
   modalRetirada.classList.add("hidden");
   retiradaAlvoId = null;
+  faRetiradaAlvoId = null;
 
   if (isFA) {
     renderFaDashboard();
@@ -4464,6 +4611,109 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
   }
 });
+
+// --- Modal autorizar retirada (owner) ---
+// Abre sozinho na tela de Bruno/Isabella quando Alexandra/LiderOP solicita uma
+// retirada (evento em tempo real) ou quando o owner entra no app e existe
+// alguma solicitação pendente. Fila simples: mostra uma de cada vez.
+let filaAutorizacaoRetirada = [];
+let solicitacaoRetiradaAtual = null;
+
+const modalAutorizarRetirada = document.getElementById("modal-autorizar-retirada");
+const autorizarRetiradaPinInput = document.getElementById("autorizar-retirada-pin");
+const autorizarRetiradaErro = document.getElementById("autorizar-retirada-erro");
+
+function souOwnerAutorizador() {
+  return !!currentUser && currentUser.role === "owner";
+}
+
+function enfileirarSolicitacaoRetirada(solicitacao) {
+  if (!souOwnerAutorizador() || !solicitacao || !solicitacao.id) return;
+  const jaExiste = (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === solicitacao.id) ||
+    filaAutorizacaoRetirada.some(s => s.id === solicitacao.id);
+  if (jaExiste) return;
+  filaAutorizacaoRetirada.push(solicitacao);
+  mostrarProximaSolicitacaoRetirada();
+}
+
+function removerSolicitacaoDaFila(id, mensagemSeAberta) {
+  filaAutorizacaoRetirada = filaAutorizacaoRetirada.filter(s => s.id !== id);
+  if (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === id) {
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    if (mensagemSeAberta) showToast(mensagemSeAberta, "info");
+    mostrarProximaSolicitacaoRetirada();
+  }
+}
+
+function mostrarProximaSolicitacaoRetirada() {
+  if (solicitacaoRetiradaAtual || filaAutorizacaoRetirada.length === 0) return;
+  solicitacaoRetiradaAtual = filaAutorizacaoRetirada.shift();
+  const s = solicitacaoRetiradaAtual;
+
+  const qtd = (s.registroIds || []).length;
+  const qtdTexto = qtd > 1 ? `${qtd} envelopes` : "1 envelope";
+  const dataFmt = s.dataRetirada ? new Date(s.dataRetirada).toLocaleString("pt-BR") : "-";
+  document.getElementById("autorizar-retirada-info").textContent =
+    `${s.solicitadoPor} pediu retirada de ${qtdTexto} — ${formatBRL(s.valorTotal || 0)} — Loja ${s.loja || "-"}. Responsável: ${s.responsavel || "-"}. Data proposta: ${dataFmt}.`;
+
+  autorizarRetiradaPinInput.value = "";
+  autorizarRetiradaErro.classList.add("hidden");
+  autorizarRetiradaErro.textContent = "";
+  modalAutorizarRetirada.classList.remove("hidden");
+  autorizarRetiradaPinInput.focus();
+}
+
+document.getElementById("autorizar-retirada-confirmar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const pin = autorizarRetiradaPinInput.value.trim();
+  if (!pin) {
+    autorizarRetiradaErro.textContent = "Digite o seu PIN.";
+    autorizarRetiradaErro.classList.remove("hidden");
+    return;
+  }
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-confirmar", true);
+  try {
+    await autorizarSolicitacaoRetiradaAPI(id, pin);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Retirada autorizada com sucesso!", "sucesso");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    autorizarRetiradaErro.textContent = e.message || "PIN inválido.";
+    autorizarRetiradaErro.classList.remove("hidden");
+  } finally {
+    setLoading("autorizar-retirada-confirmar", false);
+  }
+});
+
+document.getElementById("autorizar-retirada-recusar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const confirmar = await showConfirm("Recusar esta solicitação de retirada? A Líder de Operações precisará revisar e enviar novamente.", { icon: "🚫", title: "Recusar retirada", confirmText: "Recusar", confirmClass: "btn-danger" });
+  if (!confirmar) return;
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-recusar", true);
+  try {
+    await recusarSolicitacaoRetiradaAPI(id, null);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Solicitação de retirada recusada.", "info");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    showModal(e.message || "Erro ao recusar retirada.", { icon: "⚠️", title: "Falha ao recusar" });
+  } finally {
+    setLoading("autorizar-retirada-recusar", false);
+  }
+});
+
+async function carregarSolicitacoesRetiradaPendentes() {
+  if (!souOwnerAutorizador()) return;
+  const pendentes = await buscarSolicitacoesRetiradaPendentesAPI();
+  pendentes.forEach(enfileirarSolicitacaoRetirada);
+}
 
 // --- Modal foto ---
 const modalFoto = document.getElementById("modal-foto");
@@ -4999,6 +5249,9 @@ if (syncBadgeEl) {
     const queue = getSyncQueue();
     if (queue.length === 0) return;
     showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+    if (API_ONLINE) {
+      processarFilaSync();
+    }
   };
   syncBadgeEl.addEventListener("click", explicarSyncBadge);
   syncBadgeEl.addEventListener("keydown", (e) => {
@@ -5028,6 +5281,18 @@ async function processarFilaSync() {
         });
       } else if (item.type === "UPDATE") {
         res = await fetch(`${API_BASE}/registros/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_CREATE") {
+        res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_UPDATE") {
+        res = await fetch(`${API_BASE}/registros-fa/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(item.data)
@@ -5075,20 +5340,26 @@ async function processarFilaSync() {
   }
 }
 
-// Tentar sincronizar quando a API voltar online
+// Tentar sincronizar quando a API voltar online ou durante verificações
 const _originalCheckApi = checkApiConnection;
 checkApiConnection = async function () {
   const wasOffline = !API_ONLINE;
   await _originalCheckApi();
-  if (wasOffline && API_ONLINE) {
+  if (API_ONLINE && getSyncQueue().length > 0) {
     processarFilaSync();
-    // Também é aqui que a primeira carga do inventário compartilhado acontece
-    // quando o app abre offline e a conexão só sobe depois.
+  }
+  if (wasOffline && API_ONLINE) {
     if (typeof iniciarSincronizacaoDoInventario === "function") {
       iniciarSincronizacaoDoInventario();
     }
   }
 };
+
+window.addEventListener("online", () => {
+  if (typeof checkApiConnection === "function") {
+    checkApiConnection();
+  }
+});
 
 // Badge de sync pendente
 atualizarBadgeSync();
@@ -5401,6 +5672,34 @@ async function resetarBiometriaColaborador(nome) {
   }
 }
 
+async function resetarBiometriaTodosColaboradores() {
+  if (!currentUser || currentUser.role !== "owner") {
+    showToast("Apenas administradores podem resetar a biometria.", "erro");
+    return;
+  }
+  const ok = await showModal(`Deseja resetar a biometria facial de TODOS os colaboradores? Cada um precisará cadastrar o rosto novamente e as tentativas de bloqueio serão liberadas.`, {
+    title: "Resetar Biometria de Todos",
+    icon: "🧑‍💻",
+    btnText: "Resetar Todas",
+    btnClass: "btn-danger"
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/colaboradores/reset-biometria-todos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorUsuario: currentUser.nome })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast("Biometria de todos os colaboradores foi resetada com sucesso.", "sucesso");
+    renderizarColaboradores();
+  } catch (e) {
+    console.error("Erro ao resetar biometria de todos:", e);
+    showToast("Não foi possível resetar a biometria de todos os colaboradores.", "erro");
+  }
+}
+
 let usuarioPinAdminEmEdicao = null;
 
 function abrirModalAdminPin(nome) {
@@ -5590,6 +5889,11 @@ if (btnAtualizarColab) {
     await renderizarColaboradores();
     showToast("Lista de colaboradores atualizada.", "info");
   };
+}
+
+const btnResetarBiometriaTodos = document.getElementById("btn-resetar-biometria-todos");
+if (btnResetarBiometriaTodos) {
+  btnResetarBiometriaTodos.onclick = () => resetarBiometriaTodosColaboradores();
 }
 
 /* ==========================================================================
@@ -10289,7 +10593,7 @@ function configurarIconesLeaflet() {
   L.Icon.Default.prototype._iconsConfigurados = true;
 }
 
-function selecionarPontoMapa(lat, lng) {
+function selecionarPontoMapa(lat, lng, accuracy) {
   mapaLocalizacaoCoordsSelecionadas = { lat, lng };
   if (mapaLocalizacaoMarker) {
     mapaLocalizacaoMarker.setLatLng([lat, lng]);
@@ -10301,9 +10605,49 @@ function selecionarPontoMapa(lat, lng) {
     });
   }
   const coordsLabel = document.getElementById("mapa-localizacao-coords");
-  if (coordsLabel) coordsLabel.textContent = `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  if (coordsLabel) {
+    coordsLabel.textContent = accuracy
+      ? `Selecionado pelo GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)} (precisão: ${Math.round(accuracy)}m)`
+      : `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
   const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
   if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+// Lê o GPS do próprio aparelho de quem está configurando — precisa estar
+// fisicamente dentro da loja para o pino sair mais preciso que clicar no
+// mapa de olho, que é a causa mais comum de cerca virtual desalinhada.
+function usarGpsAtualMapaLocalizacao() {
+  const btn = document.getElementById("btn-mapa-localizacao-gps");
+  if (!navigator.geolocation) {
+    showToast("Este navegador não suporta geolocalização.", "erro");
+    return;
+  }
+  if (!mapaLocalizacaoInstance) return;
+
+  const textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Obtendo localização…';
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      const { latitude, longitude, accuracy } = pos.coords;
+      mapaLocalizacaoInstance.setView([latitude, longitude], 18);
+      selecionarPontoMapa(latitude, longitude, accuracy);
+      if (accuracy > 30) {
+        showToast(`Localização obtida, mas com precisão baixa (${Math.round(accuracy)}m). Se possível, tente de novo perto de uma janela ou área aberta.`, "erro");
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      console.warn("Erro ao obter GPS no picker de localização:", err);
+      showToast("Não foi possível obter sua localização atual. Verifique a permissão de GPS do navegador.", "erro");
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
 }
 
 function abrirMapaLocalizacao(operacao) {
@@ -10357,6 +10701,11 @@ function abrirMapaLocalizacao(operacao) {
     }
     if (temCoordenadas) selecionarPontoMapa(latAtual, lngAtual);
   }, 50);
+}
+
+const btnMapaLocalizacaoGps = document.getElementById("btn-mapa-localizacao-gps");
+if (btnMapaLocalizacaoGps) {
+  btnMapaLocalizacaoGps.addEventListener("click", usarGpsAtualMapaLocalizacao);
 }
 
 const btnMapaLocalizacaoCancelar = document.getElementById("btn-mapa-localizacao-cancelar");
@@ -11058,7 +11407,7 @@ function renderRhTable() {
             <option value="4304" ${store === '4304' ? 'selected' : ''}>4304 - Icoaraci</option>
           </optgroup>
           <optgroup label="Faça Amigos">
-            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>Faça Amigos - Parque</option>
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>FaçaAmigos Circuito</option>
             <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>Faça Amigos - Playground</option>
             <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>Faça Amigos - Grão-Pará</option>
           </optgroup>
@@ -11896,7 +12245,7 @@ function inicializarPontoDb() {
     offline_queue: "id, action, timestamp",
     attachments: "id"
   });
-  // v2: adiciona índice `usuario` em time_records, necessário para
+  // Schema update: adiciona índice `usuario` em time_records, necessário para
   // .where("usuario").equals(...) usado em atualizarHistoricoPonto e sincronização.
   pontoDb.version(2).stores({
     time_records: "id, timestamp, tipo, syncStatus, usuario",
@@ -12246,6 +12595,13 @@ function pararDeteccaoFacial() {
   pontoFaceVerificada = false;
 }
 
+// Usuários isentos da verificação de GPS/geofencing no bate-ponto.
+const NOMES_ISENTOS_GPS = ["Bruno", "Isabella", "Alexandra"];
+
+function usuarioIsentoGPS() {
+  return currentUser && NOMES_ISENTOS_GPS.includes(currentUser.nome);
+}
+
 function ativarGPSPonto() {
   const gpsStatus = document.getElementById("ponto-gps-status");
   const gpsCoords = document.getElementById("ponto-gps-coords");
@@ -12274,10 +12630,13 @@ function ativarGPSPonto() {
       const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
       const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
       const dist = calcularDistanciaHaversine(pos.coords.latitude, pos.coords.longitude, storeLoc.lat, storeLoc.lng);
-      
+
       gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
 
-      if (pos.coords.accuracy > 30) {
+      if (usuarioIsentoGPS()) {
+        gpsStatus.className = "text-success font-black";
+        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK (verificação isenta)`;
+      } else if (pos.coords.accuracy > 30) {
         gpsStatus.className = "text-warning font-black";
         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
       } else if (dist > GEOFENCE_RAIO_METROS) {
@@ -12339,25 +12698,59 @@ function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
   return canvas.toDataURL("image/jpeg", 0.8);
 }
 
+// Sequência esperada de marcações no dia: ENTRADA -> SAIDA_INTERVALO -> RETORNO_INTERVALO -> SAIDA -> (novo dia) ENTRADA
+const PONTO_PROXIMO_TIPO_ESPERADO = {
+  null: "ENTRADA",
+  ENTRADA: "SAIDA_INTERVALO",
+  SAIDA_INTERVALO: "RETORNO_INTERVALO",
+  RETORNO_INTERVALO: "SAIDA",
+  SAIDA: "ENTRADA" // dia fechado; próxima marcação é a entrada do novo dia
+};
+
+const PONTO_TIPO_LABEL = {
+  ENTRADA: "Entrada",
+  SAIDA_INTERVALO: "Saída para intervalo",
+  RETORNO_INTERVALO: "Retorno do intervalo",
+  SAIDA: "Saída"
+};
+
+// Retorna o último tipo de marcação já registrado hoje (fuso local), ou null se nenhum.
+async function obterUltimoTipoHoje() {
+  const hojeStr = pontoDataLocal(new Date().toISOString());
+  const registrosHoje = await pontoDb.time_records
+    .filter(r => r.usuario === currentUser.nome && pontoDataLocal(r.timestamp) === hojeStr)
+    .toArray();
+  if (registrosHoje.length === 0) return null;
+  registrosHoje.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return registrosHoje[registrosHoje.length - 1].tipo;
+}
+
+let pontoMarcacaoEmAndamento = false;
+
 async function registrarMarcacaoPonto(tipo) {
+  if (pontoMarcacaoEmAndamento) return;
+
   if (!pontoGpsCoords) {
     showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
     return;
   }
 
-  // Geofencing Check
   const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
-  const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
-  const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
-  
-  if (pontoGpsAccuracy > 30) {
-    showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
-    return;
-  }
-  
-  if (dist > GEOFENCE_RAIO_METROS) {
-    showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
-    return;
+
+  // Geofencing Check (isento para usuários em NOMES_ISENTOS_GPS)
+  if (!usuarioIsentoGPS()) {
+    const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+    const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
+
+    if (pontoGpsAccuracy > 30) {
+      showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
+      return;
+    }
+
+    if (dist > GEOFENCE_RAIO_METROS) {
+      showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
+      return;
+    }
   }
 
   // Biometria facial: obrigatória sempre que a câmera está ativa
@@ -12366,54 +12759,77 @@ async function registrarMarcacaoPonto(tipo) {
     return;
   }
 
-  // Photo Capture
-  let photoBase64 = null;
-  const video = document.getElementById("ponto-video");
-  const canvas = document.getElementById("ponto-canvas");
-  
-  if (pontoStream && video && canvas) {
-    photoBase64 = capturarFrameRetrato(video, canvas);
-    if (!photoBase64) {
+  pontoMarcacaoEmAndamento = true;
+  const botoesPonto = ["btn-ponto-entrada", "btn-ponto-saida-int", "btn-ponto-retorno-int", "btn-ponto-saida"]
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  botoesPonto.forEach(btn => { btn.disabled = true; btn.classList.add("opacity-50", "pointer-events-none"); });
+
+  try {
+    // Validação de sequência: impede pular etapas (ex.: Saída sem Entrada, Entrada em duplicidade)
+    const ultimoTipo = await obterUltimoTipoHoje();
+    const esperado = PONTO_PROXIMO_TIPO_ESPERADO[ultimoTipo];
+    if (tipo !== esperado) {
+      const labelEsperado = PONTO_TIPO_LABEL[esperado] || esperado;
+      showToast(`Marcação fora de ordem. A próxima marcação esperada é: ${labelEsperado}.`, "erro");
+      return;
+    }
+
+    // Photo Capture
+    let photoBase64 = null;
+    const video = document.getElementById("ponto-video");
+    const canvas = document.getElementById("ponto-canvas");
+
+    if (pontoStream && video && canvas) {
+      photoBase64 = capturarFrameRetrato(video, canvas);
+      if (!photoBase64) {
+        showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+        return;
+      }
+    } else {
       showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
       return;
     }
-  } else {
-    showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
-    return;
+
+    // Chained Integrity Hash SHA-256
+    const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
+    const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
+    const timestamp = new Date().toISOString();
+    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+    const currentHash = await calcularHashSha256(rawString);
+
+    const newRecord = {
+      id: `${currentUser.nome}_${Date.now()}`,
+      usuario: currentUser.nome,
+      timestamp,
+      tipo,
+      operacao: storeName,
+      gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+      accuracy: pontoGpsAccuracy,
+      photo: photoBase64,
+      hash: currentHash,
+      syncStatus: "PENDING"
+    };
+
+    await pontoDb.time_records.put(newRecord);
+    await pontoDb.offline_queue.put({
+      id: newRecord.id,
+      action: "SYNC_PUNCH",
+      timestamp: Date.now()
+    });
+
+    showToast("Ponto registrado localmente com sucesso!", "sucesso");
+
+    // Recalculate daily worked segments
+    atualizarHistoricoPonto();
+    processarFilaOfflinePonto();
+  } catch (err) {
+    console.error("Erro ao registrar marcação de ponto:", err);
+    showToast("Não foi possível registrar o ponto. Tente novamente.", "erro");
+  } finally {
+    pontoMarcacaoEmAndamento = false;
+    botoesPonto.forEach(btn => { btn.disabled = false; btn.classList.remove("opacity-50", "pointer-events-none"); });
   }
-
-  // Chained Integrity Hash SHA-256
-  const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
-  const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
-  const timestamp = new Date().toISOString();
-  const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
-  const currentHash = await calcularHashSha256(rawString);
-
-  const newRecord = {
-    id: `${currentUser.nome}_${Date.now()}`,
-    usuario: currentUser.nome,
-    timestamp,
-    tipo,
-    operacao: storeName,
-    gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
-    accuracy: pontoGpsAccuracy,
-    photo: photoBase64,
-    hash: currentHash,
-    syncStatus: "PENDING"
-  };
-
-  await pontoDb.time_records.put(newRecord);
-  await pontoDb.offline_queue.put({
-    id: newRecord.id,
-    action: "SYNC_PUNCH",
-    timestamp: Date.now()
-  });
-
-  showToast("Ponto registrado localmente com sucesso!", "sucesso");
-  
-  // Recalculate daily worked segments
-  atualizarHistoricoPonto();
-  processarFilaOfflinePonto();
 }
 
 async function calcularHashSha256(str) {
@@ -12569,23 +12985,34 @@ async function atualizarHistoricoPonto() {
   }
 }
 
+// Converte um timestamp ISO para a data local (fuso do dispositivo, YYYY-MM-DD).
+// Usar timestamp.split("T")[0] agrupa pela data em UTC, o que faz marcações
+// feitas à noite (horário do Brasil, UTC-3) "virarem" o dia seguinte errado.
+function pontoDataLocal(timestampIso) {
+  const dt = new Date(timestampIso);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function renderizarTabelaPonto(records) {
   const tbody = document.getElementById("ponto-historico-tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  // Group records by date (YYYY-MM-DD)
+  // Group records by date (YYYY-MM-DD, fuso local)
   const grouped = {};
   records.forEach(r => {
-    const dStr = r.timestamp.split("T")[0];
+    const dStr = pontoDataLocal(r.timestamp);
     if (!grouped[dStr]) grouped[dStr] = {};
     grouped[dStr][r.tipo] = r.timestamp;
   });
 
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-  
+
   let totalWorkedMsToday = 0;
-  const dTodayStr = new Date().toISOString().split("T")[0];
+  const dTodayStr = pontoDataLocal(new Date().toISOString());
 
   dates.forEach(d => {
     const day = grouped[d];
@@ -12614,7 +13041,7 @@ function renderizarTabelaPonto(records) {
     const tr = document.createElement("tr");
     tr.className = "hover:bg-surface-hover transition-all border-b border-subtle";
     tr.innerHTML = `
-      <td class="py-3 px-4 font-mono font-bold">${formatDate(d)}</td>
+      <td class="py-3 px-4 font-mono font-bold">${formatDate(new Date(d + "T12:00:00"))}</td>
       <td class="py-3 px-4 text-center font-semibold">${ent ? formatTime(ent) : "-"}</td>
       <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
       <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
@@ -13689,7 +14116,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
     // Agrupar por colaboradora + dia (YYYY-MM-DD)
     const grouped = {};
     registros.forEach(r => {
-      const dStr = r.timestamp.split("T")[0];
+      const dStr = pontoDataLocal(r.timestamp);
       const key = `${r.usuario}_${dStr}`;
       if (!grouped[key]) grouped[key] = { usuario: r.usuario, operacao: r.operacao, data: dStr };
       grouped[key][r.tipo] = r.timestamp;
@@ -13709,7 +14136,7 @@ async function carregarRelatorioPontoOperacao(operacao) {
       tr.innerHTML = `
         <td class="py-3 px-4 font-bold">${linha.usuario}</td>
         <td class="py-3 px-4">${linha.operacao || "—"}</td>
-        <td class="py-3 px-4 font-mono">${formatDate(linha.data)}</td>
+        <td class="py-3 px-4 font-mono">${formatDate(new Date(linha.data + "T12:00:00"))}</td>
         <td class="py-3 px-4 text-center">${ent ? formatTime(ent) : "-"}</td>
         <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
         <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
@@ -13778,7 +14205,7 @@ async function gerarDocEspelhoPontoPDF() {
   // Group records by date
   const grouped = {};
   records.forEach(r => {
-    const dStr = r.timestamp.split("T")[0];
+    const dStr = pontoDataLocal(r.timestamp);
     if (!grouped[dStr]) grouped[dStr] = {};
     grouped[dStr][r.tipo] = r.timestamp;
   });
@@ -13807,7 +14234,7 @@ async function gerarDocEspelhoPontoPDF() {
     const tMins = Math.floor((workedMs % 3600000) / 60000);
     const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
 
-    doc.text(formatDate(d), 17, y);
+    doc.text(formatDate(new Date(d + "T12:00:00")), 17, y);
     doc.text(ent ? formatTime(ent) : "-", 52, y);
     doc.text(sInt ? formatTime(sInt) : "-", 82, y);
     doc.text(rInt ? formatTime(rInt) : "-", 112, y);
@@ -14307,6 +14734,23 @@ function _rtRegistrarHandlers() {
     _rtRegistroAlterado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, _rtRenderRegistrosFa));
   RT.on("registroFa.excluido", (payload) =>
     _rtRegistroExcluido(registrosFA, STORAGE_KEY_FA, payload.id, _rtRenderRegistrosFa));
+
+  // Autorização remota de retirada: abre o modal sozinho na tela do owner.
+  RT.on("retirada.solicitada", (payload) => {
+    enfileirarSolicitacaoRetirada(payload);
+  });
+  RT.on("retirada.autorizada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já autorizada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showToast(`Sua retirada foi autorizada por ${payload.autorizadoPor}!`, "sucesso");
+    }
+  });
+  RT.on("retirada.recusada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já recusada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showModal(`Sua solicitação de retirada foi recusada por ${payload.autorizadoPor}.${payload.motivo ? " Motivo: " + payload.motivo : ""}`, { icon: "🚫", title: "Retirada recusada" });
+    }
+  });
 
   const TABS_BOLETOS = ["boletos", "auditoria-boletos", "importacoes"];
   ["boleto.importados", "boleto.pago", "boleto.excluido"].forEach(tipo => {
