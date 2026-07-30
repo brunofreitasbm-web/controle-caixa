@@ -3358,8 +3358,13 @@ body.tema-fa .topbar {
   padding: 12px 16px;
 }
 
+/* Só top/left/right aqui: o padding-bottom (espaço pra bottom-nav não cobrir
+   o fim do conteúdo) é definido à parte, acima — um shorthand `padding` aqui
+   sobrescreveria e voltaria a esconder o final de cada painel atrás da barra. */
 .density-compact main {
-  padding: 16px 12px;
+  padding-top: 16px;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 /* ============================================================
