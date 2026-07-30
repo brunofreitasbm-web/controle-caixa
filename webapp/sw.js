@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v43'; // v43: design system claro + layout adaptativo, sem Pasta de Auditoria, com troca rápida de módulo (Owner)
+const CACHE_NAME = 'ponto-pwa-v44'; // v44: corrige rótulos de seção e hamburguer invisíveis/espremidos que sobraram do tema escuro após o merge
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
