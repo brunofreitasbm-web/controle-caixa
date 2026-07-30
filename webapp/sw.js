@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v40'; // v40: coluna Entrada do inventario agora em CX (caixas) e conversao caixa->unidade via sufixo XXXUN da descricao
+const CACHE_NAME = 'ponto-pwa-v45'; // v45: coluna Entrada do inventario em CX + conversao caixa->unidade via sufixo XXXUN da descricao (sobre v44: rotulos de secao/hamburguer do tema escuro)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,7 +7,6 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/realtime.js',
   '/insights-ia.js',
-  '/pasta-auditoria.js',
   '/camera-universal.js',
   '/mensagens-pos-visita.js',
   '/mensagens-aniversario.js',

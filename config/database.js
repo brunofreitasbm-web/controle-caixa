@@ -275,6 +275,7 @@ function initDb(onSuccess) {
           valor REAL,
           status TEXT,
           pagoEm TEXT,
+          pendenciaSafDispensada INTEGER DEFAULT 0,
           criadoEm TEXT
         )`,
         `CREATE TABLE IF NOT EXISTS ponto_registros (
@@ -475,7 +476,7 @@ function initDb(onSuccess) {
         // conteudo guarda o arquivo em base64, mesmo padrão de
         // registros.fotoEnvelope.
         // Solicitação de retirada pendente de autorização: a Líder de Operações
-        // (Alexandra/LiderOP) propõe a retirada de um ou mais envelopes, mas não
+        // (Alexandra) propõe a retirada de um ou mais envelopes, mas não
         // sabe o PIN de Bruno/Isabella — quem autoriza digita o PRÓPRIO PIN no
         // PRÓPRIO aparelho, num modal que abre sozinho (evento em tempo real +
         // push) assim que a solicitação é criada. registroIds guarda um array
@@ -602,6 +603,15 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE boletos ADD COLUMN parcela TEXT', [], () => resolve());
+        });
+      });
+
+      // Decisão do owner sobre o alerta "vencido sem NF-e" da Auditoria de
+      // Boletos: 0 (padrão) mantém a pendência sinalizada; 1 marca que o
+      // owner já revisou e optou por dispensar o alerta para aquele boleto.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE boletos ADD COLUMN pendenciaSafDispensada INTEGER DEFAULT 0', [], () => resolve());
         });
       });
 
@@ -758,7 +768,6 @@ function initDb(onSuccess) {
               { nome: "Vitória", role: "consultora" },
               { nome: "Débora", role: "consultora" },
               { nome: "Alexandra", role: "consultora_dashboard" },
-              { nome: "LiderOP", role: "consultora_dashboard" },
               { nome: "Janine", role: "consultora" },
               { nome: "Estheffany", role: "consultora" },
               { nome: "Sabrina", role: "consultora" },
@@ -780,6 +789,18 @@ function initDb(onSuccess) {
             Promise.all(inserts).then(() => resolve());
           });
         });
+      });
+
+      // Remove usuários desativados (LiderOP e as contas de treinamento) que
+      // possam já existir de uma inicialização anterior — o seed acima nunca
+      // os recria, mas não apaga quem já foi inserido antes desta mudança.
+      const usuariosRemovidos = ["LiderOP", "Treinamento Cacau Show", "Treinamento Faça Amigos"];
+      promise = promise.then(() => {
+        return Promise.all(usuariosRemovidos.map(nome => new Promise(resolve => {
+          db.run('DELETE FROM colaboradores WHERE nome = ?', [nome], () => {
+            db.run('DELETE FROM pins WHERE usuario = ?', [nome], () => resolve());
+          });
+        })));
       });
 
       promise.then(() => {
