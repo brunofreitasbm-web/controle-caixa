@@ -87,14 +87,11 @@ let USERS = [
   { nome: "Vitória", role: "consultora" },
   { nome: "Débora", role: "consultora" },
   { nome: "Alexandra", role: "consultora_dashboard" },
-  { nome: "LiderOP", role: "consultora_dashboard" },
   { nome: "Janine", role: "consultora" },
   { nome: "Estheffany", role: "consultora" },
   { nome: "Sabrina", role: "consultora" },
-  { nome: "Treinamento Cacau Show", role: "consultora" },
   { nome: "Alice", role: "consultora_fa" },
   { nome: "Alessandra", role: "consultora_fa" },
-  { nome: "Treinamento Faça Amigos", role: "consultora_fa" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
 ];
@@ -528,11 +525,11 @@ function registrarLimparErroAoDigitar() {
 
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
-const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra", "LiderOP"];
+const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
 // Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
 // PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
 // que abre um modal de autorização sozinho na tela dos owners.
-const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra", "LiderOP"];
+const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra"];
 
 let API_ONLINE = false;
 let registros = [];
@@ -1002,7 +999,7 @@ async function excluirRegistroFAAPI(id) {
 }
 
 // ==================== SOLICITAÇÃO DE RETIRADA (autorização remota) ====================
-// Fluxo: Alexandra/LiderOP propõe a retirada de um ou mais envelopes sem saber
+// Fluxo: Alexandra propõe a retirada de um ou mais envelopes sem saber
 // o PIN de Bruno/Isabella. O servidor cria a solicitação, avisa os owners por
 // push e evento em tempo real, e cada owner autoriza (ou recusa) digitando o
 // PRÓPRIO PIN no PRÓPRIO aparelho — nunca no da Líder de Operações.
@@ -1455,7 +1452,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
   // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
-  // também uma lista de nomes cravados aqui (["Alexandra","LiderOP","Bruno","Isabella"])
+  // também uma lista de nomes cravados aqui (["Alexandra","Bruno","Isabella"])
   // que duplicava essa checagem — se um(a) novo(a) Líder de Operações fosse
   // contratado(a) com outro nome, o botão sumia silenciosamente pra ela mesmo
   // tendo o perfil certo. Restrição por perfil (role) é a única fonte de verdade.
@@ -1492,6 +1489,19 @@ function iniciarModuloBase(moduloOpcional) {
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
   });
+
+  // "controle-ponto" (Registro de Ponto) tem um botão próprio dentro de cada
+  // grupo (Cacau Show e Faça Amigos) só para poder ficar visível dentro do
+  // módulo certo — como os dois compartilham o mesmo data-tab, o filtro
+  // genérico acima os libera ao mesmo tempo e o grupo do módulo errado volta
+  // a aparecer inteiro na sidebar por causa desse único item em comum. Força
+  // o grupo do outro módulo a ficar escondido quando o owner está navegando
+  // dentro de um módulo específico.
+  if (moduloOpcional === "faca-amigos") {
+    document.getElementById("group-controle-caixa")?.classList.add("hidden");
+  } else if (moduloOpcional === "cacau-show") {
+    document.getElementById("group-faca-amigos")?.classList.add("hidden");
+  }
 
   // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
   // pra que o operador veja o número piscando assim que entra no módulo.
@@ -4299,7 +4309,7 @@ function renderDashboard() {
         <td>${avisoCelula(r)}</td>
         <td>${podeRetirar
           ? `<button class="btn-retirar" data-id="${r.id}">Marcar retirado</button>`
-          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella, Alexandra ou LiderOP</span>`}</td>
+          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella ou Alexandra</span>`}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -4374,7 +4384,7 @@ const autorizacaoWrap = document.getElementById("autorizacao-wrap");
 
 function abrirModalRetirada(target) {
   if (!currentUser || !RETIRADA_PERMITIDA.includes(currentUser.nome)) {
-    showModal("Apenas Bruno, Isabella, Alexandra ou LiderOP podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
+    showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
   retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
@@ -4408,7 +4418,7 @@ function abrirModalRetirada(target) {
 
   autorizacaoPinInput.value = "";
 
-  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra", "LiderOP"]).includes(currentUser ? currentUser.nome : "");
+  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra"]).includes(currentUser ? currentUser.nome : "");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
   document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
 
@@ -4441,7 +4451,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
 
   const dataRetirada = new Date(data).toISOString();
 
-  // Alexandra/LiderOP não confirmam sozinhas: a retirada vira uma solicitação
+  // Alexandra não confirma sozinha: a retirada vira uma solicitação
   // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
   if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
     const listaOrigem = isFA ? registrosFA : registros;
@@ -4525,7 +4535,7 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
 });
 
 // --- Modal autorizar retirada (owner) ---
-// Abre sozinho na tela de Bruno/Isabella quando Alexandra/LiderOP solicita uma
+// Abre sozinho na tela de Bruno/Isabella quando Alexandra solicita uma
 // retirada (evento em tempo real) ou quando o owner entra no app e existe
 // alguma solicitação pendente. Fila simples: mostra uma de cada vez.
 let filaAutorizacaoRetirada = [];
@@ -5053,7 +5063,7 @@ document.getElementById("session-logout").addEventListener("click", () => {
 // RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
 // ==========================================================================
 const RESUMO_KEY = "cacaushow_ultimo_resumo";
-const RESUMO_USUARIOS = ["Alexandra", "LiderOP", "Bruno", "Isabella"];
+const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
 
 function mostrarResumoMatinal() {
   if (!currentUser || !RESUMO_USUARIOS.includes(currentUser.nome)) return;
@@ -8740,7 +8750,7 @@ function triggerInventoryStartedNotification() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
         assunto: `📋 Inventário Iniciado - Loja ${getLojaNomePorCodigo(currentStore)}`,
         mensagem: `A colaboradora ${currentUser.nome} iniciou a contagem física do Inventário de Estoque na Loja ${getLojaNomePorCodigo(currentStore)}.`,
         operador: currentUser.nome
@@ -8993,7 +9003,7 @@ function exportExcel() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
       assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
       mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
       operador: currentUser.nome
@@ -9011,7 +9021,7 @@ function exportExcel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinatarios: ['Bruno', 'Isabella', 'Alexandra', 'LiderOP'],
+          destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
           assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
           mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
           operador: currentUser.nome
@@ -9019,7 +9029,7 @@ function exportExcel() {
       }).catch(err => console.error('Erro na notificação de conclusão total:', err));
 
       showModal(
-        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella, Alexandra e LiderOP.`,
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella e Alexandra.`,
         {
           icon: "🚀",
           title: "Inventário Mensal Finalizado",
@@ -10046,7 +10056,7 @@ window.carregarAuditoriaBoletos = function() {
 
   // Notificação "⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos" desativada
   // a pedido — a tabela/contadores de divergência abaixo continuam normais,
-  // só o disparo para Bruno/Isabella/Alexandra/LiderOP foi removido.
+  // só o disparo para Bruno/Isabella/Alexandra foi removido.
 
   const statNfe = document.getElementById("stat-audit-nfe-total");
   const statBoleto = document.getElementById("stat-audit-boleto-total");
@@ -11199,7 +11209,6 @@ function obterListaColaboradores() {
   }
   return [
     { nome: "Alexandra", role: "consultora_dashboard" },
-    { nome: "LiderOP", role: "consultora_dashboard" },
     { nome: "Bruno", role: "owner" },
     { nome: "Isabella", role: "owner" }
   ];
@@ -11239,7 +11248,7 @@ function getStoreForColab(nome) {
     return profiles[nome].store;
   }
   if (nome === "Bruno" || nome === "Isabella") return "all";
-  if (nome === "Alexandra" || nome === "LiderOP") return "9201";
+  if (nome === "Alexandra") return "9201";
   return "9175";
 }
 
