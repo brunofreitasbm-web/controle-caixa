@@ -9084,7 +9084,7 @@ function renderTable() {
       </td>
       <td class="py-3 px-4 text-ink-strong font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-ink-muted">${p.dataEntrada || '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaCaixas ? `${p.qtdEntradaCaixas} CX` : '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
       <td class="py-3 px-4 text-center">
         <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-surface-2 border border-subtle rounded px-2 py-1 text-ink text-xs" />
       </td>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v45'; // v45: coluna Entrada do inventario em CX + conversao caixa->unidade via sufixo XXXUN da descricao (sobre v44: rotulos de secao/hamburguer do tema escuro)
+const CACHE_NAME = 'ponto-pwa-v46'; // v46: reverte coluna Entrada para UN (qtdEntradaCaixas fica zerado no historico e a coluna CX aparecia vazia)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
