@@ -693,6 +693,61 @@ html.sidebar-mobile-open body {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Troca rápida de módulo (Owner): dois botões fixos na topbar (que já é
+   sticky no topo) para alternar Cacau Show <-> Faça Amigos num clique só,
+   sem passar pela tela cheia de seleção de módulo. Cores próprias (não
+   .btn-mini-outline) porque essa classe é clara/transparente pensada pro
+   fundo escuro da sidebar — no topbar (--topbar-bg branco) ficaria ilegível. */
+.owner-module-switch {
+  display: flex;
+  gap: 4px;
+  background: rgba(28, 36, 53, 0.05);
+  border: 1px solid var(--topbar-border);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.module-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.module-switch-btn:hover {
+  color: var(--ink);
+  background: rgba(28, 36, 53, 0.08);
+}
+
+.module-switch-btn[data-modulo="cacau-show"].active {
+  background: var(--wine);
+  color: white;
+}
+
+.module-switch-btn[data-modulo="faca-amigos"].active {
+  background: #ff7a00;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .module-switch-btn span {
+    display: none;
+  }
+  .module-switch-btn {
+    padding: 8px 12px;
+  }
+}
+
 /* ==========================================================================
    MAIN CONTENT & CARDS
    ========================================================================== */

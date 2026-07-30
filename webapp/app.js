@@ -101,9 +101,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "pasta-auditoria-cs", "configuracoes"],
-  consultora_fa: ["faca-amigos", "pasta-auditoria-fa", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "pasta-auditoria-cs", "pasta-auditoria-fa", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
+  consultora_fa: ["faca-amigos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1407,6 +1407,14 @@ function ajustarCardsModulos() {
   if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
   if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
   if (btnPonto) btnPonto.classList.toggle("hidden", false); // Ponto é para todos os colaboradores
+
+  // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
+  // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
+  // demais perfis continuam usando "Trocar Módulo" (tela cheia de seleção).
+  const ownerSwitch = document.getElementById("owner-module-switch");
+  const btnTopbarTrocarModulo = document.getElementById("btn-topbar-trocar-modulo");
+  if (ownerSwitch) ownerSwitch.classList.toggle("hidden", role !== "owner");
+  if (btnTopbarTrocarModulo) btnTopbarTrocarModulo.classList.toggle("hidden", role === "owner");
 }
 
 function iniciarModuloBase(moduloOpcional) {
@@ -1432,15 +1440,14 @@ function iniciarModuloBase(moduloOpcional) {
       // controle-ponto continua liberado aqui: virou item normal de menu para
       // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
       // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
-      // "faca-amigos" em si) — "pasta-auditoria-fa"/"pos-visita"/"aniversarios"
-      // também estão na lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro
-      // do módulo Cacau Show antes desta correção (grupo FaçaAmigos aparecia
-      // com "Pasta de Documentação" mesmo com o owner no módulo Cacau Show).
-      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa"];
+      // "faca-amigos" em si) — "pos-visita"/"aniversarios" também estão na
+      // lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro do módulo
+      // Cacau Show antes desta correção.
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios"];
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "pasta-auditoria-fa", "controle-ponto", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1452,6 +1459,11 @@ function iniciarModuloBase(moduloOpcional) {
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
   }
+
+  // Realça na topbar (Owner) qual dos dois módulos está ativo agora.
+  document.querySelectorAll(".module-switch-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.modulo === moduloOpcional);
+  });
 
   // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
   // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
@@ -1492,6 +1504,18 @@ function iniciarModuloBase(moduloOpcional) {
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
   });
+
+  // "Registro de Ponto" existe duplicado nos dois grupos (Cacau Show e Faça
+  // Amigos) pra aparecer dentro do módulo em que a pessoa está. Isso faz o
+  // check acima (any tab-btn visível) achar o grupo do OUTRO negócio "não
+  // vazio" e deixá-lo visível — ex.: dentro do módulo Faça Amigos, o grupo
+  // "CACAU SHOW" aparecia na sidebar só por causa do Ponto compartilhado.
+  // Cada módulo é fechado: nunca mostra o grupo do outro negócio, ponto final.
+  if (moduloOpcional === "faca-amigos") {
+    document.getElementById("group-controle-caixa")?.classList.add("hidden");
+  } else if (moduloOpcional === "cacau-show") {
+    document.getElementById("group-faca-amigos")?.classList.add("hidden");
+  }
 
   // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
   // pra que o operador veja o número piscando assim que entra no módulo.
@@ -1698,6 +1722,12 @@ if (btnModPonto) {
   });
 }
 
+// Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
+// num clique só, pro módulo escolhido.
+document.querySelectorAll(".module-switch-btn").forEach(btn => {
+  btn.addEventListener("click", () => iniciarModuloBase(btn.dataset.modulo));
+});
+
 // Botão Trocar Módulo na Topbar / Sidebar
 const trocarModuloHandler = () => {
   appEl.classList.add("hidden");
@@ -1751,7 +1781,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios", "pasta-auditoria-cs", "pasta-auditoria-fa"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -1821,8 +1851,6 @@ function ativarTab(tabName) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "boletos") carregarBoletosServidor();
   if (tabName === "auditoria-boletos") carregarBoletosServidor();
-  if (tabName === "pasta-auditoria-cs" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("cacau-show");
-  if (tabName === "pasta-auditoria-fa" && typeof carregarPastaAuditoria === "function") carregarPastaAuditoria("faca-amigos");
   // A importação de títulos precisa da lista atual em memória para detectar
   // duplicados antes de gravar.
   if (tabName === "importacoes") carregarBoletosServidor();
