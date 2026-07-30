@@ -17,12 +17,12 @@ const { publish } = require('../config/realtime');
  * ordenar dados que já existiam nos aparelhos.
  */
 
-const COLUNAS = 'id, loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, atualizadoPor, atualizadoEm, criadoEm';
+const COLUNAS = 'id, loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, qtdEntradaCaixas, atualizadoPor, atualizadoEm, criadoEm';
 
 const SQL_UPSERT = `
   INSERT INTO inventario_itens
-    (loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, atualizadoPor, atualizadoEm, criadoEm)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, qtdEntradaCaixas, atualizadoPor, atualizadoEm, criadoEm)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(loja, codProduto) DO UPDATE SET
     barras = excluded.barras,
     descricao = excluded.descricao,
@@ -30,6 +30,7 @@ const SQL_UPSERT = `
     countedQty = excluded.countedQty,
     dataEntrada = excluded.dataEntrada,
     qtdEntradaUnidades = excluded.qtdEntradaUnidades,
+    qtdEntradaCaixas = excluded.qtdEntradaCaixas,
     atualizadoPor = excluded.atualizadoPor,
     atualizadoEm = excluded.atualizadoEm`;
 
@@ -49,6 +50,7 @@ function montarValores(loja, item, atualizadoPor, atualizadoEm) {
     item.countedQty === undefined || item.countedQty === null ? '' : String(item.countedQty),
     item.dataEntrada || '',
     Number(item.qtdEntradaUnidades || 0),
+    Number(item.qtdEntradaCaixas || 0),
     atualizadoPor || 'Sistema',
     atualizadoEm,
     new Date().toISOString()
@@ -66,6 +68,7 @@ function paraFormatoClient(row) {
     countedQty: r.countedQty === null || r.countedQty === undefined ? '' : r.countedQty,
     dataEntrada: r.dataEntrada || '',
     qtdEntradaUnidades: Number(r.qtdEntradaUnidades || 0),
+    qtdEntradaCaixas: Number(r.qtdEntradaCaixas || 0),
     atualizadoPor: r.atualizadoPor || null,
     lastUpdated: r.atualizadoEm || null
   };
@@ -104,6 +107,7 @@ router.put('/inventario/:loja/:cod', (req, res) => {
         countedQty: item.countedQty === undefined || item.countedQty === null ? '' : String(item.countedQty),
         dataEntrada: item.dataEntrada || '',
         qtdEntradaUnidades: Number(item.qtdEntradaUnidades || 0),
+        qtdEntradaCaixas: Number(item.qtdEntradaCaixas || 0),
         atualizadoPor: usuario || null,
         lastUpdated: atualizadoEm
       }
@@ -163,6 +167,7 @@ router.post('/inventario/bulk', (req, res) => {
           countedQty: i.countedQty === undefined || i.countedQty === null ? '' : String(i.countedQty),
           dataEntrada: i.dataEntrada || '',
           qtdEntradaUnidades: Number(i.qtdEntradaUnidades || 0),
+          qtdEntradaCaixas: Number(i.qtdEntradaCaixas || 0),
           atualizadoPor: i.atualizadoPor || usuario || null
         }))
       }, { origem: clientId, usuario });

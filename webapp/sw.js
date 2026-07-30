@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v39'; // v39: corrige relatorio de ponto por operacao, layout desktop e vazamento CS/FA na sidebar
+const CACHE_NAME = 'ponto-pwa-v40'; // v40: coluna Entrada do inventario agora em CX (caixas) e conversao caixa->unidade via sufixo XXXUN da descricao
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

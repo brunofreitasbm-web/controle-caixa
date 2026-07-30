@@ -27,6 +27,7 @@ const camelCaseMap = {
   dataentrada: 'dataEntrada',
   countedqty: 'countedQty',
   qtdentradaunidades: 'qtdEntradaUnidades',
+  qtdentradacaixas: 'qtdEntradaCaixas',
   atualizadopor: 'atualizadoPor',
   atualizadoem: 'atualizadoEm',
   hasbiometricenrolled: 'hasBiometricEnrolled',
@@ -419,6 +420,7 @@ function initDb(onSuccess) {
           countedQty TEXT,
           dataEntrada TEXT,
           qtdEntradaUnidades INTEGER DEFAULT 0,
+          qtdEntradaCaixas INTEGER DEFAULT 0,
           atualizadoPor TEXT,
           atualizadoEm TEXT,
           criadoEm TEXT,
@@ -586,6 +588,14 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE boletos ADD COLUMN docFaturamento TEXT', [], () => resolve());
+        });
+      });
+
+      // Entrada (CX): quantidade bruta de caixas contada na conferência, separada
+      // do total já convertido em unidades (qtdEntradaUnidades).
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE inventario_itens ADD COLUMN qtdEntradaCaixas INTEGER DEFAULT 0', [], () => resolve());
         });
       });
 

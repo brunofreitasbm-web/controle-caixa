@@ -5842,6 +5842,7 @@ class CacauShowControlBoxBridge {
       countedQty: item.countedQty !== undefined ? item.countedQty : '',
       dataEntrada: item.dataEntrada || '',
       qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+      qtdEntradaCaixas: item.qtdEntradaCaixas || 0,
       atualizadoPor: item.atualizadoPor || (typeof currentUser === 'object' && currentUser ? currentUser.nome : null),
       lastUpdated: item.lastUpdated || new Date().toISOString()
     };
@@ -6857,7 +6858,8 @@ function inicializarInsercaoManualInventario() {
         daysRemaining: daysRemaining,
         countedQty: qtdVal,
         dataEntrada: "",
-        qtdEntradaUnidades: 0
+        qtdEntradaUnidades: 0,
+        qtdEntradaCaixas: 0
       };
       products.push(novoProduto);
       dbBridge.saveInventoryItem(currentStore, novoProduto);
@@ -6927,19 +6929,22 @@ function loadInventoryForCurrentStore() {
                 daysRemaining: p.daysRemaining,
                 countedQty: '',
                 dataEntrada: nf.info.emissao,
-                qtdEntradaUnidades: totalUnits
+                qtdEntradaUnidades: totalUnits,
+                qtdEntradaCaixas: countedBoxes
               };
               dbBridge.saveInventoryItem(currentStore, invProd);
               savedItems.push(invProd);
             } else if (!invProd.qtdEntradaUnidades || !invProd.dataEntrada) {
               invProd.dataEntrada = nf.info.emissao;
               invProd.qtdEntradaUnidades = totalUnits;
+              invProd.qtdEntradaCaixas = countedBoxes;
               dbBridge.saveInventoryItem(currentStore, invProd);
-              
+
               const existing = savedItems.find(item => item.code === p.code);
               if (existing) {
                 existing.dataEntrada = nf.info.emissao;
                 existing.qtdEntradaUnidades = totalUnits;
+                existing.qtdEntradaCaixas = countedBoxes;
               } else {
                 savedItems.push(invProd);
               }
@@ -6966,7 +6971,8 @@ function loadInventoryForCurrentStore() {
       daysRemaining: daysRemaining,
       countedQty: item.countedQty !== undefined ? item.countedQty : '',
       dataEntrada: item.dataEntrada || '',
-      qtdEntradaUnidades: item.qtdEntradaUnidades || 0
+      qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+      qtdEntradaCaixas: item.qtdEntradaCaixas || 0
     };
   });
 }
@@ -7137,7 +7143,8 @@ function adicionarProdutoAoInventarioPorScan(cleanCode) {
     daysRemaining: null,
     countedQty: '',
     dataEntrada: '',
-    qtdEntradaUnidades: 0
+    qtdEntradaUnidades: 0,
+    qtdEntradaCaixas: 0
   };
 
   products.push(novoProduto);
@@ -7333,6 +7340,17 @@ function detectStoreFromRazaoSocial(razaoSocialText) {
 }
 
 function detectBoxMultiplier(detElement, xProdText) {
+  const desc = xProdText.toUpperCase();
+
+  // Sufixo da descrição no formato XXXUN (3 dígitos + "UN"), ex: "... 012UN" = 12 un/caixa.
+  // Tem prioridade sobre a detecção via XML/regex porque a conferência é sempre feita em caixas.
+  const suffix = desc.trim().slice(-5);
+  const suffixMatch = suffix.match(/^(\d{3})UN$/);
+  if (suffixMatch) {
+    const val = parseInt(suffixMatch[1], 10);
+    if (val > 0) return val;
+  }
+
   const uCom = detElement.querySelector('uCom') ? detElement.querySelector('uCom').textContent.toUpperCase() : '';
   const qCom = detElement.querySelector('qCom') ? parseFloat(detElement.querySelector('qCom').textContent) : 1;
   const qTrib = detElement.querySelector('qTrib') ? parseFloat(detElement.querySelector('qTrib').textContent) : 1;
@@ -7341,7 +7359,6 @@ function detectBoxMultiplier(detElement, xProdText) {
     return Math.round(qTrib / qCom);
   }
 
-  const desc = xProdText.toUpperCase();
   const matchRegex = /(?:CX|FD|C\/|BOX|DISP|DISPLAY)\s*(\d+)/i;
   const match = desc.match(matchRegex);
   if (match && match[1]) {
@@ -8632,11 +8649,13 @@ function autoCreditNfProductToInventory(nfInfo, p) {
       daysRemaining: p.daysRemaining,
       countedQty: '',
       dataEntrada: nfInfo.emissao,
-      qtdEntradaUnidades: totalUnits
+      qtdEntradaUnidades: totalUnits,
+      qtdEntradaCaixas: countedBoxes
     };
   } else {
     invProd.dataEntrada = nfInfo.emissao;
     invProd.qtdEntradaUnidades = totalUnits;
+    invProd.qtdEntradaCaixas = countedBoxes;
   }
 
   dbBridge.saveInventoryItem(targetStore, invProd);
@@ -8648,7 +8667,8 @@ function autoCreditNfProductToInventory(nfInfo, p) {
       products[existingIndex] = {
         ...products[existingIndex],
         dataEntrada: invProd.dataEntrada,
-        qtdEntradaUnidades: invProd.qtdEntradaUnidades
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades,
+        qtdEntradaCaixas: invProd.qtdEntradaCaixas
       };
     } else {
       products.push({
@@ -8659,7 +8679,8 @@ function autoCreditNfProductToInventory(nfInfo, p) {
         daysRemaining: invProd.daysRemaining,
         countedQty: invProd.countedQty || '',
         dataEntrada: invProd.dataEntrada || '',
-        qtdEntradaUnidades: invProd.qtdEntradaUnidades || 0
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades || 0,
+        qtdEntradaCaixas: invProd.qtdEntradaCaixas || 0
       });
     }
     renderTable();
@@ -8884,7 +8905,7 @@ function renderTable() {
       </td>
       <td class="py-3 px-4 text-brand-100 font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-brand-300">${p.dataEntrada || '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs text-brand-200">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-brand-200">${p.qtdEntradaCaixas ? `${p.qtdEntradaCaixas} CX` : '-'}</td>
       <td class="py-3 px-4 text-center">
         <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-brand-950 border border-brand-900 rounded px-2 py-1 text-white text-xs" />
       </td>
@@ -14384,7 +14405,8 @@ function _rtAplicarItemInventario(loja, item, quem) {
     daysRemaining: anterior ? anterior.daysRemaining : null,
     countedQty: item.countedQty === undefined || item.countedQty === null ? "" : item.countedQty,
     dataEntrada: item.dataEntrada || "",
-    qtdEntradaUnidades: item.qtdEntradaUnidades || 0
+    qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+    qtdEntradaCaixas: item.qtdEntradaCaixas || 0
   };
 
   if (anterior) {
