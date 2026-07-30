@@ -9957,6 +9957,29 @@ window.excluirBoleto = async function(id) {
   }
 };
 
+// Decisão do owner (checkbox do comunicado da Auditoria de Boletos): manter o
+// alerta "vencido sem NF-e" sinalizado para este boleto, ou dispensá-lo (ex.:
+// SAF já aberta). Persistido no boleto, sobrevive a reload e a outros usuários.
+window.alternarPendenciaSaf = async function(id, dispensar) {
+  try {
+    const res = await fetch(`/api/boletos/${id}/pendencia-saf`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dispensada: dispensar, actorUsuario: currentUser ? currentUser.nome : "" })
+    });
+    if (res.ok) {
+      await carregarBoletosServidor();
+      showToast(dispensar ? "Pendência dispensada — o boleto saiu do alerta crítico." : "Pendência mantida — o boleto continua sinalizado.", "sucesso");
+    } else {
+      const dados = await res.json().catch(() => ({}));
+      showToast(dados.error || "Erro ao atualizar a pendência.", "erro");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Erro de rede ao atualizar a pendência.", "erro");
+  }
+};
+
 // Segunda passada da auditoria: o cruzamento principal só casa por número de
 // documento, então quando o "Doc. Faturamento" do relatório de títulos não bate
 // com o nNF do XML, o mesmo faturamento aparece duas vezes — uma linha "Sem
@@ -10245,15 +10268,30 @@ window.carregarAuditoriaBoletos = function() {
   auditList.forEach(item => {
     if (item.statusText !== "Sem NF-e" || !item.boletosVencidosSemNfe || !item.boletosVencidosSemNfe.length) return;
 
-    const docs = item.boletosVencidosSemNfe.map(b => b.documento).join(", ");
+    // O owner pode dispensar a pendência boleto a boleto (ex.: já abriu a SAF,
+    // ou tem um motivo pra manter o título mesmo assim). Só sobem a crítico os
+    // que ele não dispensou — os dispensados continuam listados no comunicado
+    // (com a marcação desmarcada) só para permitir reverter a decisão.
+    const mantidos = item.boletosVencidosSemNfe.filter(b => !b.pendenciaSafDispensada);
+
+    item.boletosVencidosSemNfe.forEach(b => {
+      alertasSAF.push({
+        loja: item.loja,
+        documento: b.documento,
+        id: b.id,
+        valor: b.valor,
+        vencimento: b.vencimento,
+        dispensada: !!b.pendenciaSafDispensada
+      });
+    });
+
+    if (!mantidos.length) return;
+
+    const docs = mantidos.map(b => b.documento).join(", ");
     item.statusText = "🔥 Vencido sem NF-e";
     item.statusClass = "bg-danger-solid text-white border-2 border-danger animate-pulse font-black";
     item.descDivergencia = `Boleto ${docs} venceu sem a NF-e correspondente ter sido lançada — abrir SAF para cancelamento`;
     item.exigeSAF = true;
-
-    item.boletosVencidosSemNfe.forEach(b => {
-      alertasSAF.push({ loja: item.loja, documento: b.documento, valor: b.valor, vencimento: b.vencimento });
-    });
   });
 
   divergenciasCount = auditList.filter(i => i.isDivergent).length;
@@ -10268,11 +10306,15 @@ window.carregarAuditoriaBoletos = function() {
     if (alertasSAF.length > 0) {
       alertaSafBox.classList.remove("hidden");
       alertaSafLista.innerHTML = alertasSAF.map(a => `
-        <li class="flex flex-wrap items-center gap-2 bg-danger-soft border border-danger rounded-lg px-3 py-2">
-          <span class="px-2 py-0.5 rounded-full bg-danger-solid text-white text-[10px] uppercase tracking-wider">${nomeLoja(a.loja)}</span>
+        <li class="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${a.dispensada ? "bg-surface-2 border border-subtle opacity-70" : "bg-danger-soft border border-danger"}">
+          <span class="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${a.dispensada ? "bg-surface-1 text-ink-muted" : "bg-danger-solid text-white"}">${nomeLoja(a.loja)}</span>
           <span class="font-mono">Doc. ${a.documento}</span>
-          <span class="text-danger">Venceu em ${a.vencimento}</span>
-          <span class="ml-auto font-mono font-bold">${formatBRL(a.valor)}</span>
+          <span class="${a.dispensada ? "text-ink-muted" : "text-danger"}">Venceu em ${a.vencimento}</span>
+          <span class="font-mono font-bold">${formatBRL(a.valor)}</span>
+          <label class="ml-auto flex items-center gap-1.5 text-[10px] font-bold cursor-pointer select-none" title="Desmarque para dispensar este boleto do alerta (ex.: SAF já aberta)">
+            <input type="checkbox" class="cursor-pointer" ${a.dispensada ? "" : "checked"} onchange="window.alternarPendenciaSaf('${a.id}', !this.checked)">
+            Manter pendência
+          </label>
         </li>
       `).join("");
     } else {

@@ -274,6 +274,7 @@ function initDb(onSuccess) {
           valor REAL,
           status TEXT,
           pagoEm TEXT,
+          pendenciaSafDispensada INTEGER DEFAULT 0,
           criadoEm TEXT
         )`,
         `CREATE TABLE IF NOT EXISTS ponto_registros (
@@ -592,6 +593,15 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE boletos ADD COLUMN parcela TEXT', [], () => resolve());
+        });
+      });
+
+      // Decisão do owner sobre o alerta "vencido sem NF-e" da Auditoria de
+      // Boletos: 0 (padrão) mantém a pendência sinalizada; 1 marca que o
+      // owner já revisou e optou por dispensar o alerta para aquele boleto.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE boletos ADD COLUMN pendenciaSafDispensada INTEGER DEFAULT 0', [], () => resolve());
         });
       });
 
