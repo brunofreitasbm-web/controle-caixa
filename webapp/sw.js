@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v42'; // v42: remove Pasta de Auditoria/Documentação, corrige vazamento CS/FA na sidebar e adiciona troca rápida de módulo (Owner)
+const CACHE_NAME = 'ponto-pwa-v44'; // v44: corrige rótulos de seção e hamburguer invisíveis/espremidos que sobraram do tema escuro após o merge
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

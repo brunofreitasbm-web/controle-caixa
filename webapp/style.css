@@ -1,192 +1,273 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
 
+/* ==========================================================================
+   DESIGN SYSTEM — TOKENS SEMÂNTICOS (tema claro único)
+   --------------------------------------------------------------------------
+   Fonte de verdade da paleta do app. Regras:
+     · toda superfície é clara (branco, off-white ou cinza muito claro);
+     · todo texto é escuro, com contraste >= 7:1 (WCAG AAA) sobre a superfície
+       em que assenta — as razões medidas estão anotadas em cada token;
+     · cor de acento nunca vira preenchimento sólido com texto branco: entra
+       como tint claro (--tone-*-soft) + borda/ícone (--tone-*-line) + rótulo
+       escuro (--tone-*-ink).
+   O módulo Faça Amigos tem paleta própria (ver bloco FAÇAAMIGOS) e está
+   deliberadamente fora deste sistema.
+   ========================================================================== */
 :root {
-  /* BlueDox Design System Theme Variables */
-  --wine: #2D538E; /* Primary Blue (Brand) */
-  --wine-light: #4A7FD3;
-  --wine-dark: #1C2435; /* Dark Navy */
-  --gold: #009688; /* Accent Green */
-  --gold-light: #E0F2F1;
-  --gold-dark: #00796B;
-  --gold-gradient: linear-gradient(135deg, #4A7FD3 0%, #2D538E 100%);
-  --wine-gradient: linear-gradient(135deg, #2D538E 0%, #1C2435 100%);
-  --cream: #F2F6F9; /* Neutral Light Background */
-  --paper: #FFFFFF; /* Cards / Header bg */
-  --ink: #1C2435; /* Primary Text Dark Navy */
-  --muted: #4A4A4A; /* Secondary Text */
-  --border: #E2E8F0;
-  --green: #009688; /* Accent Green */
-  --green-light: #E0F2F1;
-  --amber: #F57C00; /* Accent Orange */
-  --amber-light: #FFE0B2;
-  --red: #F44336; /* Badge Red */
-  --red-light: #FFEBEE;
-  --blue: #1E62C9; /* Badge Blue */
-  --blue-light: #EBF5FF;
+  /* --- Superfícies (claras, elevação cresce de canvas para dentro) -------- */
+  --surface-canvas:   #F4F6FA; /* fundo da página                            */
+  --surface-1:        #FFFFFF; /* cards, modais, topbar, sidebar             */
+  --surface-2:        #F7F9FC; /* painéis de aba, inputs, cabeçalho de tabela*/
+  --surface-3:        #EDF1F7; /* blocos embutidos, chips, trilhas           */
+  --surface-4:        #E1E8F2; /* trilhos de progresso, letterbox de vídeo   */
+  --surface-header:   #EAF0FA; /* banner de cabeçalho de seção               */
+  --surface-hover:    #F1F5FB;
+  --surface-selected: #E3EDFB;
+  --scrim:            rgba(11, 18, 32, 0.55); /* véu de modal/câmera         */
+
+  /* --- Tinta (contraste medido sobre --surface-1 / --surface-3) ---------- */
+  --ink-strong: #0B1220; /* 18,7:1 / 16,5:1 — títulos, números-chave         */
+  --ink:        #17212F; /* 16,2:1 / 14,3:1 — corpo, células, rótulos        */
+  --ink-muted:  #3A4759; /*  9,4:1 /  8,4:1 — legendas, hints, secundário    */
+  --ink-faint:  #4C5870; /*  7,2:1 /  6,4:1 — placeholder e desabilitado †   */
+  --ink-accent: #123A75; /* 11,1:1 /  9,8:1 — links e ênfase de marca        */
+  /* † --ink-faint só cumpre AAA sobre --surface-1 e --surface-2. É usado
+       exclusivamente em ::placeholder e [disabled], que a WCAG 1.4.3 trata
+       como texto incidental. Nenhum texto de conteúdo deve usá-lo.          */
+
+  /* --- Bordas ------------------------------------------------------------ */
+  --edge-subtle:  #E3E9F2; /* divisórias decorativas                         */
+  --edge-default: #D3DBE8; /* bordas de card e tabela                        */
+  --edge-strong:  #78869E; /* 3,7:1 — contorno de controle interativo        */
+  --edge-accent:  #2563EB;
+  --edge-focus:   #1D4ED8;
+
+  /* --- Tríades de status: tint / tinta escura / linha de acento ---------- */
+  --tone-success-soft: #ECFDF5; --tone-success-ink: #0B5138; --tone-success-line: #047857; /* 8,9:1 */
+  --tone-danger-soft:  #FEF2F2; --tone-danger-ink:  #8C1220; --tone-danger-line:  #DC2626; /* 9,2:1 */
+  --tone-warning-soft: #FFF7ED; --tone-warning-ink: #7C2D12; --tone-warning-line: #C2410C; /* 8,8:1 */
+  --tone-info-soft:    #EFF6FF; --tone-info-ink:    #123A75; --tone-info-line:    #2563EB; /* 10,2:1 */
+  --tone-accent-soft:  #EEF3FC; --tone-accent-ink:  #123A75; --tone-accent-line:  #2563EB; /* 10,4:1 */
+
+  /* --- Hover das superfícies tonalizadas --------------------------------- */
+  --tone-success-hover: #DCFCE7;
+  --tone-danger-hover:  #FEE2E2;
+  --tone-warning-hover: #FFEDD5;
+  --tone-info-hover:    #DBEAFE;
+  --tone-accent-hover:  #E3EDFB;
+
+  /* --- Forma e movimento ------------------------------------------------- */
   --radius: 12px;
-  --shadow-sm: 0 2px 8px rgba(28, 36, 53, 0.03);
-  --shadow-md: 0 4px 12px rgba(28, 36, 53, 0.05);
-  --shadow-lg: 0 8px 24px rgba(28, 36, 53, 0.08);
+  --shadow-sm: 0 1px 2px rgba(11, 18, 32, 0.05);
+  --shadow-md: 0 1px 3px rgba(11, 18, 32, 0.07), 0 1px 2px rgba(11, 18, 32, 0.04);
+  --shadow-lg: 0 8px 24px rgba(11, 18, 32, 0.09);
   --transition: all 0.25s ease;
 
-  /* Harmonized Menu Palette (Light Mode - BlueDox Navy/Blue) */
-  --sidebar-bg: #1C2435;
-  --topbar-bg: #FFFFFF;
-  --topbar-border: #E2E8F0;
-  --sidebar-group-header-color: #90A4AE;
-  --sidebar-active-bg: #2D538E;
-  --sidebar-active-text: #FFFFFF;
-  --sidebar-text-muted: rgba(255, 255, 255, 0.7);
-  --sidebar-text-hover: #FFFFFF;
-  --sidebar-hover-bg: #263145;
+  /* --- Aliases de compatibilidade -----------------------------------------
+     ~200 regras de componente e o módulo Faça Amigos ainda consomem estes
+     nomes. Apontá-los para os tokens novos mantém uma paleta única em vez de
+     duas concorrentes, sem exigir a reescrita de cada regra.               */
+  --cream:      var(--surface-canvas);
+  --paper:      var(--surface-1);
+  --border:     var(--edge-default);
+  --muted:      var(--ink-muted);
+  --wine:       var(--ink-accent);
+  --wine-light: var(--edge-accent);
+  --wine-dark:  var(--ink-strong);
+  --gold:       var(--tone-success-line);
+  --gold-light: var(--tone-success-soft);
+  --gold-dark:  var(--tone-success-ink);
+  --gold-gradient: linear-gradient(135deg, var(--tone-accent-soft) 0%, var(--surface-selected) 100%);
+  --wine-gradient: linear-gradient(135deg, var(--surface-header) 0%, var(--surface-3) 100%);
+  --green:       var(--tone-success-line);
+  --green-light: var(--tone-success-soft);
+  --amber:       var(--tone-warning-line);
+  --amber-light: var(--tone-warning-soft);
+  --red:         var(--tone-danger-line);
+  --red-light:   var(--tone-danger-soft);
+  --blue:        var(--tone-info-line);
+  --blue-light:  var(--tone-info-soft);
+
+  /* --- Barra lateral (agora clara) --------------------------------------- */
+  --sidebar-bg:                 var(--surface-1);
+  --sidebar-border:             var(--edge-subtle);
+  --sidebar-group-bg:           var(--surface-2);
+  --sidebar-group-header-color: var(--ink-muted);
+  --sidebar-text:               var(--ink);
+  --sidebar-text-muted:         var(--ink-muted);
+  --sidebar-text-hover:         var(--ink-strong);
+  --sidebar-hover-bg:           var(--surface-hover);
+  --sidebar-active-bg:          var(--surface-selected);
+  --sidebar-active-text:        var(--ink-strong);
+  --sidebar-active-rail:        var(--edge-accent);
+  --topbar-bg:                  var(--surface-1);
+  --topbar-border:              var(--edge-subtle);
 }
 
 /* ==========================================================================
-   COMPATIBILIDADE: Paleta de marca (brand-*) e tokens nomeados (cream/paper/
-   ink/muted/border/wine/gold) usados como classes utilitárias no HTML mas
-   nunca compilados no tailwind-compiled.css estático (extensão de tema não
-   incluída no build). Sem isto, dezenas de painéis (Registro, Dashboard,
-   Histórico, Mensal, Colaboradores, Ponto, RH...) renderizavam com fundo
-   transparente e texto invisível. Este bloco define, uma única vez e para
-   todo o app, exatamente as classes usadas — ancoradas nos tokens de design
-   já existentes em :root, garantindo um único sistema visual coerente.
+   CAMADA DE UTILITÁRIOS SEMÂNTICOS
+   --------------------------------------------------------------------------
+   Substitui a antiga escala `brand-*` (bg-brand-950, text-brand-300, …), que
+   nomeava tons quase pretos e por isso ficou mentirosa num tema claro.
+   Nenhum destes nomes existe em tailwind-compiled.css — que é carregado
+   DEPOIS deste arquivo —, então nenhum precisa de `!important` para vencer a
+   ordem do documento. Essa era a origem da guerra de especificidade anterior.
    ========================================================================== */
 
-.bg-brand-100 { background-color: #E8F0FC !important; }
-.text-brand-100 { color: #E8F0FC !important; }
-.border-brand-100 { border-color: #E8F0FC !important; }
-.bg-brand-200 { background-color: #C9DAF5 !important; }
-.text-brand-200 { color: #C9DAF5 !important; }
-.border-brand-200 { border-color: #C9DAF5 !important; }
-.bg-brand-300 { background-color: #A8C2ED !important; }
-.text-brand-300 { color: #A8C2ED !important; }
-.border-brand-300 { border-color: #A8C2ED !important; }
-.bg-brand-400 { background-color: #7FA3E0 !important; }
-.text-brand-400 { color: #7FA3E0 !important; }
-.border-brand-400 { border-color: #7FA3E0 !important; }
-.bg-brand-500 { background-color: #4A7FD3 !important; }
-.text-brand-500 { color: #4A7FD3 !important; }
-.border-brand-500 { border-color: #4A7FD3 !important; }
-.bg-brand-550 { background-color: #3F70BE !important; }
-.text-brand-550 { color: #3F70BE !important; }
-.border-brand-550 { border-color: #3F70BE !important; }
-.bg-brand-600 { background-color: #2D538E !important; }
-.text-brand-600 { color: #2D538E !important; }
-.border-brand-600 { border-color: #2D538E !important; }
-.bg-brand-650 { background-color: #28497D !important; }
-.text-brand-650 { color: #28497D !important; }
-.border-brand-650 { border-color: #28497D !important; }
-.bg-brand-700 { background-color: #24406C !important; }
-.text-brand-700 { color: #24406C !important; }
-.border-brand-700 { border-color: #24406C !important; }
-.bg-brand-800 { background-color: #1F2A3D !important; }
-.text-brand-800 { color: #1F2A3D !important; }
-.border-brand-800 { border-color: #1F2A3D !important; }
-.bg-brand-850 { background-color: #1A2333 !important; }
-.text-brand-850 { color: #1A2333 !important; }
-.border-brand-850 { border-color: #1A2333 !important; }
-.bg-brand-900 { background-color: #1C2435 !important; }
-.text-brand-900 { color: #1C2435 !important; }
-.border-brand-900 { border-color: #1C2435 !important; }
-.bg-brand-950 { background-color: #0F1420 !important; }
-.text-brand-950 { color: #0F1420 !important; }
-.border-brand-950 { border-color: #0F1420 !important; }
+/* --- Superfícies --------------------------------------------------------- */
+.bg-surface-1 { background-color: var(--surface-1); }
+.bg-surface-2 { background-color: var(--surface-2); }
+.bg-surface-3 { background-color: var(--surface-3); }
+.bg-surface-4 { background-color: var(--surface-4); }
+.bg-scrim     { background-color: var(--scrim); }
+.bg-cream     { background-color: var(--surface-canvas); }
+.bg-paper     { background-color: var(--surface-1); }
 
-.bg-brand-800\/30 { background-color: #1F2A3D4c !important; }
-.bg-brand-800\/40 { background-color: #1F2A3D66 !important; }
-.bg-brand-800\/60 { background-color: #1F2A3D99 !important; }
-.bg-brand-800\/80 { background-color: #1F2A3Dcc !important; }
-.bg-brand-900\/30 { background-color: #1C24354c !important; }
-.bg-brand-900\/40 { background-color: #1C243566 !important; }
-.bg-brand-900\/60 { background-color: #1C243599 !important; }
-.bg-brand-900\/80 { background-color: #1C2435cc !important; }
-.bg-brand-950\/40 { background-color: #0F142066 !important; }
-.bg-brand-950\/60 { background-color: #0F142099 !important; }
-.bg-brand-950\/80 { background-color: #0F1420cc !important; }
-.bg-brand-950\/90 { background-color: #0F1420e6 !important; }
-.border-brand-500\/30 { border-color: #4A7FD34c !important; }
-.border-brand-500\/80 { border-color: #4A7FD3cc !important; }
-.border-brand-600\/80 { border-color: #2D538Ecc !important; }
-.border-brand-700\/40 { border-color: #24406C66 !important; }
-.border-brand-700\/50 { border-color: #24406C80 !important; }
-.border-brand-700\/60 { border-color: #24406C99 !important; }
-.border-brand-700\/80 { border-color: #24406Ccc !important; }
-.border-brand-800\/60 { border-color: #1F2A3D99 !important; }
+.bg-success-soft { background-color: var(--tone-success-soft); }
+.bg-danger-soft  { background-color: var(--tone-danger-soft); }
+.bg-warning-soft { background-color: var(--tone-warning-soft); }
+.bg-info-soft    { background-color: var(--tone-info-soft); }
+.bg-accent-soft  { background-color: var(--tone-accent-soft); }
 
-/* tailwind-compiled.css é um build estático (sem CLI/tooling no projeto —
-   ver package.json), então só tem as classes que existiam no HTML na hora
-   da compilação. Cores vivas de status (botões de filtro do inventário,
-   badges de Crítico/Alerta/No Prazo e o fundo das linhas da tabela) usam
-   classes que nunca foram compiladas, então ficavam transparentes. Valores
-   idênticos à paleta padrão do Tailwind (red-600, orange-500, green-600). */
-.bg-red-600 { background-color: #dc2626 !important; }
-.bg-orange-500 { background-color: #f97316 !important; }
-.bg-green-600 { background-color: #16a34a !important; }
-.bg-red-600\/20 { background-color: #dc262633 !important; }
-.bg-orange-500\/15 { background-color: #f9731626 !important; }
-.bg-green-600\/10 { background-color: #16a34a1a !important; }
-.hover\:bg-red-500:hover { background-color: #ef4444 !important; }
-.hover\:bg-orange-400:hover { background-color: #fb923c !important; }
-.hover\:bg-green-500:hover { background-color: #22c55e !important; }
+/* --- Tinta --------------------------------------------------------------- */
+.text-ink-strong { color: var(--ink-strong); }
+.text-ink        { color: var(--ink); }
+.text-ink-muted  { color: var(--ink-muted); }
+.text-ink-faint  { color: var(--ink-faint); }
+.text-muted      { color: var(--ink-muted); }
+.text-accent     { color: var(--ink-accent); }
+.text-success    { color: var(--tone-success-ink); }
+.text-danger     { color: var(--tone-danger-ink); }
+.text-warning    { color: var(--tone-warning-ink); }
+.text-info       { color: var(--tone-info-ink); }
 
-/* Indicador de filtro selecionado: os botões agora são sempre coloridos
-   (pedido do usuário), então o estado ativo precisa de outro sinal visual
-   — um anel branco — em vez de trocar a cor de fundo. Usa box-shadow em
-   camadas em vez das utilities .ring-* do Tailwind, que também nunca
-   foram compiladas neste build estático. */
+/* --- Bordas -------------------------------------------------------------- */
+.border-subtle  { border-color: var(--edge-default); }
+.border-strong  { border-color: var(--edge-strong); }
+.border-accent  { border-color: var(--edge-accent); }
+.border-border  { border-color: var(--edge-default); }
+.border-success { border-color: var(--tone-success-line); }
+.border-danger  { border-color: var(--tone-danger-line); }
+.border-warning { border-color: var(--tone-warning-line); }
+.border-info    { border-color: var(--tone-info-line); }
+.divide-subtle > :not([hidden]) ~ :not([hidden]) { border-color: var(--edge-subtle); }
+.divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--edge-default); }
+
+/* --- Estados ------------------------------------------------------------- */
+.hover\:bg-surface-hover:hover { background-color: var(--surface-hover); }
+.hover\:bg-success-hover:hover { background-color: var(--tone-success-hover); }
+.hover\:bg-danger-hover:hover  { background-color: var(--tone-danger-hover); }
+.hover\:bg-warning-hover:hover { background-color: var(--tone-warning-hover); }
+.hover\:bg-info-hover:hover    { background-color: var(--tone-info-hover); }
+.hover\:bg-accent-hover:hover  { background-color: var(--tone-accent-hover); }
+.hover\:bg-cream:hover         { background-color: var(--surface-canvas); }
+.hover\:text-ink-strong:hover  { color: var(--ink-strong); }
+.hover\:border-accent:hover    { border-color: var(--edge-accent); }
+.focus\:border-accent:focus    { border-color: var(--edge-focus); }
+.active\:bg-info-soft:active   { background-color: var(--tone-info-hover); }
+.group:hover .group-hover\:bg-accent-soft { background-color: var(--tone-accent-soft); }
+
+/* Indicador de filtro selecionado (botões de farol do Inventário). Os botões
+   são sempre tonalizados, então o estado ativo precisa de um sinal próprio —
+   um anel de acento. Antes era um anel quase preto sobre botão vivo. */
 .filtro-ativo {
-  box-shadow: 0 0 0 2px #0F1420, 0 0 0 4px #ffffff !important;
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--edge-accent);
 }
-.border-brand-800\/80 { border-color: #1F2A3Dcc !important; }
-.border-brand-900\/50 { border-color: #1C243580 !important; }
-.border-brand-900\/60 { border-color: #1C243599 !important; }
-.text-brand-200\/80 { color: #C9DAF5cc !important; }
-.text-brand-200\/85 { color: #C9DAF5d9 !important; }
-.text-brand-500\/50 { color: #4A7FD380 !important; }
-.divide-brand-900\/40 > :not([hidden]) ~ :not([hidden]) { border-color: #1C243566 !important; }
-.divide-brand-900\/60 > :not([hidden]) ~ :not([hidden]) { border-color: #1C243599 !important; }
 
-.hover\:bg-brand-500:hover { background-color: #4A7FD3 !important; }
-.hover\:bg-brand-550:hover { background-color: #3F70BE !important; }
-.hover\:bg-brand-600:hover { background-color: #2D538E !important; }
-.hover\:bg-brand-650:hover { background-color: #28497D !important; }
-.hover\:bg-brand-700:hover { background-color: #24406C !important; }
-.hover\:bg-brand-800:hover { background-color: #1F2A3D !important; }
-.hover\:bg-brand-850:hover { background-color: #1A2333 !important; }
-.hover\:bg-cream:hover { background-color: var(--cream) !important; }
-.hover\:border-brand-500:hover { border-color: #4A7FD3 !important; }
-.hover\:border-brand-600\/80:hover { border-color: #2D538Ecc !important; }
-.hover\:border-brand-700\/80:hover { border-color: #24406Ccc !important; }
-.focus\:border-brand-500:focus { border-color: #4A7FD3 !important; }
-.focus\:border-gold:focus { border-color: var(--gold) !important; }
-.group:hover .group-hover\:bg-brand-700 { background-color: #24406C !important; }
+.focus\:border-gold:focus { border-color: var(--edge-focus); }
 
-.bg-cream { background-color: var(--cream) !important; }
-.bg-paper { background-color: var(--paper) !important; }
-.border-border { border-color: var(--border) !important; }
-.divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
-.text-ink { color: var(--ink) !important; }
-.text-muted { color: var(--muted) !important; }
+.ring-accent  { --tw-ring-color: var(--edge-accent); box-shadow: 0 0 0 2px var(--edge-accent); }
+.ring-success { --tw-ring-color: var(--tone-success-line); box-shadow: 0 0 0 2px var(--tone-success-line); }
+.focus\:ring-accent:focus-visible { outline: 3px solid var(--edge-focus); outline-offset: 2px; }
 
-/* !important nas custom properties: tailwind-compiled.css é carregado DEPOIS
-   de style.css no <head>, então classes nativas (ex.: .via-slate-900) do
-   compilado, com a mesma especificidade, venceriam pela ordem do documento e
-   apagariam --tw-gradient-to definido aqui. O !important garante que estes
-   estojos (from/via/to de marca) sempre prevaleçam, independente da ordem. */
-.from-brand-900 { --tw-gradient-from: #1C2435 var(--tw-gradient-from-position) !important; --tw-gradient-to: #1C243500 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-.from-brand-950 { --tw-gradient-from: #0F1420 var(--tw-gradient-from-position) !important; --tw-gradient-to: #0F142000 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-.from-cream { --tw-gradient-from: #F2F6F9 var(--tw-gradient-from-position) !important; --tw-gradient-to: #F2F6F900 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-.via-brand-900 { --tw-gradient-to: #1C243500 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), #1C2435 var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
-.to-brand-950 { --tw-gradient-to: #0F1420 var(--tw-gradient-to-position) !important; }
-.to-paper { --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important; }
+/* Estojos de gradiente claros (o card-resumo de Configurações ainda os usa).
+   !important porque tailwind-compiled.css carrega depois e sobrescreveria as
+   custom properties --tw-gradient-* com a mesma especificidade. */
+.from-cream { --tw-gradient-from: #F4F6FA var(--tw-gradient-from-position) !important; --tw-gradient-to: #F4F6FA00 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-paper   { --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important; }
 
-/* Mesmo problema do bloco acima (classes usadas via JS mas ausentes do
-   tailwind-compiled.css estático): sem isto, as barras de progresso de
-   Meta Hora a Hora e do painel de Perfil DISC do RH ficavam com o
-   preenchimento transparente — só a trilha escura (bg-brand-900) aparecia,
-   dando a impressão de que a barra nunca se movia. */
-.bg-amber-500 { background-color: #F59E0B !important; }
-.bg-emerald-500 { background-color: #10B981 !important; }
+/* Preenchimento das barras de progresso (Meta Hora a Hora e perfil DISC):
+   classes aplicadas por JS e ausentes do build estático do Tailwind. */
+.bg-amber-500   { background-color: var(--tone-warning-line) !important; }
+.bg-emerald-500 { background-color: var(--tone-success-line) !important; }
+
+/* ==========================================================================
+   COMPONENTES DE ESTRUTURA
+   ========================================================================== */
+
+/* Cabeçalho de seção — substitui a sopa de utilitários com gradiente escuro
+   que existia repetida em 16 telas, e o seletor cego
+   `.tab-panel > div:first-child`, que além de posicional atingia por engano
+   os wrappers transparentes de Boletos, Auditoria e Configurações — e o
+   banner do Faça Amigos. A faixa de acento à esquerda carrega o sinal de
+   "isto é um cabeçalho" que o gradiente escuro carregava antes. */
+.section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+  background: var(--surface-header);
+  border: 1px solid var(--edge-default);
+  box-shadow: inset 4px 0 0 var(--edge-accent), var(--shadow-md);
+}
+
+@media (min-width: 768px) {
+  .section-header {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.section-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink-strong); /* 16,3:1 sobre --surface-header */
+}
+
+.section-header h2 i { color: var(--edge-accent); }
+.section-header p    { color: var(--ink-muted); } /* 7,5:1 */
+
+/* Chip de contexto no canto direito do cabeçalho. */
+.section-header .rounded-full {
+  background: var(--surface-1);
+  color: var(--ink-accent);
+  border-color: var(--edge-accent);
+}
+
+/* Identidade cromática por módulo: o RH mantinha o próprio tom índigo. */
+#tab-rh-modulo .section-header {
+  background: var(--tone-info-soft);
+  box-shadow: inset 4px 0 0 var(--tone-info-line), var(--shadow-md);
+}
+#tab-rh-modulo .section-header h2 i { color: var(--tone-info-line); }
+
+/* Banner de aviso (inventário mensal obrigatório). */
+.section-banner {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--edge-default);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+.section-banner-warn {
+  background: var(--tone-warning-soft);
+  border-color: var(--tone-warning-line);
+  box-shadow: inset 4px 0 0 var(--tone-warning-line), var(--shadow-md);
+}
+
+/* `.glass-card` só existia dentro dos remendos por aba, que este refactor
+   remove. Sem uma definição base, as ~53 ocorrências ficariam sem estilo. */
+.glass-card {
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
 
 * {
   box-sizing: border-box;
@@ -205,6 +286,7 @@ body {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
   width: 100%;
   position: relative;
   overflow-x: hidden;
@@ -217,6 +299,7 @@ body {
   flex-direction: column;
   min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
   margin-left: 270px;
   transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -227,7 +310,7 @@ body {
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 999;
@@ -252,7 +335,7 @@ html.sidebar-mobile-open body {
 .sidebar {
   width: 270px;
   background: var(--sidebar-bg);
-  color: white;
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -260,8 +343,8 @@ html.sidebar-mobile-open body {
   bottom: 0;
   left: 0;
   z-index: 1000;
-  border-right: 1px solid var(--topbar-border);
-  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: 4px 0 18px rgba(11, 18, 32, 0.05);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -270,14 +353,14 @@ html.sidebar-mobile-open body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .sidebar-close-btn {
   display: none;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
+  background: var(--surface-2);
+  border: 1px solid var(--edge-strong);
+  color: var(--ink);
   /* 44x44 é o alvo mínimo de toque recomendado (Apple HIG / Material) —
      antes eram 34px, pequeno demais pra fechar o menu com o polegar. */
   width: 44px;
@@ -294,7 +377,7 @@ html.sidebar-mobile-open body {
 }
 
 .sidebar-close-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--surface-3);
   transform: scale(1.05);
 }
 
@@ -303,7 +386,7 @@ html.sidebar-mobile-open body {
   height: 44px;
   border-radius: 12px;
   background: url('icons/icon-192.png?v=3') center/contain no-repeat;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
   flex-shrink: 0;
   transition: transform 0.3s ease;
 }
@@ -336,9 +419,8 @@ html.sidebar-mobile-open body {
   font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: 0.5px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   margin-bottom: 2px;
-  color: white;
+  color: var(--ink-strong);
 }
 
 .brand .subtitle {
@@ -346,9 +428,10 @@ html.sidebar-mobile-open body {
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  background: linear-gradient(90deg, var(--gold-light), var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  /* Era texto recortado num gradiente claro — ilegível sobre a sidebar
+     branca, e invisível para auditoria de contraste porque a cor computada
+     fica transparente. Tinta chapada, com o acento vindo do tracking. */
+  color: var(--ink-accent);
   display: inline-block;
 }
 
@@ -361,7 +444,7 @@ html.sidebar-mobile-open body {
   gap: 8px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-color: var(--edge-default) transparent;
   /* Rolagem com inércia no iOS + evita que o "estouro" no topo/fim da lista
      do menu vaze pra rolagem da página por trás do drawer. */
   -webkit-overflow-scrolling: touch;
@@ -373,14 +456,14 @@ html.sidebar-mobile-open body {
 }
 
 .sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--edge-default);
   border-radius: 4px;
 }
 
 .sidebar-group {
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--sidebar-group-bg);
+  border: 1px solid var(--sidebar-border);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   /* .sidebar-nav é flex-column e cada grupo é um item dela. Com
@@ -397,7 +480,12 @@ html.sidebar-mobile-open body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  /* Branco translúcido (pensado pro sidebar escuro de antes) ficava
+     invisível sobre o --surface-1 branco do design system claro — esse
+     seletor não existe no branch do design system (a reorganização deles
+     não tem cabeçalho de seção), por isso sobreviveu ao merge sem ser
+     re-corrigido junto com o resto da sidebar. */
+  color: var(--ink-muted);
 }
 
 .sidebar-group-header {
@@ -407,7 +495,7 @@ html.sidebar-mobile-open body {
   width: 100%;
   padding: 12px 14px;
   border: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
   color: var(--sidebar-group-header-color);
   font-family: 'Outfit', sans-serif;
   font-size: 0.88rem;
@@ -419,7 +507,7 @@ html.sidebar-mobile-open body {
 }
 
 .sidebar-group-header:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--sidebar-hover-bg);
   color: var(--sidebar-text-hover);
 }
 
@@ -523,8 +611,8 @@ html.sidebar-mobile-open body {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
   font-weight: 700;
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 16px rgba(189, 149, 75, 0.35);
+  border-color: var(--edge-accent);
+  box-shadow: inset 4px 0 0 var(--sidebar-active-rail);
 }
 
 .sidebar-nav .tab-btn.active .tab-icon {
@@ -534,7 +622,7 @@ html.sidebar-mobile-open body {
 .sidebar-nav .submenu-btn {
   padding-left: 28px !important;
   font-size: 0.8rem !important;
-  opacity: 0.85;
+  color: var(--ink-muted);
 }
 
 .sidebar-nav .submenu-btn .tab-icon {
@@ -549,8 +637,8 @@ html.sidebar-mobile-open body {
      bar/home indicator (iPhone com notch, Android com navegação por gesto);
      nas demais fica igual a 16px. */
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -581,13 +669,13 @@ html.sidebar-mobile-open body {
   background: var(--topbar-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  color: white;
+  color: var(--ink);
   padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -608,17 +696,21 @@ html.sidebar-mobile-open body {
   font-family: 'Outfit', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
-  color: white;
+  color: var(--ink-strong);
 }
 
 .hamburger-btn {
   display: none;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--surface-2);
+  border: 1px solid var(--edge-strong);
   border-radius: 10px;
   /* 44x44: alvo mínimo de toque recomendado (era 40px). */
   width: 44px;
   height: 44px;
+  /* .topbar-left espreme o botão abaixo do width especificado quando o
+     topbar fica apertado (ex.: com o switch de módulo do Owner também
+     visível) — mesmo problema já corrigido no .sidebar-close-btn. */
+  flex-shrink: 0;
   cursor: pointer;
   flex-direction: column;
   justify-content: center;
@@ -629,13 +721,13 @@ html.sidebar-mobile-open body {
 }
 
 .hamburger-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--surface-3);
 }
 
 .hamburger-bar {
   width: 18px;
   height: 2px;
-  background-color: white;
+  background-color: var(--ink);
   border-radius: 2px;
   transition: all 0.3s ease;
 }
@@ -648,20 +740,18 @@ html.sidebar-mobile-open body {
 }
 
 .user-badge {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
   font-size: 0.8rem;
   font-weight: 700;
   padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--edge-accent);
 }
 
 .icon-btn {
-  /* --topbar-bg é branco (#FFFFFF) — ícone branco sobre fundo quase-branco
-     ficava invisível, sobrando só o badge vermelho flutuando no topbar. */
-  background: rgba(28, 36, 53, 0.05);
-  border: 1px solid var(--topbar-border);
+  background: var(--surface-2);
+  border: 1px solid var(--edge-default);
   color: var(--ink);
   width: 38px;
   height: 38px;
@@ -673,14 +763,14 @@ html.sidebar-mobile-open body {
   transition: var(--transition);
 }
 .icon-btn:hover {
-  background: rgba(28, 36, 53, 0.12);
+  background: var(--surface-3);
   transform: translateY(-2px);
 }
 
 .btn-mini-outline {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: var(--surface-1);
+  border: 1px solid var(--edge-strong);
+  color: var(--ink);
   padding: 6px 14px;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -689,20 +779,20 @@ html.sidebar-mobile-open body {
   transition: var(--transition);
 }
 .btn-mini-outline:hover {
-  border-color: white;
-  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--edge-accent);
+  background: var(--surface-hover);
 }
 
 /* Troca rápida de módulo (Owner): dois botões fixos na topbar (que já é
    sticky no topo) para alternar Cacau Show <-> Faça Amigos num clique só,
-   sem passar pela tela cheia de seleção de módulo. Cores próprias (não
-   .btn-mini-outline) porque essa classe é clara/transparente pensada pro
-   fundo escuro da sidebar — no topbar (--topbar-bg branco) ficaria ilegível. */
+   sem passar pela tela cheia de seleção de módulo. Estado ativo segue a
+   mesma tríade tint/borda/tinta escura do resto do sistema — nunca
+   preenchimento sólido com rótulo branco. */
 .owner-module-switch {
   display: flex;
   gap: 4px;
-  background: rgba(28, 36, 53, 0.05);
-  border: 1px solid var(--topbar-border);
+  background: var(--surface-2);
+  border: 1px solid var(--edge-default);
   border-radius: 999px;
   padding: 3px;
 }
@@ -711,9 +801,9 @@ html.sidebar-mobile-open body {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--ink-muted);
   padding: 6px 14px;
   border-radius: 999px;
   font-family: 'Outfit', sans-serif;
@@ -726,17 +816,25 @@ html.sidebar-mobile-open body {
 
 .module-switch-btn:hover {
   color: var(--ink);
-  background: rgba(28, 36, 53, 0.08);
+  background: var(--surface-hover);
 }
 
+/* Cacau Show usa o acento neutro do sistema (o módulo não tem mais
+   identidade de cor própria — ver alias --wine/--gold no topo do arquivo). */
 .module-switch-btn[data-modulo="cacau-show"].active {
-  background: var(--wine);
-  color: white;
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--tone-accent-line);
 }
 
+/* Faça Amigos: mesma dupla coral-tint/coral-ink (9,1:1 AAA) usada dentro do
+   módulo — repetida aqui em vez de referenciada porque esse botão vive na
+   topbar, fora de .fa-section/.fa-tab-panel (único escopo onde essas
+   variáveis existem). */
 .module-switch-btn[data-modulo="faca-amigos"].active {
-  background: #ff7a00;
-  color: white;
+  background: #FFE9F1;
+  color: #8A0038;
+  border-color: var(--coral);
 }
 
 @media (max-width: 640px) {
@@ -888,9 +986,10 @@ input:focus, select:focus {
 }
 
 .seg-btn.active {
-  background: var(--wine);
-  color: white;
-  box-shadow: var(--shadow-sm);
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  box-shadow: inset 0 -3px 0 var(--edge-accent);
+  font-weight: 700;
 }
 
 .photo-upload {
@@ -918,9 +1017,9 @@ input:focus, select:focus {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  border: none;
-  background: rgba(185, 44, 44, 0.9);
-  color: white;
+  border: 1px solid var(--tone-danger-line);
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 0.75rem;
@@ -930,7 +1029,7 @@ input:focus, select:focus {
   backdrop-filter: blur(4px);
 }
 .foto-preview-wrap .btn-mini:hover {
-  background: var(--red);
+  background: var(--tone-danger-hover);
   transform: scale(1.05);
 }
 
@@ -941,37 +1040,32 @@ input:focus, select:focus {
   margin-top: 12px;
 }
 
+/* Forma e tipografia do botão primário. As cores ficam na regra única do
+   fim do arquivo, para que exista um só lugar onde a paleta de ação é
+   decidida — antes havia dois blocos .btn-primary com !important brigando
+   pela mesma propriedade, e vencia o que estivesse mais abaixo. */
 .btn-primary {
-  background: linear-gradient(135deg, #3c4d58 0%, #161c21 100%) !important;
-  color: #ffffff !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
-  padding: 14px 28px !important;
-  border-radius: 14px !important;
-  font-family: 'Outfit', sans-serif !important;
-  font-weight: 800 !important;
-  font-size: 0.88rem !important;
-  letter-spacing: 0.5px !important;
-  cursor: pointer !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  box-shadow: 0 6px 18px rgba(22, 28, 33, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.6rem !important;
-  text-transform: uppercase !important;
+  padding: 14px 28px;
+  border-radius: 14px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-transform: uppercase;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #4d616e 0%, #27323b 100%) !important;
-  transform: translateY(-2px) scale(1.03) !important;
-  box-shadow: 0 10px 25px rgba(22, 28, 33, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
-  color: #ffffff !important;
+  transform: translateY(-2px);
 }
 
 .btn-primary:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 2px 8px rgba(22, 28, 33, 0.4) !important;
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-secondary {
@@ -1147,7 +1241,7 @@ input:focus, select:focus {
   height: 100%;
   border-radius: 999px;
   transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2);
+  box-shadow: inset 0 2px 4px rgba(11, 18, 32, 0.06);
 }
 
 .bar-value {
@@ -1246,8 +1340,8 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface-2, #f8fafc);
-  border: 1.5px solid var(--primary-light, #e2e8f0);
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   padding: 10px 16px;
   border-radius: 10px;
   margin-bottom: 14px;
@@ -1301,9 +1395,9 @@ tr.selected-row {
 }
 
 .btn-retirar {
-  background: var(--green);
-  color: white;
-  border: none;
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid var(--tone-success-line);
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -1313,7 +1407,7 @@ tr.selected-row {
   box-shadow: 0 2px 6px rgba(29, 114, 58, 0.2);
 }
 .btn-retirar:hover {
-  background: #14552b;
+  background: var(--tone-success-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(29, 114, 58, 0.3);
 }
@@ -1551,9 +1645,9 @@ tr.selected-row {
 }
 
 .btn-whatsapp {
-  background: #25D366;
-  color: white;
-  border: none;
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid #128C4A;
   padding: 12px 24px;
   border-radius: 12px;
   font-weight: 700;
@@ -1567,23 +1661,26 @@ tr.selected-row {
   box-shadow: 0 4px 10px rgba(37, 211, 102, 0.2);
 }
 .btn-whatsapp:hover {
-  background: #1ebe57;
+  background: var(--tone-success-hover);
   transform: translateY(-1.5px);
   box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
 }
 
+/* Usava a cor de LINHA como tinta — a linha é para borda e ícone, não para
+   texto. Sobre o tint de perigo isso dava 3,7:1 em qualquer aba; a tinta da
+   mesma tríade dá 9,2:1. */
 .alerta-card {
-  border-left: 5px solid var(--red);
-  background: var(--red-light);
-  color: var(--red);
+  border-left: 5px solid var(--tone-danger-line);
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
   font-weight: 500;
 }
 
 /* OFFLINE STATUS PILL */
 .offline-banner {
-  background: var(--amber-light);
-  border-bottom: 2px solid var(--amber);
-  color: var(--amber);
+  background: var(--tone-warning-soft);
+  border-bottom: 2px solid var(--tone-warning-line);
+  color: var(--tone-warning-ink);
   text-align: center;
   padding: 8px;
   font-size: 0.85rem;
@@ -1596,27 +1693,7 @@ tr.selected-row {
    MOBILE RESPONSIVENESS
    ========================================================================== */
 @media (max-width: 768px) {
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 16px;
-    gap: 14px;
-  }
-  .brand {
-    justify-content: center;
-  }
-  .tabs {
-    width: 100%;
-  }
-  .tabs .tab-btn {
-    flex: 1;
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    text-align: center;
-  }
   .user-box {
-    justify-content: center;
-    flex-wrap: wrap;
     gap: 8px;
   }
   
@@ -1695,9 +1772,9 @@ tr.selected-row {
 }
 
 .btn-excluir {
-  background: var(--red);
-  color: white;
-  border: none;
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border: 1.5px solid var(--tone-danger-line);
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -1731,7 +1808,8 @@ tr.selected-row {
   color: var(--ink);
   padding: 16px 20px;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--edge-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1739,7 +1817,7 @@ tr.selected-row {
   font-size: 0.9rem;
   min-width: 280px;
   pointer-events: auto;
-  border-left: 6px solid var(--gold);
+  border-left: 6px solid var(--tone-accent-line);
   transform: translateX(120%);
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
   opacity: 0;
@@ -1750,9 +1828,9 @@ tr.selected-row {
   opacity: 1;
 }
 
-.toast.sucesso { border-left-color: var(--green); }
-.toast.erro { border-left-color: var(--red); }
-.toast.info { border-left-color: var(--amber); }
+.toast.sucesso { border-left-color: var(--tone-success-line); background: var(--tone-success-soft); color: var(--tone-success-ink); }
+.toast.erro    { border-left-color: var(--tone-danger-line);  background: var(--tone-danger-soft);  color: var(--tone-danger-ink); }
+.toast.info    { border-left-color: var(--tone-warning-line); background: var(--tone-warning-soft); color: var(--tone-warning-ink); }
 
 /* ==========================================================================
    SPINNER & LOADING
@@ -1772,8 +1850,8 @@ tr.selected-row {
   height: 20px;
   margin-top: -10px;
   margin-left: -10px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-top-color: white;
+  border: 3px solid var(--edge-default);
+  border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1790,8 +1868,9 @@ tr.selected-row {
   position: absolute;
   top: -100%;
   left: 16px;
-  background: var(--wine);
-  color: white;
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  border: 2px solid var(--edge-accent);
   padding: 12px 24px;
   border-radius: 0 0 12px 12px;
   font-weight: 700;
@@ -2007,7 +2086,7 @@ button:focus-visible,
    ========================================================================== */
 .session-timer {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ink-muted);
   margin-left: 4px;
   font-weight: 500;
   transition: color 0.3s;
@@ -2051,10 +2130,10 @@ button:focus-visible,
 }
 
 .obs-tag-btn.active {
-  background: var(--wine);
-  color: white;
-  border-color: var(--wine);
-  box-shadow: 0 2px 8px rgba(74, 18, 26, 0.2);
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--edge-accent);
+  box-shadow: inset 0 -3px 0 var(--edge-accent);
 }
 
 /* ==========================================================================
@@ -2064,8 +2143,9 @@ button:focus-visible,
   position: absolute;
   top: -4px;
   right: -4px;
-  background: var(--amber);
-  color: white;
+  background: var(--tone-warning-soft);
+  color: var(--tone-warning-ink);
+  border: 2px solid var(--tone-warning-line);
   font-size: 0.62rem;
   font-weight: 800;
   min-width: 18px;
@@ -2092,108 +2172,112 @@ button:focus-visible,
 /* ==========================================================================
    BOTTOM NAVIGATION (Mobile PWA — #7)
    ========================================================================== */
-.bottom-nav {
+.bottom-nav,
+.fab {
   display: none;
 }
 
-@media (max-width: 768px) {
-  .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--paper);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
-    z-index: 100;
-    padding: 6px 0;
-    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-    justify-content: space-around;
-    align-items: center;
-    /* Perfis com muitos atalhos (Líder, Owner com Insights IA) não cabem numa
-       tela estreita: a barra rola na horizontal em vez de cortar os últimos. */
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
+/* ==========================================================================
+   CASCA COMPACTA — barra inferior e ação flutuante
+   --------------------------------------------------------------------------
+   Amarradas à densidade, e não a 768px como antes: é o que fecha o vão de
+   769–900px em que existia hambúrguer e nenhuma barra de navegação.
+   O desenho de cada uma (proporções, indicador, presença do FAB) é definido
+   pelo idioma da plataforma, mais abaixo — aqui fica só o que é comum.
+   Perfis com muitos atalhos (Líder, Owner com Insights IA) não cabem numa
+   barra fixa: o JS já limita a 4 destinos + "Mais" (webapp/app.js), então a
+   barra em si não precisa rolar.
+   ========================================================================== */
+.density-compact .bottom-nav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface-1);
+  border-top: 1px solid var(--edge-subtle);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  justify-content: space-around;
+  align-items: stretch;
+}
 
-  .bottom-nav::-webkit-scrollbar {
-    display: none;
-  }
+.density-compact .bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  padding: 0 4px;
+}
 
-  .bottom-nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 12px;
-    transition: var(--transition);
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.65rem;
-    font-weight: 600;
-    min-width: 56px;
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
+.density-compact .bottom-nav-btn .nav-icon {
+  line-height: 1;
+  flex-shrink: 0;
+}
 
-  .bottom-nav-btn .nav-icon {
-    font-size: 1.3rem;
-    line-height: 1;
-  }
+/* O rótulo pode ser longo ("Metas Hora a Hora"): trunca em vez de empurrar os
+   vizinhos e desalinhar a barra. Aplicado ao rótulo, e não ao botão, para não
+   cortar o ícone junto. */
+.density-compact .bottom-nav-btn .nav-rotulo {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  .bottom-nav-btn.active {
-    color: var(--wine);
-    background: rgba(74, 18, 26, 0.06);
-  }
+.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+}
 
-  .bottom-nav-btn.active .nav-icon {
-    transform: scale(1.1);
-  }
+.density-compact .fab {
+  position: fixed;
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border: 1.5px solid var(--edge-accent);
+  font-size: 1.6rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
 
-  /* Hide header tabs on mobile when bottom nav exists */
-  .tabs {
-    display: none !important;
-  }
+.density-compact .fab:active {
+  transform: scale(0.94);
+}
 
-  /* FAB — Floating Action Button */
-  .fab {
-    position: fixed;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-    right: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--wine), var(--wine-dark));
-    color: white;
-    border: none;
-    font-size: 1.6rem;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(74, 18, 26, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 101;
-    transition: var(--transition);
-  }
+/* Espaço para a barra inferior não cobrir o fim do conteúdo nem os toasts. */
+.density-compact main {
+  padding-bottom: calc(var(--nav-inferior-altura, 64px) + 24px + env(safe-area-inset-bottom, 0px));
+}
 
-  .fab:hover, .fab:active {
-    transform: scale(1.1);
-    box-shadow: 0 8px 25px rgba(74, 18, 26, 0.45);
-  }
+.density-compact #toast-container {
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+}
 
-  main {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Toast ajustado para não sobrepor bottom nav */
-  #toast-container {
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  }
+/* Na densidade expandida a navegação é a barra lateral: nenhuma das duas
+   peças flutuantes deve aparecer, em nenhum idioma. */
+.density-expanded .bottom-nav,
+.density-expanded .fab {
+  display: none !important;
 }
 
 /* ==========================================================================
@@ -2274,9 +2358,9 @@ button:focus-visible,
 }
 
 .btn-pag:hover:not(:disabled) {
-  background: var(--wine);
-  color: white;
-  border-color: var(--wine);
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--edge-accent);
 }
 
 .btn-pag:disabled {
@@ -2618,6 +2702,202 @@ body.tema-fa .topbar {
 }
 
 /* ============================================================
+   FAÇAAMIGOS — CAMADA DE PRESERVAÇÃO
+   ------------------------------------------------------------
+   O módulo Faça Amigos está congelado: deve renderizar exatamente
+   como antes da migração para o tema claro. Ele não é atingido
+   pela renomeação de classes (não usa nenhum utilitário de cor
+   do app), mas herdava três coisas do sistema global que este
+   refactor mudou. Este bloco reproduz o valor computado de cada
+   uma, escopado no subtree do módulo.
+
+   Sem isto, "não modificar o Faça Amigos" seria violado por
+   herança, mesmo com o código-fonte do módulo intacto.
+   ============================================================ */
+
+/* 1. Tokens compartilhados que o FA consome via .card, .field,
+      input, .empty-state, .btn-secondary, .modal-*, .toast.
+      Redeclarados no subtree com os valores anteriores ao
+      refactor, já que as custom properties herdam. */
+.fa-section,
+.fa-tab-panel {
+  color: #1C2435;
+  /* A seção não tinha fundo próprio: mostrava o canvas da página, que era
+     #F2F6F9. O novo canvas é #F4F6FA — dois níveis mais claro. Fixar o valor
+     antigo aqui deixa o módulo idêntico ao pixel, em vez de "quase". */
+  background: #F2F6F9;
+  --cream: #F2F6F9;
+  --paper: #FFFFFF;
+  --ink: #1C2435;
+  --muted: #4A4A4A;
+  --border: #E2E8F0;
+  --wine: #2D538E;
+  --wine-light: #4A7FD3;
+  --wine-dark: #1C2435;
+  --gold: #009688;
+  --gold-light: #E0F2F1;
+  --gold-dark: #00796B;
+  --green: #009688;
+  --green-light: #E0F2F1;
+  --amber: #F57C00;
+  --amber-light: #FFE0B2;
+  --red: #F44336;
+  --red-light: #FFEBEE;
+  --blue: #1E62C9;
+  --blue-light: #EBF5FF;
+  --radius: 12px;
+  --shadow-sm: 0 2px 8px rgba(28, 36, 53, 0.03);
+  --shadow-md: 0 4px 12px rgba(28, 36, 53, 0.05);
+  --shadow-lg: 0 8px 24px rgba(28, 36, 53, 0.08);
+}
+
+/* 3. Identidade do módulo, dentro do sistema claro.
+      ------------------------------------------------------------
+      Até aqui o banner e os botões do Faça Amigos estavam congelados em
+      azul-marinho e teal — não por desenho, mas por dois vazamentos: o
+      seletor posicional `.tab-panel > div:first-child` sobrescrevia o
+      banner, e dois blocos `.btn-primary` concorrentes deixavam os botões
+      com o gradiente cinza-escuro de um deles.
+
+      O módulo recupera agora sua identidade coral. O banner, porém, NÃO
+      volta ao índigo escuro original: um fundo escuro com título branco
+      contradiz a diretriz do sistema. A identidade vem do coral no
+      título, na faixa de acento e nos botões, sobre a superfície clara
+      `--aqua`, que também é do próprio módulo.
+      ------------------------------------------------------------ */
+/* Tint e tinta do coral, para o módulo cumprir AAA sem abrir mão da cor.
+   --coral-ink (#8A0038) sobre --coral-tint (#FFE9F1) dá 9,1:1. Declarados
+   aqui, e não no bloco de tema do módulo: aquele bloco serve de tripwire
+   contra alteração acidental do Faça Amigos e é melhor não tocá-lo. */
+.fa-section,
+.fa-tab-panel {
+  --coral-tint: #FFE9F1;
+  --coral-tint-hover: #FFD6E6;
+  --coral-ink: #8A0038;
+}
+
+.fa-section > .fa-header-banner {
+  background: var(--aqua);
+  border: 1px solid var(--sky);
+  border-radius: 16px;
+  box-shadow: inset 4px 0 0 var(--coral), var(--fa-shadow-sm);
+}
+
+/* Os dois blobs decorativos foram desenhados para brilhar sobre fundo
+   escuro; sobre a superfície clara viram manchas. */
+.fa-section > .fa-header-banner::before,
+.fa-section > .fa-header-banner::after {
+  display: none;
+}
+
+.fa-section .fa-title {
+  color: var(--indigo);
+}
+
+.fa-section .fa-subtitle {
+  /* --ink-soft (#416264) sobre --aqua dá 6,2:1, e a 13,6px isto é texto
+     normal: o piso é 7:1. Este tom escurecido mantém o verde-petróleo do
+     módulo e chega a 9:1. */
+  color: #2B4A4C;
+}
+
+.fa-section .fa-title-accent {
+  color: var(--coral-dark);
+}
+
+/* Chips das unidades: eram translúcidos sobre escuro. */
+.fa-section .fa-lojas-badge span {
+  background: var(--surface-1);
+  border: 1px solid var(--sky);
+  color: var(--indigo);
+}
+
+/* 4. Botões primários do módulo.
+      O coral puro (#F50469) sobre branco dá 4,1:1 e reprova em AAA, então
+      o preenchimento é o tint claro e o rótulo é a tinta coral escura —
+      mesma regra de tint + tinta que vale para o resto do app, com a cor
+      do Faça Amigos em vez da do sistema.
+
+      Especificidade 0,2,0: vence `.btn-primary` (0,1,0) sem !important e
+      sem depender da ordem do arquivo. Sem isto, o `.btn-primary` global,
+      que vem depois no arquivo, sobreporia a cor e o rótulo ficaria verde
+      sobre coral. */
+.fa-section .fa-btn-primary,
+.fa-tab-panel .fa-btn-primary {
+  background: var(--coral-tint);
+  background-image: none;
+  color: var(--coral-ink);
+  border: 1.5px solid var(--coral);
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+
+.fa-section .fa-btn-primary:hover,
+.fa-tab-panel .fa-btn-primary:hover {
+  background: var(--coral-tint-hover);
+  background-image: none;
+  box-shadow: inset 3px 0 0 var(--coral), var(--fa-shadow-sm);
+}
+
+/* A sub-navegação e a aba do módulo no menu usavam coral puro com rótulo
+   branco: mesmo problema de contraste, mesma solução. */
+.tab-btn.fa-tab-btn {
+  --coral-tint: #FFE9F1;
+  --coral-ink: #8A0038;
+}
+
+.fa-sub-btn.active,
+.fa-tab-btn.active,
+.tab-btn.fa-tab-btn.active {
+  background: var(--coral-tint) !important;
+  color: var(--coral-ink) !important;
+  border-color: var(--coral) !important;
+  box-shadow: inset 4px 0 0 var(--coral) !important;
+}
+
+.fa-sub-btn:hover {
+  background: var(--coral-tint);
+  color: var(--coral-ink);
+}
+
+/* 5. Componentes compartilhados que o FA reusa e que o novo sistema
+      converteu para tint + tinta escura. */
+.fa-section .foto-preview-wrap .btn-mini {
+  background: var(--tone-danger-soft) !important;
+  color: var(--tone-danger-ink) !important;
+  border: 1px solid var(--tone-danger-line) !important;
+}
+
+/* 6. Botão de WhatsApp: o FA tem preenchimento próprio (.fa-btn-whatsapp),
+      sobre o qual o rótulo era branco. */
+/* O verde do WhatsApp com rótulo branco dá 1,8:1. A marca continua legível
+   pelo ícone e pela borda; o rótulo vai para tinta escura. */
+.fa-section .btn-whatsapp {
+  background-color: #E7F8EE !important;
+  background-image: none !important;
+  color: #0B5138 !important;
+  border: 1.5px solid #128C4A !important;
+}
+
+.fa-section .btn-whatsapp:hover {
+  background-color: #D3F1E0 !important;
+  background-image: none !important;
+}
+
+/* 7. O blanket de tinta saiu.
+      Ele existia porque o banner do módulo era escuro: forçava `#1C2435` em
+      todo p/span/label/td/li para o texto continuar legível ali. Com o
+      banner claro não há mais superfície escura no módulo, e o token --ink
+      redeclarado no item 1 já entrega tinta escura por herança. Mantê-lo
+      seria pior que inútil: com !important, ele sobreporia a cor própria de
+      .fa-subtitle, dos chips das unidades e das mensagens de formulário. */
+
+/* A tipografia global (`body, button, input… { font-family: Inter }`) e a
+   cor herdada continuam valendo para o FA exatamente como antes: os tokens
+   redeclarados no item 1 fazem --ink resolver para o valor antigo dentro do
+   módulo, então não é preciso — nem correto — reafirmá-las aqui com
+   especificidade maior, sob pena de sobrepor .fa-sub-btn e afins. */
+
+/* ============================================================
    SELEÇÃO DE MÓDULOS (OWNERS)
    ============================================================ */
 
@@ -2702,6 +2982,12 @@ body.tema-fa .topbar {
    CÂMERA UNIVERSAL (fullscreen, multi-modo)
    ============================================================ */
 
+/* Única superfície escura que sobrevive ao tema claro: o palco do vídeo.
+   É o letterbox atrás de um feed de câmera ao vivo, não uma superfície de
+   interface — não carrega texto, e um fundo claro deixaria a imagem
+   ilegível. Toda a chrome (título, fechar, status, botão de captura) é
+   clara com tinta escura. Documentado aqui para que a auditoria de
+   contraste possa excluí-lo conscientemente em vez de reprovar sempre. */
 .camera-universal-overlay {
   position: fixed;
   inset: 0;
@@ -2789,7 +3075,10 @@ body.tema-fa .topbar {
 }
 
 .camera-universal-header-title {
-  color: rgba(255,255,255,0.85);
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  padding: 6px 14px;
+  border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -2801,9 +3090,9 @@ body.tema-fa .topbar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  border: 1px solid var(--edge-strong);
+  background: var(--surface-1);
+  color: var(--ink-strong);
   font-size: 1.1rem;
   cursor: pointer;
 }
@@ -2816,8 +3105,9 @@ body.tema-fa .topbar {
   max-width: 90vw;
   padding: 10px 22px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  border: 1px solid var(--edge-default);
   font-weight: 700;
   font-size: clamp(0.85rem, 4vw, 1rem);
   text-align: center;
@@ -2842,9 +3132,9 @@ body.tema-fa .topbar {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  border: 4px solid rgba(255,255,255,0.4);
-  background: #10b981;
-  color: #fff;
+  border: 4px solid var(--tone-success-line);
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
   font-weight: 800;
   font-size: 1rem;
   cursor: pointer;
@@ -2853,19 +3143,20 @@ body.tema-fa .topbar {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  box-shadow: 0 4px 20px rgba(16,185,129,0.5);
+  box-shadow: 0 4px 20px rgba(11, 18, 32, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .camera-universal-capture-btn:active {
   transform: scale(0.93);
-  box-shadow: 0 2px 8px rgba(16,185,129,0.4);
+  box-shadow: 0 2px 8px rgba(11, 18, 32, 0.3);
 }
 
 
 .camera-universal-capture-btn:disabled {
-  background: #6b7280;
-  opacity: 0.6;
+  background: var(--surface-3);
+  color: var(--ink-faint);
+  border-color: var(--edge-strong);
   cursor: not-allowed;
 }
 
@@ -2959,8 +3250,9 @@ body.tema-fa .topbar {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: var(--red);
-  color: white;
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border: 2px solid var(--tone-danger-line);
   font-size: 0.65rem;
   font-weight: 800;
   border-radius: 999px;
@@ -2978,7 +3270,7 @@ body.tema-fa .topbar {
 }
 .btn-primary::after {
   content: "";
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(11, 18, 32, 0.10);
   display: block;
   position: absolute;
   border-radius: 50%;
@@ -2999,336 +3291,70 @@ body.tema-fa .topbar {
 }
 
 /* ============================================================
-   RESPONSIVIDADE: SIDEBAR MOBILE (≤ 900px)
+   CASCA DE NAVEGAÇÃO — comandada por densidade, não por media query
+   ------------------------------------------------------------
+   Antes havia dois pontos de corte em desacordo: a barra lateral virava
+   gaveta em 900px, mas a barra inferior só aparecia em 768px. Entre 769 e
+   900px o usuário ficava com hambúrguer e NENHUMA barra de navegação.
+
+   Agora existe um único ponto estrutural (900px), lido pelo script de
+   detecção no <head> e publicado como `density-compact` / `density-expanded`
+   no <html>. Ler a densidade da classe, e não da media query, faz o CSS e o
+   JS concordarem sobre qual casca está no ar — e torna a emulação de
+   dispositivo testável, porque basta trocar a classe.
    ============================================================ */
-@media (max-width: 900px) {
-  .app-main {
-    margin-left: 0;
-  }
+.density-compact .app-main {
+  margin-left: 0;
+}
 
-  .sidebar {
-    transform: translateX(-100%);
-    /* min(): em telas bem estreitas (ex.: 320-360px, Android de entrada)
-       285px fixos deixavam quase nada de backdrop visível; agora nunca
-       passa de 86% da largura da tela. */
-    width: min(285px, 86vw);
-    /* Bloqueia o "puxa-empurra" de rolagem entre o drawer e a página por
-       trás dele quando a lista de tabs chega no topo/fim. */
-    overscroll-behavior: contain;
-  }
+/* Sem nenhuma classe de densidade — script de detecção bloqueado ou com erro —
+   o app cai no layout de barra lateral persistente, que é o de hoje. Degradar
+   para o layout atual, nunca para um layout quebrado. */
 
-  .sidebar.open {
-    transform: translateX(0);
-  }
+.density-compact .sidebar {
+  transform: translateX(-100%);
+  /* min(): em telas bem estreitas (ex.: 320-360px, Android de entrada) 285px
+     fixos deixavam quase nada de backdrop visível; agora nunca passa de 86%
+     da largura da tela. */
+  width: min(285px, 86vw);
+  /* Bloqueia o "puxa-empurra" de rolagem entre o drawer e a página por trás
+     dele quando a lista de tabs chega no topo/fim. */
+  overscroll-behavior: contain;
+}
 
-  .sidebar-close-btn {
-    display: flex;
-  }
+.density-compact .sidebar.open {
+  transform: translateX(0);
+}
 
-  .hamburger-btn {
-    display: flex;
-  }
+.density-compact .sidebar-close-btn {
+  display: flex;
+}
 
-  .topbar-brand-mobile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+.density-compact .hamburger-btn {
+  display: flex;
+}
 
-  .topbar {
-    padding: 12px 16px;
-  }
+.density-compact .topbar-brand-mobile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-  main {
-    padding: 16px 12px;
-  }
+.density-compact .topbar {
+  padding: 12px 16px;
+}
+
+.density-compact main {
+  padding: 16px 12px;
 }
 
 /* ============================================================
    SERVER DOWN BANNER & LOGISTICS VISUAL UNIFICATION
    ============================================================ */
 .offline-banner.server-down {
-  background: rgba(185, 44, 44, 0.1) !important;
-  border-bottom: 2px solid var(--red) !important;
-  color: var(--red) !important;
-}
-
-/* Visual Unification of Logistics & Boletos Tabs with the Main Theme
-   (estendido também a Ponto, RH e Meta Hora a Hora — mesmo idioma "glass"
-   escuro que antes ficava incoerente com o resto do app, agora unificado
-   ao tema claro). */
-#tab-conferencia-nfe .glass-card,
-#tab-inventario-estoque .glass-card,
-#tab-boletos .glass-card,
-#tab-auditoria-boletos .glass-card,
-#tab-controle-ponto .glass-card,
-#tab-rh-modulo .glass-card,
-#tab-meta-hora-hora .glass-card {
-  background: var(--paper) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--ink) !important;
-  box-shadow: var(--shadow-md) !important;
-  border-radius: var(--radius) !important;
-}
-
-#tab-conferencia-nfe h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-conferencia-nfe h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-conferencia-nfe h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-inventario-estoque h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-inventario-estoque h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-inventario-estoque h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-boletos h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-boletos h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-boletos h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-auditoria-boletos h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-auditoria-boletos h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-auditoria-boletos h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-controle-ponto h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-controle-ponto h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-controle-ponto h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-rh-modulo h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
-#tab-rh-modulo h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
-#tab-rh-modulo h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400):not(.text-indigo-300):not(.text-indigo-400),
-#tab-meta-hora-hora h2:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-meta-hora-hora h3:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400),
-#tab-meta-hora-hora h4:not(.text-brand-200):not(.text-white):not(.text-amber-400):not(.text-emerald-400) {
-  color: var(--wine) !important;
-  font-family: 'Outfit', sans-serif !important;
-}
-
-/* Inputs, selects, and text targets em Logística, Ponto, RH e Meta Hora a Hora */
-#tab-conferencia-nfe select,
-#tab-conferencia-nfe input,
-#tab-inventario-estoque select,
-#tab-inventario-estoque input,
-#tab-boletos select,
-#tab-boletos input,
-#tab-auditoria-boletos select,
-#tab-auditoria-boletos input,
-#tab-controle-ponto select,
-#tab-controle-ponto input,
-#tab-rh-modulo select,
-#tab-rh-modulo input,
-#tab-meta-hora-hora select,
-#tab-meta-hora-hora input {
-  background-color: var(--cream) !important;
-  color: var(--ink) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  padding: 10px 14px !important;
-  min-height: 44px !important;
-  font-size: 0.9rem !important;
-}
-
-/* Overriding Tailwind xs sizing to improve legibility on shop floor */
-#tab-conferencia-nfe .text-xs,
-#tab-conferencia-nfe .text-\[11px\],
-#tab-inventario-estoque .text-xs,
-#tab-inventario-estoque .text-\[11px\],
-#tab-boletos .text-xs,
-#tab-boletos .text-\[11px\],
-#tab-auditoria-boletos .text-xs,
-#tab-auditoria-boletos .text-\[11px\],
-#tab-controle-ponto .text-xs,
-#tab-controle-ponto .text-\[11px\],
-#tab-rh-modulo .text-xs,
-#tab-rh-modulo .text-\[11px\],
-#tab-meta-hora-hora .text-xs,
-#tab-meta-hora-hora .text-\[11px\],
-#tab-conferencia-nfe .text-brand-400,
-#tab-inventario-estoque .text-brand-400,
-#tab-boletos .text-brand-400,
-#tab-auditoria-boletos .text-brand-400,
-#tab-controle-ponto .text-brand-400,
-#tab-rh-modulo .text-brand-400,
-#tab-meta-hora-hora .text-brand-400 {
-  font-size: 0.875rem !important; /* ~14px instead of 11/12px */
-}
-
-#tab-conferencia-nfe .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-inventario-estoque .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-auditoria-boletos .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-controle-ponto .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *),
-#tab-meta-hora-hora .text-brand-400:not(.bg-brand-950 *):not(.bg-brand-900 *):not(.bg-gradient-to-r *) {
-  color: var(--muted) !important;
-}
-
-/* Ensure buttons have minimum touch size of 44px */
-#tab-conferencia-nfe button,
-#tab-conferencia-nfe label.cursor-pointer,
-#tab-inventario-estoque button,
-#tab-boletos button,
-#tab-auditoria-boletos button,
-#tab-controle-ponto button,
-#tab-rh-modulo button,
-#tab-meta-hora-hora button {
-  min-height: 44px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 0.875rem !important;
-  padding: 8px 16px !important;
-}
-
-/* Overrides for specific text color tags in Tailwind elements */
-#tab-conferencia-nfe .text-brand-200,
-#tab-inventario-estoque .text-brand-200,
-#tab-boletos .text-brand-200,
-#tab-auditoria-boletos .text-brand-200,
-#tab-controle-ponto .text-brand-200:not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-200:not(.bg-gradient-to-r *),
-#tab-meta-hora-hora .text-brand-200:not(.bg-gradient-to-r *) {
-  color: var(--ink) !important;
-}
-
-/* Overriding dark background highlights to adapt to light/dark themes */
-#tab-conferencia-nfe .bg-brand-950,
-#tab-conferencia-nfe .bg-brand-900,
-#tab-conferencia-nfe .bg-brand-950\/60,
-#tab-conferencia-nfe .bg-brand-950\/80,
-#tab-conferencia-nfe .bg-brand-900\/30,
-#tab-inventario-estoque .bg-brand-950,
-#tab-inventario-estoque .bg-brand-900,
-#tab-inventario-estoque .bg-brand-950\/40,
-#tab-inventario-estoque .bg-brand-950\/60,
-#tab-inventario-estoque .bg-brand-950\/80,
-#tab-inventario-estoque .bg-brand-900\/30,
-#tab-inventario-estoque .bg-brand-900\/40,
-#tab-boletos .bg-brand-950,
-#tab-boletos .bg-brand-900,
-#tab-boletos .bg-brand-950\/60,
-#tab-boletos .bg-brand-950\/80,
-#tab-boletos .bg-brand-900\/30,
-#tab-auditoria-boletos .bg-brand-950,
-#tab-auditoria-boletos .bg-brand-900,
-#tab-auditoria-boletos .bg-brand-950\/60,
-#tab-auditoria-boletos .bg-brand-950\/80,
-#tab-auditoria-boletos .bg-brand-900\/30,
-#tab-controle-ponto .bg-brand-950,
-#tab-controle-ponto .bg-brand-900,
-#tab-controle-ponto .bg-brand-950\/40,
-#tab-controle-ponto .bg-brand-950\/60,
-#tab-controle-ponto .bg-brand-950\/80,
-#tab-controle-ponto .bg-brand-900\/30,
-#tab-controle-ponto .bg-brand-900\/40,
-#tab-rh-modulo .bg-brand-950,
-#tab-rh-modulo .bg-brand-900,
-#tab-rh-modulo .bg-brand-950\/40,
-#tab-rh-modulo .bg-brand-950\/60,
-#tab-rh-modulo .bg-brand-950\/70,
-#tab-rh-modulo .bg-brand-950\/80,
-#tab-rh-modulo .bg-brand-900\/30,
-#tab-rh-modulo .bg-brand-900\/40,
-#tab-meta-hora-hora .bg-brand-950,
-#tab-meta-hora-hora .bg-brand-900,
-#tab-meta-hora-hora .bg-brand-950\/40,
-#tab-meta-hora-hora .bg-brand-950\/90,
-#tab-meta-hora-hora .bg-brand-900\/30,
-#tab-meta-hora-hora .bg-brand-900\/40 {
-  background: var(--cream) !important;
-  color: var(--ink) !important;
-}
-
-/* Ensure clean contrast for headers/labels in light/dark themes */
-#tab-boletos .bg-gradient-to-r,
-#tab-auditoria-boletos .bg-gradient-to-r {
-  background: var(--wine-gradient) !important;
-  border-color: var(--border) !important;
-}
-
-#tab-boletos .bg-gradient-to-r h2,
-#tab-boletos .bg-gradient-to-r p,
-#tab-auditoria-boletos .bg-gradient-to-r h2,
-#tab-auditoria-boletos .bg-gradient-to-r p {
-  color: #ffffff !important;
-}
-
-#tab-boletos .text-brand-100,
-#tab-boletos .text-brand-300,
-#tab-boletos .text-brand-400,
-#tab-auditoria-boletos .text-brand-100,
-#tab-auditoria-boletos .text-brand-300,
-#tab-auditoria-boletos .text-brand-400,
-#tab-controle-ponto .text-brand-100:not(.bg-gradient-to-r *),
-#tab-controle-ponto .text-brand-300:not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-100:not(.bg-gradient-to-r *),
-#tab-rh-modulo .text-brand-300:not(.bg-gradient-to-r *),
-#tab-meta-hora-hora .text-brand-100:not(.bg-gradient-to-r *),
-#tab-meta-hora-hora .text-brand-300:not(.bg-gradient-to-r *) {
-  color: var(--muted) !important;
-}
-
-#tab-boletos th,
-#tab-auditoria-boletos th {
-  color: var(--ink) !important;
-  background-color: var(--cream) !important;
-}
-
-#tab-boletos td,
-#tab-auditoria-boletos td {
-  color: var(--ink) !important;
-}
-
-/* Step numbers highlight */
-#tab-conferencia-nfe .group-hover\:bg-brand-700,
-#tab-conferencia-nfe .bg-brand-800,
-#tab-boletos .bg-brand-800 {
-  background: var(--wine) !important;
-  color: var(--paper) !important;
-}
-
-/* ------------------------------------------------------------------
-   Aba Importações: herda o mesmo tratamento de tema claro das abas de
-   Logística/Boletos, já que os cards foram movidos de lá.
-   ------------------------------------------------------------------ */
-#tab-importacoes .glass-card {
-  background: var(--paper) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--ink) !important;
-  box-shadow: var(--shadow-md) !important;
-  border-radius: var(--radius) !important;
-}
-
-#tab-importacoes h2:not(.text-white),
-#tab-importacoes h3:not(.text-white) {
-  color: var(--wine) !important;
-  font-family: 'Outfit', sans-serif !important;
-}
-
-#tab-importacoes select {
-  background-color: var(--cream) !important;
-  color: var(--ink) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  min-height: 44px !important;
-}
-
-#tab-importacoes .bg-brand-950,
-#tab-importacoes .bg-brand-900,
-#tab-importacoes .bg-brand-950\/60,
-#tab-importacoes .bg-brand-950\/80,
-#tab-importacoes .bg-brand-900\/30 {
-  background: var(--cream) !important;
-  color: var(--ink) !important;
-}
-
-#tab-importacoes .bg-gradient-to-r {
-  background: var(--wine-gradient) !important;
-  border-color: var(--border) !important;
-}
-
-#tab-importacoes .bg-gradient-to-r h2,
-#tab-importacoes .bg-gradient-to-r p {
-  color: #ffffff !important;
-}
-
-#tab-importacoes .text-brand-200 { color: var(--ink) !important; }
-#tab-importacoes .text-brand-400 { color: var(--muted) !important; }
-#tab-importacoes .bg-brand-800 {
-  background: var(--wine) !important;
-  color: var(--paper) !important;
+  background: var(--tone-danger-soft) !important;
+  border-bottom: 2px solid var(--tone-danger-line) !important;
+  color: var(--tone-danger-ink) !important;
 }
 
 /* Passo a passo retrátil (<details>) */
@@ -3345,61 +3371,6 @@ body.tema-fa .topbar {
 }
 .passo-a-passo[open] > .passo-a-passo-summary .passo-a-passo-chevron {
   transform: rotate(180deg);
-}
-
-/* ------------------------------------------------------------------
-   Contraste das pílulas do Leitor de Código de Barras: as regras de tema
-   claro cobriam só as classes sem opacidade (.bg-brand-800/.bg-brand-900),
-   deixando as variantes /60 com o fundo escuro do Tailwind e texto claro.
-   ------------------------------------------------------------------ */
-#tab-inventario-estoque .bg-brand-800\/60,
-#tab-inventario-estoque .bg-brand-900\/60,
-#tab-conferencia-nfe .bg-brand-900\/60,
-#tab-conferencia-nfe .bg-brand-900\/80,
-#tab-importacoes .bg-brand-900\/60 {
-  background: var(--cream) !important;
-  border-color: var(--border) !important;
-  color: var(--ink) !important;
-}
-
-#tab-inventario-estoque .text-brand-300,
-#tab-conferencia-nfe .text-brand-300,
-#tab-importacoes .text-brand-300 {
-  color: var(--wine) !important;
-}
-
-/* Badges e Pílulas de Status: Otimização de contraste para Tema Claro */
-#tab-meta-hora-hora .rounded-full.bg-red-950,
-#tab-boletos .rounded-full.bg-red-950,
-#tab-auditoria-boletos .rounded-full.bg-red-950 {
-  background-color: var(--red-light) !important;
-  color: #c5221f !important;
-  border-color: rgba(244, 67, 54, 0.3) !important;
-}
-
-#tab-meta-hora-hora .rounded-full.bg-emerald-950,
-#tab-boletos .rounded-full.bg-emerald-950,
-#tab-auditoria-boletos .rounded-full.bg-emerald-950 {
-  background-color: var(--green-light) !important;
-  color: var(--gold-dark) !important;
-  border-color: rgba(0, 121, 107, 0.3) !important;
-}
-
-#tab-meta-hora-hora .rounded-full.bg-amber-950,
-#tab-boletos .rounded-full.bg-amber-950,
-#tab-auditoria-boletos .rounded-full.bg-amber-950 {
-  background-color: var(--amber-light) !important;
-  color: #b25e00 !important;
-  border-color: rgba(245, 124, 0, 0.3) !important;
-}
-
-#tab-meta-hora-hora .rounded-full.bg-brand-900,
-#tab-meta-hora-hora .rounded-full.bg-indigo-950,
-#tab-boletos .rounded-full.bg-indigo-950,
-#tab-auditoria-boletos .rounded-full.bg-indigo-950 {
-  background-color: var(--blue-light) !important;
-  color: #0a3680 !important;
-  border-color: rgba(30, 98, 201, 0.3) !important;
 }
 
 /* ============================================================
@@ -3439,7 +3410,7 @@ body.tema-fa .topbar {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--surface-2);
 }
 
 .notifications-header h3 {
@@ -3463,8 +3434,8 @@ body.tema-fa .topbar {
 }
 
 .btn-clear-all:hover {
-  color: var(--gold);
-  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--ink-accent);
+  background-color: var(--surface-hover);
 }
 
 .notifications-list {
@@ -3566,7 +3537,7 @@ body.tema-fa .topbar {
   padding: 8px 16px;
   text-align: center;
   border-top: 1px solid var(--border);
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--surface-2);
 }
 
 .notifications-footer span {
@@ -3726,41 +3697,28 @@ body.tema-fa .topbar {
 
 /* Badges com fundo sólido vivo + texto branco (era um fundo quase transparente
    com texto escuro — baixo contraste no tema escuro do módulo). */
-.disc-badge-d { background-color: var(--disc-d) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
-.disc-badge-i { background-color: var(--disc-i) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
-.disc-badge-s { background-color: var(--disc-s) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
-.disc-badge-c { background-color: var(--disc-c) !important; color: #ffffff !important; border: 1px solid #ffffff40; }
-
-/* ---- Classes utilitárias que o Módulo RH usa mas o build estático do
-   Tailwind (webapp/tailwind-compiled.css, sem CLI/config no projeto) nunca
-   compilou — ficavam transparentes/invisíveis. Ver commit da correção
-   equivalente no filtro de Inventário para o mesmo diagnóstico. */
-.bg-red-950\/20 { background-color: #450a0a33 !important; }
-.bg-amber-950\/20 { background-color: #451a0333 !important; }
-.bg-emerald-950\/20 { background-color: #022c2233 !important; }
-.bg-indigo-950\/20 { background-color: #1e1b4b33 !important; }
-.border-red-900\/40 { border-color: #7f1d1d66 !important; }
-.border-amber-900\/40 { border-color: #78350f66 !important; }
-.border-emerald-900\/40 { border-color: #064e3b66 !important; }
-.border-indigo-900\/40 { border-color: #312e8166 !important; }
-.bg-red-500 { background-color: #ef4444 !important; }
-.bg-amber-500 { background-color: #f59e0b !important; }
-.bg-emerald-500 { background-color: #10b981 !important; }
-.text-red-300 { color: #fca5a5 !important; }
-.text-amber-300 { color: #fcd34d !important; }
-.text-emerald-300 { color: #6ee7b7 !important; }
+/* Cada letra vira uma tríade tint + tinta escura + linha de acento, com uma
+   faixa lateral de 4px carregando a identidade cromática. O padrão anterior
+   (preenchimento vivo + texto branco) reprovava por larga margem: branco
+   sobre o âmbar de Influência dava 2,15:1 e sobre o verde de Estabilidade,
+   1,62:1 — praticamente ilegível. */
+.disc-badge-d { background-color: var(--tone-danger-soft)  !important; color: var(--tone-danger-ink)  !important; border: 1px solid var(--tone-danger-line);  box-shadow: inset 4px 0 0 var(--tone-danger-line); }
+.disc-badge-i { background-color: var(--tone-warning-soft) !important; color: var(--tone-warning-ink) !important; border: 1px solid var(--tone-warning-line); box-shadow: inset 4px 0 0 var(--tone-warning-line); }
+.disc-badge-s { background-color: var(--tone-success-soft) !important; color: var(--tone-success-ink) !important; border: 1px solid var(--tone-success-line); box-shadow: inset 4px 0 0 var(--tone-success-line); }
+.disc-badge-c { background-color: var(--tone-info-soft)    !important; color: var(--tone-info-ink)    !important; border: 1px solid var(--tone-info-line);    box-shadow: inset 4px 0 0 var(--tone-info-line); }
 
 /* ---- Componentes novos do Módulo RH: gráficos SVG e cards de análise ---- */
 .rh-chart-card {
-  background: #0F1420B3;
-  border: 1px solid #1F2A3D;
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
   border-radius: 1rem;
   padding: 1.25rem;
+  box-shadow: var(--shadow-md);
 }
 .rh-chart-card h4 {
   font-size: 0.75rem;
   font-weight: 800;
-  color: #B9C6DE;
+  color: var(--ink-strong);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: flex;
@@ -3770,13 +3728,13 @@ body.tema-fa .topbar {
 }
 .rh-chart-card p.rh-chart-sub {
   font-size: 0.68rem;
-  color: #6C7C99;
+  color: var(--ink-muted);
   margin-bottom: 0.75rem;
 }
 .rh-empty-state {
   text-align: center;
   padding: 2rem 1rem;
-  color: #6C7C99;
+  color: var(--ink-muted);
   font-size: 0.75rem;
 }
 
@@ -3837,9 +3795,9 @@ body.tema-fa .topbar {
   letter-spacing: 0.4px;
   white-space: nowrap;
 }
-.rh-sales-badge-alto { background-color: #10b981 !important; color: #fff !important; }
-.rh-sales-badge-moderado { background-color: #f59e0b !important; color: #fff !important; }
-.rh-sales-badge-baixo { background-color: #4A5568 !important; color: #fff !important; }
+.rh-sales-badge-alto     { background-color: var(--tone-success-soft) !important; color: var(--tone-success-ink) !important; border: 1px solid var(--tone-success-line); }
+.rh-sales-badge-moderado { background-color: var(--tone-warning-soft) !important; color: var(--tone-warning-ink) !important; border: 1px solid var(--tone-warning-line); }
+.rh-sales-badge-baixo    { background-color: var(--surface-3) !important; color: var(--ink) !important; border: 1px solid var(--edge-strong); }
 .rh-talent-dot {
   cursor: pointer;
   transition: r 0.15s ease, opacity 0.15s ease;
@@ -3850,7 +3808,7 @@ body.tema-fa .topbar {
 .rh-perfil-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 9, 16, 0.75);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
@@ -3859,15 +3817,15 @@ body.tema-fa .topbar {
   padding: 1rem;
 }
 .rh-perfil-modal {
-  background: #0F1420;
-  border: 1px solid #1F2A3D;
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
   border-radius: 1.25rem;
   max-width: 480px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   padding: 1.5rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ==========================================================================
@@ -3880,30 +3838,27 @@ body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .tab-btn {
   color: var(--ink);
 }
 
-/* Contrast enhancement: bind backgrounds and text properties to theme variables */
+/* Herança de tinta: qualquer conteúdo fora do Faça Amigos herda a tinta
+   escura do sistema. Substitui as antigas cadeias `:not(.text-white)
+   :not(.text-brand-200)…`, que existiam só para abrir exceções ao texto
+   claro — não há mais texto claro a excluir, e cada exceção legítima
+   (badges, chips, status) agora tem a própria classe semântica, que vence
+   por especificidade sem precisar de !important. */
+.tab-panel:not(.fa-section),
 .card:not(.fa-section *):not(.fa-tab-panel *),
 .form-card:not(.fa-section *):not(.fa-tab-panel *),
 .table-wrap:not(.fa-section *):not(.fa-tab-panel *),
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *),
-aside:not(.fa-section *):not(.fa-tab-panel *),
-header:not(.fa-section *):not(.fa-tab-panel *),
-.glass-card {
+aside:not(.fa-section *),
+header:not(.fa-section *) {
   color: var(--ink);
 }
 
-.card:not(.fa-section *):not(.fa-tab-panel *) p,
-.card:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-300):not(.text-brand-200),
-.card:not(.fa-section *):not(.fa-tab-panel *) td,
-.card:not(.fa-section *):not(.fa-tab-panel *) label,
-.card:not(.fa-section *):not(.fa-tab-panel *) li,
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) p:not(.text-white):not(.text-brand-100):not(.text-brand-200):not(.text-brand-300):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400),
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) span:not(.text-white):not(.text-brand-200):not(.text-brand-300):not(.text-brand-100):not(.text-amber-400):not(.text-emerald-400):not(.text-red-400):not(.text-indigo-300):not(.text-indigo-400):not(.fa-title-accent),
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) label,
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) td,
-.tab-panel:not(.fa-section *):not(.fa-tab-panel *) li,
-/* .glass-card virou padrão "claro" em todo o sistema (Meta Hora a Hora, RH,
-   Ponto, Pós-visita) — mesmo critério do .card acima, mas sem excluir FA,
-   já que agora o pedido é cobrir o sistema inteiro, sem exceção. */
+/* .glass-card ganhou uma definição base própria (acima, perto do topo do
+   arquivo) quando os remendos por aba foram removidos, mas telas adicionadas
+   depois deste refactor (Pós-visita, por ex.) ainda podem trazer markup com
+   classes utilitárias escuras (bg-brand-9xx, text-white...) dentro dele —
+   este bloco força o tema claro nesses casos, sem depender de cada tela ter
+   sido migrada para as classes semânticas. */
 .glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4,
 .glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]),
 .glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not(.tab-icon):not(.group-icon),
@@ -3914,28 +3869,59 @@ header:not(.fa-section *):not(.fa-tab-panel *),
   color: var(--ink) !important;
 }
 
-/* Fundo/borda do glass-card: mesmo tratamento do .card (fundo claro/branco,
-   borda suave), independente das classes bg-brand-9xx/95x aplicadas no HTML. */
 .glass-card {
   background-color: var(--paper) !important;
   background-image: none !important;
   border-color: var(--border) !important;
 }
 
-/* Secondary descriptions, subtitles and statuses contrast adjustment */
+/* Descrições, subtítulos e metadados secundários. */
 .text-secondary:not(.fa-section *),
-.text-muted:not(.fa-section *),
 .subtitle:not(.fa-section *),
 .modal-sub:not(.fa-section *),
 .widget-description:not(.fa-section *),
 .user-role:not(.fa-section *) {
-  color: var(--muted) !important;
+  color: var(--ink-muted);
 }
 
-/* Input labels legibility */
+/* Rótulos de formulário. */
 label:not(.fa-section *):not(.fa-tab-panel *) {
-  color: var(--ink) !important;
-  font-weight: 600 !important;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Caixas de seleção e radios seguem a cor de acento do sistema em vez do
+   azul padrão do navegador, que era o único ponto da interface fora da
+   paleta. `accent-color` é a propriedade certa: `color` não pinta esses
+   controles. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--edge-accent);
+}
+
+/* Placeholder e campo desabilitado: --ink-faint é o único token do sistema
+   que não fecha AAA em todas as superfícies (7,2:1 no branco, 6,4:1 nas
+   mais tonalizadas). Fica restrito a estes dois casos, que a WCAG 1.4.3
+   trata como texto incidental, e nunca a texto de conteúdo. */
+/* !important obrigatório: o preflight do tailwind-compiled.css declara
+   `input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}` com a
+   mesma especificidade e é carregado DEPOIS deste arquivo — sem isto, todo
+   placeholder do app renderiza em #9CA3AF, que dá 2,5:1 sobre branco. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-faint) !important;
+  opacity: 1 !important;
+}
+
+input:disabled:not(.fa-section *),
+select:disabled:not(.fa-section *),
+textarea:disabled:not(.fa-section *),
+button:disabled:not(.fa-section *) {
+  color: var(--ink-faint);
+  background-color: var(--surface-3);
+  cursor: not-allowed;
 }
 
 /* Sidebar Quick Actions Grid (2x2) */
@@ -3943,15 +3929,15 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1px;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: var(--sidebar-border);
+  border-bottom: 1px solid var(--sidebar-border);
   margin-bottom: 10px;
 }
 
 .quick-action-item {
-  background-color: var(--sidebar-bg);
+  background-color: var(--surface-1);
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-muted);
   padding: 16px 8px;
   display: flex;
   flex-direction: column;
@@ -3969,17 +3955,17 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
 
 .quick-action-item i {
   font-size: 16px;
-  color: #90A4AE;
+  color: var(--ink-muted);
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .quick-action-item:hover {
   background-color: var(--sidebar-hover-bg);
-  color: #FFFFFF;
+  color: var(--ink-strong);
 }
 
 .quick-action-item:hover i {
-  color: #FFFFFF;
+  color: var(--edge-accent);
   transform: translateY(-2px);
 }
 
@@ -3988,32 +3974,30 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   padding-top: 8px;
 }
 
-/* Active navigation item indicator */
+/* Item de navegação ativo. O preenchimento azul-marinho com texto branco
+   deu lugar a três sinais redundantes — tint, trilho de acento e peso da
+   fonte — para que o estado ative sem depender só de matiz. O trilho é
+   inset box-shadow em vez de border-left para não deslocar o layout na
+   troca de estado. */
 .tab-btn.active, .sidebar-group-header[aria-expanded="true"], .sidebar-group-header.is-direct.active {
-  background: var(--sidebar-active-bg) !important;
-  color: var(--sidebar-active-text) !important;
-  font-weight: 600;
-  border-left: 4px solid #FFFFFF !important;
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--sidebar-active-rail);
 }
+
+.tab-btn.active .tab-icon { color: var(--sidebar-active-rail); }
 
 .tab-btn:hover:not(.active) {
-  background-color: var(--sidebar-hover-bg) !important;
-  color: var(--sidebar-text-hover) !important;
-}
-
-/* Headers of each section (inspired by search banner / BlueDox breadcrumbs) */
-.tab-panel > div:first-child {
-  background: linear-gradient(135deg, #2D538E 0%, #1C2435 100%) !important;
-  border-color: #2D538E !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 15px rgba(28, 36, 53, 0.08) !important;
+  background-color: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-hover);
 }
 
 /* Header/Topbar adjustments */
 .topbar {
   background-color: var(--topbar-bg) !important;
   border-bottom: 1px solid var(--topbar-border) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  box-shadow: var(--shadow-sm) !important;
   /* min-height (não height): em telas estreitas o topbar empilha em várias
      linhas (ver @media max-width:768px acima, que muda para flex-direction:
      column) — uma altura fixa cortava essas linhas extras e o menu
@@ -4037,19 +4021,27 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   align-items: center;
 }
 
-/* Rounded Buttons CTA styling (Green Accent) */
+/* Botões de ação. O preenchimento sólido com rótulo branco saiu: a
+   affordance passa a vir do tint, da borda de acento e do trilho lateral,
+   mantendo o rótulo em tinta escura. */
 .btn-primary, .btn-submit, button[type="submit"] {
-  background-color: var(--gold-dark) !important;
-  color: #FFFFFF !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  padding: 10px 20px !important;
-  transition: all 0.2s ease !important;
-  border: none !important;
+  background-color: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid var(--tone-success-line);
+  border-radius: 8px;
+  font-weight: 700;
+  padding: 10px 20px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: inset 3px 0 0 var(--tone-success-line);
 }
 
 .btn-primary:hover, .btn-submit:hover, button[type="submit"]:hover {
-  background-color: var(--gold) !important;
+  background-color: var(--tone-success-hover);
+}
+
+.btn-primary:focus-visible, .btn-submit:focus-visible, button[type="submit"]:focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
 }
 
 /* Card layout formatting: border radius, smooth shadows */
@@ -4057,9 +4049,9 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
 .form-card:not(.fa-section *):not(.fa-tab-panel *),
 .table-wrap:not(.fa-section *):not(.fa-tab-panel *) {
   border-radius: 8px !important;
-  box-shadow: 0px 4px 12px rgba(28, 36, 53, 0.04) !important;
-  border: 1px solid var(--border) !important;
-  background-color: var(--paper) !important;
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--edge-default) !important;
+  background-color: var(--surface-1) !important;
 }
 
 .fa-section .card, .fa-section .form-card, .fa-section .table-wrap,
@@ -4070,18 +4062,24 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   background-color: var(--white) !important;
 }
 
-/* Theme badge fixes for sidebar indicators */
+/* Contadores de sincronização e notificação. O disco vermelho sólido com
+   numeral branco dava 3,7:1 num texto de 0,65rem; agora o alarme é a borda
+   de 2px e o numeral fica em tinta escura (9,2:1). */
 .sync-badge, .notificacao-badge {
-  background-color: var(--red) !important;
-  color: white !important;
+  background-color: var(--tone-danger-soft) !important;
+  color: var(--tone-danger-ink) !important;
+  border: 2px solid var(--tone-danger-line) !important;
 }
 
 /* Safe areas (notch/status bar no iOS, cutout/status bar no Android).
    Antes dependia de uma classe "device-ios" no <body> que nunca chegava a
    ser aplicada no app principal (só existe em bluedox.js, outra tela) —
    ou seja, esse ajuste nunca rodava de verdade e o topbar/sidebar ficavam
-   por baixo do notch/status bar. Usa env() direto, com fallback 0px pra
-   não afetar telas sem notch/inset. */
+   por baixo do notch/status bar. Usa env() direto, com fallback 0px — base
+   universal que cobre Android e o desktop; iOS ganha um tratamento mais
+   completo (topbar translúcida) em `.idiom-ios .topbar` mais abaixo, que
+   herda este mesmo padding-top sem conflito (mesma propriedade, mesmo valor,
+   seletor mais específico). */
 .topbar {
   padding-top: env(safe-area-inset-top, 0px);
   min-height: calc(70px + env(safe-area-inset-top, 0px));
@@ -4091,94 +4089,461 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Fix point tab button contrast and colors */
-#tab-controle-ponto #btn-ponto-ativar-cam {
-  background-color: var(--wine) !important;
-  color: #ffffff !important;
+/* ===================================================================
+   CONTROLE DE PONTO — botões de marcação
+   -------------------------------------------------------------------
+   Os seis botões usavam preenchimento sólido vivo com rótulo branco.
+   Cada um passa a ser uma tríade tint / borda de acento / tinta escura,
+   com um trilho lateral de 4px reforçando a semântica da marcação.
+   O antigo bloco de dupla-ID que forçava `color:#ffffff` existia só para
+   vencer a regra genérica `.text-xs { color: var(--ink) !important }`;
+   com os dois lados removidos, a especificidade normal já basta.
+   =================================================================== */
+#tab-controle-ponto #btn-ponto-ativar-cam,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria,
+#tab-controle-ponto #btn-ponto-entrada,
+#tab-controle-ponto #btn-ponto-saida-int,
+#tab-controle-ponto #btn-ponto-retorno-int,
+#tab-controle-ponto #btn-ponto-saida {
+  border-width: 1.5px;
+  border-style: solid;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-#tab-controle-ponto #btn-ponto-ativar-cam:hover {
-  background-color: var(--wine-light) !important;
+#tab-controle-ponto #btn-ponto-ativar-cam,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria {
+  background-color: var(--tone-info-soft);
+  color: var(--tone-info-ink);
+  border-color: var(--tone-info-line);
+  box-shadow: inset 4px 0 0 var(--tone-info-line);
+}
+
+#tab-controle-ponto #btn-ponto-ativar-cam:hover,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria:hover {
+  background-color: var(--tone-info-hover);
 }
 
 #tab-controle-ponto #btn-ponto-entrada {
-  background-color: #065f46 !important;
-  color: #ffffff !important;
+  background-color: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border-color: var(--tone-success-line);
+  box-shadow: inset 4px 0 0 var(--tone-success-line);
 }
 
 #tab-controle-ponto #btn-ponto-entrada:hover {
-  background-color: #047857 !important;
+  background-color: var(--tone-success-hover);
 }
 
-#tab-controle-ponto #btn-ponto-saida-int {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
-}
-
-#tab-controle-ponto #btn-ponto-saida-int:hover {
-  background-color: #b45309 !important;
-}
-
+#tab-controle-ponto #btn-ponto-saida-int,
 #tab-controle-ponto #btn-ponto-retorno-int {
-  background-color: #b45309 !important;
-  color: #ffffff !important;
+  background-color: var(--tone-warning-soft);
+  color: var(--tone-warning-ink);
+  border-color: var(--tone-warning-line);
+  box-shadow: inset 4px 0 0 var(--tone-warning-line);
 }
 
+#tab-controle-ponto #btn-ponto-saida-int:hover,
 #tab-controle-ponto #btn-ponto-retorno-int:hover {
-  background-color: #78350f !important;
+  background-color: var(--tone-warning-hover);
+}
+
+/* Retorno do intervalo usa a mesma família de atenção da saída, mas com
+   trilho tracejado — a distinção não pode depender só de matiz. */
+#tab-controle-ponto #btn-ponto-retorno-int {
+  border-style: dashed;
 }
 
 #tab-controle-ponto #btn-ponto-saida {
-  background-color: #be123c !important;
-  color: #ffffff !important;
+  background-color: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border-color: var(--tone-danger-line);
+  box-shadow: inset 4px 0 0 var(--tone-danger-line);
 }
 
 #tab-controle-ponto #btn-ponto-saida:hover {
-  background-color: #9f1239 !important;
+  background-color: var(--tone-danger-hover);
 }
 
-#tab-controle-ponto #btn-ponto-cadastrar-biometria {
-  background-color: #4f46e5 !important;
-  color: #ffffff !important;
+#tab-controle-ponto button:focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
 }
 
-#tab-controle-ponto #btn-ponto-cadastrar-biometria:hover {
-  background-color: #4338ca !important;
+/* ==========================================================================
+   IDIOMAS DE PLATAFORMA
+   --------------------------------------------------------------------------
+   A paleta é a mesma nos três — os tokens do design system claro não mudam
+   aqui. O que muda é convenção: proporções da navegação, forma dos controles,
+   apresentação dos modais e curvas de movimento.
+
+   Todas as regras são prefixadas por `.idiom-*` no <html>, o que dá
+   especificidade 0,2,0 e vence qualquer utilitário de uma classe do
+   tailwind-compiled.css sem precisar de !important.
+
+   Cuidado deliberado: nenhuma regra de idioma define `display` em elemento
+   que o JS controla por `.hidden` (#bottom-nav, #fab-novo-registro, os 17
+   .tab-panel, #btn-instalar-pwa). `.hidden` é `display:none !important` e
+   continua ganhando — mas depender disso seria frágil.
+   ========================================================================== */
+
+:root {
+  --nav-inferior-altura: 64px;
+  --barra-superior-altura: 70px;
+  --motion-padrao: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ===================================================================
-   PONTO — força cor de texto BRANCO nos botões coloridos, vencendo
-   a regra genérica ".text-xs { color: var(--ink) !important }" que
-   se aplica a qualquer elemento com text-xs dentro do painel de ponto.
-   Usar seletores com dupla ID garante especificidade máxima.
-   =================================================================== */
-#tab-controle-ponto button#btn-ponto-ativar-cam,
-#tab-controle-ponto button#btn-ponto-cadastrar-biometria,
-#tab-controle-ponto button#btn-ponto-entrada,
-#tab-controle-ponto button#btn-ponto-saida-int,
-#tab-controle-ponto button#btn-ponto-retorno-int,
-#tab-controle-ponto button#btn-ponto-saida {
-  color: #ffffff !important;
+/* ==========================================================================
+   iOS — Human Interface Guidelines
+   ========================================================================== */
+
+.idiom-ios {
+  --nav-inferior-altura: 49px;   /* 49pt, a altura de tab bar da HIG */
+  --barra-superior-altura: 44px;
+  --motion-padrao: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --motion-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-tap-highlight-color: transparent;
 }
 
-#tab-controle-ponto button#btn-ponto-ativar-cam {
-  background-color: #2D538E !important;
+/* Barra de abas translúcida. O desfoque é o que dá a sensação de iOS; sem
+   suporte, cai para superfície opaca em vez de virar um vidro cinza ilegível. */
+.idiom-ios.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-top: 0.5px solid rgba(11, 18, 32, 0.14);
+  box-shadow: none;
 }
 
-#tab-controle-ponto button#btn-ponto-cadastrar-biometria {
-  background-color: #4338ca !important;
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .idiom-ios.density-compact .bottom-nav {
+    background: var(--surface-1);
+  }
 }
 
-#tab-controle-ponto button#btn-ponto-entrada {
-  background-color: #065f46 !important;
+.idiom-ios.density-compact .bottom-nav-btn {
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
-#tab-controle-ponto button#btn-ponto-saida-int {
-  background-color: #d97706 !important;
+.idiom-ios.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 22px;
 }
 
-#tab-controle-ponto button#btn-ponto-retorno-int {
-  background-color: #b45309 !important;
+/* Na HIG o item ativo é tinta, não pílula: o realce em bloco atrás do ícone é
+   vocabulário do Material. */
+.idiom-ios.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-line);
+  background: transparent;
+}
+
+/* Em tablets uma barra de 5 itens esticada de borda a borda fica absurda:
+   centraliza e limita a largura de cada destino. */
+@media (min-width: 600px) {
+  .idiom-ios.density-compact .bottom-nav {
+    justify-content: center;
+  }
+  .idiom-ios.density-compact .bottom-nav-btn {
+    flex: 0 1 110px;
+  }
+}
+
+/* Barra superior translúcida, no mesmo idioma da inferior. */
+.idiom-ios .topbar {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 0.5px solid rgba(11, 18, 32, 0.14);
+  box-shadow: none;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Título grande. Fora do topo, o cabeçalho de seção perde a moldura de card e
+   vira um título de 34px — o padrão de large title da HIG. Nenhuma marcação
+   nova: reaproveita o .section-header que já existe em 16 painéis. */
+.idiom-ios.density-compact .section-header {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 12px;
+  /* Desfaz a virada para linha em >=768px: um chip ao lado de um título de
+     34px não é large title, é um cabeçalho apertado. */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.idiom-ios.density-compact .section-header h2 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.08;
+}
+
+/* O título da barra superior só aparece quando o título grande sai de vista —
+   é a troca que a HIG faz ao rolar. A classe vem do IntersectionObserver. */
+.idiom-ios.density-compact .topbar-title {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s var(--motion-padrao), transform 0.22s var(--motion-padrao);
+}
+
+.idiom-ios.density-compact.title-collapsed .topbar-title {
+  opacity: 1;
+  transform: none;
+}
+
+/* Modais como sheet: sobem de baixo, com alça. */
+.idiom-ios.density-compact .modal-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.idiom-ios.density-compact .modal {
+  width: 100%;
+  max-width: none;
+  border-radius: 14px 14px 0 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: sheetSobe 0.35s var(--motion-sheet) forwards;
+}
+
+.idiom-ios.density-compact .modal::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--edge-default);
+  margin: -8px auto 16px;
+}
+
+@keyframes sheetSobe {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Controle segmentado no desenho iOS: trilho fechado e pastilha branca. */
+.idiom-ios .segmented {
+  background: var(--surface-3);
+  border: none;
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.idiom-ios .seg-btn {
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.idiom-ios .seg-btn.active {
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Resposta ao toque por opacidade — a HIG não tem ripple. */
+.idiom-ios button:active,
+.idiom-ios .tab-btn:active,
+.idiom-ios .bottom-nav-btn:active,
+.idiom-ios .quick-action-item:active {
+  opacity: 0.55;
+  transition: opacity 0s;
+}
+
+/* Rolagem com inércia; contenção para o toque na gaveta e no sheet não
+   arrastar a página atrás. */
+.idiom-ios #main-content,
+.idiom-ios .table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.idiom-ios .sidebar,
+.idiom-ios .modal {
+  overscroll-behavior: contain;
+}
+
+/* A HIG não tem botão de ação flutuante: a ação primária mora na barra de
+   abas ou na barra superior. */
+.idiom-ios .fab {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Android — Material 3
+   ========================================================================== */
+
+.idiom-android {
+  --nav-inferior-altura: 80px;   /* 80dp, a altura de navigation bar do M3 */
+  --barra-superior-altura: 64px;
+  --motion-padrao: cubic-bezier(0.2, 0, 0, 1);          /* emphasized */
+  --motion-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* O Material usa elevação, não translucidez: superfície opaca com sombra. */
+.idiom-android.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-1);
+  border-top: none;
+  box-shadow: 0 -1px 3px rgba(11, 18, 32, 0.08);
+}
+
+.idiom-android.density-compact .bottom-nav-btn {
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  position: relative;
+  padding-top: 12px;
+}
+
+.idiom-android.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 20px;
+  position: relative;
+  z-index: 1;
+  /* espaço para a pílula indicadora respirar em volta do ícone */
+  padding: 4px 20px;
+}
+
+/* Indicador em pílula atrás do ÍCONE — não atrás do rótulo. É a diferença
+   visual mais concreta entre a navigation bar do M3 e a tab bar da HIG. */
+.idiom-android.density-compact .bottom-nav-btn .nav-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: var(--tone-accent-soft);
+  transform: scaleX(0.4);
+  opacity: 0;
+  transition: transform 0.2s var(--motion-padrao), opacity 0.2s var(--motion-padrao);
+  z-index: -1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active .nav-icon::before {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+  font-weight: 600;
+  background: transparent;
+}
+
+/* Top app bar: título à esquerda, elevação ao rolar. */
+.idiom-android .topbar {
+  box-shadow: none;
+  transition: box-shadow 0.2s var(--motion-padrao), background-color 0.2s var(--motion-padrao);
+}
+
+.idiom-android.title-collapsed .topbar {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+
+/* FAB do M3 tem canto de 16dp — não é círculo. */
+.idiom-android.density-compact .fab {
+  border-radius: 16px;
+}
+
+/* Ripple. O elemento é criado pelo JS e removido ao fim da animação. */
+.idiom-android .ripple-alvo {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-efeito {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: rippleExpande 0.55s var(--motion-decel);
+  background-color: rgba(11, 18, 32, 0.12);
+  pointer-events: none;
+}
+
+@keyframes rippleExpande {
+  to { transform: scale(3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ripple-efeito { display: none; }
+  .idiom-ios.density-compact .modal { animation: none; }
+}
+
+/* ==========================================================================
+   Desktop
+   ========================================================================== */
+
+/* Estados de hover só onde existe ponteiro fino: em tela de toque o hover
+   "gruda" depois do toque e o elemento fica preso no estado ativo. */
+@media (hover: hover) and (pointer: fine) {
+  .kpi-item:hover,
+  .logo-dot:hover,
+  .quick-action-item:hover i {
+    transform: translateY(-2px);
+  }
+}
+
+.idiom-desktop.density-expanded main {
+  padding: 24px 32px;
+}
+
+/* Anel de foco visível em toda a navegação por teclado — o desktop é o único
+   idioma em que ela é o caminho principal. */
+.idiom-desktop a:focus-visible,
+.idiom-desktop button:focus-visible,
+.idiom-desktop input:focus-visible,
+.idiom-desktop select:focus-visible,
+.idiom-desktop textarea:focus-visible,
+.idiom-desktop [tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Comum aos dois idiomas de toque
+   ========================================================================== */
+
+/* Área segura lateral: em paisagem, num aparelho com recorte, o conteúdo
+   ficaria embaixo da moldura. */
+.density-compact .topbar,
+.density-compact main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* O indicador de tempo real é posicionado por cssText inline no
+   realtime.js (bottom:10px). Na densidade compacta ele cairia em cima da
+   barra de navegação; o !important é necessário para vencer o estilo inline. */
+.density-compact #rt-indicator {
+  bottom: calc(var(--nav-inferior-altura) + 12px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* A sub-navegação do Faça Amigos tem 6 botões com flex:1 e nowrap: em 390px
+   cada um fica com ~55px e o texto estoura. É o único ponto DENTRO de um
+   painel que precisa de regra por densidade. */
+.density-compact .fa-subnav {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.density-compact .fa-subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.density-compact .fa-sub-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
 }
 
 /* ==========================================================================
@@ -4276,9 +4641,6 @@ label:not(.fa-section *):not(.fa-tab-panel *) {
   transform: translateX(-50%) translateY(0);
 }
 
-#tab-controle-ponto button#btn-ponto-saida {
-  background-color: #be123c !important;
-}
 
 /* Cabeçalho clicável dos cards recolhíveis do Painel de Configurações
    (Operações, WhatsApp, Contador). Sem isso o <button> herda o visual

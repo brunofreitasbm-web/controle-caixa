@@ -73,10 +73,13 @@
       'padding:4px 9px', 'border-radius:999px',
       'font-size:10px', 'font-weight:700', 'letter-spacing:.04em',
       'font-family:inherit', 'pointer-events:none',
-      'background:rgba(0,0,0,.55)', 'backdrop-filter:blur(4px)',
-      'transition:opacity .3s', 'opacity:.75'
+      // Pílula clara com tinta escura: o indicador flutua sobre o conteúdo
+      // do app, que agora é claro em toda parte.
+      'background:var(--surface-1)', 'border:1px solid var(--edge-default)',
+      'box-shadow:var(--shadow-sm)', 'backdrop-filter:blur(4px)',
+      'transition:opacity .3s', 'opacity:1'
     ].join(';');
-    indicador.innerHTML = '<span class="rt-dot" style="width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block"></span><span class="rt-txt" style="color:#a7f3d0">AO VIVO</span>';
+    indicador.innerHTML = '<span class="rt-dot" style="width:7px;height:7px;border-radius:50%;background:var(--tone-success-line);display:inline-block"></span><span class="rt-txt" style="color:var(--tone-success-ink)">AO VIVO</span>';
     document.body.appendChild(indicador);
     return indicador;
   }
@@ -86,21 +89,19 @@
     var dot = el.querySelector('.rt-dot');
     var txt = el.querySelector('.rt-txt');
     if (estado === 'ao-vivo') {
-      dot.style.background = '#10b981';
-      txt.style.color = '#a7f3d0';
+      dot.style.background = 'var(--tone-success-line)';
+      txt.style.color = 'var(--tone-success-ink)';
       txt.textContent = 'AO VIVO';
-      el.style.opacity = '.75';
     } else if (estado === 'fallback') {
-      dot.style.background = '#f59e0b';
-      txt.style.color = '#fde68a';
+      dot.style.background = 'var(--tone-warning-line)';
+      txt.style.color = 'var(--tone-warning-ink)';
       txt.textContent = 'ATUALIZANDO A CADA 20s';
-      el.style.opacity = '.9';
     } else {
-      dot.style.background = '#ef4444';
-      txt.style.color = '#fecaca';
+      dot.style.background = 'var(--tone-danger-line)';
+      txt.style.color = 'var(--tone-danger-ink)';
       txt.textContent = 'RECONECTANDO...';
-      el.style.opacity = '.9';
     }
+    el.style.opacity = '1';
     if (typeof opcoes.onStatus === 'function') opcoes.onStatus(estado);
   }
 
