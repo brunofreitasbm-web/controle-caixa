@@ -7521,10 +7521,12 @@ function detectStoreFromRazaoSocial(razaoSocialText) {
 function detectBoxMultiplier(detElement, xProdText) {
   const desc = xProdText.toUpperCase();
 
-  // Sufixo da descrição no formato XXXUN (3 dígitos + "UN"), ex: "... 012UN" = 12 un/caixa.
-  // Tem prioridade sobre a detecção via XML/regex porque a conferência é sempre feita em caixas.
-  const suffix = desc.trim().slice(-5);
-  const suffixMatch = suffix.match(/^(\d{3})UN$/);
+  // Padrão real da descrição do produto: "...{peso}GX{qtd}UN" (ex: 145GX6UN, 5GX150UN,
+  // 160GX16UN) — a quantidade de unidades por caixa vem sempre logo após o "X" final,
+  // com número de dígitos variável. Aceita "U" sem o "N" por causa de descrições
+  // truncadas no banco (ex: "160GX16U"). Tem prioridade sobre a detecção via XML/regex
+  // porque a conferência é sempre feita em caixas.
+  const suffixMatch = desc.trim().match(/X(\d+)UN?$/);
   if (suffixMatch) {
     const val = parseInt(suffixMatch[1], 10);
     if (val > 0) return val;
@@ -9085,6 +9087,7 @@ function renderTable() {
       <td class="py-3 px-4 text-ink-strong font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-ink-muted">${p.dataEntrada || '-'}</td>
       <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaCaixas ? `${p.qtdEntradaCaixas} CX` : '-'}</td>
       <td class="py-3 px-4 text-center">
         <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-surface-2 border border-subtle rounded px-2 py-1 text-ink text-xs" />
       </td>

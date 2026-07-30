@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v46'; // v46: reverte coluna Entrada para UN (qtdEntradaCaixas fica zerado no historico e a coluna CX aparecia vazia)
+const CACHE_NAME = 'ponto-pwa-v47'; // v47: corrige deteccao do multiplicador caixa->unidade (padrao real GX{n}UN) e adiciona coluna Entrada (CX) ao lado de Entrada (UN)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
