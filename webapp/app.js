@@ -13927,6 +13927,21 @@ async function carregarMetaHoraHora() {
     }
   }
 
+  // Venda é ACUMULADA: um intervalo não pode ficar menor que um anterior já
+  // confirmado nem maior que um posterior já confirmado (normalmente sinal
+  // de erro de digitação). Usado tanto para dar a dica no input quanto para
+  // validar antes de enviar ao servidor (que também valida, por segurança).
+  const limitesParaSlot = slotMin => {
+    let minPermitido = 0;
+    let maxPermitido = Infinity;
+    vendasOrdenadas.forEach(v => {
+      const vMin = minutosDoDiaPorHora(v.horaSlot);
+      if (vMin < slotMin && v.valor > minPermitido) minPermitido = v.valor;
+      if (vMin > slotMin && v.valor < maxPermitido) maxPermitido = v.valor;
+    });
+    return { minPermitido, maxPermitido };
+  };
+
   // Grade hora a hora: check-in por intervalo, com trava de 30min
   const tbody = document.getElementById("meta-hora-a-hora-tbody");
   if (tbody) {
@@ -13964,9 +13979,13 @@ async function carregarMetaHoraHora() {
         const tituloBotao = dentroDaJanela
           ? "Confirmar o total acumulado deste intervalo"
           : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
+        const { minPermitido } = limitesParaSlot(slotMin);
+        const tituloInput = minPermitido > 0
+          ? `Venda ACUMULADA do dia até agora, não o valor desta hora. Não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior.`
+          : "Venda ACUMULADA do dia até agora, não o valor desta hora";
         acaoHtml = `
           <div class="flex items-center justify-end gap-1.5">
-            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
+            <input type="number" id="${inputId}" step="0.01" min="${minPermitido}" placeholder="Total do dia" title="${tituloInput}" class="w-24 bg-brand-900 border border-brand-800 text-white rounded-lg px-2 py-1 text-xs">
             <button type="button" ${desabilitado} title="${tituloBotao}" class="${classeBotao}" data-confirmar-slot="${slotStr}">Confirmar</button>
           </div>
         `;
@@ -13988,12 +14007,27 @@ async function carregarMetaHoraHora() {
     tbody.querySelectorAll("[data-confirmar-slot]").forEach(btn => {
       btn.addEventListener("click", () => {
         const slotStr = btn.dataset.confirmarSlot;
-        const input = document.getElementById(`meta-slot-input-${minutosDoDiaPorHora(slotStr)}`);
-        const valor = parseFloat(input ? input.value : "");
+        const slotMin = minutosDoDiaPorHora(slotStr);
+        const input = document.getElementById(`meta-slot-input-${slotMin}`);
+        // Aceita vírgula como separador decimal (formato brasileiro digitado
+        // por engano em um campo numérico) para não descartar o valor digitado.
+        const valorDigitado = (input ? input.value : "").replace(",", ".");
+        const valor = parseFloat(valorDigitado);
         if (Number.isNaN(valor) || valor < 0) {
           showToast("Informe um valor válido para o intervalo.", "erro");
           return;
         }
+
+        const { minPermitido, maxPermitido } = limitesParaSlot(slotMin);
+        if (valor < minPermitido) {
+          showToast(`O valor não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior, pois a venda é acumulada e só pode aumentar ao longo do dia.`, "erro");
+          return;
+        }
+        if (valor > maxPermitido) {
+          showToast(`O valor não pode ser maior que ${formatBRL(maxPermitido)}, já confirmado em um intervalo posterior. Confira se não houve erro de digitação.`, "erro");
+          return;
+        }
+
         confirmarIntervaloMeta(slotStr, valor);
       });
     });
