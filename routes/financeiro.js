@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { publish } = require('../config/realtime');
+const requireOwner = require('./middleware/requireOwner');
 
 /**
  * Localiza a linha da NF-e correspondente à loja. A chave usada pelo client é
@@ -362,6 +363,21 @@ router.post('/boletos/pago', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     publish('boleto.pago', { id, pagoEm }, { origem: req.body && req.body.clientId, usuario: req.query.usuario });
     res.json({ success: true });
+  });
+});
+
+// Owner decide se mantém ou dispensa o alerta "vencido sem NF-e" da Auditoria
+// de Boletos para um título específico (ex.: já sabe que a SAF foi aberta, ou
+// que a nota está a caminho por outro motivo justificado).
+router.put('/boletos/:id/pendencia-saf', requireOwner, (req, res) => {
+  const { id } = req.params;
+  const dispensada = req.body && req.body.dispensada ? 1 : 0;
+
+  db.run('UPDATE boletos SET pendenciaSafDispensada = ? WHERE id = ?', [dispensada, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Boleto não encontrado.' });
+    publish('boleto.pendenciaSaf', { id, dispensada: !!dispensada }, { origem: req.body && req.body.clientId, usuario: req.body && req.body.actorUsuario });
+    res.json({ success: true, dispensada: !!dispensada });
   });
 });
 
