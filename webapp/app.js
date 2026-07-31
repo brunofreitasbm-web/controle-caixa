@@ -2915,10 +2915,17 @@ function mostrarGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
 
+// Emoji de unidade no cabeçalho da mensagem: carrinhos no Parque Circuito
+// (quiosque de carrinhos), playground/brincadeira nas demais unidades.
+function emojiUnidadeFA(loja) {
+  return UNIDADES_FA_CONVERSAO.includes(loja) ? "🛝🎈" : "🚗🏎️";
+}
+
 function mensagemAvisoFA(r, linhaVendas = "") {
+  const emojiUnidade = emojiUnidadeFA(r.loja);
   if (r.tipoOperacao === "Abertura") {
     return (
-      `🧡 Abertura de Caixa - FaçaAmigos\n` +
+      `🧡${emojiUnidade} Abertura de Caixa - FaçaAmigos\n` +
       `Loja: ${r.loja}\n` +
       `Consultora: ${r.consultor}\n` +
       `Data: ${formatDataHora(r.dataOperacao)}\n` +
@@ -2926,7 +2933,7 @@ function mensagemAvisoFA(r, linhaVendas = "") {
     );
   }
   return (
-    `🧡 Fechamento de Caixa - FaçaAmigos\n` +
+    `🧡${emojiUnidade} Fechamento de Caixa - FaçaAmigos\n` +
     `Loja: ${r.loja}\n` +
     `Consultora: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
@@ -2956,14 +2963,51 @@ async function buscarLancamentoHojeFA(usuario, unidade) {
   }
 }
 
-function linhaVendasConversaoFA(l) {
+// Status baixo/laranja/verde da conversão do dia. Não existe hoje uma meta
+// diária numérica própria para as unidades de playground (conversão), então
+// reaproveitamos os mesmos limiares já configurados para o bônus Ouro/
+// Diamante do mês (ouroPercentMin/diamantePercentMin), aplicados à conversão
+// de hoje em vez da conversão acumulada do mês.
+function statusMetaConversaoDia(pctHoje, regra) {
+  const fracaoHoje = pctHoje / 100;
+  if (fracaoHoje >= regra.diamantePercentMin) return { emoji: "🟢", texto: "Verde" };
+  if (fracaoHoje >= regra.ouroPercentMin) return { emoji: "🟠", texto: "Laranja" };
+  return { emoji: "🔴", texto: "Baixo" };
+}
+
+function linhaVendasConversaoFA(l, regra) {
   if (!l) return "";
   const v30 = l.vendas30 || 0;
   const v1h = l.vendas1h || 0;
   const v2h = l.vendas2h || 0;
   const total = v30 + v1h + v2h;
   const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
-  return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
+  const st = statusMetaConversaoDia(pct, regra);
+  return `\n🛝 Vendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje` +
+    `\n${st.emoji} Meta do dia: ${st.texto}`;
+}
+
+// Total de locações da unidade (todas as colaboradoras) numa data — a meta de
+// locações do Parque Circuito é por unidade, então a mensagem de fechamento
+// precisa do total do dia inteiro, não só o lançamento de quem fechou o caixa.
+async function buscarLocacoesHojeUnidade(unidade, dataStr) {
+  const competencia = dataStr.slice(0, 7);
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.filter(l => l.data === dataStr).reduce((s, l) => s + (l.locacoes || 0), 0);
+  } catch (err) {
+    console.error("Erro ao buscar locações do dia (unidade) FA:", err);
+    return 0;
+  }
+}
+
+function linhaMetaLocacoesFA(qtd, metaDiaria, regra) {
+  const metaArredondada = Math.round(metaDiaria);
+  const pct = metaDiaria > 0 ? (qtd / metaDiaria) * 100 : 0;
+  const st = statusMetaDiariaInterpolada(qtd, metaDiaria, regra);
+  return `\n🚗🛺 Locações: ${qtd}/${metaArredondada} (${pct.toFixed(1)}%) ${st.emoji} ${st.texto}`;
 }
 
 async function mostrarFaGeradorMensagem(registro) {
@@ -2974,8 +3018,19 @@ async function mostrarFaGeradorMensagem(registro) {
 
   let linhaVendas = "";
   if (registro.tipoOperacao === "Fechamento") {
-    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
-    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+    if (UNIDADES_FA_CONVERSAO.includes(registro.loja)) {
+      const [lancamentoHoje, regraConversao] = await Promise.all([
+        buscarLancamentoHojeFA(registro.consultor, registro.loja),
+        buscarRegraFaBonificacao(competenciaAtual())
+      ]);
+      linhaVendas = linhaVendasConversaoFA(lancamentoHoje, regraConversao);
+    } else {
+      const dataStr = registro.dataOperacao.slice(0, 10);
+      const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
+      const metaDiaria = metaLocacoesDoDia(dataStr, regra);
+      const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
+      linhaVendas = linhaMetaLocacoesFA(qtdHoje, metaDiaria, regra);
+    }
   }
 
   const texto = mensagemAvisoFA(registro, linhaVendas);
@@ -3743,6 +3798,18 @@ function farolLocacoes(realizado, meta, regra) {
   if (pct >= regra.farolVerde) return { emoji: "🟢", texto: "Bateu a meta", cor: "#16a34a" };
   if (pct >= regra.farolAmarelo) return { emoji: "🟡", texto: "Quase lá", cor: "#d97706" };
   return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
+}
+
+// Status baixo/médio/acima da meta diária, usando os mesmos limiares
+// configuráveis (farolVerde/farolAmarelo) do farol de locações. A meta de
+// locações do Parque Circuito é por unidade — não por colaboradora —, e a
+// meta diária "interpolada" da meta mensal é a tabela por dia da semana do
+// anexo META.pdf (metaLocacoesDoDia), não uma divisão linear por dias do mês.
+function statusMetaDiariaInterpolada(realizado, metaDiaria, regra) {
+  const pct = metaDiaria > 0 ? realizado / metaDiaria : 0;
+  if (pct >= (regra.farolVerde || 1)) return { emoji: "🟢", texto: "Acima" };
+  if (pct >= (regra.farolAmarelo || 0.8)) return { emoji: "🟡", texto: "Médio" };
+  return { emoji: "🔴", texto: "Baixo" };
 }
 
 async function carregarFaMetaLocacoes(unidade) {
