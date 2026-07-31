@@ -2966,6 +2966,29 @@ function linhaVendasConversaoFA(l) {
   return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
 }
 
+// Total de locações da unidade (todas as colaboradoras) numa data — a meta de
+// locações do Parque Circuito é por unidade, então a mensagem de fechamento
+// precisa do total do dia inteiro, não só o lançamento de quem fechou o caixa.
+async function buscarLocacoesHojeUnidade(unidade, dataStr) {
+  const competencia = dataStr.slice(0, 7);
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.filter(l => l.data === dataStr).reduce((s, l) => s + (l.locacoes || 0), 0);
+  } catch (err) {
+    console.error("Erro ao buscar locações do dia (unidade) FA:", err);
+    return 0;
+  }
+}
+
+function linhaMetaLocacoesFA(qtd, metaDiaria, regra) {
+  const metaArredondada = Math.round(metaDiaria);
+  const pct = metaDiaria > 0 ? (qtd / metaDiaria) * 100 : 0;
+  const st = statusMetaDiariaInterpolada(qtd, metaDiaria, regra);
+  return `\n🎯 Locações: ${qtd}/${metaArredondada} (${pct.toFixed(1)}%) ${st.emoji} ${st.texto}`;
+}
+
 async function mostrarFaGeradorMensagem(registro) {
   const banner = document.getElementById("fa-aviso-banner");
   const textarea = document.getElementById("fa-aviso-texto");
@@ -2974,8 +2997,16 @@ async function mostrarFaGeradorMensagem(registro) {
 
   let linhaVendas = "";
   if (registro.tipoOperacao === "Fechamento") {
-    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
-    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+    if (UNIDADES_FA_CONVERSAO.includes(registro.loja)) {
+      const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
+      linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+    } else {
+      const dataStr = registro.dataOperacao.slice(0, 10);
+      const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
+      const metaDiaria = metaDiariaInterpoladaLocacoes(regra, dataStr);
+      const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
+      linhaVendas = linhaMetaLocacoesFA(qtdHoje, metaDiaria, regra);
+    }
   }
 
   const texto = mensagemAvisoFA(registro, linhaVendas);
@@ -3743,6 +3774,25 @@ function farolLocacoes(realizado, meta, regra) {
   if (pct >= regra.farolVerde) return { emoji: "🟢", texto: "Bateu a meta", cor: "#16a34a" };
   if (pct >= regra.farolAmarelo) return { emoji: "🟡", texto: "Quase lá", cor: "#d97706" };
   return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
+}
+
+// Meta diária interpolada a partir da meta mensal (metaMes / dias do mês). A
+// meta de locações do Parque Circuito é por unidade — não por colaboradora —
+// então essa meta diária é comparada contra o total de locações da unidade
+// no dia, somando todas as colaboradoras que lançaram naquele dia.
+function metaDiariaInterpoladaLocacoes(regra, dataStr) {
+  const [ano, mes] = dataStr.split("-").map(Number);
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  return (regra.metaMes || 0) / diasNoMes;
+}
+
+// Status baixo/médio/acima da meta diária interpolada, usando os mesmos
+// limiares configuráveis (farolVerde/farolAmarelo) do farol de locações.
+function statusMetaDiariaInterpolada(realizado, metaDiaria, regra) {
+  const pct = metaDiaria > 0 ? realizado / metaDiaria : 0;
+  if (pct >= (regra.farolVerde || 1)) return { emoji: "🟢", texto: "Acima" };
+  if (pct >= (regra.farolAmarelo || 0.8)) return { emoji: "🟡", texto: "Médio" };
+  return { emoji: "🔴", texto: "Baixo" };
 }
 
 async function carregarFaMetaLocacoes(unidade) {
