@@ -2929,10 +2929,17 @@ function mostrarGeradorMensagem(registro) {
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
 
+// Emoji de unidade no cabeçalho da mensagem: carrinhos no Parque Circuito
+// (quiosque de carrinhos), playground/brincadeira nas demais unidades.
+function emojiUnidadeFA(loja) {
+  return UNIDADES_FA_CONVERSAO.includes(loja) ? "🛝🎈" : "🚗🏎️";
+}
+
 function mensagemAvisoFA(r, linhaVendas = "") {
+  const emojiUnidade = emojiUnidadeFA(r.loja);
   if (r.tipoOperacao === "Abertura") {
     return (
-      `🧡 Abertura de Caixa - FaçaAmigos\n` +
+      `🧡${emojiUnidade} Abertura de Caixa - FaçaAmigos\n` +
       `Loja: ${r.loja}\n` +
       `Consultora: ${r.consultor}\n` +
       `Data: ${formatDataHora(r.dataOperacao)}\n` +
@@ -2940,7 +2947,7 @@ function mensagemAvisoFA(r, linhaVendas = "") {
     );
   }
   return (
-    `🧡 Fechamento de Caixa - FaçaAmigos\n` +
+    `🧡${emojiUnidade} Fechamento de Caixa - FaçaAmigos\n` +
     `Loja: ${r.loja}\n` +
     `Consultora: ${r.consultor}\n` +
     `Data: ${formatDataHora(r.dataOperacao)}\n` +
@@ -2970,14 +2977,51 @@ async function buscarLancamentoHojeFA(usuario, unidade) {
   }
 }
 
-function linhaVendasConversaoFA(l) {
+// Status baixo/laranja/verde da conversão do dia. Não existe hoje uma meta
+// diária numérica própria para as unidades de playground (conversão), então
+// reaproveitamos os mesmos limiares já configurados para o bônus Ouro/
+// Diamante do mês (ouroPercentMin/diamantePercentMin), aplicados à conversão
+// de hoje em vez da conversão acumulada do mês.
+function statusMetaConversaoDia(pctHoje, regra) {
+  const fracaoHoje = pctHoje / 100;
+  if (fracaoHoje >= regra.diamantePercentMin) return { emoji: "🟢", texto: "Verde" };
+  if (fracaoHoje >= regra.ouroPercentMin) return { emoji: "🟠", texto: "Laranja" };
+  return { emoji: "🔴", texto: "Baixo" };
+}
+
+function linhaVendasConversaoFA(l, regra) {
   if (!l) return "";
   const v30 = l.vendas30 || 0;
   const v1h = l.vendas1h || 0;
   const v2h = l.vendas2h || 0;
   const total = v30 + v1h + v2h;
   const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
-  return `\nVendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje`;
+  const st = statusMetaConversaoDia(pct, regra);
+  return `\n🛝 Vendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje` +
+    `\n${st.emoji} Meta do dia: ${st.texto}`;
+}
+
+// Total de locações da unidade (todas as colaboradoras) numa data — a meta de
+// locações do Parque Circuito é por unidade, então a mensagem de fechamento
+// precisa do total do dia inteiro, não só o lançamento de quem fechou o caixa.
+async function buscarLocacoesHojeUnidade(unidade, dataStr) {
+  const competencia = dataStr.slice(0, 7);
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.filter(l => l.data === dataStr).reduce((s, l) => s + (l.locacoes || 0), 0);
+  } catch (err) {
+    console.error("Erro ao buscar locações do dia (unidade) FA:", err);
+    return 0;
+  }
+}
+
+function linhaMetaLocacoesFA(qtd, metaDiaria, regra) {
+  const metaArredondada = Math.round(metaDiaria);
+  const pct = metaDiaria > 0 ? (qtd / metaDiaria) * 100 : 0;
+  const st = statusMetaDiariaInterpolada(qtd, metaDiaria, regra);
+  return `\n🚗🛺 Locações: ${qtd}/${metaArredondada} (${pct.toFixed(1)}%) ${st.emoji} ${st.texto}`;
 }
 
 async function mostrarFaGeradorMensagem(registro) {
@@ -2988,8 +3032,19 @@ async function mostrarFaGeradorMensagem(registro) {
 
   let linhaVendas = "";
   if (registro.tipoOperacao === "Fechamento") {
-    const lancamentoHoje = await buscarLancamentoHojeFA(registro.consultor, registro.loja);
-    linhaVendas = linhaVendasConversaoFA(lancamentoHoje);
+    if (UNIDADES_FA_CONVERSAO.includes(registro.loja)) {
+      const [lancamentoHoje, regraConversao] = await Promise.all([
+        buscarLancamentoHojeFA(registro.consultor, registro.loja),
+        buscarRegraFaBonificacao(competenciaAtual())
+      ]);
+      linhaVendas = linhaVendasConversaoFA(lancamentoHoje, regraConversao);
+    } else {
+      const dataStr = registro.dataOperacao.slice(0, 10);
+      const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
+      const metaDiaria = metaLocacoesDoDia(dataStr, regra);
+      const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
+      linhaVendas = linhaMetaLocacoesFA(qtdHoje, metaDiaria, regra);
+    }
   }
 
   const texto = mensagemAvisoFA(registro, linhaVendas);
@@ -3645,6 +3700,20 @@ async function carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, 
 
 function renderFaMetaDashboard(resultado, regra) {
   const pctExibicao = resultado.pctConversaoMensal * 100;
+  const ouroPercent = (regra.ouroPercentMin || 0.5) * 100;
+  const diamantePercent = (regra.diamantePercentMin || 0.6) * 100;
+
+  // Zonas da trilha Bronze -> Ouro -> Diamante (relativas à escala fixa de 0-100%)
+  const zonaBronzeEl = document.getElementById("fa-meta-zona-bronze");
+  const zonaOuroEl = document.getElementById("fa-meta-zona-ouro");
+  const zonaDiamanteEl = document.getElementById("fa-meta-zona-diamante");
+  if (zonaBronzeEl) zonaBronzeEl.style.width = `${ouroPercent}%`;
+  if (zonaOuroEl) zonaOuroEl.style.width = `${Math.max(0, diamantePercent - ouroPercent)}%`;
+  if (zonaDiamanteEl) zonaDiamanteEl.style.width = `${Math.max(0, 100 - diamantePercent)}%`;
+  const marcaOuroEl = document.getElementById("fa-meta-marca-ouro");
+  const marcaDiamanteEl = document.getElementById("fa-meta-marca-diamante");
+  if (marcaOuroEl) marcaOuroEl.style.left = `${ouroPercent}%`;
+  if (marcaDiamanteEl) marcaDiamanteEl.style.left = `${diamantePercent}%`;
 
   // Gauge
   const gaugeBar = document.getElementById("fa-meta-gauge-bar");
@@ -3652,19 +3721,85 @@ function renderFaMetaDashboard(resultado, regra) {
   gaugeBar.style.background = resultado.tierNome === "diamante" ? "#2563eb" : (resultado.tierNome === "ouro" ? "#d4af37" : "#94a3b8");
   document.getElementById("fa-meta-conversao-mensal-label").textContent = `${pctExibicao.toFixed(1)}%`;
 
-  // Mensagem motivacional
+  // Etapa atual da jornada Bronze -> Ouro -> Diamante: trata o próximo tier
+  // como o marco em foco, em vez de comparar sempre com o Diamante (o mais distante).
+  let etapaNum, etapaLabel, etapaAlvoPercent;
+  if (resultado.tierNome === "diamante") {
+    etapaNum = 3; etapaLabel = "Diamante conquistado! 💎"; etapaAlvoPercent = diamantePercent;
+  } else if (resultado.tierNome === "ouro") {
+    etapaNum = 2; etapaLabel = "Rumo ao Diamante"; etapaAlvoPercent = diamantePercent;
+  } else {
+    etapaNum = 1; etapaLabel = "Rumo ao Ouro"; etapaAlvoPercent = ouroPercent;
+  }
+  const etapaAtualLabel = document.getElementById("fa-meta-etapa-atual-label");
+  if (etapaAtualLabel) etapaAtualLabel.textContent = `Etapa ${etapaNum} de 3 · ${etapaLabel}`;
+
+  // Chips das 3 etapas com estado concluída / foco atual / a seguir
+  const etapasWrap = document.getElementById("fa-meta-etapas");
+  if (etapasWrap) {
+    etapasWrap.innerHTML = "";
+    const etapas = [
+      { titulo: "Bronze", icone: "🥉", numEtapa: 1, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Ouro", icone: "🥇", numEtapa: 2, alvo: `${ouroPercent.toFixed(0)}%`, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Diamante", icone: "💎", numEtapa: 3, alvo: `${diamantePercent.toFixed(0)}%`, concluida: resultado.tierNome === "diamante" }
+    ];
+    etapas.forEach(et => {
+      const atual = !et.concluida && et.numEtapa === etapaNum;
+      const chip = document.createElement("span");
+      chip.style.cssText = "padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; border:1px solid var(--border); white-space:nowrap;";
+      if (et.concluida) {
+        chip.textContent = `✅ ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "#dcfce7"; chip.style.color = "#166534"; chip.style.borderColor = "#86efac";
+      } else if (atual) {
+        chip.textContent = `${et.icone} ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""} — foco agora`;
+        chip.style.background = "#fef3c7"; chip.style.color = "#92400e"; chip.style.borderColor = "#fbbf24";
+        chip.style.boxShadow = "0 0 0 2px rgba(251,191,36,0.35)";
+      } else {
+        chip.textContent = `🔒 ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "var(--cream)"; chip.style.color = "var(--muted)";
+      }
+      etapasWrap.appendChild(chip);
+    });
+  }
+
+  // Mensagem motivacional por etapa (marco próximo, não o Diamante direto)
   const msgEl = document.getElementById("fa-meta-mensagem-motivacional");
   if (resultado.tierNome === "diamante") {
     msgEl.textContent = "💎 Bônus Diamante conquistado! Você é fera!";
     msgEl.style.color = "#2563eb";
   } else if (resultado.tierNome === "ouro") {
-    const faltaDiamante = ((regra.diamantePercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
+    const faltaDiamante = (diamantePercent - pctExibicao).toFixed(1);
     msgEl.textContent = `🥇 Bônus Ouro garantido! Faltam ${faltaDiamante} pontos percentuais para o Diamante 💎`;
     msgEl.style.color = "#b8860b";
   } else {
-    const faltaOuro = ((regra.ouroPercentMin - resultado.pctConversaoMensal) * 100).toFixed(1);
-    msgEl.textContent = `Continue vendendo planos de 1h e 2h! Faltam ${faltaOuro} pontos percentuais para o Bônus Ouro 🥉`;
+    const faltaOuro = (ouroPercent - pctExibicao).toFixed(1);
+    const pctEtapa = ouroPercent > 0 ? Math.min(100, Math.round((pctExibicao / ouroPercent) * 100)) : 0;
+    msgEl.textContent = `Você já está ${pctEtapa}% do caminho para o Ouro! Faltam ${faltaOuro} pontos percentuais. Continue vendendo planos de 1h e 2h! 🥉`;
     msgEl.style.color = "var(--muted)";
+  }
+
+  // Ritmo diário sugerido: pega o ritmo médio de atendimentos já registrado
+  // neste mês, projeta o total até o fim do mês e traduz a meta percentual
+  // em uma quantidade concreta de vendas de 1h/2h por dia no período restante.
+  const ritmoEl = document.getElementById("fa-meta-ritmo-diario");
+  if (ritmoEl) {
+    const hojeLoc = new Date();
+    const diasNoMesLoc = new Date(hojeLoc.getFullYear(), hojeLoc.getMonth() + 1, 0).getDate();
+    const diasDecorridosLoc = Math.max(1, hojeLoc.getDate());
+    const diasRestantesLoc = Math.max(1, diasNoMesLoc - hojeLoc.getDate() + 1);
+    const mediaAtendDia = resultado.totalAtend / diasDecorridosLoc;
+    if (resultado.tierNome === "diamante" || mediaAtendDia <= 0) {
+      ritmoEl.textContent = "";
+    } else {
+      const projecaoAtendMes = mediaAtendDia * diasNoMesLoc;
+      const totalLongos = resultado.totalV1h + resultado.totalV2h;
+      const neededLongosTotal = (etapaAlvoPercent / 100) * projecaoAtendMes;
+      const faltamLongos = Math.max(0, Math.ceil(neededLongosTotal - totalLongos));
+      const ritmoDiaLongos = Math.ceil(faltamLongos / diasRestantesLoc);
+      ritmoEl.textContent = ritmoDiaLongos > 0
+        ? `Ritmo sugerido: pelo menos ${ritmoDiaLongos} venda(s) de 1h/2h por dia nos próximos ${diasRestantesLoc} dia(s) para garantir "${etapaLabel}" ⏱️`
+        : "";
+    }
   }
 
   // Cards de resumo do mês
@@ -3759,6 +3894,18 @@ function farolLocacoes(realizado, meta, regra) {
   return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
 }
 
+// Status baixo/médio/acima da meta diária, usando os mesmos limiares
+// configuráveis (farolVerde/farolAmarelo) do farol de locações. A meta de
+// locações do Parque Circuito é por unidade — não por colaboradora —, e a
+// meta diária "interpolada" da meta mensal é a tabela por dia da semana do
+// anexo META.pdf (metaLocacoesDoDia), não uma divisão linear por dias do mês.
+function statusMetaDiariaInterpolada(realizado, metaDiaria, regra) {
+  const pct = metaDiaria > 0 ? realizado / metaDiaria : 0;
+  if (pct >= (regra.farolVerde || 1)) return { emoji: "🟢", texto: "Acima" };
+  if (pct >= (regra.farolAmarelo || 0.8)) return { emoji: "🟡", texto: "Médio" };
+  return { emoji: "🔴", texto: "Baixo" };
+}
+
 async function carregarFaMetaLocacoes(unidade) {
   const competencia = competenciaAtual();
   const hoje = dataHojeStr();
@@ -3768,27 +3915,38 @@ async function carregarFaMetaLocacoes(unidade) {
 
   const regra = await buscarRegraLocacoes(competencia);
 
+  // A meta de locações é da unidade inteira, não de cada colaboradora — por
+  // isso o progresso (hoje e no mês) sempre soma os lançamentos de TODAS as
+  // colaboradoras do Parque Circuito, independente de quem está selecionada
+  // no seletor (que serve só para saber em nome de quem salvar o lançamento).
   let lancamentos = [];
   try {
-    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuarioAlvo)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
     const data = await res.json();
     lancamentos = data.lancamentos || [];
   } catch (err) {
     console.error("Erro ao buscar locações FA:", err);
   }
 
-  const lancamentoHoje = lancamentos.find(l => l.data === hoje);
+  const lancamentosHoje = lancamentos.filter(l => l.data === hoje);
+  const totalUnidadeHojeSalvo = lancamentosHoje.reduce((s, l) => s + (l.locacoes || 0), 0);
+  const lancamentoHojeUsuario = lancamentosHoje.find(l => l.usuario === usuarioAlvo);
+  const valorSalvoUsuario = lancamentoHojeUsuario ? (lancamentoHojeUsuario.locacoes || 0) : 0;
+
   const inputLoc = document.getElementById("fa-loc-locacoes");
-  inputLoc.value = lancamentoHoje ? (lancamentoHoje.locacoes || 0) : 0;
+  inputLoc.value = valorSalvoUsuario;
 
   const metaHoje = metaLocacoesDoDia(hoje, regra);
-  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações`;
+  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações (unidade)`;
 
+  // Prévia ao vivo: soma o que as outras colaboradoras já lançaram hoje com
+  // o valor sendo digitado por quem está com o seletor aberto agora.
   const atualizarFarolHoje = () => {
-    const loc = parseInt(inputLoc.value) || 0;
-    const f = farolLocacoes(loc, metaHoje, regra);
+    const locDigitado = parseInt(inputLoc.value) || 0;
+    const totalUnidadeHoje = (totalUnidadeHojeSalvo - valorSalvoUsuario) + locDigitado;
+    const f = farolLocacoes(totalUnidadeHoje, metaHoje, regra);
     const el = document.getElementById("fa-loc-farol-hoje");
-    el.textContent = `${f.emoji} ${loc} de ${metaHoje} locações — ${f.texto}`;
+    el.textContent = `${f.emoji} ${totalUnidadeHoje} de ${metaHoje} locações da unidade — ${f.texto}`;
     el.style.color = f.cor;
   };
   inputLoc.oninput = atualizarFarolHoje;
@@ -3991,11 +4149,16 @@ function renderFaLocacoesDashboard(lancamentos, regra) {
     });
   }
 
-  // Tabela dia a dia
+  // Tabela dia a dia — soma as locações de todas as colaboradoras por data,
+  // já que a meta (e o farol) é da unidade como um todo, não de quem lançou.
   const tbody = document.getElementById("fa-loc-tabela-mes-tbody");
   const vazia = document.getElementById("fa-loc-tabela-vazia");
   tbody.innerHTML = "";
-  const ordenados = lancamentos.slice().sort((a, b) => b.data.localeCompare(a.data));
+  const totalPorData = {};
+  lancamentos.forEach(l => { totalPorData[l.data] = (totalPorData[l.data] || 0) + (l.locacoes || 0); });
+  const ordenados = Object.keys(totalPorData)
+    .sort((a, b) => b.localeCompare(a))
+    .map(data => ({ data, locacoes: totalPorData[data] }));
   vazia.classList.toggle("hidden", ordenados.length > 0);
   ordenados.forEach(l => {
     const meta = metaLocacoesDoDia(l.data, regra);
