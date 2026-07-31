@@ -1913,6 +1913,9 @@
           <p class="text-xs text-ink-strong mt-1">Faça a validação física das Notas Fiscais utilizando a câmera do dispositivo. Os arquivos XML são carregados na aba <strong>Importações</strong>.</p>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" id="btn-abrir-nf-arquivadas" class="px-3 py-1.5 bg-surface-2 hover:bg-surface-hover text-ink-muted hover:text-ink-strong rounded-xl text-[11px] font-bold transition border border-subtle flex items-center gap-1.5" data-tip="Notas concluídas há mais de 3 dias saem desta galeria, mas continuam salvas aqui para consulta">
+            <i class="fa-solid fa-box-archive"></i> Notas Arquivadas
+          </button>
           <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Logística</span>
         </div>
       </div>
@@ -3649,6 +3652,23 @@
     </div>
     <div class="modal-actions modal-actions-center" style="margin-top: 18px;">
       <button type="button" id="btn-nf-conclusao-enviado" class="btn-primary">Já enviei a mensagem — Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: consulta de NF-e Arquivadas (concluídas há mais de 3 dias — saem da
+     galeria principal para não poluir, mas ficam disponíveis aqui por data,
+     número da nota e loja). -->
+<div id="modal-nf-arquivadas" class="modal-overlay hidden" role="dialog" aria-labelledby="nf-arquivadas-title" aria-modal="true">
+  <div class="modal" style="max-width: 520px;">
+    <h3 id="nf-arquivadas-title"><i class="fa-solid fa-box-archive"></i> Notas Fiscais Arquivadas</h3>
+    <p class="modal-sub">Notas com conferência concluída há mais de 3 dias. Ficam aqui só para consulta.</p>
+    <div class="field">
+      <input type="text" id="nf-arquivadas-busca" placeholder="Buscar por número da nota ou loja..." class="bg-surface-1 border border-subtle text-ink text-xs rounded-lg px-3 py-2 w-full focus:outline-none">
+    </div>
+    <div id="nf-arquivadas-lista" class="space-y-2" style="max-height: 360px; overflow-y: auto; margin-top: 12px;"></div>
+    <div class="modal-actions modal-actions-center" style="margin-top: 18px;">
+      <button type="button" id="btn-fechar-nf-arquivadas" class="btn-secondary">Fechar</button>
     </div>
   </div>
 </div>

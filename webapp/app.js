@@ -7007,6 +7007,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnConcluirConf = document.getElementById('btn-concluir-conferencia');
   if (btnConcluirConf) btnConcluirConf.addEventListener('click', concluirConferenciaAtiva);
 
+  // --- Consulta de NF-e Arquivadas (notas concluídas há mais de 3 dias, ocultas da galeria) ---
+  const btnAbrirArquivadas = document.getElementById('btn-abrir-nf-arquivadas');
+  if (btnAbrirArquivadas) btnAbrirArquivadas.addEventListener('click', abrirModalNfArquivadas);
+
+  const btnFecharArquivadas = document.getElementById('btn-fechar-nf-arquivadas');
+  if (btnFecharArquivadas) btnFecharArquivadas.addEventListener('click', () => {
+    document.getElementById('modal-nf-arquivadas').classList.add('hidden');
+  });
+
+  const buscaArquivadas = document.getElementById('nf-arquivadas-busca');
+  if (buscaArquivadas) buscaArquivadas.addEventListener('input', () => renderNfArquivadasList(buscaArquivadas.value));
+
   // --- Scanner do Inventário de Estoque ---
   // Usa a mesma regra de prioridade: CodBarra → CSV → CodProduto
   inicializarScannerInventario();
@@ -7975,8 +7987,21 @@ function backToNfGallery() {
   renderNfCardsGallery();
 }
 
+// Notas concluídas ficam visíveis na galeria por alguns dias (para revisão rápida
+// pela loja) e depois somem do menu principal para não poluir a tela com o tempo —
+// mas continuam salvas e consultáveis na tela de "Notas Arquivadas".
+const NF_DIAS_ATE_ARQUIVAR = 3;
+
+function isNfArquivada(nf) {
+  if (!nf || !nf.info || !nf.info.concluidaEm) return false;
+  const concluidaEm = new Date(nf.info.concluidaEm).getTime();
+  if (isNaN(concluidaEm)) return false;
+  const limiteMs = NF_DIAS_ATE_ARQUIVAR * 24 * 60 * 60 * 1000;
+  return (Date.now() - concluidaEm) >= limiteMs;
+}
+
 function renderNfCardsGallery() {
-  const nfKeys = Object.keys(importedNfs);
+  const nfKeys = Object.keys(importedNfs).filter(numNF => !isNfArquivada(importedNfs[numNF]));
 
   document.getElementById('nf-work-area').classList.add('hidden');
   document.getElementById('nf-cards-gallery-section').classList.remove('hidden');
@@ -8129,6 +8154,60 @@ function renderNfCardsGallery() {
   updateNfSelectionUI();
 }
 
+// Abre a tela de consulta de NF-es arquivadas (concluídas há mais de
+// NF_DIAS_ATE_ARQUIVAR dias) — mantidas apenas para consulta histórica por
+// data, número da nota e loja, sem aparecer na galeria principal.
+function abrirModalNfArquivadas() {
+  const modal = document.getElementById('modal-nf-arquivadas');
+  if (!modal) return;
+  const busca = document.getElementById('nf-arquivadas-busca');
+  if (busca) busca.value = '';
+  renderNfArquivadasList('');
+  modal.classList.remove('hidden');
+}
+
+function renderNfArquivadasList(filtro) {
+  const lista = document.getElementById('nf-arquivadas-lista');
+  if (!lista) return;
+
+  const termo = (filtro || '').trim().toLowerCase();
+  const arquivadas = Object.keys(importedNfs)
+    .map(numNF => ({ numNF, nf: importedNfs[numNF] }))
+    .filter(item => isNfArquivada(item.nf))
+    .filter(item => {
+      if (!termo) return true;
+      const numero = String((item.nf.info && item.nf.info.numero) || item.numNF).toLowerCase();
+      const lojaCodigo = (item.nf.info && item.nf.info.targetStore) ? item.nf.info.targetStore : '';
+      const lojaNome = getLojaNomePorCodigo(lojaCodigo).toLowerCase();
+      return numero.includes(termo) || lojaNome.includes(termo);
+    })
+    .sort((a, b) => new Date(b.nf.info.concluidaEm) - new Date(a.nf.info.concluidaEm));
+
+  if (arquivadas.length === 0) {
+    lista.innerHTML = `
+      <div class="col-span-full py-10 text-center text-ink-muted text-sm">
+        <i class="fa-solid fa-box-archive text-3xl mb-2 block text-ink-strong"></i>
+        Nenhuma Nota Fiscal arquivada${termo ? ' para esta busca' : ''}.
+      </div>
+    `;
+    return;
+  }
+
+  lista.innerHTML = arquivadas.map(({ numNF, nf }) => {
+    const numero = (nf.info && nf.info.numero) ? nf.info.numero : numNF;
+    const lojaCodigo = (nf.info && nf.info.targetStore) ? nf.info.targetStore : '';
+    const lojaNome = getLojaNomePorCodigo(lojaCodigo);
+    const dataConclusao = new Date(nf.info.concluidaEm).toLocaleDateString('pt-BR');
+    return `
+      <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-subtle text-xs">
+        <span class="text-ink-muted font-mono">${dataConclusao}</span>
+        <span class="text-ink-strong font-mono font-bold flex-1 text-center">NF Nº ${numero}</span>
+        <span class="text-ink-muted"><i class="fa-solid fa-store mr-1"></i>${lojaNome}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 function nomeLoja(codigo) {
   if (codigo === "9175") return "Marambaia (9175)";
   if (codigo === "4304") return "Icoaraci (4304)";
@@ -8159,7 +8238,7 @@ function toggleNfSelection(numNF) {
   updateNfSelectionUI();
 
   // Re-render gallery cards to show selected checkmarks
-  const nfKeys = Object.keys(importedNfs);
+  const nfKeys = Object.keys(importedNfs).filter(numNF => !isNfArquivada(importedNfs[numNF]));
   const grid = document.getElementById('nf-cards-grid');
   const cards = grid.children;
 
