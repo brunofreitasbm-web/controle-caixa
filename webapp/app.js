@@ -3003,7 +3003,7 @@ async function mostrarFaGeradorMensagem(registro) {
     } else {
       const dataStr = registro.dataOperacao.slice(0, 10);
       const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
-      const metaDiaria = metaDiariaInterpoladaLocacoes(regra, dataStr);
+      const metaDiaria = metaLocacoesDoDia(dataStr, regra);
       const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
       linhaVendas = linhaMetaLocacoesFA(qtdHoje, metaDiaria, regra);
     }
@@ -3776,18 +3776,11 @@ function farolLocacoes(realizado, meta, regra) {
   return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
 }
 
-// Meta diária interpolada a partir da meta mensal (metaMes / dias do mês). A
-// meta de locações do Parque Circuito é por unidade — não por colaboradora —
-// então essa meta diária é comparada contra o total de locações da unidade
-// no dia, somando todas as colaboradoras que lançaram naquele dia.
-function metaDiariaInterpoladaLocacoes(regra, dataStr) {
-  const [ano, mes] = dataStr.split("-").map(Number);
-  const diasNoMes = new Date(ano, mes, 0).getDate();
-  return (regra.metaMes || 0) / diasNoMes;
-}
-
-// Status baixo/médio/acima da meta diária interpolada, usando os mesmos
-// limiares configuráveis (farolVerde/farolAmarelo) do farol de locações.
+// Status baixo/médio/acima da meta diária, usando os mesmos limiares
+// configuráveis (farolVerde/farolAmarelo) do farol de locações. A meta de
+// locações do Parque Circuito é por unidade — não por colaboradora —, e a
+// meta diária "interpolada" da meta mensal é a tabela por dia da semana do
+// anexo META.pdf (metaLocacoesDoDia), não uma divisão linear por dias do mês.
 function statusMetaDiariaInterpolada(realizado, metaDiaria, regra) {
   const pct = metaDiaria > 0 ? realizado / metaDiaria : 0;
   if (pct >= (regra.farolVerde || 1)) return { emoji: "🟢", texto: "Acima" };
