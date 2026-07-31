@@ -3901,27 +3901,38 @@ async function carregarFaMetaLocacoes(unidade) {
 
   const regra = await buscarRegraLocacoes(competencia);
 
+  // A meta de locações é da unidade inteira, não de cada colaboradora — por
+  // isso o progresso (hoje e no mês) sempre soma os lançamentos de TODAS as
+  // colaboradoras do Parque Circuito, independente de quem está selecionada
+  // no seletor (que serve só para saber em nome de quem salvar o lançamento).
   let lancamentos = [];
   try {
-    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuarioAlvo)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
     const data = await res.json();
     lancamentos = data.lancamentos || [];
   } catch (err) {
     console.error("Erro ao buscar locações FA:", err);
   }
 
-  const lancamentoHoje = lancamentos.find(l => l.data === hoje);
+  const lancamentosHoje = lancamentos.filter(l => l.data === hoje);
+  const totalUnidadeHojeSalvo = lancamentosHoje.reduce((s, l) => s + (l.locacoes || 0), 0);
+  const lancamentoHojeUsuario = lancamentosHoje.find(l => l.usuario === usuarioAlvo);
+  const valorSalvoUsuario = lancamentoHojeUsuario ? (lancamentoHojeUsuario.locacoes || 0) : 0;
+
   const inputLoc = document.getElementById("fa-loc-locacoes");
-  inputLoc.value = lancamentoHoje ? (lancamentoHoje.locacoes || 0) : 0;
+  inputLoc.value = valorSalvoUsuario;
 
   const metaHoje = metaLocacoesDoDia(hoje, regra);
-  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações`;
+  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações (unidade)`;
 
+  // Prévia ao vivo: soma o que as outras colaboradoras já lançaram hoje com
+  // o valor sendo digitado por quem está com o seletor aberto agora.
   const atualizarFarolHoje = () => {
-    const loc = parseInt(inputLoc.value) || 0;
-    const f = farolLocacoes(loc, metaHoje, regra);
+    const locDigitado = parseInt(inputLoc.value) || 0;
+    const totalUnidadeHoje = (totalUnidadeHojeSalvo - valorSalvoUsuario) + locDigitado;
+    const f = farolLocacoes(totalUnidadeHoje, metaHoje, regra);
     const el = document.getElementById("fa-loc-farol-hoje");
-    el.textContent = `${f.emoji} ${loc} de ${metaHoje} locações — ${f.texto}`;
+    el.textContent = `${f.emoji} ${totalUnidadeHoje} de ${metaHoje} locações da unidade — ${f.texto}`;
     el.style.color = f.cor;
   };
   inputLoc.oninput = atualizarFarolHoje;
@@ -4124,11 +4135,16 @@ function renderFaLocacoesDashboard(lancamentos, regra) {
     });
   }
 
-  // Tabela dia a dia
+  // Tabela dia a dia — soma as locações de todas as colaboradoras por data,
+  // já que a meta (e o farol) é da unidade como um todo, não de quem lançou.
   const tbody = document.getElementById("fa-loc-tabela-mes-tbody");
   const vazia = document.getElementById("fa-loc-tabela-vazia");
   tbody.innerHTML = "";
-  const ordenados = lancamentos.slice().sort((a, b) => b.data.localeCompare(a.data));
+  const totalPorData = {};
+  lancamentos.forEach(l => { totalPorData[l.data] = (totalPorData[l.data] || 0) + (l.locacoes || 0); });
+  const ordenados = Object.keys(totalPorData)
+    .sort((a, b) => b.localeCompare(a))
+    .map(data => ({ data, locacoes: totalPorData[data] }));
   vazia.classList.toggle("hidden", ordenados.length > 0);
   ordenados.forEach(l => {
     const meta = metaLocacoesDoDia(l.data, regra);
