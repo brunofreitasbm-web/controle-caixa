@@ -1152,12 +1152,26 @@ function carregarConfiguracoes() {
     Object.assign(WHATSAPP_GRUPOS_FA, config.whatsappGruposFa);
   }
 
-  // Sobrescrever localização/horário/meta das operações com os valores salvos
+  // Sobrescrever localização/horário/meta das operações com os valores salvos.
+  // Um valor pode chegar aqui já parseado (objeto) ou ainda como string JSON
+  // (config antigo salvo direto pelo fallback local de salvarConfigAPI) —
+  // sem esse parse, Object.assign espalha os caracteres da string em chaves
+  // numéricas (0, 1, 2, ...) e corrompe LOJAS_GEOLOC/OPERACOES_CONFIG.
   if (config.operacoesGeoloc) {
-    Object.assign(LOJAS_GEOLOC, config.operacoesGeoloc);
+    try {
+      const geoloc = typeof config.operacoesGeoloc === "string" ? JSON.parse(config.operacoesGeoloc) : config.operacoesGeoloc;
+      Object.assign(LOJAS_GEOLOC, geoloc);
+    } catch (e) {
+      console.error("Erro ao ler operacoesGeoloc do config local:", e);
+    }
   }
   if (config.operacoesConfig) {
-    Object.assign(OPERACOES_CONFIG, config.operacoesConfig);
+    try {
+      const opConfig = typeof config.operacoesConfig === "string" ? JSON.parse(config.operacoesConfig) : config.operacoesConfig;
+      Object.assign(OPERACOES_CONFIG, opConfig);
+    } catch (e) {
+      console.error("Erro ao ler operacoesConfig do config local:", e);
+    }
   }
   if (config.geofenceRaioMetros !== undefined) {
     GEOFENCE_RAIO_METROS = parseInt(config.geofenceRaioMetros) || 50;
@@ -5826,34 +5840,6 @@ async function resetarBiometriaColaborador(nome) {
   }
 }
 
-async function resetarBiometriaTodosColaboradores() {
-  if (!currentUser || currentUser.role !== "owner") {
-    showToast("Apenas administradores podem resetar a biometria.", "erro");
-    return;
-  }
-  const ok = await showModal(`Deseja resetar a biometria facial de TODOS os colaboradores? Cada um precisará cadastrar o rosto novamente e as tentativas de bloqueio serão liberadas.`, {
-    title: "Resetar Biometria de Todos",
-    icon: "🧑‍💻",
-    btnText: "Resetar Todas",
-    btnClass: "btn-danger"
-  });
-  if (!ok) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/colaboradores/reset-biometria-todos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorUsuario: currentUser.nome })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    showToast("Biometria de todos os colaboradores foi resetada com sucesso.", "sucesso");
-    renderizarColaboradores();
-  } catch (e) {
-    console.error("Erro ao resetar biometria de todos:", e);
-    showToast("Não foi possível resetar a biometria de todos os colaboradores.", "erro");
-  }
-}
-
 let usuarioPinAdminEmEdicao = null;
 
 function abrirModalAdminPin(nome) {
@@ -5950,9 +5936,36 @@ async function excluirColaborador(nome) {
   await renderizarColaboradores();
 }
 
+// Nome original do colaborador em edição (null quando o form está em modo
+// "cadastrar novo"). O backend faz upsert por nome via ON CONFLICT, então
+// deixar o campo Nome editável durante a edição permitia digitar um nome
+// diferente e criar sem querer um colaborador novo em vez de atualizar o
+// existente. Travamos o campo enquanto em modo edição pra evitar isso.
+let colabEditandoNomeOriginal = null;
+
+function entrarModoEdicaoColaborador(nome) {
+  colabEditandoNomeOriginal = nome;
+  const inputNome = document.getElementById("colab-nome");
+  inputNome.readOnly = true;
+  inputNome.style.opacity = "0.7";
+  document.getElementById("colab-edit-indicator").classList.remove("hidden");
+  document.getElementById("colab-edit-indicator-nome").textContent = nome;
+  document.getElementById("btn-salvar-colab").textContent = "Salvar Alterações";
+}
+
+function sairModoEdicaoColaborador() {
+  colabEditandoNomeOriginal = null;
+  const inputNome = document.getElementById("colab-nome");
+  inputNome.readOnly = false;
+  inputNome.style.opacity = "";
+  document.getElementById("colab-edit-indicator").classList.add("hidden");
+  document.getElementById("btn-salvar-colab").textContent = "Salvar Colaborador";
+}
+
 // Preenche o formulário com os dados de um colaborador já cadastrado —
-// reaproveita o mesmo form de cadastro pra edição (o backend já faz upsert
-// por nome via ON CONFLICT, então "salvar" com o nome existente atualiza).
+// reaproveita o mesmo form de cadastro pra edição, mas trava o campo Nome
+// (ver entrarModoEdicaoColaborador) pra garantir que "salvar" sempre
+// atualiza o mesmo registro em vez de criar um colaborador novo.
 function preencherFormColaboradorParaEdicao(nome) {
   const u = USERS.find(x => x.nome === nome);
   if (!u) return;
@@ -5964,20 +5977,26 @@ function preencherFormColaboradorParaEdicao(nome) {
   document.getElementById("colab-unidade").value = u.unidade || "";
   document.getElementById("colab-admissao").value = u.dataAdmissao || "";
   document.getElementById("colab-pin").value = "";
+  entrarModoEdicaoColaborador(nome);
   document.getElementById("form-cadastrar-colaborador").scrollIntoView({ behavior: "smooth", block: "start" });
-  showToast(`Editando ${nome} — altere os campos e clique em "Salvar Colaborador".`, "info");
+  showToast(`Editando ${nome} — altere os campos e clique em "Salvar Alterações".`, "info");
 }
 
 const btnLimparFormColab = document.getElementById("btn-limpar-form-colab");
 if (btnLimparFormColab) {
-  btnLimparFormColab.onclick = () => document.getElementById("form-cadastrar-colaborador").reset();
+  btnLimparFormColab.onclick = () => {
+    document.getElementById("form-cadastrar-colaborador").reset();
+    sairModoEdicaoColaborador();
+  };
 }
 
 const formCadastrarColab = document.getElementById("form-cadastrar-colaborador");
 if (formCadastrarColab) {
   formCadastrarColab.onsubmit = async (e) => {
     e.preventDefault();
-    const nome = document.getElementById("colab-nome").value.trim();
+    // Em modo edição, usa o nome original travado (nunca o valor do input)
+    // como trava extra contra criar um colaborador novo por engano.
+    const nome = colabEditandoNomeOriginal || document.getElementById("colab-nome").value.trim();
     const role = document.getElementById("colab-role").value;
     const pin = document.getElementById("colab-pin").value.trim();
     const unidade = document.getElementById("colab-unidade").value;
@@ -6032,6 +6051,7 @@ if (formCadastrarColab) {
 
     showToast(`Colaborador "${nome}" salvo com sucesso!`, "sucesso");
     formCadastrarColab.reset();
+    sairModoEdicaoColaborador();
     await renderizarColaboradores();
     await oferecerCadastroBiometriaColaborador(nome);
   };
@@ -6043,11 +6063,6 @@ if (btnAtualizarColab) {
     await renderizarColaboradores();
     showToast("Lista de colaboradores atualizada.", "info");
   };
-}
-
-const btnResetarBiometriaTodos = document.getElementById("btn-resetar-biometria-todos");
-if (btnResetarBiometriaTodos) {
-  btnResetarBiometriaTodos.onclick = () => resetarBiometriaTodosColaboradores();
 }
 
 /* ==========================================================================
@@ -10754,7 +10769,11 @@ function inicializarPainelConfiguracoes() {
     const tbody = document.getElementById("config-operacoes-tbody");
     if (tbody) {
       tbody.innerHTML = "";
-      Object.keys(LOJAS_GEOLOC).forEach(operacao => {
+      // Lista fixa de operações conhecidas — nunca Object.keys(LOJAS_GEOLOC)
+      // direto: esse objeto só recebe merges (Object.assign) ao longo do
+      // carregamento e pode acumular chaves indevidas se algum valor salvo
+      // vier malformado, o que faria a tabela exibir linhas de lixo.
+      [...LOJAS, ...LOJAS_FA].forEach(operacao => {
         const geo = LOJAS_GEOLOC[operacao] || { lat: 0, lng: 0 };
         const cfg = OPERACOES_CONFIG[operacao] || { abertura: "09:00", fechamento: "22:00" };
         const tr = document.createElement("tr");
@@ -10798,108 +10817,8 @@ function inicializarPainelConfiguracoes() {
     if (inputEmail) inputEmail.value = config.contadorEmail || "";
   }
 
-  // Card "Prontidão da Operação" (Líder de Operações / Owner)
-  const cardProntidao = document.getElementById("config-card-prontidao");
-  if (cardProntidao) cardProntidao.classList.toggle("hidden", !mostrarOperacoes);
-  if (mostrarOperacoes) renderProntidaoOperacao();
-
   aplicarFiltroConfiguracoes();
 }
-
-// --------------------------------------------------------------------------
-// Prontidão da Operação: checklist do que ainda falta configurar. Lê o estado
-// real já carregado (coordenadas, links, contador, notificações) — nenhuma
-// chamada nova ao servidor.
-// --------------------------------------------------------------------------
-function calcularPendenciasOperacao() {
-  const itens = [];
-
-  const semCoords = Object.keys(LOJAS_GEOLOC).filter(op => {
-    const g = LOJAS_GEOLOC[op] || {};
-    return !g.lat || !g.lng;
-  });
-  itens.push({
-    ok: semCoords.length === 0,
-    titulo: "Localização das operações",
-    okTexto: "Todas as operações têm coordenadas definidas.",
-    pendenteTexto: `Sem coordenadas: ${semCoords.join(", ")} — a cerca virtual bloqueia a marcação de ponto nessas operações.`
-  });
-
-  const semHorario = Object.keys(LOJAS_GEOLOC).filter(op => {
-    const c = OPERACOES_CONFIG[op];
-    return !c || !c.abertura || !c.fechamento;
-  });
-  itens.push({
-    ok: semHorario.length === 0,
-    titulo: "Horário de funcionamento",
-    okTexto: "Abertura e fechamento definidos em todas as operações.",
-    pendenteTexto: `Sem horário: ${semHorario.join(", ")} — o Meta Hora a Hora fica sem base de cálculo.`
-  });
-
-  const raioOk = GEOFENCE_RAIO_METROS >= 10 && GEOFENCE_RAIO_METROS <= 500;
-  itens.push({
-    ok: raioOk,
-    titulo: "Cerca virtual do ponto",
-    okTexto: `Raio de tolerância em ${GEOFENCE_RAIO_METROS} metros.`,
-    pendenteTexto: "Raio de tolerância fora da faixa recomendada (10 a 500 metros)."
-  });
-
-  const gruposTodos = { ...WHATSAPP_GRUPOS, ...WHATSAPP_GRUPOS_FA };
-  const semGrupo = Object.keys(gruposTodos).filter(loja => {
-    const v = (gruposTodos[loja] || "").trim();
-    return !v.startsWith("https://chat.whatsapp.com/");
-  });
-  itens.push({
-    ok: semGrupo.length === 0,
-    titulo: "Grupos de WhatsApp",
-    okTexto: "Todas as lojas com link de grupo válido.",
-    pendenteTexto: `Sem link válido: ${semGrupo.join(", ")} — os avisos dessas lojas não têm para onde ir.`
-  });
-
-  itens.push({
-    ok: !!(config.contadorEmail || "").trim(),
-    titulo: "E-mail do contador",
-    okTexto: `Folha de Ponto vai para ${config.contadorEmail}.`,
-    pendenteTexto: "Sem e-mail cadastrado — não dá para enviar a Folha de Ponto ao contador."
-  });
-
-  itens.push({
-    ok: loadNotifMasterEnabled(),
-    titulo: "Notificações de eventos",
-    okTexto: "Alertas de eventos ativos.",
-    pendenteTexto: "Chave mestra desligada — nenhum alerta de evento está sendo enviado."
-  });
-
-  return itens;
-}
-
-function renderProntidaoOperacao() {
-  const lista = document.getElementById("config-prontidao-lista");
-  const resumo = document.getElementById("config-prontidao-resumo");
-  if (!lista) return;
-
-  const itens = calcularPendenciasOperacao();
-  const pendentes = itens.filter(i => !i.ok);
-
-  lista.innerHTML = itens.map(i => `
-    <li class="flex items-start gap-2 p-2 rounded-lg ${i.ok ? "" : "bg-amber-950/10 border border-amber-800/30"}">
-      <i class="fa-solid ${i.ok ? "fa-circle-check text-emerald-600" : "fa-triangle-exclamation text-amber-600"} mt-0.5"></i>
-      <span>
-        <strong class="block">${i.titulo}</strong>
-        <span class="text-muted">${i.ok ? i.okTexto : i.pendenteTexto}</span>
-      </span>
-    </li>
-  `).join("");
-
-  if (resumo) {
-    const tudoOk = pendentes.length === 0;
-    resumo.textContent = tudoOk ? "Tudo configurado" : `${pendentes.length} pendência${pendentes.length > 1 ? "s" : ""}`;
-    resumo.className = `px-3 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap ${
-      tudoOk ? "bg-emerald-950/10 border-emerald-800/30 text-emerald-700" : "bg-amber-950/10 border-amber-800/30 text-amber-700"
-    }`;
-  }
-}
-
 
 // --------------------------------------------------------------------------
 // Busca dentro do painel: filtra os cards pelo texto visível + as palavras-chave
@@ -11273,7 +11192,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      renderProntidaoOperacao();
       showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
     });
   }
@@ -11326,7 +11244,6 @@ document.addEventListener("DOMContentLoaded", () => {
       config.operacoesConfig = novoConfig;
       config.geofenceRaioMetros = raio;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      renderProntidaoOperacao();
 
       if (okGeoloc && okConfig && okRaio) {
         if (semCoordenadas.length > 0) {
@@ -11344,15 +11261,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputBuscaConfig = document.getElementById("config-busca");
   if (inputBuscaConfig) {
     inputBuscaConfig.addEventListener("input", aplicarFiltroConfiguracoes);
-  }
-
-  // Prontidão da Operação: revalidar sob demanda
-  const btnRevalidarProntidao = document.getElementById("config-btn-revalidar-prontidao");
-  if (btnRevalidarProntidao) {
-    btnRevalidarProntidao.addEventListener("click", () => {
-      renderProntidaoOperacao();
-      showToast("Checklist de prontidão atualizado.", "sucesso");
-    });
   }
 
   // Cards recolhíveis do painel (Operações, WhatsApp, Contador)
@@ -11389,7 +11297,6 @@ document.addEventListener("DOMContentLoaded", () => {
       config.contadorNome = nomeContador;
       config.contadorEmail = emailContador;
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      renderProntidaoOperacao();
 
       showToast((okNome && okEmail)
         ? "Dados do contador salvos!"

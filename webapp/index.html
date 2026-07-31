@@ -389,10 +389,6 @@
             <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
             <span class="tab-text">Importações</span>
           </button>
-          <button class="tab-btn" id="tab-btn-importar-meta" data-tab="importar-meta" role="tab" aria-selected="false" aria-controls="tab-importar-meta" data-tip="Cadastro da meta anual e mensal de cada loja">
-            <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="tab-text">↳ Meta do Ano</span>
-          </button>
           <button class="tab-btn hidden" id="tab-btn-boletos" data-tab="boletos" role="tab" aria-selected="false" aria-controls="tab-boletos" data-tip="Lista de boletos importados, com status de pagamento">
             <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
             <span class="tab-text">Boletos</span>
@@ -1529,14 +1525,16 @@
           <div>
             <h2><i class="fa-solid fa-users-gear"></i> Colaboradores Cadastrados</h2>
           <div style="display: flex; gap: 8px;">
-            <button id="btn-resetar-biometria-todos" class="btn-secondary" style="color: #d9534f; border-color: #d9534f;"><i class="fa-solid fa-user-slash"></i> Resetar Biometria de Todos</button>
             <button id="btn-atualizar-colaboradores" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Atualizar Lista</button>
           </div>
         </div>
 
         <!-- Form Cadastro de Colaborador -->
         <form id="form-cadastrar-colaborador" class="form-card-inner" style="margin-top: 16px; margin-bottom: 24px; padding: 18px; background: var(--bg-card-alt, rgba(0,0,0,0.03)); border-radius: 12px; border: 1px solid var(--border-color, rgba(0,0,0,0.1));">
-          <h3 style="margin-top:0; margin-bottom: 14px; font-size: 1.1rem;"><i class="fa-solid fa-user-plus"></i> Cadastrar / Atualizar Colaborador</h3>
+          <h3 style="margin-top:0; margin-bottom: 4px; font-size: 1.1rem;"><i class="fa-solid fa-user-plus"></i> Cadastrar / Atualizar Colaborador</h3>
+          <p id="colab-edit-indicator" class="hidden" style="margin: 0 0 14px; font-size: 0.85rem; color: var(--tone-warning-ink, #b45309);">
+            <i class="fa-solid fa-pen"></i> Editando <strong id="colab-edit-indicator-nome"></strong> — o nome não pode ser alterado nesta tela; ajuste os demais dados e clique em "Salvar Alterações".
+          </p>
 
           <h4 style="margin: 0 0 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7;">Dados Pessoais</h4>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
@@ -1566,7 +1564,7 @@
                 <option value="consultora">Consultora (Apenas Registro)</option>
                 <option value="consultora_dashboard">Líder de Operações Cacau Show</option>
                 <option value="consultora_fa">Consultora FaçaAmigos (FA)</option>
-                <option value="owner">Administrador / Owner (Bruno e Isabella)</option>
+                <option value="owner">Administrador / Owner</option>
               </select>
             </div>
             <div class="field">
@@ -1597,7 +1595,7 @@
           </div>
           <div style="margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; align-items: center;">
             <button type="button" id="btn-limpar-form-colab" class="btn-secondary">Limpar</button>
-            <button type="submit" class="btn-primary">Salvar Colaborador</button>
+            <button type="submit" id="btn-salvar-colab" class="btn-primary">Salvar Colaborador</button>
           </div>
         </form>
 
@@ -3282,23 +3280,6 @@
              primeiro o que afeta a operação inteira (prontidão, lojas, canais,
              pessoas), depois o que é do próprio usuário/dispositivo. -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="config-grid">
-
-          <!-- Card: Prontidão da Operação — checklist do que ainda falta configurar (Líder/Owner) -->
-          <div id="config-card-prontidao" class="card p-6 rounded-2xl border border-border md:col-span-2 hidden" data-config-busca="prontidao checklist pendencias status operacao diagnostico">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-              <h3 class="text-base font-bold flex items-center gap-2">
-                <i class="fa-solid fa-list-check text-accent"></i> Prontidão da Operação
-              </h3>
-              <div class="flex items-center gap-2">
-                <span id="config-prontidao-resumo" class="px-3 py-1 rounded-full text-[10px] font-bold border border-border whitespace-nowrap">Verificando…</span>
-                <button type="button" id="config-btn-revalidar-prontidao" class="py-2 px-3 bg-paper hover:bg-cream border border-border text-ink font-bold rounded-xl text-xs transition flex items-center gap-2">
-                  <i class="fa-solid fa-rotate"></i> Revalidar
-                </button>
-              </div>
-            </div>
-            <p class="text-xs text-muted mb-4">O que ainda falta configurar para o Hub rodar sem tropeço. Cada pendência aqui vira problema no dia a dia da loja.</p>
-            <ul id="config-prontidao-lista" class="space-y-2 text-xs"></ul>
-          </div>
 
           <!-- Card: Localização, Horário e Cerca Virtual das Operações (Líder de Operações / Owner).
                O antigo card separado "Geofencing do Ponto" foi compactado para cá: o raio de
