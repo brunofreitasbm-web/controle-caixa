@@ -1803,6 +1803,30 @@ tr.selected-row {
   }
 }
 
+/* Splash de abertura — cor de fundo definida inline no HTML (mesma cor
+   predominante do ícone, ver manifest.json). Cobre a tela inteira até o
+   app decidir entrar direto (sessão salva) ou mostrar o login. */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+#boot-splash img {
+  width: 128px;
+  height: 128px;
+  border-radius: 28px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+#boot-splash.boot-splash-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* UTILITY CLASSES */
 .hidden {
   display: none !important;
