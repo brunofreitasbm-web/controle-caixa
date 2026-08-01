@@ -615,10 +615,10 @@
             <label for="loja">Loja *</label>
             <select id="loja" required>
               <option value="" disabled selected>Selecione</option>
-              <option>Marambaia</option>
-              <option>Icoaraci</option>
-              <option>Mário Covas</option>
-              <option>Venda Direta</option>
+              <option value="Marambaia">🟣 Marambaia</option>
+              <option value="Icoaraci">🔵 Icoaraci</option>
+              <option value="Mário Covas">🟢 Mário Covas</option>
+              <option value="Venda Direta">🟠 Venda Direta</option>
             </select>
             <div id="loja-error" class="input-error-msg hidden">Selecione a loja</div>
           </div>
@@ -744,11 +744,11 @@
           <div class="filters">
             <select id="filtro-loja-pendentes" aria-label="Filtrar por loja">
               <option value="">Todas as lojas</option>
-              <option>Marambaia</option>
-              <option>Icoaraci</option>
-              <option>Mário Covas</option>
-              <option>Venda Direta</option>
-              <option>Desligado</option>
+              <option value="Marambaia">🟣 Marambaia</option>
+              <option value="Icoaraci">🔵 Icoaraci</option>
+              <option value="Mário Covas">🟢 Mário Covas</option>
+              <option value="Venda Direta">🟠 Venda Direta</option>
+              <option value="Desligado">Desligado</option>
             </select>
           </div>
         </div>
@@ -798,11 +798,11 @@
             <input type="text" id="busca-hist" placeholder="Buscar loja, consultor..." aria-label="Buscar no histórico">
             <select id="filtro-loja-hist" aria-label="Filtrar por loja">
               <option value="">Todas as lojas</option>
-              <option>Marambaia</option>
-              <option>Icoaraci</option>
-              <option>Mário Covas</option>
-              <option>Venda Direta</option>
-              <option>Desligado</option>
+              <option value="Marambaia">🟣 Marambaia</option>
+              <option value="Icoaraci">🔵 Icoaraci</option>
+              <option value="Mário Covas">🟢 Mário Covas</option>
+              <option value="Venda Direta">🟠 Venda Direta</option>
+              <option value="Desligado">Desligado</option>
             </select>
             <select id="filtro-status-hist" aria-label="Filtrar por status">
               <option value="" selected>Todos os registros (com arquivados)</option>
@@ -958,9 +958,9 @@
               <label for="fa-loja">Loja *</label>
               <select id="fa-loja" required>
                 <option value="" disabled selected>Selecione</option>
-                <option>Grão Pará</option>
-                <option>ParqueShopping</option>
-                <option>Parque Circuito</option>
+                <option value="Grão Pará">🟤 Grão Pará</option>
+                <option value="ParqueShopping">🟡 ParqueShopping</option>
+                <option value="Parque Circuito">🔴 Parque Circuito</option>
               </select>
               <div id="fa-loja-error" class="input-error-msg hidden">Selecione a loja</div>
             </div>
@@ -1079,9 +1079,9 @@
             <div class="filters">
               <select id="fa-filtro-loja-pendentes" aria-label="Filtrar por loja FA">
                 <option value="">Todas as lojas</option>
-                <option>Grão Pará</option>
-                <option>ParqueShopping</option>
-                <option>Parque Circuito</option>
+                <option value="Grão Pará">🟤 Grão Pará</option>
+                <option value="ParqueShopping">🟡 ParqueShopping</option>
+                <option value="Parque Circuito">🔴 Parque Circuito</option>
               </select>
             </div>
           </div>
@@ -1120,9 +1120,9 @@
               <input type="text" id="fa-busca-hist" placeholder="Buscar loja, consultora..." aria-label="Buscar no histórico FA">
               <select id="fa-filtro-loja-hist" aria-label="Filtrar por loja FA">
                 <option value="">Todas as lojas</option>
-                <option>Grão Pará</option>
-                <option>ParqueShopping</option>
-                <option>Parque Circuito</option>
+                <option value="Grão Pará">🟤 Grão Pará</option>
+                <option value="ParqueShopping">🟡 ParqueShopping</option>
+                <option value="Parque Circuito">🔴 Parque Circuito</option>
               </select>
               <select id="fa-filtro-status-hist" aria-label="Filtrar por status FA">
                 <option value="" selected>Todos os registros</option>
@@ -1897,9 +1897,9 @@
                 <i class="fa-solid fa-store"></i> Loja:
               </span>
               <select id="metas-loja-selector" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
-                <option value="9175">Loja 9175 - Marambaia</option>
-                <option value="4304">Loja 4304 - Icoaraci</option>
-                <option value="9201">Loja 9201 - Mário Covas</option>
+                <option value="9175">🟣 Loja 9175 - Marambaia</option>
+                <option value="4304">🔵 Loja 4304 - Icoaraci</option>
+                <option value="9201">🟢 Loja 9201 - Mário Covas</option>
               </select>
             </div>
             <label class="btn-upload-highlight mx-auto">
@@ -1985,9 +1985,9 @@
                   <i class="fa-solid fa-store"></i> Loja:
                 </span>
                 <select class="store-selector bg-surface-2 text-ink-strong border border-subtle rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
-                  <option value="9175" selected>Loja 9175 - Marambaia</option>
-                  <option value="4304">Loja 4304 - Icoaraci</option>
-                  <option value="9201">Loja 9201 - Mário Covas</option>
+                  <option value="9175" selected>🟣 Loja 9175 - Marambaia</option>
+                  <option value="4304">🔵 Loja 4304 - Icoaraci</option>
+                  <option value="9201">🟢 Loja 9201 - Mário Covas</option>
                 </select>
               </div>
               <span class="text-xs font-mono font-bold text-ink-muted">NF Nº <span id="nf-numero">-</span></span>
@@ -2131,9 +2131,9 @@
                 <i class="fa-solid fa-store"></i> Loja Ativa:
               </span>
               <select class="store-selector bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
-                <option value="9175" selected>Loja 9175 - Marambaia</option>
-                <option value="4304">Loja 4304 - Icoaraci</option>
-                <option value="9201">Loja 9201 - Mário Covas</option>
+                <option value="9175" selected>🟣 Loja 9175 - Marambaia</option>
+                <option value="4304">🔵 Loja 4304 - Icoaraci</option>
+                <option value="9201">🟢 Loja 9201 - Mário Covas</option>
               </select>
             </div>
             <div class="text-right text-xs font-mono font-bold text-ink-muted bg-surface-2 px-3 py-2 rounded-xl border border-subtle shrink-0">
@@ -2454,9 +2454,9 @@
             <label for="auditoria-store-filter" class="text-xs font-bold text-ink-muted w-full sm:w-auto">Filtrar por Loja:</label>
             <select id="auditoria-store-filter" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer w-full sm:w-auto">
               <option value="all">Todas as Lojas</option>
-              <option value="9175">Marambaia (9175)</option>
-              <option value="4304">Icoaraci (4304)</option>
-              <option value="9201">Mário Covas (9201)</option>
+              <option value="9175">🟣 Marambaia (9175)</option>
+              <option value="4304">🔵 Icoaraci (4304)</option>
+              <option value="9201">🟢 Mário Covas (9201)</option>
             </select>
           </div>
           <button id="btn-atualizar-auditoria" class="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-accent-soft hover:bg-surface-hover text-ink w-full sm:w-auto justify-center">
@@ -2778,14 +2778,14 @@
               <label class="block text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1">Operação Ativa</label>
               <select id="ponto-operacao-selector" class="w-full bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
                 <optgroup label="Cacau Show">
-                  <option value="Marambaia">Marambaia (9175)</option>
-                  <option value="Icoaraci">Icoaraci (4304)</option>
-                  <option value="Mário Covas">Mário Covas (9201)</option>
+                  <option value="Marambaia">🟣 Marambaia (9175)</option>
+                  <option value="Icoaraci">🔵 Icoaraci (4304)</option>
+                  <option value="Mário Covas">🟢 Mário Covas (9201)</option>
                 </optgroup>
                 <optgroup label="Faça Amigos">
-                  <option value="Grão Pará">Grão Pará</option>
-                  <option value="ParqueShopping">ParqueShopping</option>
-                  <option value="Parque Circuito">Parque Circuito</option>
+                  <option value="Grão Pará">🟤 Grão Pará</option>
+                  <option value="ParqueShopping">🟡 ParqueShopping</option>
+                  <option value="Parque Circuito">🔴 Parque Circuito</option>
                 </optgroup>
               </select>
             </div>
@@ -3033,9 +3033,9 @@
               <i class="fa-solid fa-store"></i> Operação:
             </span>
             <select id="meta-operacao-selector" class="bg-surface-1 text-ink-strong border border-subtle rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-accent cursor-pointer">
-              <option value="Marambaia">Marambaia (9175)</option>
-              <option value="Icoaraci">Icoaraci (4304)</option>
-              <option value="Mário Covas">Mário Covas (9201)</option>
+              <option value="Marambaia">🟣 Marambaia (9175)</option>
+              <option value="Icoaraci">🔵 Icoaraci (4304)</option>
+              <option value="Mário Covas">🟢 Mário Covas (9201)</option>
             </select>
           </div>
         </div>

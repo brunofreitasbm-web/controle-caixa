@@ -17,6 +17,80 @@ let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dina
 const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
 const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
 
+// --- IDENTIDADE VISUAL DAS OPERAÇÕES ---
+// Emoji e cor fixos por operação (Cacau Show + Faça Amigos), usados em
+// selects, filtros, cards e badges para dar ao operador uma referência
+// visual imediata de qual operação ele está alimentando/filtrando.
+const OPERACOES_INFO = {
+  "Marambaia": { emoji: "🟣", cor: "#8b5cf6" },
+  "Icoaraci": { emoji: "🔵", cor: "#3b82f6" },
+  "Mário Covas": { emoji: "🟢", cor: "#22c55e" },
+  "Venda Direta": { emoji: "🟠", cor: "#f97316" },
+  "Grão Pará": { emoji: "🟤", cor: "#92400e" },
+  "ParqueShopping": { emoji: "🟡", cor: "#eab308" },
+  "Parque Circuito": { emoji: "🔴", cor: "#ef4444" }
+};
+
+// Apelidos/códigos usados em outros módulos (RH, NF-e, Ponto) para as
+// mesmas operações acima.
+const OPERACOES_ALIASES = {
+  "Grão-Pará": "Grão Pará",
+  "Playground": "ParqueShopping",
+  "FaçaAmigos Circuito": "Parque Circuito",
+  "9175": "Marambaia",
+  "4304": "Icoaraci",
+  "9201": "Mário Covas",
+  "fa-grao-para": "Grão Pará",
+  "fa-playground": "ParqueShopping",
+  "fa-parque": "Parque Circuito"
+};
+
+function opKey(nome) {
+  if (!nome) return null;
+  if (OPERACOES_INFO[nome]) return nome;
+  if (OPERACOES_ALIASES[nome]) return OPERACOES_ALIASES[nome];
+  return null;
+}
+function opEmoji(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].emoji : "📍";
+}
+function opCor(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].cor : "#9ca3af";
+}
+function opLabel(nome) {
+  return nome ? `${opEmoji(nome)} ${nome}` : nome;
+}
+// Badge colorido (emoji + nome) para uso em células de tabela.
+function opChip(nome) {
+  if (!nome) return "";
+  return `<span class="op-chip" style="--op-cor:${opCor(nome)}">${opEmoji(nome)} ${nome}</span>`;
+}
+// Aplica a cor da operação selecionada como borda esquerda do <select>.
+function aplicarCorOperacaoSelect(select) {
+  if (!select) return;
+  select.classList.add("op-select");
+  select.style.setProperty("--op-select-cor", select.value ? opCor(select.value) : "var(--border)");
+}
+
+// Liga a borda colorida por operação aos selects de loja/filtro sempre
+// presentes no DOM (os demais — Ponto, Meta Hora a Hora — são tratados em
+// seus próprios inicializadores, pois só existem quando a aba é aberta).
+function inicializarCorOperacaoSelects() {
+  [
+    "loja", "fa-loja",
+    "filtro-loja-pendentes", "filtro-loja-hist",
+    "fa-filtro-loja-pendentes", "fa-filtro-loja-hist",
+    "metas-loja-selector", "auditoria-store-filter"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    aplicarCorOperacaoSelect(el);
+    el.addEventListener("change", () => aplicarCorOperacaoSelect(el));
+  });
+}
+
 // --- CONFIGURAÇÃO MANUAL DOS GRUPOS DE WHATSAPP ---
 // Cole aqui o link de convite do grupo do WhatsApp de cada loja.
 // Para extrair o link de convite:
@@ -1598,6 +1672,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Sugerir Abertura/Fechamento por hora e restaurar rascunhos salvos
   preselecionarOperacaoPorHorario();
   restaurarRascunhosForm();
+  inicializarCorOperacaoSelects();
 
   // Verificar aviso de Inventário Mensal Obrigatório para colaboradoras Cacau Show
   verificarInventarioMensalNotificacao();
@@ -3115,8 +3190,9 @@ function renderFaDashboard() {
 
     const card = document.createElement("div");
     card.className = "loja-card fa-loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta">
         <span>${doLoja.length} envelope(s)</span>
@@ -3175,7 +3251,7 @@ function renderFaDashboard() {
         <td style="text-align: center;">
           ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
-        <td>${r.loja}</td>
+        <td>${opChip(r.loja)}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
@@ -3315,7 +3391,7 @@ function renderFaHistorico() {
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
-      <td>${r.loja}</td>
+      <td>${opChip(r.loja)}</td>
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
@@ -3429,8 +3505,9 @@ function renderFaMensal() {
 
     const card = document.createElement("div");
     card.className = "loja-card fa-loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
     `;
@@ -3446,7 +3523,7 @@ function renderFaMensal() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill fa-bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -4634,8 +4711,9 @@ function renderDashboard() {
 
     const card = document.createElement("div");
     card.className = "loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta">
         <span>${doLoja.length} envelope(s)</span>
@@ -4657,7 +4735,7 @@ function renderDashboard() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -4709,7 +4787,7 @@ function renderDashboard() {
         <td style="text-align: center;">
           ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
-        <td>${r.loja}</td>
+        <td>${opChip(r.loja)}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
@@ -5129,7 +5207,7 @@ function renderHistorico() {
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
-      <td>${r.loja}</td>
+      <td>${opChip(r.loja)}</td>
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
@@ -5236,8 +5314,9 @@ function renderMensal() {
 
     const card = document.createElement("div");
     card.className = "loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
     `;
@@ -5253,7 +5332,7 @@ function renderMensal() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -5275,7 +5354,7 @@ function renderMensal() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${mesLabel(l.mes)}</td>
-      <td>${l.loja}</td>
+      <td>${opChip(l.loja)}</td>
       <td>${formatBRL(l.total)}</td>
       <td>${l.qtd}</td>
     `;
@@ -5914,12 +5993,12 @@ async function renderizarColaboradores() {
   };
 
   const unidadeLabels = {
-    "9175": "9175 - Marambaia",
-    "9201": "9201 - Mário Covas",
-    "4304": "4304 - Icoaraci",
-    "fa-parque": "FA - Parque Circuito",
-    "fa-playground": "FA - ParqueShopping",
-    "fa-grao-para": "FA - Grão-Pará",
+    "9175": "🟣 9175 - Marambaia",
+    "9201": "🟢 9201 - Mário Covas",
+    "4304": "🔵 4304 - Icoaraci",
+    "fa-parque": "🔴 FA - Parque Circuito",
+    "fa-playground": "🟡 FA - ParqueShopping",
+    "fa-grao-para": "🟤 FA - Grão-Pará",
     "all": "Todas as Lojas"
   };
 
@@ -7144,10 +7223,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentStore = storeSelectors[0].value || '9175';
     storeSelectors.forEach(sel => {
       sel.value = currentStore;
+      aplicarCorOperacaoSelect(sel);
       sel.addEventListener('change', (e) => {
         currentStore = e.target.value;
         document.querySelectorAll('.store-selector, #store-selector').forEach(s => {
           s.value = currentStore;
+          aplicarCorOperacaoSelect(s);
         });
         loadInventoryForCurrentStore();
         if (typeof renderTable === 'function') renderTable();
@@ -8387,9 +8468,9 @@ function renderNfArquivadasList(filtro) {
 }
 
 function nomeLoja(codigo) {
-  if (codigo === "9175") return "Marambaia (9175)";
-  if (codigo === "4304") return "Icoaraci (4304)";
-  if (codigo === "9201") return "Mário Covas (9201)";
+  if (codigo === "9175") return "🟣 Marambaia (9175)";
+  if (codigo === "4304") return "🔵 Icoaraci (4304)";
+  if (codigo === "9201") return "🟢 Mário Covas (9201)";
   return `Loja ${codigo}`;
 }
 
@@ -10883,7 +10964,7 @@ function inicializarPainelConfiguracoes() {
         field.className = "field";
         field.innerHTML = `
           <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
-            <span>${loja}</span>
+            <span>${opLabel(loja)}</span>
             <span class="status-badge">${getBadgeHtml(value)}</span>
           </label>
           <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
@@ -10907,7 +10988,7 @@ function inicializarPainelConfiguracoes() {
         field.className = "field";
         field.innerHTML = `
           <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
-            <span>${loja}</span>
+            <span>${opLabel(loja)}</span>
             <span class="status-badge">${getBadgeHtml(value)}</span>
           </label>
           <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
@@ -11865,14 +11946,14 @@ function renderRhTable() {
         <select class="rh-colab-store-select bg-surface-1 text-ink-strong border border-subtle rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-accent cursor-pointer" data-user="${c.nome}">
           <option value="all" ${store === 'all' ? 'selected' : ''}>Todas as Lojas (Geral)</option>
           <optgroup label="Cacau Show">
-            <option value="9175" ${store === '9175' ? 'selected' : ''}>9175 - Marambaia</option>
-            <option value="9201" ${store === '9201' ? 'selected' : ''}>9201 - Mário Covas</option>
-            <option value="4304" ${store === '4304' ? 'selected' : ''}>4304 - Icoaraci</option>
+            <option value="9175" ${store === '9175' ? 'selected' : ''}>🟣 9175 - Marambaia</option>
+            <option value="9201" ${store === '9201' ? 'selected' : ''}>🟢 9201 - Mário Covas</option>
+            <option value="4304" ${store === '4304' ? 'selected' : ''}>🔵 4304 - Icoaraci</option>
           </optgroup>
           <optgroup label="Faça Amigos">
-            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>FaçaAmigos Circuito</option>
-            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>Faça Amigos - Playground</option>
-            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>Faça Amigos - Grão-Pará</option>
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>🔴 FaçaAmigos Circuito</option>
+            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>🟡 Faça Amigos - Playground</option>
+            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>🟤 Faça Amigos - Grão-Pará</option>
           </optgroup>
         </select>
       </td>
@@ -11987,12 +12068,12 @@ function renderRhTable() {
 
 const RH_STORE_TITULOS = {
   "all": "Geral (Todas as Unidades)",
-  "9175": "Loja 9175 — Marambaia",
-  "9201": "Loja 9201 — Mário Covas",
-  "4304": "Loja 4304 — Icoaraci",
-  "fa-parque": "FaçaAmigos — Parque Circuito",
-  "fa-playground": "FaçaAmigos — Playground",
-  "fa-grao-para": "FaçaAmigos — Grão-Pará"
+  "9175": "Loja 9175 — 🟣 Marambaia",
+  "9201": "Loja 9201 — 🟢 Mário Covas",
+  "4304": "Loja 4304 — 🔵 Icoaraci",
+  "fa-parque": "FaçaAmigos — 🔴 Parque Circuito",
+  "fa-playground": "FaçaAmigos — 🟡 Playground",
+  "fa-grao-para": "FaçaAmigos — 🟤 Grão-Pará"
 };
 
 // Funil único de leitura dos dados pro Dashboard/Insights/Mapa de Talentos —
@@ -12729,8 +12810,10 @@ function inicializarAbaPonto() {
       ? UNIDADES_FA[0]
       : getLojaNomePorCodigo(currentStore);
     operacaoSelector.value = pontoOperacaoAtiva;
+    aplicarCorOperacaoSelect(operacaoSelector);
     operacaoSelector.onchange = (e) => {
       pontoOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(operacaoSelector);
       ativarGPSPonto();
     };
   }
@@ -13586,8 +13669,10 @@ function inicializarMetaHoraHora() {
   if (selector) {
     metaOperacaoAtiva = getLojaNomePorCodigo(currentStore);
     selector.value = metaOperacaoAtiva;
+    aplicarCorOperacaoSelect(selector);
     selector.onchange = (e) => {
       metaOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(selector);
       carregarMetaHoraHora();
     };
   }
