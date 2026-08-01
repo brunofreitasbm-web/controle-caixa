@@ -4939,8 +4939,6 @@ function abrirModalRetirada(target) {
     respLabel.textContent = isOwner ? "Responsável pela Retirada (Opcional para Owner)" : "Responsável pela Retirada *";
   }
 
-  autorizacaoPinInput.value = "";
-
   const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra"]).includes(currentUser ? currentUser.nome : "");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
   document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
