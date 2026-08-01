@@ -3114,7 +3114,12 @@ async function mostrarFaGeradorMensagem(registro) {
       ]);
       linhaVendas = linhaVendasConversaoFA(lancamentoHoje, regraConversao);
     } else {
-      const dataStr = registro.dataOperacao.slice(0, 10);
+      // Não usar registro.dataOperacao.slice(0, 10): essa string está em UTC
+      // e o Parque Circuito fecha perto das 22h locais (Belém, UTC-3), então
+      // fatiar o ISO em UTC frequentemente já cai no dia seguinte, fazendo a
+      // busca de locações/meta do dia não encontrar o lançamento de hoje.
+      const dOp = new Date(registro.dataOperacao);
+      const dataStr = `${dOp.getFullYear()}-${String(dOp.getMonth() + 1).padStart(2, "0")}-${String(dOp.getDate()).padStart(2, "0")}`;
       const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
       const metaDiaria = metaLocacoesDoDia(dataStr, regra);
       const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
