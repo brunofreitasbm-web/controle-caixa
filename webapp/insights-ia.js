@@ -239,8 +239,15 @@ function inicializarInsightsIA() {
   ["ia-escala-loja", "ia-copiloto-loja"].forEach(id => {
     const sel = document.getElementById(id);
     if (sel && !sel.dataset.populado) {
-      sel.innerHTML = IA_LOJAS_CACAU.map(l => `<option value="${iaEscapar(l)}">${iaEscapar(l)}</option>`).join("");
+      sel.innerHTML = IA_LOJAS_CACAU.map(l => `<option value="${iaEscapar(l)}">${iaEscapar(typeof opLabel === "function" ? opLabel(l) : l)}</option>`).join("");
       sel.dataset.populado = "1";
+      if (typeof aplicarCorOperacaoSelect === "function") {
+        aplicarCorOperacaoSelect(sel);
+        if (!sel.dataset.corLigada) {
+          sel.addEventListener("change", () => aplicarCorOperacaoSelect(sel));
+          sel.dataset.corLigada = "1";
+        }
+      }
     }
   });
 
