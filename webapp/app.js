@@ -14528,15 +14528,6 @@ async function carregarMetaHoraHora() {
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
 
-  const esperadoEl = document.getElementById("meta-esperado-ate-agora");
-  if (esperadoEl) esperadoEl.textContent = formatBRL(esperadoAteAgora);
-  
-  // Card de Meta da Hora (Mostra a meta do slot ativo no momento)
-  const slotAtual = checkpoints.find(slot => agoraMin >= slot - 60 && agoraMin < slot) || checkpoints[checkpoints.length - 1];
-  const metaHoraAtual = calcularMetaProporcionalSlot(slotAtual, metaDiaria, checkpoints, diaSemanaHoje);
-  const porHoraEl = document.getElementById("meta-por-hora");
-  if (porHoraEl) porHoraEl.textContent = formatBRL(metaHoraAtual);
-
   // Mensagem motivacional
   const msgEl = document.getElementById("meta-mensagem-motivacional");
   if (msgEl) {
