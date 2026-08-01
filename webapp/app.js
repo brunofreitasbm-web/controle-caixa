@@ -13177,13 +13177,6 @@ function pararDeteccaoFacial() {
   pontoFaceVerificada = false;
 }
 
-// Usuários isentos da verificação de GPS/geofencing no bate-ponto.
-const NOMES_ISENTOS_GPS = ["Bruno", "Isabella", "Alexandra"];
-
-function usuarioIsentoGPS() {
-  return currentUser && NOMES_ISENTOS_GPS.includes(currentUser.nome);
-}
-
 function ativarGPSPonto() {
   const gpsStatus = document.getElementById("ponto-gps-status");
   const gpsCoords = document.getElementById("ponto-gps-coords");
@@ -13215,19 +13208,10 @@ function ativarGPSPonto() {
 
       gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
 
-      if (usuarioIsentoGPS()) {
-        gpsStatus.className = "text-success font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK (verificação isenta)`;
-      } else if (pos.coords.accuracy > 30) {
-        gpsStatus.className = "text-warning font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
-      } else if (dist > GEOFENCE_RAIO_METROS) {
-        gpsStatus.className = "text-danger font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fora do Perímetro`;
-      } else {
-        gpsStatus.className = "text-success font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
-      }
+      // Verificação de GPS/geofencing desativada: status é apenas informativo,
+      // não bloqueia a marcação de ponto.
+      gpsStatus.className = "text-success font-black";
+      gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
     },
     (err) => {
       console.warn("Erro ao obter GPS:", err);
@@ -13312,28 +13296,12 @@ let pontoMarcacaoEmAndamento = false;
 async function registrarMarcacaoPonto(tipo) {
   if (pontoMarcacaoEmAndamento) return;
 
-  if (!pontoGpsCoords) {
-    showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
-    return;
-  }
-
   const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
 
-  // Geofencing Check (isento para usuários em NOMES_ISENTOS_GPS)
-  if (!usuarioIsentoGPS()) {
-    const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
-    const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
-
-    if (pontoGpsAccuracy > 30) {
-      showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
-      return;
-    }
-
-    if (dist > GEOFENCE_RAIO_METROS) {
-      showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
-      return;
-    }
-  }
+  // Verificação de GPS/geofencing desativada para todos os usuários
+  // (operadores, líderes de operação e administradores): a localização,
+  // quando disponível, é apenas registrada para fins de auditoria e não
+  // bloqueia mais a marcação de ponto.
 
   // Biometria facial: obrigatória sempre que a câmera está ativa
   if (pontoStream && !pontoFaceVerificada) {
@@ -13377,7 +13345,7 @@ async function registrarMarcacaoPonto(tipo) {
     const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
     const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
     const timestamp = new Date().toISOString();
-    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords?.latitude ?? ""}_${pontoGpsCoords?.longitude ?? ""}_${prevHash}`;
     const currentHash = await calcularHashSha256(rawString);
 
     const newRecord = {
@@ -13386,7 +13354,7 @@ async function registrarMarcacaoPonto(tipo) {
       timestamp,
       tipo,
       operacao: storeName,
-      gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+      gps: pontoGpsCoords ? `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}` : null,
       accuracy: pontoGpsAccuracy,
       photo: photoBase64,
       hash: currentHash,
