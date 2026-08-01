@@ -605,6 +605,12 @@ const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
 // que abre um modal de autorização sozinho na tela dos owners.
 const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra"];
 
+// Perfis que podem manter a sessão salva e entrar direto no menu principal
+// ao reabrir o app. Todos os demais (consultora, consultora_fa) têm que
+// digitar o PIN sempre — a sessão salva só serve para pular a etapa de
+// "Quem é você?" e já cair direto na tela de PIN com o nome preenchido.
+const PERFIS_ENTRADA_DIRETA = ["owner", "consultora_dashboard"];
+
 let API_ONLINE = false;
 let registros = [];
 let registrosFA = []; // Registros FaçaAmigos (isolados)
@@ -1863,10 +1869,35 @@ document.getElementById("btn-trocar-modulo").addEventListener("click", trocarMod
 const btnTopbarTrocar = document.getElementById("btn-topbar-trocar-modulo");
 if (btnTopbarTrocar) btnTopbarTrocar.addEventListener("click", trocarModuloHandler);
 
+function esconderBootSplash() {
+  const splash = document.getElementById("boot-splash");
+  if (!splash) return;
+  splash.classList.add("boot-splash-out");
+  setTimeout(() => splash.remove(), 400);
+}
+
 function renderApp() {
-  if (currentUser) {
+  if (currentUser && PERFIS_ENTRADA_DIRETA.includes(currentUser.role)) {
+    // Sessão salva de Owner/Líder de Operações: pula o login e cai direto
+    // no menu principal, sem passar pela tela de PIN.
     entrarNoApp();
+    esconderBootSplash();
+    return;
   }
+
+  if (currentUser) {
+    // Sessão salva, mas esse perfil tem que digitar o PIN toda vez que
+    // entra no sistema — pula direto para a etapa de PIN (nome já
+    // preenchido), sem passar pela seleção de "Quem é você?".
+    const nomeSalvo = currentUser.nome;
+    currentUser = null;
+    localStorage.removeItem(USER_KEY);
+    loginOverlay.classList.remove("hidden");
+    selecionarUsuarioLogin(nomeSalvo);
+  } else {
+    loginOverlay.classList.remove("hidden");
+  }
+  esconderBootSplash();
 }
 
 // --- Configurações Globais ---
