@@ -141,7 +141,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -1648,12 +1648,12 @@
     <section id="tab-insights-ia" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-insights-ia">
       <div class="card space-y-6" style="background: transparent; border: none; padding: 0; box-shadow: none;">
 
-        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
+        <div class="section-header">
           <div>
-            <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-wand-magic-sparkles text-brand-300"></i> Insights IA
+            <h2 class="font-display text-xl font-bold text-ink-strong flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-accent"></i> Insights IA
             </h2>
-            <p class="text-xs text-brand-100 mt-1">Análises geradas a partir dos dados que já estão no sistema. A IA sugere — nenhuma ação é executada sem você.</p>
+            <p class="text-xs text-ink-muted mt-1">Análises geradas a partir dos dados que já estão no sistema. A IA sugere — nenhuma ação é executada sem você.</p>
           </div>
           <div id="ia-status-linha"></div>
         </div>
@@ -3133,15 +3133,15 @@
 
     <!-- ===================== ABA: PÓS-VISITA (FaçaAmigos) ===================== -->
     <section id="tab-pos-visita" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-pos-visita">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-comment-dots" style="color: #25D366;"></i> PÓS-VISITA
+          <h2 class="font-display text-xl font-bold text-ink-strong flex items-center gap-2">
+            <i class="fa-solid fa-comment-dots" style="color: #128C4A;"></i> PÓS-VISITA
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Importe o Relatório Operacional do dia anterior (CSV) e dispare WhatsApp para os responsáveis. Clique em "Enviar mensagem" pra abrir o WhatsApp já com o número e o texto prontos.</p>
+          <p class="text-xs text-ink-muted mt-1">Importe o Relatório Operacional do dia anterior (CSV) e dispare WhatsApp para os responsáveis. Clique em "Enviar mensagem" pra abrir o WhatsApp já com o número e o texto prontos.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="pv-btn-atualizar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Recarrega a fila de mensagens pendentes">
+          <button type="button" id="pv-btn-atualizar" class="btn-secondary" data-tip="Recarrega a fila de mensagens pendentes">
             <i class="fa-solid fa-rotate"></i> Atualizar
           </button>
         </div>
@@ -3149,13 +3149,13 @@
 
       <!-- Sub-abas: a fila de disparo do dia e o controle das indicações
            prometidas na mensagem (Ação 2 — Pós-Venda Multiplicador). -->
-      <div class="flex items-center gap-2 bg-brand-950/60 p-1 rounded-xl border border-brand-800 w-full sm:w-auto justify-center mb-6">
-        <button type="button" id="pv-subtab-btn-fila" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-800 text-white shadow" data-tip="Fila de mensagens de WhatsApp do dia seguinte">
+      <div class="flex items-center gap-2 bg-surface-2 p-1 rounded-xl border border-subtle w-full sm:w-auto justify-center mb-6">
+        <button type="button" id="pv-subtab-btn-fila" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow" data-tip="Fila de mensagens de WhatsApp do dia seguinte">
           <i class="fa-brands fa-whatsapp"></i> Fila de mensagens
         </button>
-        <button type="button" id="pv-subtab-btn-indicacoes" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-transparent text-brand-300 hover:text-white" data-tip="Controle de quem indicou quem e liberação do Voucher VIP de 15 minutos no Circuito">
+        <button type="button" id="pv-subtab-btn-indicacoes" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong" data-tip="Controle de quem indicou quem e liberação do Voucher VIP de 15 minutos no Circuito">
           <i class="fa-solid fa-user-group"></i> Indicações
-          <span id="pv-badge-indicacoes" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-[10px] text-brand-950 font-extrabold">0</span>
+          <span id="pv-badge-indicacoes" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-warning-soft border border-warning text-warning text-[10px] font-extrabold">0</span>
         </button>
       </div>
 
@@ -3245,24 +3245,24 @@
           </h3>
           <div class="flex items-center gap-6 flex-wrap">
             <div>
-              <div class="text-2xl font-extrabold text-white" id="pv-ind-total">0</div>
-              <div class="text-[11px] text-brand-400">indicadores</div>
+              <div class="text-2xl font-extrabold text-ink-strong" id="pv-ind-total">0</div>
+              <div class="text-[11px] text-ink-muted">indicadores</div>
             </div>
             <div>
-              <div class="text-2xl font-extrabold text-sky-400" id="pv-ind-andamento">0</div>
-              <div class="text-[11px] text-brand-400">em andamento</div>
+              <div class="text-2xl font-extrabold text-info" id="pv-ind-andamento">0</div>
+              <div class="text-[11px] text-ink-muted">em andamento</div>
             </div>
             <div>
-              <div class="text-2xl font-extrabold text-amber-400" id="pv-ind-aguardando">0</div>
-              <div class="text-[11px] text-brand-400">voucher a liberar</div>
+              <div class="text-2xl font-extrabold text-warning" id="pv-ind-aguardando">0</div>
+              <div class="text-[11px] text-ink-muted">voucher a liberar</div>
             </div>
             <div>
-              <div class="text-2xl font-extrabold text-emerald-400" id="pv-ind-entregues">0</div>
-              <div class="text-[11px] text-brand-400">vouchers usados</div>
+              <div class="text-2xl font-extrabold text-success" id="pv-ind-entregues">0</div>
+              <div class="text-[11px] text-ink-muted">vouchers usados</div>
             </div>
             <div>
-              <div class="text-2xl font-extrabold text-fuchsia-400" id="pv-ind-amigos">0</div>
-              <div class="text-[11px] text-brand-400">clientes novos indicados</div>
+              <div class="text-2xl font-extrabold text-accent" id="pv-ind-amigos">0</div>
+              <div class="text-[11px] text-ink-muted">clientes novos indicados</div>
             </div>
           </div>
         </div>
@@ -3279,15 +3279,15 @@
 
     <!-- ===================== ABA: ANIVERSÁRIOS (FaçaAmigos) ===================== -->
     <section id="tab-aniversarios" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-aniversarios">
-      <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-950 border border-brand-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white mb-6">
+      <div class="section-header mb-6">
         <div>
-          <h2 class="font-display text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-cake-candles" style="color: #f97316;"></i> ANIVERSÁRIOS
+          <h2 class="font-display text-xl font-bold text-ink-strong flex items-center gap-2">
+            <i class="fa-solid fa-cake-candles" style="color: #C2410C;"></i> ANIVERSÁRIOS
           </h2>
-          <p class="text-xs text-brand-100 mt-1">Importe o cadastro de crianças (PDF) e dispare parabéns no WhatsApp para quem faz aniversário hoje.</p>
+          <p class="text-xs text-ink-muted mt-1">Importe o cadastro de crianças (PDF) e dispare parabéns no WhatsApp para quem faz aniversário hoje.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="an-btn-atualizar" class="px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2" data-tip="Recarrega a lista de aniversariantes de hoje">
+          <button type="button" id="an-btn-atualizar" class="btn-secondary" data-tip="Recarrega a lista de aniversariantes de hoje">
             <i class="fa-solid fa-rotate"></i> Atualizar
           </button>
         </div>
@@ -4026,6 +4026,6 @@
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
-<script src="app.js?v=42"></script>
+<script src="app.js?v=44"></script>
 </body>
 </html>

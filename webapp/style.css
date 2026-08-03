@@ -3926,12 +3926,12 @@ header:not(.fa-section *) {
    este bloco força o tema claro nesses casos, sem depender de cada tela ter
    sido migrada para as classes semânticas. */
 .glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4,
-.glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]),
-.glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not(.tab-icon):not(.group-icon),
+.glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]),
+.glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]):not(.tab-icon):not(.group-icon),
 .glass-card label,
 .glass-card td,
 .glass-card li,
-.glass-card div:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]) {
+.glass-card div:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]) {
   color: var(--ink) !important;
 }
 

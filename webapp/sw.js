@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v50'; // v50: pos-visita com convite de indicacao (Acao 2) e submenu de controle de indicacoes
+const CACHE_NAME = 'ponto-pwa-v51'; // v51: mensagem FA com vendas do dia e conversao (1h+2h)/30min
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

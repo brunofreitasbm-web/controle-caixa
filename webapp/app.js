@@ -3095,15 +3095,24 @@ function statusMetaConversaoDia(pctHoje, regra) {
   return { emoji: "🔴", texto: "Baixo" };
 }
 
+// Conversão = (1h + 2h) / total de atendimentos — a mesma definição da regra
+// de bonificação, que é o que os limiares Ouro/Diamante medem. Manter uma só
+// fórmula garante que o número da mensagem, o do painel de Meta & Bonificação
+// e o do coach digam sempre a mesma coisa.
 function linhaVendasConversaoFA(l, regra) {
-  if (!l) return "";
+  // Antes, sem lançamento do dia a linha simplesmente sumia — e o grupo não
+  // tinha como saber se o dia foi fraco ou se ninguém lançou as vendas.
+  if (!l) return `\n🛝 Vendas do dia: ainda não lançadas em Meta & Bonificação.`;
   const v30 = l.vendas30 || 0;
   const v1h = l.vendas1h || 0;
   const v2h = l.vendas2h || 0;
-  const total = v30 + v1h + v2h;
-  const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+  const longos = v1h + v2h;
+  const total = v30 + longos;
+  const pct = total > 0 ? (longos / total) * 100 : 0;
   const st = statusMetaConversaoDia(pct, regra);
-  return `\n🛝 Vendas - 30min - ${v30} unid, 1h - ${v1h} unid, 2h - ${v2h} unid, e Conversão: ${pct.toFixed(1)}% no dia de hoje` +
+
+  return `\n🛝 Vendas do dia - 30min: ${v30} unid, 1h: ${v1h} unid, 2h: ${v2h} unid` +
+    `\n📈 Conversão: ${pct.toFixed(1)}% [(1h+2h)/total de atendimentos]` +
     `\n${st.emoji} Meta do dia: ${st.texto}`;
 }
 
@@ -13836,8 +13845,8 @@ function inicializarSubTabsPosVisita() {
 
 function ativarSubTabPosVisita(nome) {
   pvSubTabAtiva = nome;
-  const ATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-800 text-white shadow";
-  const INATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-transparent text-brand-300 hover:text-white";
+  const ATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+  const INATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
 
   const btnFila = document.getElementById("pv-subtab-btn-fila");
   const btnInd = document.getElementById("pv-subtab-btn-indicacoes");
@@ -14145,17 +14154,17 @@ function criarCardIndicacao(registro) {
 
   const listaAmigos = amigos.length
     ? `<ul class="mt-2 text-[11px] text-brand-300 space-y-0.5">${amigos
-        .map(a => `<li><i class="fa-solid fa-check text-emerald-400"></i> ${a.nome} <span class="text-brand-500">· ${formatarDataBr(a.em)}</span></li>`)
+        .map(a => `<li><i class="fa-solid fa-check text-success"></i> ${a.nome} <span class="text-ink-faint">· ${formatarDataBr(a.em)}</span></li>`)
         .join("")}</ul>`
-    : `<p class="mt-2 text-[11px] text-brand-500">Nenhum amigo indicado ainda.</p>`;
+    : `<p class="mt-2 text-[11px] text-ink-faint">Nenhum amigo indicado ainda.</p>`;
 
   let statusHtml;
   if (registro.voucherEntregue) {
-    statusHtml = `<p class="text-[11px] text-emerald-400 font-bold mt-1"><i class="fa-solid fa-trophy"></i> Voucher usado${registro.brindeEscolhido ? ` — ${registro.brindeEscolhido}` : ""} · ${formatarDataBr(registro.voucherEntregueEm)}</p>`;
+    statusHtml = `<p class="text-[11px] text-success font-bold mt-1"><i class="fa-solid fa-trophy"></i> Voucher usado${registro.brindeEscolhido ? ` — ${registro.brindeEscolhido}` : ""} · ${formatarDataBr(registro.voucherEntregueEm)}</p>`;
   } else if (registro.voucherLiberado) {
-    statusHtml = `<p class="text-[11px] text-amber-400 font-bold mt-1"><i class="fa-solid fa-gift"></i> Voucher VIP liberado! ${registro.voucherEnviadoEm ? "Parabéns já enviado." : "Avise a família."}</p>`;
+    statusHtml = `<p class="text-[11px] text-warning font-bold mt-1"><i class="fa-solid fa-gift"></i> Voucher VIP liberado! ${registro.voucherEnviadoEm ? "Parabéns já enviado." : "Avise a família."}</p>`;
   } else {
-    statusHtml = `<p class="text-[11px] text-sky-400 font-bold mt-1"><i class="fa-solid fa-hourglass-half"></i> Faltam ${2 - feitas} amigo(s) novo(s)</p>`;
+    statusHtml = `<p class="text-[11px] text-info font-bold mt-1"><i class="fa-solid fa-hourglass-half"></i> Faltam ${2 - feitas} amigo(s) novo(s)</p>`;
   }
 
   const opcoesBrinde = BRINDES_CIRCUITO
@@ -14169,7 +14178,7 @@ function criarCardIndicacao(registro) {
           <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
           <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.responsavel}</p>
         </div>
-        <span class="px-2 py-1 rounded-lg text-xs font-extrabold ${feitas >= 2 ? "bg-emerald-700 text-white" : "bg-brand-800 text-brand-200"}">${feitas}/2</span>
+        <span class="px-2 py-1 rounded-lg text-xs font-extrabold border ${feitas >= 2 ? "bg-success-soft border-success text-success" : "bg-surface-3 border-subtle text-ink"}">${feitas}/2</span>
       </div>
       ${statusHtml}
       ${listaAmigos}
@@ -14184,15 +14193,15 @@ function criarCardIndicacao(registro) {
           <i class="fa-brands fa-whatsapp"></i> Enviar parabéns do voucher
         </button>
         <div class="flex gap-1 mt-1">
-          <select class="pvi-brinde flex-1 text-[11px] rounded-lg bg-brand-900 border border-brand-800 text-white px-2 py-1.5" data-tip="Veículo escolhido pela criança no Circuito">
+          <select class="pvi-brinde flex-1 text-[11px] rounded-lg bg-surface-2 border border-subtle text-ink px-2 py-1.5" data-tip="Veículo escolhido pela criança no Circuito">
             <option value="">Veículo escolhido…</option>
             ${opcoesBrinde}
           </select>
-          <button type="button" class="pvi-btn-entregue px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-brand-950 font-extrabold text-[11px] rounded-lg transition" data-tip="Dá baixa: a criança já usou os 15 minutos VIP no Circuito">
+          <button type="button" class="pvi-btn-entregue px-3 py-1.5 bg-warning-soft border border-warning text-warning font-extrabold text-[11px] rounded-lg transition" data-tip="Dá baixa: a criança já usou os 15 minutos VIP no Circuito">
             <i class="fa-solid fa-check"></i> Usou
           </button>
         </div>` : ""}
-      <button type="button" class="pvi-btn-remover w-full px-4 py-1.5 text-brand-400 hover:text-red-400 font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Remove essa família do controle de indicações">
+      <button type="button" class="pvi-btn-remover w-full px-4 py-1.5 text-ink-muted hover:text-danger font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Remove essa família do controle de indicações">
         <i class="fa-solid fa-trash"></i> Remover
       </button>
     </div>
