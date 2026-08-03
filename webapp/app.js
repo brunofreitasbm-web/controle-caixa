@@ -228,9 +228,13 @@ const DEFAULT_NOTIF_PREFS = {
   "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
-  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
+  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
+// Tipos cujo canal PUSH está desligado no servidor (config/notifications.js).
+// A tabela de Configurações precisa refletir isso para o Owner não marcar
+// "Push" achando que ainda sai notificação no celular.
+const NOTIF_PUSH_DESATIVADO = ["divergencia", "meta-lembrete"];
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 // Chave mestra de notificações de eventos (email + push). Default: desativada.
 const NOTIF_MASTER_KEY = "cacaushow_notif_master_v1";
@@ -694,29 +698,25 @@ async function checkApiConnection() {
   return false;
 }
 
-const defaultNotifRules = {
-  envelopes: { colab: false, lider: true, owner: true },
-  inventario_inicio: { colab: false, lider: true, owner: true },
-  inventario_conclusao: { colab: false, lider: true, owner: true },
-  conferencia_nfe: { colab: false, lider: true, owner: true },
-  divergencia_caixa: { colab: false, lider: true, owner: true },
-  meta_lembrete: { colab: true, lider: false, owner: false },
-  meta_atraso: { colab: false, lider: true, owner: true }
+// Mapeamento de tipo de notificação para chave nas preferências. Precisa
+// continuar igual a CHAVE_PREF_POR_TIPO em config/notifications.js: os dois
+// lados leem o mesmo `notificacoes_config`, e foi justamente a divergência
+// entre eles que deixava os toggles da tela sem efeito no servidor.
+const NOTIF_TYPE_MAP = {
+  'envelopes': 'envelopes',
+  'inventario_inicio': 'inv-inicio',
+  'inventario_fim': 'inv-fim',
+  'inventario_conclusao': 'inv-fim',
+  'conferencia_nfe': 'nfe',
+  'nfe': 'nfe',
+  'divergencia': 'divergencia',
+  'divergencia_caixa': 'divergencia',
+  'meta_lembrete': 'meta-lembrete',
+  'meta_atraso': 'meta-atraso'
 };
 
 function getDestinatariosNotificacao(tipo) {
-  // Mapeamento de tipo de notificação para chave nas preferências
-  const notifTypeMap = {
-    'conferencia_nfe': 'nfe',
-    'inventario_inicio': 'inv-inicio',
-    'inventario_fim': 'inv-fim',
-    'envelopes': 'envelopes',
-    'divergencia': 'divergencia',
-    'meta_lembrete': 'meta-lembrete',
-    'meta_atraso': 'meta-atraso'
-  };
-
-  const prefKey = notifTypeMap[tipo] || tipo;
+  const prefKey = NOTIF_TYPE_MAP[tipo] || tipo;
   const prefs = loadNotificationPrefs();
   let typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
 
@@ -6870,7 +6870,7 @@ async function saveNotificationPrefs(prefs, masterEnabled) {
 
 function shouldNotifyUser(notificationType, userRole) {
   const prefs = loadNotificationPrefs();
-  const notifKey = notificationType;
+  const notifKey = NOTIF_TYPE_MAP[notificationType] || notificationType;
   const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
 
   if (prefs[notifKey] && prefs[notifKey][roleKey] !== undefined) {
@@ -6881,11 +6881,15 @@ function shouldNotifyUser(notificationType, userRole) {
 
 function getNotificationChannel(notificationType, userRole) {
   const prefs = loadNotificationPrefs();
-  const notifKey = notificationType;
+  const notifKey = NOTIF_TYPE_MAP[notificationType] || notificationType;
   const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
   const channelKey = `${roleKey}_ch`;
 
   if (prefs[notifKey] && prefs[notifKey][channelKey]) {
+    // Push desligado no servidor para este tipo: o canal salvo não vale mais.
+    if (prefs[notifKey][channelKey] === "push" && NOTIF_PUSH_DESATIVADO.includes(notifKey)) {
+      return "email";
+    }
     return prefs[notifKey][channelKey];
   }
   return "email"; // default: email
@@ -6951,7 +6955,7 @@ function tipoExclusivoDaOperadora(notifType, role) {
 }
 
 function renderNotifRoleCell(notifType, role, isOwner) {
-  const isPushDisabledForType = notifType === "divergencia";
+  const isPushDisabledForType = NOTIF_PUSH_DESATIVADO.includes(notifType);
   const soOperadora = tipoExclusivoDaOperadora(notifType, role);
   const dis = (!isOwner || soOperadora) ? "disabled" : "";
   const fade = (!isOwner || soOperadora) ? "opacity: 0.5;" : "";
@@ -6970,7 +6974,7 @@ function renderNotifRoleCell(notifType, role, isOwner) {
           <input type="radio" name="notif-${notifType}-${role}-channel" value="email" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
           <span style="font-size: 0.68rem;">Email</span>
         </label>
-        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Push desativado temporariamente para divergências' : ''}">
+        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Canal Push desativado para este tipo de notificação' : ''}">
           <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${disPush} style="${fadePush}" />
           <span style="font-size: 0.68rem; ${isPushDisabledForType ? 'text-decoration: line-through; opacity: 0.5;' : ''}">Push</span>
         </label>
@@ -6993,7 +6997,7 @@ function renderNotificationTable() {
     "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
     "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
-    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
+    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo (Push desativado — só e-mail)" },
     "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" }
   };
 
@@ -7027,7 +7031,7 @@ function renderNotificationTable() {
       if (checkbox) checkbox.checked = !tipoExclusivoDaOperadora(notifType, role) && !!prefs[notifType][role];
 
       let channel = prefs[notifType][`${role}_ch`] || "email";
-      if (notifType === "divergencia" && channel === "push") {
+      if (NOTIF_PUSH_DESATIVADO.includes(notifType) && channel === "push") {
         channel = "email";
       }
       const radio = document.querySelector(`input.notif-channel[name="notif-${notifType}-${role}-channel"][value="${channel}"]`);
