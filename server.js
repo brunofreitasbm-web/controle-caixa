@@ -48,6 +48,22 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
+// Auditoria de performance: não havia nenhuma instrumentação de tempo de
+// resposta antes disso — só dava pra inferir custo olhando o lado do banco
+// (pg_stat_statements). Loga qualquer request que passe do limiar, pra dar
+// visibilidade real de qual tela pesa mais no dia a dia.
+const LIMIAR_REQUEST_LENTA_MS = 500;
+app.use((req, res, next) => {
+  const inicio = Date.now();
+  res.on('finish', () => {
+    const duracaoMs = Date.now() - inicio;
+    if (duracaoMs >= LIMIAR_REQUEST_LENTA_MS) {
+      console.warn(`[perf] ${req.method} ${req.originalUrl} — ${duracaoMs}ms (status ${res.statusCode})`);
+    }
+  });
+  next();
+});
+
 // Servir os arquivos estáticos da webapp
 app.use(express.static(path.join(__dirname, 'webapp')));
 
@@ -76,16 +92,22 @@ app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 // ==========================================================================
 const BACKUP_EMAIL_DESTINO = 'brunofreitasbm@gmail.com';
 const BACKUP_TABELAS = ['registros', 'registros_fa', 'nfs', 'boletos', 'colaboradores', 'logs_auditoria'];
+// registros/registros_fa guardam a foto do envelope em base64 (pode passar de
+// 1MB por linha) — o backup por e-mail nunca manda a foto mesmo, então nem
+// vale a pena trazer a coluna do banco: exclui direto na query em vez de
+// buscar tudo e descartar depois em memória.
+const COLUNAS_REGISTRO_BACKUP = `id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
+  valorFaturado, sangria, sangriaMotivo, observacoes, status, dataRetirada, retiradoPor,
+  confirmadoPorApp, autorizadoPor, mensagemGerada, criadoEm, deletadoEm`;
 
 async function gerarBackupCompleto() {
   const backup = {};
   for (const tabela of BACKUP_TABELAS) {
-    const rows = await dbAllAsync(`SELECT * FROM ${tabela}`);
-    if (tabela === 'registros' || tabela === 'registros_fa') {
-      backup[tabela] = rows.map(r => ({ ...r, fotoEnvelope: r.fotoEnvelope ? '[foto omitida do backup por e-mail — disponível no app]' : null }));
-    } else {
-      backup[tabela] = rows;
-    }
+    const isRegistros = tabela === 'registros' || tabela === 'registros_fa';
+    const rows = await dbAllAsync(isRegistros ? `SELECT ${COLUNAS_REGISTRO_BACKUP} FROM ${tabela}` : `SELECT * FROM ${tabela}`);
+    backup[tabela] = isRegistros
+      ? rows.map(r => ({ ...r, fotoEnvelope: '[foto omitida do backup por e-mail — disponível no app]' }))
+      : rows;
   }
   return backup;
 }
@@ -141,6 +163,13 @@ async function enviarBackupMensalSilencioso() {
   console.log(`[Backup Mensal] Enviado com sucesso para ${BACKUP_EMAIL_DESTINO} (referência ${referencia}).`);
   return { enviado: true, referencia };
 }
+
+// Heartbeat leve para o cliente checar conectividade (webapp/app.js chama a
+// cada 10s). Não toca no banco de propósito — antes disso o heartbeat batia
+// em GET /api/config, que virou a query mais executada do sistema inteiro
+// (83 mil chamadas registradas, a imensa maioria só pra saber se o servidor
+// estava de pé).
+app.get('/api/ping', (req, res) => res.sendStatus(200));
 
 // Endpoint para servir a tabela de consulta de códigos de barras (Codbarra_Consulta.csv)
 // Utilizado pelo app.js para montar os mapas de lookup CodBarra<->CodProduto

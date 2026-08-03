@@ -52,10 +52,16 @@ router.get('/vapidPublicKey', (req, res) => {
 router.post('/subscribe', (req, res) => {
   const { subscription, usuario } = req.body;
   const criadoEm = new Date().toISOString();
-  
+
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: 'Inscrição inválida' });
   }
+
+  // Grava sempre em minúsculas: o envio de push filtra por usuário
+  // (config/notifications.js) comparando contra uma lista já normalizada
+  // para minúsculas — gravar em outro case aqui faria essa comparação usar
+  // LOWER(usuario) no SQL, o que invalida qualquer índice simples na coluna.
+  const usuarioNormalizado = usuario ? String(usuario).trim().toLowerCase() : usuario;
 
   db.run(
     `INSERT INTO push_subscriptions (endpoint, keys_p256dh, keys_auth, usuario, criadoEm) VALUES (?, ?, ?, ?, ?)
@@ -64,7 +70,7 @@ router.post('/subscribe', (req, res) => {
        keys_auth = excluded.keys_auth,
        usuario = excluded.usuario,
        criadoEm = excluded.criadoEm`,
-    [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuario, criadoEm],
+    [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, usuarioNormalizado, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.status(201).json({ success: true });

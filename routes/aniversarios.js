@@ -131,20 +131,37 @@ function parsearLinhaAniversario(linha) {
   };
 }
 
-function upsertAniversario(registro) {
+// Antes: um upsert sequencial por criança reconhecida no PDF (`for...await`),
+// o que podia significar centenas de round-trips um atrás do outro numa
+// importação só. Agora é um único INSERT multi-linha.
+function upsertAniversarios(registros) {
+  if (registros.length === 0) return Promise.resolve();
+  const agora = new Date().toISOString();
+
+  // Postgres não aceita a mesma chave de ON CONFLICT duas vezes no mesmo
+  // INSERT multi-linha — dedup por (nomeCrianca, nomeResponsavel) mantendo a
+  // última ocorrência do arquivo.
+  const porChave = new Map();
+  registros.forEach(r => porChave.set(`${r.nomeCrianca}_${r.nomeResponsavel}`, r));
+
+  const placeholders = [];
+  const params = [];
+  porChave.forEach((r, id) => {
+    placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?)');
+    params.push(id, r.nomeCrianca, r.dataNascimento, r.documento, r.nomeResponsavel, r.telefone, agora, agora);
+  });
+
   return new Promise((resolve, reject) => {
-    const id = `${registro.nomeCrianca}_${registro.nomeResponsavel}`;
-    const agora = new Date().toISOString();
     db.run(
       `INSERT INTO aniversarios_registros
          (id, nomeCrianca, dataNascimento, documento, nomeResponsavel, telefone, criadoEm, atualizadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES ${placeholders.join(', ')}
        ON CONFLICT(nomeCrianca, nomeResponsavel) DO UPDATE SET
          dataNascimento = excluded.dataNascimento,
          documento = excluded.documento,
          telefone = excluded.telefone,
          atualizadoEm = excluded.atualizadoEm`,
-      [id, registro.nomeCrianca, registro.dataNascimento, registro.documento, registro.nomeResponsavel, registro.telefone, agora, agora],
+      params,
       (err) => err ? reject(err) : resolve()
     );
   });
@@ -184,9 +201,7 @@ router.post('/importar-pdf', upload.any(), async (req, res) => {
   }
 
   try {
-    for (const registro of registros) {
-      await upsertAniversario(registro);
-    }
+    await upsertAniversarios(registros);
     res.json({
       success: true,
       arquivosProcessados: arquivos.length - arquivosComErro.length,
@@ -209,31 +224,36 @@ router.get('/hoje', (req, res) => {
   const mesHoje = String(hoje.getMonth() + 1).padStart(2, '0');
   const anoAtual = hoje.getFullYear();
 
-  db.all(`SELECT * FROM aniversarios_registros`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+  // Antes buscava a tabela inteira (SELECT *) só pra filtrar dia/mês em JS —
+  // com centenas de cadastros isso é quase um full scan em toda chamada
+  // (o job roda todo dia). dataNascimento é texto ISO "AAAA-MM-DD"; substr
+  // compara os pedaços MM/DD direto no banco.
+  db.all(
+    `SELECT * FROM aniversarios_registros WHERE substr(dataNascimento, 6, 2) = ? AND substr(dataNascimento, 9, 2) = ?`,
+    [mesHoje, diaHoje],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
 
-    const doDia = (rows || [])
-      .map(normalizeRow)
-      .filter(r => {
-        const data = String(r.dataNascimento || '').slice(0, 10);
-        const [ano, mes, dia] = data.split('-');
-        return dia === diaHoje && mes === mesHoje;
-      })
-      .map(r => {
-        const anoNascimento = parseInt(String(r.dataNascimento).slice(0, 4), 10);
-        return {
-          ...r,
-          idade: anoAtual - anoNascimento,
-          jaEnviadoEsteAno: Number(r.mensagemEnviadaAno) === anoAtual
-        };
+      const doDia = (rows || [])
+        .map(normalizeRow)
+        .map(r => {
+          const anoNascimento = parseInt(String(r.dataNascimento).slice(0, 4), 10);
+          return {
+            ...r,
+            idade: anoAtual - anoNascimento,
+            jaEnviadoEsteAno: Number(r.mensagemEnviadaAno) === anoAtual
+          };
+        });
+
+      db.get(`SELECT COUNT(*) AS total FROM aniversarios_registros`, [], (errCount, rowCount) => {
+        res.json({
+          data: hoje.toISOString().slice(0, 10),
+          registros: doDia,
+          totalCadastrados: errCount || !rowCount ? doDia.length : Number(rowCount.total)
+        });
       });
-
-    res.json({
-      data: hoje.toISOString().slice(0, 10),
-      registros: doDia,
-      totalCadastrados: (rows || []).length
-    });
-  });
+    }
+  );
 });
 
 // Lista completa dos cadastros, pro operador conferir se o PDF foi lido

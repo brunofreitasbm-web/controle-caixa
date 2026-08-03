@@ -71,9 +71,22 @@ router.post('/divergencia', (req, res) => {
   });
 });
 
+// Colunas da listagem sem fotoEnvelope (base64, pode pesar MBs por linha) —
+// a lista só precisa saber SE existe foto (temFoto); a imagem em si é
+// buscada sob demanda pelo front em /registros/:id/foto, só das linhas que
+// o usuário está de fato vendo na tela (ver fotoCelula()/carregarFotosLazy
+// em webapp/app.js).
+const COLUNAS_REGISTRO_SEM_FOTO = `
+  id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
+  valorFaturado, sangria, sangriaMotivo, observacoes,
+  (fotoEnvelope IS NOT NULL) AS "temFoto",
+  status, dataRetirada, retiradoPor, confirmadoPorApp, autorizadoPor,
+  mensagemGerada, criadoEm, deletadoEm
+`;
+
 // 3. Obter todos os registros
 router.get('/registros', (req, res) => {
-  db.all('SELECT * FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
+  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const normalized = (rows || []).map(normalizeRow);
     const result = normalized.map(r => ({
@@ -105,7 +118,7 @@ router.get('/registros-fa/:id/foto', (req, res) => {
 
 // FA-1. Obter todos os registros FaçaAmigos
 router.get('/registros-fa', (req, res) => {
-  db.all('SELECT * FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC', [], (err, rows) => {
+  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const normalized = (rows || []).map(normalizeRow);
     const result = normalized.map(r => ({

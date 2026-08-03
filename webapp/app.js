@@ -661,7 +661,10 @@ async function checkApiConnection() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${ep}/config`, { method: "GET", signal: controller.signal });
+      // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
+      // servidor está de pé. Os dados de config de verdade são carregados
+      // uma vez em inicializarDados(), via /config.
+      const res = await fetch(`${ep}/ping`, { method: "GET", signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (res && res.ok) {
@@ -3356,6 +3359,7 @@ function renderFaDashboard() {
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
+  carregarFotosLazy(tbody, "registros-fa");
 }
 
 // Modal retirada FA (apenas Bruno/Isabella, sem necessidade de autorização adicional)
@@ -3479,6 +3483,7 @@ function renderFaHistorico() {
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
+  carregarFotosLazy(tbody, "registros-fa");
 
   tbody.querySelectorAll(".fa-btn-excluir").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -4892,13 +4897,50 @@ function renderDashboard() {
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
+  carregarFotosLazy(tbody, "registros");
 }
 
 function fotoCelula(r) {
   if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
     return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
   }
+  // A lista (GET /registros, /registros-fa) não traz mais a foto em base64 —
+  // só a flag temFoto. Renderiza um placeholder e busca a imagem sob
+  // demanda (carregarFotosLazy), só das linhas que estão de fato na tela.
+  if (r.temFoto) {
+    return `<img class="thumb-btn thumb-lazy" data-id="${r.id}" alt="carregando foto...">`;
+  }
   return `<span class="no-photo">sem foto</span>`;
+}
+
+// Busca em paralelo a foto de cada <img class="thumb-lazy"> ainda sem src
+// dentro do tbody informado, e substitui o src quando chega. `rota` é
+// "registros" ou "registros-fa" (endpoint de foto correspondente).
+const _fotosListaEmCarregamento = new Set();
+function carregarFotosLazy(tbody, rota) {
+  if (!API_ONLINE || !tbody) return;
+  tbody.querySelectorAll("img.thumb-lazy[data-id]").forEach(async (img) => {
+    const id = img.dataset.id;
+    const chave = `${rota}:${id}`;
+    if (_fotosListaEmCarregamento.has(chave)) return;
+    _fotosListaEmCarregamento.add(chave);
+    try {
+      const res = await fetch(`${API_BASE}/${rota}/${encodeURIComponent(id)}/foto`);
+      if (res.ok) {
+        const dados = await res.json();
+        if (dados && dados.fotoEnvelope) {
+          img.src = dados.fotoEnvelope;
+          img.dataset.src = dados.fotoEnvelope;
+          img.classList.remove("thumb-lazy");
+          img.alt = "foto envelope";
+        }
+      }
+    } catch (e) {
+      // foto é acessório: sem ela a linha ainda aparece normalmente
+    } finally {
+      _fotosListaEmCarregamento.delete(chave);
+    }
+  });
 }
 
 function avisoCelula(r) {
@@ -5294,6 +5336,7 @@ function renderHistorico() {
   tbody.querySelectorAll(".thumb-btn").forEach(img => {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
+  carregarFotosLazy(tbody, "registros");
 
   tbody.querySelectorAll(".btn-excluir").forEach(btn => {
     btn.addEventListener("click", async () => {

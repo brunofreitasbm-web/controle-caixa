@@ -11,54 +11,59 @@ router.post('/sync', (req, res) => {
     return res.status(400).json({ error: 'Registros inválidos.' });
   }
 
-  const serverTime = new Date();
-  const serverTimeIso = serverTime.toISOString();
-  
-  let completed = 0;
-  let errors = [];
-
   if (records.length === 0) {
     return res.json({ success: true, count: 0 });
   }
 
+  const serverTime = new Date();
+  const serverTimeIso = serverTime.toISOString();
+
+  // Um upsert por batida de ponto virava um upsert por registro sincronizado
+  // (normalmente 1, às vezes alguns quando o aparelho ficou offline). Agora é
+  // um único INSERT multi-linha. Dedup por id — mesma chave do ON CONFLICT —
+  // mantendo a última ocorrência caso o mesmo registro venha duas vezes no
+  // mesmo lote.
+  const porId = new Map();
   records.forEach(r => {
     const clientTime = new Date(r.timestamp);
     const deviationMs = Math.abs(serverTime.getTime() - clientTime.getTime());
     const deviationMinutes = deviationMs / (1000 * 60);
-
-    db.run(
-      `INSERT INTO ponto_registros (id, usuario, timestamp, tipo, operacao, gps, accuracy, photo, hash, audit_deviation, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         usuario = excluded.usuario,
-         timestamp = excluded.timestamp,
-         tipo = excluded.tipo,
-         operacao = excluded.operacao,
-         gps = excluded.gps,
-         accuracy = excluded.accuracy,
-         photo = excluded.photo,
-         hash = excluded.hash,
-         audit_deviation = excluded.audit_deviation`,
-      [r.id, r.usuario, r.timestamp, r.tipo, r.operacao || null, r.gps, r.accuracy, r.photo, r.hash, deviationMinutes, serverTimeIso],
-      function(err) {
-        completed++;
-        if (err) {
-          errors.push(err.message);
-        }
-        if (completed === records.length) {
-          if (errors.length > 0) {
-            return res.status(500).json({ success: false, errors });
-          }
-          // Só metadados no evento: a selfie (r.photo) e o GPS nunca trafegam
-          // no canal em tempo real.
-          publish('ponto.registro', {
-            registros: records.map(x => ({ id: x.id, usuario: x.usuario, tipo: x.tipo, operacao: x.operacao || null, timestamp: x.timestamp }))
-          }, { origem: req.body.clientId, usuario: records[0] && records[0].usuario });
-          return res.json({ success: true, count: records.length });
-        }
-      }
-    );
+    porId.set(r.id, [r.id, r.usuario, r.timestamp, r.tipo, r.operacao || null, r.gps, r.accuracy, r.photo, r.hash, deviationMinutes, serverTimeIso]);
   });
+
+  const placeholders = [];
+  const params = [];
+  porId.forEach(valores => {
+    placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    params.push(...valores);
+  });
+
+  db.run(
+    `INSERT INTO ponto_registros (id, usuario, timestamp, tipo, operacao, gps, accuracy, photo, hash, audit_deviation, criadoEm)
+     VALUES ${placeholders.join(', ')}
+     ON CONFLICT(id) DO UPDATE SET
+       usuario = excluded.usuario,
+       timestamp = excluded.timestamp,
+       tipo = excluded.tipo,
+       operacao = excluded.operacao,
+       gps = excluded.gps,
+       accuracy = excluded.accuracy,
+       photo = excluded.photo,
+       hash = excluded.hash,
+       audit_deviation = excluded.audit_deviation`,
+    params,
+    function(err) {
+      if (err) {
+        return res.status(500).json({ success: false, errors: [err.message] });
+      }
+      // Só metadados no evento: a selfie (r.photo) e o GPS nunca trafegam
+      // no canal em tempo real.
+      publish('ponto.registro', {
+        registros: records.map(x => ({ id: x.id, usuario: x.usuario, tipo: x.tipo, operacao: x.operacao || null, timestamp: x.timestamp }))
+      }, { origem: req.body.clientId, usuario: records[0] && records[0].usuario });
+      return res.json({ success: true, count: records.length });
+    }
+  );
 });
 
 router.post('/ajuste', (req, res) => {

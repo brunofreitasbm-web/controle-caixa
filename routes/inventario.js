@@ -19,11 +19,8 @@ const { publish } = require('../config/realtime');
 
 const COLUNAS = 'id, loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, qtdEntradaCaixas, atualizadoPor, atualizadoEm, criadoEm';
 
-const SQL_UPSERT = `
-  INSERT INTO inventario_itens
-    (loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, qtdEntradaCaixas, atualizadoPor, atualizadoEm, criadoEm)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(loja, codProduto) DO UPDATE SET
+const COLUNAS_INSERT = '(loja, codProduto, barras, descricao, validade, countedQty, dataEntrada, qtdEntradaUnidades, qtdEntradaCaixas, atualizadoPor, atualizadoEm, criadoEm)';
+const CONFLITO_UPSERT = `ON CONFLICT(loja, codProduto) DO UPDATE SET
     barras = excluded.barras,
     descricao = excluded.descricao,
     validade = excluded.validade,
@@ -33,12 +30,20 @@ const SQL_UPSERT = `
     qtdEntradaCaixas = excluded.qtdEntradaCaixas,
     atualizadoPor = excluded.atualizadoPor,
     atualizadoEm = excluded.atualizadoEm`;
-
 // Na importação em lote não sobrescrevemos um dado mais novo do servidor com
 // um dado velho que estava parado no aparelho de alguém.
-const SQL_UPSERT_SE_MAIS_NOVO = `${SQL_UPSERT}
-  WHERE inventario_itens.atualizadoEm IS NULL
+const GUARDA_SE_MAIS_NOVO = `WHERE inventario_itens.atualizadoEm IS NULL
      OR excluded.atualizadoEm >= inventario_itens.atualizadoEm`;
+
+const SQL_UPSERT = `INSERT INTO inventario_itens ${COLUNAS_INSERT} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${CONFLITO_UPSERT}`;
+const SQL_UPSERT_SE_MAIS_NOVO = `${SQL_UPSERT}\n  ${GUARDA_SE_MAIS_NOVO}`;
+
+// Monta um INSERT ... VALUES (...), (...), ... multi-linha para o bulk —
+// era um upsert por item antes (lotes de 100+ no crédito de NF-e conferida).
+function construirInsertMultiLinha(qtdLinhas, comGuarda) {
+  const placeholders = Array.from({ length: qtdLinhas }, () => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+  return `INSERT INTO inventario_itens ${COLUNAS_INSERT} VALUES ${placeholders} ${CONFLITO_UPSERT}${comGuarda ? `\n  ${GUARDA_SE_MAIS_NOVO}` : ''}`;
+}
 
 function montarValores(loja, item, atualizadoPor, atualizadoEm) {
   return [
@@ -129,25 +134,42 @@ router.post('/inventario/bulk', (req, res) => {
   if (itens.length === 0) return res.json({ success: true, gravados: 0 });
 
   const agora = new Date().toISOString();
-  let pendentes = itens.length;
-  let erros = 0;
+
+  // Dois grupos conforme a regra de carimbo: migração respeita o timestamp
+  // do aparelho e só grava se for mais novo; o resto usa a hora do servidor
+  // sem guarda. Cada grupo vira um único INSERT multi-linha. Deduplicado por
+  // codProduto (chave do upsert) — um INSERT multi-linha não aceita a mesma
+  // chave de conflito duas vezes; mantém a última ocorrência do lote.
+  const comGuarda = new Map();
+  const semGuarda = new Map();
 
   itens.forEach(item => {
     // Migração respeita o carimbo que veio do aparelho; o resto usa a hora do servidor.
     const usarCarimboDoCliente = origem === 'migracao' && (item.lastUpdated || item.atualizadoEm);
     const atualizadoEm = usarCarimboDoCliente ? String(item.lastUpdated || item.atualizadoEm) : agora;
-    const sql = usarCarimboDoCliente ? SQL_UPSERT_SE_MAIS_NOVO : SQL_UPSERT;
-
-    db.run(sql, montarValores(loja, item, item.atualizadoPor || usuario, atualizadoEm), (err) => {
-      if (err) {
-        erros++;
-        console.error('[Inventário] Erro no bulk:', err.message);
-      }
-      if (--pendentes === 0) finalizar();
-    });
+    const valores = montarValores(loja, item, item.atualizadoPor || usuario, atualizadoEm);
+    (usarCarimboDoCliente ? comGuarda : semGuarda).set(valores[1], valores);
   });
 
-  function finalizar() {
+  function gravarGrupo(mapa, comGuardaFlag) {
+    if (mapa.size === 0) return Promise.resolve(true);
+    const sql = construirInsertMultiLinha(mapa.size, comGuardaFlag);
+    const params = [].concat(...mapa.values());
+    return new Promise(resolve => {
+      db.run(sql, params, (err) => {
+        if (err) console.error('[Inventário] Erro no bulk:', err.message);
+        resolve(!err);
+      });
+    });
+  }
+
+  Promise.all([gravarGrupo(semGuarda, false), gravarGrupo(comGuarda, true)]).then(([okSemGuarda, okComGuarda]) => {
+    const gravados = (okSemGuarda ? semGuarda.size : 0) + (okComGuarda ? comGuarda.size : 0);
+    const erros = (semGuarda.size + comGuarda.size) - gravados;
+    finalizar(gravados, erros);
+  });
+
+  function finalizar(gravados, erros) {
     if (origem === 'migracao') {
       registrarLog(null, 'INVENTARIO_MIGRACAO', `Importou ${itens.length} item(ns) do aparelho para a loja ${loja}.`, usuario);
     }
@@ -173,7 +195,7 @@ router.post('/inventario/bulk', (req, res) => {
       }, { origem: clientId, usuario });
     }
 
-    res.json({ success: true, gravados: itens.length - erros, erros });
+    res.json({ success: true, gravados, erros });
   }
 });
 

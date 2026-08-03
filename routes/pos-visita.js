@@ -8,30 +8,42 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Insere todos os registros da importação (sem filtro de tempo — o Bruno
 // pediu para considerar qualquer duração, não só >1h), deduplicando por
 // (dataSessao, numeroCliente, crianca).
+//
+// Antes disso cada linha do CSV disparava um INSERT sequencial (aguardando o
+// anterior terminar) — o pior padrão de latência do sistema numa importação
+// que roda todo dia. Agora é um único INSERT multi-linha.
 function inserirRegistros(registros) {
   const criadoEm = new Date().toISOString();
 
-  let promise = Promise.resolve();
-  let inseridos = 0;
-  registros.forEach(r => {
-    const { dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos } = r;
-    if (!dataSessao || !cliente || !numeroCliente || !crianca) return;
-    const id = `${dataSessao}_${numeroCliente}_${crianca}`;
-    promise = promise.then(() => new Promise(resolve => {
-      db.run(
-        `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(dataSessao, numeroCliente, crianca) DO UPDATE SET tempoTotalMinutos = excluded.tempoTotalMinutos`,
-        [id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos || 0, criadoEm],
-        (err) => {
-          if (!err) inseridos++;
-          resolve();
-        }
-      );
-    }));
+  const validos = registros.filter(r => r.dataSessao && r.cliente && r.numeroCliente && r.crianca);
+  if (validos.length === 0) return Promise.resolve({ inseridos: 0 });
+
+  // Postgres não aceita a mesma chave de ON CONFLICT duas vezes dentro do
+  // mesmo INSERT multi-linha — dedup mantendo a última ocorrência (mesmo
+  // efeito líquido dos upserts sequenciais de antes, quando a mesma pessoa
+  // aparece mais de uma vez no relatório do dia).
+  const porChave = new Map();
+  validos.forEach(r => porChave.set(`${r.dataSessao}_${r.numeroCliente}_${r.crianca}`, r));
+
+  const placeholders = [];
+  const params = [];
+  porChave.forEach((r, id) => {
+    placeholders.push('(?, ?, ?, ?, ?, ?, ?)');
+    params.push(id, r.dataSessao, r.cliente, r.numeroCliente, r.crianca, r.tempoTotalMinutos || 0, criadoEm);
   });
 
-  return promise.then(() => ({ inseridos }));
+  return new Promise(resolve => {
+    db.run(
+      `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
+       VALUES ${placeholders.join(', ')}
+       ON CONFLICT(dataSessao, numeroCliente, crianca) DO UPDATE SET tempoTotalMinutos = excluded.tempoTotalMinutos`,
+      params,
+      (err) => {
+        if (err) console.error('[Pós-Visita] Erro ao importar CSV:', err.message);
+        resolve({ inseridos: err ? 0 : validos.length });
+      }
+    );
+  });
 }
 
 // --------------------------------------------------------------------------

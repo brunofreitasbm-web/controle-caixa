@@ -17,32 +17,37 @@ router.post('/importar', (req, res) => {
   }
 
   const criadoEm = new Date().toISOString();
-  let completed = 0;
-  let errors = [];
 
+  // Era um upsert por linha do mês importado (~30 por loja). Agora é um
+  // único INSERT multi-linha. Dedup por id (= loja_data, mesma chave do
+  // ON CONFLICT(loja, data)) mantendo a última ocorrência.
+  const porId = new Map();
   linhas.forEach(linha => {
     const id = `${loja}_${linha.data}`;
-    db.run(
-      `INSERT INTO metas_diarias_lojas (id, loja, data, valor, origem, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(loja, data) DO UPDATE SET
-         valor = excluded.valor,
-         origem = excluded.origem`,
-      [id, loja, linha.data, linha.valor, linha.origem, criadoEm],
-      function(err) {
-        completed++;
-        if (err) errors.push(err.message);
-        if (completed === linhas.length) {
-          if (errors.length > 0) {
-            return res.status(500).json({ success: false, errors });
-          }
-          publish('metaLoja.importada', { loja, quantidade: linhas.length },
-            { origem: req.body.clientId, usuario: req.query.usuario });
-          return res.json({ success: true, count: linhas.length });
-        }
-      }
-    );
+    porId.set(id, [id, loja, linha.data, linha.valor, linha.origem, criadoEm]);
   });
+
+  const placeholders = [];
+  const params = [];
+  porId.forEach(valores => {
+    placeholders.push('(?, ?, ?, ?, ?, ?)');
+    params.push(...valores);
+  });
+
+  db.run(
+    `INSERT INTO metas_diarias_lojas (id, loja, data, valor, origem, criadoEm)
+     VALUES ${placeholders.join(', ')}
+     ON CONFLICT(loja, data) DO UPDATE SET
+       valor = excluded.valor,
+       origem = excluded.origem`,
+    params,
+    function(err) {
+      if (err) return res.status(500).json({ success: false, errors: [err.message] });
+      publish('metaLoja.importada', { loja, quantidade: linhas.length },
+        { origem: req.body.clientId, usuario: req.query.usuario });
+      return res.json({ success: true, count: linhas.length });
+    }
+  );
 });
 
 router.get('/dia', (req, res) => {

@@ -142,41 +142,39 @@ router.post('/solicitacoes-retirada/:id/autorizar', requireOwner, async (req, re
       autorizadoPor: actorUsuario
     };
 
-    let pendentes = solicitacao.registroIds.length;
-    let falhou = false;
-
-    solicitacao.registroIds.forEach(registroId => {
-      db.run(
-        `UPDATE ${tabela} SET status = ?, dataRetirada = ?, retiradoPor = ?, confirmadoPorApp = ?, autorizadoPor = ? WHERE id = ?`,
-        [camposRetirada.status, camposRetirada.dataRetirada, camposRetirada.retiradoPor, camposRetirada.confirmadoPorApp, camposRetirada.autorizadoPor, registroId],
-        (errUpdate) => {
-          if (errUpdate) {
-            falhou = true;
-            console.error('Erro ao aplicar retirada autorizada:', errUpdate.message);
-          } else {
-            publish(eventoRegistroAlterado(solicitacao.tipo), { id: registroId, campos: camposRetirada }, { usuario: actorUsuario });
-          }
-
-          pendentes--;
-          if (pendentes === 0) {
-            if (falhou) return res.status(500).json({ error: 'Falha ao aplicar a retirada em um ou mais envelopes.' });
-
-            db.run(
-              `UPDATE solicitacoes_retirada SET status = 'aprovada', autorizadoPor = ?, respondidoEm = ? WHERE id = ?`,
-              [actorUsuario, respondidoEm, id],
-              (errFinal) => {
-                if (errFinal) return res.status(500).json({ error: errFinal.message });
-
-                registrarLog(id, 'RETIRADA_AUTORIZADA', `Retirada de ${solicitacao.registroIds.length} envelope(s) autorizada (solicitada por ${solicitacao.solicitadoPor}).`, actorUsuario);
-                publish('retirada.autorizada', { id, tipo: solicitacao.tipo, registroIds: solicitacao.registroIds, autorizadoPor: actorUsuario, solicitadoPor: solicitacao.solicitadoPor }, { usuario: actorUsuario });
-
-                res.json({ success: true });
-              }
-            );
-          }
+    // Antes: um UPDATE por envelope do lote, fora de transação. Agora: um
+    // único UPDATE com WHERE id IN (...) — todos os envelopes recebem os
+    // mesmos campos, então não há motivo pra separar por linha. Os eventos de
+    // tempo real continuam um por registro (é broadcast em memória, não
+    // round-trip de banco, e cada cliente precisa do id individual).
+    const placeholdersIds = solicitacao.registroIds.map(() => '?').join(',');
+    db.run(
+      `UPDATE ${tabela} SET status = ?, dataRetirada = ?, retiradoPor = ?, confirmadoPorApp = ?, autorizadoPor = ? WHERE id IN (${placeholdersIds})`,
+      [camposRetirada.status, camposRetirada.dataRetirada, camposRetirada.retiradoPor, camposRetirada.confirmadoPorApp, camposRetirada.autorizadoPor, ...solicitacao.registroIds],
+      (errUpdate) => {
+        if (errUpdate) {
+          console.error('Erro ao aplicar retirada autorizada:', errUpdate.message);
+          return res.status(500).json({ error: 'Falha ao aplicar a retirada em um ou mais envelopes.' });
         }
-      );
-    });
+
+        solicitacao.registroIds.forEach(registroId => {
+          publish(eventoRegistroAlterado(solicitacao.tipo), { id: registroId, campos: camposRetirada }, { usuario: actorUsuario });
+        });
+
+        db.run(
+          `UPDATE solicitacoes_retirada SET status = 'aprovada', autorizadoPor = ?, respondidoEm = ? WHERE id = ?`,
+          [actorUsuario, respondidoEm, id],
+          (errFinal) => {
+            if (errFinal) return res.status(500).json({ error: errFinal.message });
+
+            registrarLog(id, 'RETIRADA_AUTORIZADA', `Retirada de ${solicitacao.registroIds.length} envelope(s) autorizada (solicitada por ${solicitacao.solicitadoPor}).`, actorUsuario);
+            publish('retirada.autorizada', { id, tipo: solicitacao.tipo, registroIds: solicitacao.registroIds, autorizadoPor: actorUsuario, solicitadoPor: solicitacao.solicitadoPor }, { usuario: actorUsuario });
+
+            res.json({ success: true });
+          }
+        );
+      }
+    );
   });
 });
 

@@ -801,6 +801,67 @@ function initDb(onSuccess) {
         });
       });
 
+      // Índices para as consultas mais usadas do sistema (filtro, busca e
+      // ordenação). Até aqui só existiam índices de PK/UNIQUE — qualquer
+      // WHERE/ORDER BY fora dessas colunas forçava varredura completa da
+      // tabela. Levantamento feito em cima de todas as rotas/serviços.
+      const indicesConsulta = [
+        // Lista principal do Caixa (Cacau Show e Faça Amigos): toda tela
+        // carrega os "não deletados" ordenados por data — índice parcial
+        // pula os registros com soft delete em vez de varrê-los.
+        `CREATE INDEX IF NOT EXISTS idx_registros_ativos ON registros(dataOperacao DESC) WHERE deletadoEm IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_registros_fa_ativos ON registros_fa(dataOperacao DESC) WHERE deletadoEm IS NULL`,
+        // Soma de envelopes aguardando retirada por loja, a cada Fechamento.
+        `CREATE INDEX IF NOT EXISTS idx_registros_loja_status ON registros(loja, status)`,
+        `CREATE INDEX IF NOT EXISTS idx_registros_fa_loja_status ON registros_fa(loja, status)`,
+        // GET /logs ordena por data sem filtro, e a tabela só cresce.
+        `CREATE INDEX IF NOT EXISTS idx_logs_auditoria_data ON logs_auditoria(data DESC)`,
+        // numero de NF não é único (a mesma NF pode repetir por loja) e é
+        // filtrado em vários endpoints de escrita, incluindo um helper
+        // chamado a cada item conferido na tela de conferência.
+        `CREATE INDEX IF NOT EXISTS idx_nfs_numero ON nfs(numero)`,
+        // Boletos: dedup na importação em lote e alerta de vencidos sem NF-e.
+        `CREATE INDEX IF NOT EXISTS idx_boletos_status ON boletos(status)`,
+        `CREATE INDEX IF NOT EXISTS idx_boletos_loja_doc_valor ON boletos(loja, documento, valor)`,
+        `CREATE INDEX IF NOT EXISTS idx_boletos_loja_docfat_valor ON boletos(loja, docFaturamento, valor)`,
+        `CREATE INDEX IF NOT EXISTS idx_boletos_criadoEm ON boletos(criadoEm DESC)`,
+        // Ponto: uma linha por batida, para sempre. Três padrões de consulta
+        // diferentes (por usuário, por operação, por intervalo de datas).
+        `CREATE INDEX IF NOT EXISTS idx_ponto_registros_usuario_timestamp ON ponto_registros(usuario, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_ponto_registros_operacao_timestamp ON ponto_registros(operacao, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_ponto_ajustes_usuario_data ON ponto_ajustes(usuario, data)`,
+        // Meta Hora a Hora: o briefing diário busca por data sozinha (sem
+        // operacao), fora do alcance do índice único (operacao, data, horaSlot).
+        `CREATE INDEX IF NOT EXISTS idx_metas_vendas_data ON metas_vendas(data)`,
+        // Bonificação FA: /mes-todas e o briefing filtram por data (ou
+        // unidade+data) sem usuario, fora do índice único (usuario, unidade, data).
+        `CREATE INDEX IF NOT EXISTS idx_fa_bonif_diaria_data ON fa_bonificacao_diaria(data)`,
+        `CREATE INDEX IF NOT EXISTS idx_fa_bonif_diaria_unidade_data ON fa_bonificacao_diaria(unidade, data)`,
+        // Meta diária por loja: briefing filtra por data sozinha.
+        `CREATE INDEX IF NOT EXISTS idx_metas_diarias_lojas_data ON metas_diarias_lojas(data)`,
+        `CREATE INDEX IF NOT EXISTS idx_metas_ano_loja ON metas(ano, loja)`,
+        // Pós-visita: a fila de pendentes filtra por mensagemEnviada e roda
+        // uma subquery correlacionada por (numeroCliente, crianca) por linha.
+        `CREATE INDEX IF NOT EXISTS idx_pos_visita_pendentes ON pos_visita_registros(mensagemEnviada)`,
+        `CREATE INDEX IF NOT EXISTS idx_pos_visita_cliente_crianca ON pos_visita_registros(numeroCliente, crianca, mensagemEnviada)`,
+        `CREATE INDEX IF NOT EXISTS idx_pos_visita_indicadores_atualizado ON pos_visita_indicadores(atualizadoEm DESC)`,
+        // Pasta de Auditoria: negocio está presente em toda consulta da tela.
+        `CREATE INDEX IF NOT EXISTS idx_documentos_auditoria_negocio_criado ON documentos_auditoria(negocio, criadoEm DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_documentos_auditoria_vencimento ON documentos_auditoria(dataVencimento)`,
+        // Retiradas pendentes de autorização.
+        `CREATE INDEX IF NOT EXISTS idx_solicitacoes_retirada_status_criado ON solicitacoes_retirada(status, criadoEm DESC)`
+      ];
+      indicesConsulta.forEach(sqlIndice => {
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run(sqlIndice, [], (err) => {
+              if (err) console.error('Erro ao criar índice:', err.message, '-', sqlIndice);
+              resolve();
+            });
+          });
+        });
+      });
+
       // Corrige colunas monetárias criadas como REAL (float4) no Postgres, que
       // arredondam centavos em valores grandes. No SQLite REAL já é double de
       // 8 bytes e ALTER COLUMN TYPE não existe, então só roda no Postgres.

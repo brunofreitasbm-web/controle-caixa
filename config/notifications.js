@@ -391,8 +391,12 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
         return;
       }
 
+      // finalTargetUsers já vem em minúsculas (ver .toLowerCase() acima) e
+      // POST /subscribe agora grava `usuario` normalizado do mesmo jeito —
+      // comparação direta, sem LOWER(usuario) no WHERE (que forçava scan
+      // completo mesmo com poucas linhas, por invalidar qualquer índice).
       const sql = finalTargetUsers && finalTargetUsers.length > 0
-        ? `SELECT * FROM push_subscriptions WHERE LOWER(usuario) IN (${finalTargetUsers.map(() => '?').join(',')})`
+        ? `SELECT * FROM push_subscriptions WHERE usuario IN (${finalTargetUsers.map(() => '?').join(',')})`
         : 'SELECT * FROM push_subscriptions';
 
       const params = finalTargetUsers && finalTargetUsers.length > 0 ? finalTargetUsers : [];

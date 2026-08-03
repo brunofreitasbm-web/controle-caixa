@@ -26,8 +26,12 @@ function acharLinhaNf(numero, loja, cb) {
 }
 
 // --- NF-e Endpoints ---
+// LIMIT de segurança: a tela de NF-es carrega a lista inteira de uma vez pra
+// busca/filtro no cliente (não é paginada). Hoje a tabela tem poucas dezenas
+// de linhas — o LIMIT é só uma trava pra não deixar a query virar um scan
+// sem fim se isso crescer muito antes de existir paginação de verdade.
 router.get('/nfs', (req, res) => {
-  db.all('SELECT * FROM nfs ORDER BY criadoEm DESC', [], (err, rows) => {
+  db.all('SELECT * FROM nfs ORDER BY criadoEm DESC LIMIT 2000', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     try {
       const result = (rows || []).map(r => ({
@@ -303,57 +307,76 @@ router.get('/boletos', (req, res) => {
   });
 });
 
+// Chave de duplicata: replica a regra original — se o boleto vem com
+// docFaturamento, casa por (loja, docFaturamento, valor); senão por
+// (loja, documento, valor). valor é normalizado a 2 casas pra não perder
+// duplicata por diferença de representação float entre banco e JS.
+function chaveDuplicataBoleto(loja, documento, docFaturamento, valor) {
+  const valorFixo = Number(valor || 0).toFixed(2);
+  return docFaturamento
+    ? `df|${loja}|${docFaturamento}|${valorFixo}`
+    : `d|${loja}|${documento}|${valorFixo}`;
+}
+
 router.post('/boletos/import', (req, res) => {
   const { boletos } = req.body;
   if (!Array.isArray(boletos)) {
     return res.status(400).json({ error: 'Lista de boletos inválida.' });
   }
+  if (boletos.length === 0) {
+    return res.json({ success: true, insertedCount: 0, ignoredCount: 0 });
+  }
   const agora = new Date().toISOString();
 
-  let promises = boletos.map(b => {
-    return new Promise((resolve) => {
-      const dupQuery = b.docFaturamento
-        ? 'SELECT id FROM boletos WHERE loja = ? AND docFaturamento = ? AND valor = ?'
-        : 'SELECT id FROM boletos WHERE loja = ? AND documento = ? AND valor = ?';
-      const dupParams = b.docFaturamento
-        ? [b.loja, b.docFaturamento, b.valor]
-        : [b.loja, b.documento, b.valor];
+  // Antes: 2 queries por boleto (checagem de duplicata + insert), disparadas
+  // em paralelo — 2×N round-trips numa importação em lote que pode ter
+  // dezenas de linhas. Agora: 1 query pra trazer as duplicatas possíveis de
+  // uma vez (só das lojas do lote) + 1 INSERT multi-linha.
+  const lojas = [...new Set(boletos.map(b => b.loja).filter(Boolean))];
+  const placeholdersLojas = lojas.map(() => '?').join(',');
 
-      db.get(dupQuery, dupParams, (err, row) => {
-          if (err || row) {
-            resolve({ status: 'ignored', boleto: b });
-          } else {
-            db.run(
-              'INSERT INTO boletos (id, documento, docFaturamento, parcela, loja, descricao, vencimento, valor, status, criadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              [b.id, b.documento, b.docFaturamento || null, b.parcela || null, b.loja, b.descricao, b.vencimento, b.valor, b.status || 'Aberto', agora],
-              (err2) => {
-                if (err2) {
-                  resolve({ status: 'error', error: err2.message, boleto: b });
-                } else {
-                  resolve({ status: 'inserted', boleto: b });
-                }
-              }
-            );
-          }
+  db.all(
+    `SELECT loja, documento, docFaturamento, valor FROM boletos WHERE loja IN (${placeholdersLojas})`,
+    lojas,
+    (err, existentes) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const chavesExistentes = new Set();
+      (existentes || []).forEach(row => {
+        if (row.docFaturamento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, null, row.docFaturamento, row.valor));
+        if (row.documento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, row.documento, null, row.valor));
+      });
+
+      const paraInserir = [];
+      const ignorados = [];
+      boletos.forEach(b => {
+        const chave = chaveDuplicataBoleto(b.loja, b.documento, b.docFaturamento, b.valor);
+        if (chavesExistentes.has(chave)) ignorados.push(b);
+        else paraInserir.push(b);
+      });
+
+      if (paraInserir.length === 0) {
+        return res.json({ success: true, insertedCount: 0, ignoredCount: ignorados.length });
+      }
+
+      const placeholders = [];
+      const params = [];
+      paraInserir.forEach(b => {
+        placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        params.push(b.id, b.documento, b.docFaturamento || null, b.parcela || null, b.loja, b.descricao, b.vencimento, b.valor, b.status || 'Aberto', agora);
+      });
+
+      db.run(
+        `INSERT INTO boletos (id, documento, docFaturamento, parcela, loja, descricao, vencimento, valor, status, criadoEm) VALUES ${placeholders.join(', ')}`,
+        params,
+        (err2) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+          publish('boleto.importados', { quantidade: paraInserir.length }, { origem: req.query.clientId, usuario: req.query.usuario });
+          res.json({ success: true, insertedCount: paraInserir.length, ignoredCount: ignorados.length });
         }
       );
-    });
-  });
-
-  Promise.all(promises).then(results => {
-    const inserted = results.filter(r => r.status === 'inserted').map(r => r.boleto);
-    const ignored = results.filter(r => r.status === 'ignored').map(r => r.boleto);
-    if (inserted.length > 0) {
-      publish('boleto.importados', { quantidade: inserted.length }, { origem: req.query.clientId, usuario: req.query.usuario });
     }
-    res.json({
-      success: true,
-      insertedCount: inserted.length,
-      ignoredCount: ignored.length
-    });
-  }).catch(err => {
-    res.status(500).json({ error: err.message });
-  });
+  );
 });
 
 router.post('/boletos/pago', (req, res) => {

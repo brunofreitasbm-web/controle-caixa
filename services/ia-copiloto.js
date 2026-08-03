@@ -14,8 +14,15 @@
 // ==========================================================================
 
 const { dbAllAsync, dbGetAsync } = require('../config/database');
-const { gerarTexto, iaHabilitada, IAIndisponivelError } = require('./ia');
+const { gerarTexto, comCache, iaHabilitada, IAIndisponivelError } = require('./ia');
 const { OPERACOES_CONFIG_META, checkpointsDoDiaMeta } = require('../config/notifications');
+
+// Diferente do briefing/coach (cache de 12h), o copiloto não tinha NENHUM
+// cache — cada chamada (tela do dashboard + o pingador externo a cada ~10min,
+// ver server.js TOLERANCIA_PING_MIN) pagava 3 round-trips de banco e uma
+// chamada de IA do zero. O aviso vale para uma janela de ~20min ao redor do
+// intervalo, então um TTL curto cobre isso sem gerar texto repetido à toa.
+const TTL_CACHE_COPILOTO_SEGUNDOS = 15 * 60;
 
 const reais = n => `R$ ${Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -129,6 +136,11 @@ function copilotoFallback(r) {
 
 // --------------------------------------------------------------------------
 async function gerarAvisoCopiloto({ loja, data, horaSlot }) {
+  const chave = `copiloto:${loja}:${data}:${horaSlot}`;
+  return comCache(chave, TTL_CACHE_COPILOTO_SEGUNDOS, () => produzirAvisoCopiloto({ loja, data, horaSlot }));
+}
+
+async function produzirAvisoCopiloto({ loja, data, horaSlot }) {
   let r;
   try {
     r = await apurarRitmo({ loja, data, horaSlot });
