@@ -17,6 +17,80 @@ let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dina
 const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
 const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
 
+// --- IDENTIDADE VISUAL DAS OPERAÇÕES ---
+// Emoji e cor fixos por operação (Cacau Show + Faça Amigos), usados em
+// selects, filtros, cards e badges para dar ao operador uma referência
+// visual imediata de qual operação ele está alimentando/filtrando.
+const OPERACOES_INFO = {
+  "Marambaia": { emoji: "🟣", cor: "#8b5cf6" },
+  "Icoaraci": { emoji: "🔵", cor: "#3b82f6" },
+  "Mário Covas": { emoji: "🟢", cor: "#22c55e" },
+  "Venda Direta": { emoji: "🟠", cor: "#f97316" },
+  "Grão Pará": { emoji: "🟤", cor: "#92400e" },
+  "ParqueShopping": { emoji: "🟡", cor: "#eab308" },
+  "Parque Circuito": { emoji: "🔴", cor: "#ef4444" }
+};
+
+// Apelidos/códigos usados em outros módulos (RH, NF-e, Ponto) para as
+// mesmas operações acima.
+const OPERACOES_ALIASES = {
+  "Grão-Pará": "Grão Pará",
+  "Playground": "ParqueShopping",
+  "FaçaAmigos Circuito": "Parque Circuito",
+  "9175": "Marambaia",
+  "4304": "Icoaraci",
+  "9201": "Mário Covas",
+  "fa-grao-para": "Grão Pará",
+  "fa-playground": "ParqueShopping",
+  "fa-parque": "Parque Circuito"
+};
+
+function opKey(nome) {
+  if (!nome) return null;
+  if (OPERACOES_INFO[nome]) return nome;
+  if (OPERACOES_ALIASES[nome]) return OPERACOES_ALIASES[nome];
+  return null;
+}
+function opEmoji(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].emoji : "📍";
+}
+function opCor(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].cor : "#9ca3af";
+}
+function opLabel(nome) {
+  return nome ? `${opEmoji(nome)} ${nome}` : nome;
+}
+// Badge colorido (emoji + nome) para uso em células de tabela.
+function opChip(nome) {
+  if (!nome) return "";
+  return `<span class="op-chip" style="--op-cor:${opCor(nome)}">${opEmoji(nome)} ${nome}</span>`;
+}
+// Aplica a cor da operação selecionada como borda esquerda do <select>.
+function aplicarCorOperacaoSelect(select) {
+  if (!select) return;
+  select.classList.add("op-select");
+  select.style.setProperty("--op-select-cor", select.value ? opCor(select.value) : "var(--border)");
+}
+
+// Liga a borda colorida por operação aos selects de loja/filtro sempre
+// presentes no DOM (os demais — Ponto, Meta Hora a Hora — são tratados em
+// seus próprios inicializadores, pois só existem quando a aba é aberta).
+function inicializarCorOperacaoSelects() {
+  [
+    "loja", "fa-loja",
+    "filtro-loja-pendentes", "filtro-loja-hist",
+    "fa-filtro-loja-pendentes", "fa-filtro-loja-hist",
+    "metas-loja-selector", "auditoria-store-filter"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    aplicarCorOperacaoSelect(el);
+    el.addEventListener("change", () => aplicarCorOperacaoSelect(el));
+  });
+}
+
 // --- CONFIGURAÇÃO MANUAL DOS GRUPOS DE WHATSAPP ---
 // Cole aqui o link de convite do grupo do WhatsApp de cada loja.
 // Para extrair o link de convite:
@@ -530,6 +604,12 @@ const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
 // PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
 // que abre um modal de autorização sozinho na tela dos owners.
 const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra"];
+
+// Perfis que podem manter a sessão salva e entrar direto no menu principal
+// ao reabrir o app. Todos os demais (consultora, consultora_fa) têm que
+// digitar o PIN sempre — a sessão salva só serve para pular a etapa de
+// "Quem é você?" e já cair direto na tela de PIN com o nome preenchido.
+const PERFIS_ENTRADA_DIRETA = ["owner", "consultora_dashboard"];
 
 let API_ONLINE = false;
 let registros = [];
@@ -1598,6 +1678,7 @@ function iniciarModuloBase(moduloOpcional) {
   // Sugerir Abertura/Fechamento por hora e restaurar rascunhos salvos
   preselecionarOperacaoPorHorario();
   restaurarRascunhosForm();
+  inicializarCorOperacaoSelects();
 
   // Verificar aviso de Inventário Mensal Obrigatório para colaboradoras Cacau Show
   verificarInventarioMensalNotificacao();
@@ -1788,10 +1869,35 @@ document.getElementById("btn-trocar-modulo").addEventListener("click", trocarMod
 const btnTopbarTrocar = document.getElementById("btn-topbar-trocar-modulo");
 if (btnTopbarTrocar) btnTopbarTrocar.addEventListener("click", trocarModuloHandler);
 
+function esconderBootSplash() {
+  const splash = document.getElementById("boot-splash");
+  if (!splash) return;
+  splash.classList.add("boot-splash-out");
+  setTimeout(() => splash.remove(), 400);
+}
+
 function renderApp() {
-  if (currentUser) {
+  if (currentUser && PERFIS_ENTRADA_DIRETA.includes(currentUser.role)) {
+    // Sessão salva de Owner/Líder de Operações: pula o login e cai direto
+    // no menu principal, sem passar pela tela de PIN.
     entrarNoApp();
+    esconderBootSplash();
+    return;
   }
+
+  if (currentUser) {
+    // Sessão salva, mas esse perfil tem que digitar o PIN toda vez que
+    // entra no sistema — pula direto para a etapa de PIN (nome já
+    // preenchido), sem passar pela seleção de "Quem é você?".
+    const nomeSalvo = currentUser.nome;
+    currentUser = null;
+    localStorage.removeItem(USER_KEY);
+    loginOverlay.classList.remove("hidden");
+    selecionarUsuarioLogin(nomeSalvo);
+  } else {
+    loginOverlay.classList.remove("hidden");
+  }
+  esconderBootSplash();
 }
 
 // --- Configurações Globais ---
@@ -3039,7 +3145,12 @@ async function mostrarFaGeradorMensagem(registro) {
       ]);
       linhaVendas = linhaVendasConversaoFA(lancamentoHoje, regraConversao);
     } else {
-      const dataStr = registro.dataOperacao.slice(0, 10);
+      // Não usar registro.dataOperacao.slice(0, 10): essa string está em UTC
+      // e o Parque Circuito fecha perto das 22h locais (Belém, UTC-3), então
+      // fatiar o ISO em UTC frequentemente já cai no dia seguinte, fazendo a
+      // busca de locações/meta do dia não encontrar o lançamento de hoje.
+      const dOp = new Date(registro.dataOperacao);
+      const dataStr = `${dOp.getFullYear()}-${String(dOp.getMonth() + 1).padStart(2, "0")}-${String(dOp.getDate()).padStart(2, "0")}`;
       const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
       const metaDiaria = metaLocacoesDoDia(dataStr, regra);
       const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
@@ -3115,8 +3226,9 @@ function renderFaDashboard() {
 
     const card = document.createElement("div");
     card.className = "loja-card fa-loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta">
         <span>${doLoja.length} envelope(s)</span>
@@ -3175,7 +3287,7 @@ function renderFaDashboard() {
         <td style="text-align: center;">
           ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
-        <td>${r.loja}</td>
+        <td>${opChip(r.loja)}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
@@ -3315,7 +3427,7 @@ function renderFaHistorico() {
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
-      <td>${r.loja}</td>
+      <td>${opChip(r.loja)}</td>
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
@@ -3429,8 +3541,9 @@ function renderFaMensal() {
 
     const card = document.createElement("div");
     card.className = "loja-card fa-loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
     `;
@@ -3446,7 +3559,7 @@ function renderFaMensal() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill fa-bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -4634,8 +4747,9 @@ function renderDashboard() {
 
     const card = document.createElement("div");
     card.className = "loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta">
         <span>${doLoja.length} envelope(s)</span>
@@ -4657,7 +4771,7 @@ function renderDashboard() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -4709,7 +4823,7 @@ function renderDashboard() {
         <td style="text-align: center;">
           ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
-        <td>${r.loja}</td>
+        <td>${opChip(r.loja)}</td>
         <td>${r.consultor}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
@@ -4824,8 +4938,6 @@ function abrirModalRetirada(target) {
   if (respLabel) {
     respLabel.textContent = isOwner ? "Responsável pela Retirada (Opcional para Owner)" : "Responsável pela Retirada *";
   }
-
-  autorizacaoPinInput.value = "";
 
   const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra"]).includes(currentUser ? currentUser.nome : "");
   autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
@@ -5129,7 +5241,7 @@ function renderHistorico() {
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
-      <td>${r.loja}</td>
+      <td>${opChip(r.loja)}</td>
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
@@ -5236,8 +5348,9 @@ function renderMensal() {
 
     const card = document.createElement("div");
     card.className = "loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
     card.innerHTML = `
-      <h4>${loja}</h4>
+      <h4>${opLabel(loja)}</h4>
       <div class="valor">${formatBRL(total)}</div>
       <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
     `;
@@ -5253,7 +5366,7 @@ function renderMensal() {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <span>${loja}</span>
+      <span>${opLabel(loja)}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span class="bar-value">${formatBRL(total)}</span>
     `;
@@ -5275,7 +5388,7 @@ function renderMensal() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${mesLabel(l.mes)}</td>
-      <td>${l.loja}</td>
+      <td>${opChip(l.loja)}</td>
       <td>${formatBRL(l.total)}</td>
       <td>${l.qtd}</td>
     `;
@@ -5914,12 +6027,12 @@ async function renderizarColaboradores() {
   };
 
   const unidadeLabels = {
-    "9175": "9175 - Marambaia",
-    "9201": "9201 - Mário Covas",
-    "4304": "4304 - Icoaraci",
-    "fa-parque": "FA - Parque Circuito",
-    "fa-playground": "FA - ParqueShopping",
-    "fa-grao-para": "FA - Grão-Pará",
+    "9175": "🟣 9175 - Marambaia",
+    "9201": "🟢 9201 - Mário Covas",
+    "4304": "🔵 4304 - Icoaraci",
+    "fa-parque": "🔴 FA - Parque Circuito",
+    "fa-playground": "🟡 FA - ParqueShopping",
+    "fa-grao-para": "🟤 FA - Grão-Pará",
     "all": "Todas as Lojas"
   };
 
@@ -7144,10 +7257,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentStore = storeSelectors[0].value || '9175';
     storeSelectors.forEach(sel => {
       sel.value = currentStore;
+      aplicarCorOperacaoSelect(sel);
       sel.addEventListener('change', (e) => {
         currentStore = e.target.value;
         document.querySelectorAll('.store-selector, #store-selector').forEach(s => {
           s.value = currentStore;
+          aplicarCorOperacaoSelect(s);
         });
         loadInventoryForCurrentStore();
         if (typeof renderTable === 'function') renderTable();
@@ -8387,9 +8502,9 @@ function renderNfArquivadasList(filtro) {
 }
 
 function nomeLoja(codigo) {
-  if (codigo === "9175") return "Marambaia (9175)";
-  if (codigo === "4304") return "Icoaraci (4304)";
-  if (codigo === "9201") return "Mário Covas (9201)";
+  if (codigo === "9175") return "🟣 Marambaia (9175)";
+  if (codigo === "4304") return "🔵 Icoaraci (4304)";
+  if (codigo === "9201") return "🟢 Mário Covas (9201)";
   return `Loja ${codigo}`;
 }
 
@@ -10883,7 +10998,7 @@ function inicializarPainelConfiguracoes() {
         field.className = "field";
         field.innerHTML = `
           <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
-            <span>${loja}</span>
+            <span>${opLabel(loja)}</span>
             <span class="status-badge">${getBadgeHtml(value)}</span>
           </label>
           <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
@@ -10907,7 +11022,7 @@ function inicializarPainelConfiguracoes() {
         field.className = "field";
         field.innerHTML = `
           <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
-            <span>${loja}</span>
+            <span>${opLabel(loja)}</span>
             <span class="status-badge">${getBadgeHtml(value)}</span>
           </label>
           <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
@@ -11865,14 +11980,14 @@ function renderRhTable() {
         <select class="rh-colab-store-select bg-surface-1 text-ink-strong border border-subtle rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-accent cursor-pointer" data-user="${c.nome}">
           <option value="all" ${store === 'all' ? 'selected' : ''}>Todas as Lojas (Geral)</option>
           <optgroup label="Cacau Show">
-            <option value="9175" ${store === '9175' ? 'selected' : ''}>9175 - Marambaia</option>
-            <option value="9201" ${store === '9201' ? 'selected' : ''}>9201 - Mário Covas</option>
-            <option value="4304" ${store === '4304' ? 'selected' : ''}>4304 - Icoaraci</option>
+            <option value="9175" ${store === '9175' ? 'selected' : ''}>🟣 9175 - Marambaia</option>
+            <option value="9201" ${store === '9201' ? 'selected' : ''}>🟢 9201 - Mário Covas</option>
+            <option value="4304" ${store === '4304' ? 'selected' : ''}>🔵 4304 - Icoaraci</option>
           </optgroup>
           <optgroup label="Faça Amigos">
-            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>FaçaAmigos Circuito</option>
-            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>Faça Amigos - Playground</option>
-            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>Faça Amigos - Grão-Pará</option>
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>🔴 FaçaAmigos Circuito</option>
+            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>🟡 Faça Amigos - Playground</option>
+            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>🟤 Faça Amigos - Grão-Pará</option>
           </optgroup>
         </select>
       </td>
@@ -11987,12 +12102,12 @@ function renderRhTable() {
 
 const RH_STORE_TITULOS = {
   "all": "Geral (Todas as Unidades)",
-  "9175": "Loja 9175 — Marambaia",
-  "9201": "Loja 9201 — Mário Covas",
-  "4304": "Loja 4304 — Icoaraci",
-  "fa-parque": "FaçaAmigos — Parque Circuito",
-  "fa-playground": "FaçaAmigos — Playground",
-  "fa-grao-para": "FaçaAmigos — Grão-Pará"
+  "9175": "Loja 9175 — 🟣 Marambaia",
+  "9201": "Loja 9201 — 🟢 Mário Covas",
+  "4304": "Loja 4304 — 🔵 Icoaraci",
+  "fa-parque": "FaçaAmigos — 🔴 Parque Circuito",
+  "fa-playground": "FaçaAmigos — 🟡 Playground",
+  "fa-grao-para": "FaçaAmigos — 🟤 Grão-Pará"
 };
 
 // Funil único de leitura dos dados pro Dashboard/Insights/Mapa de Talentos —
@@ -12729,8 +12844,10 @@ function inicializarAbaPonto() {
       ? UNIDADES_FA[0]
       : getLojaNomePorCodigo(currentStore);
     operacaoSelector.value = pontoOperacaoAtiva;
+    aplicarCorOperacaoSelect(operacaoSelector);
     operacaoSelector.onchange = (e) => {
       pontoOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(operacaoSelector);
       ativarGPSPonto();
     };
   }
@@ -13058,13 +13175,6 @@ function pararDeteccaoFacial() {
   pontoFaceVerificada = false;
 }
 
-// Usuários isentos da verificação de GPS/geofencing no bate-ponto.
-const NOMES_ISENTOS_GPS = ["Bruno", "Isabella", "Alexandra"];
-
-function usuarioIsentoGPS() {
-  return currentUser && NOMES_ISENTOS_GPS.includes(currentUser.nome);
-}
-
 function ativarGPSPonto() {
   const gpsStatus = document.getElementById("ponto-gps-status");
   const gpsCoords = document.getElementById("ponto-gps-coords");
@@ -13096,19 +13206,10 @@ function ativarGPSPonto() {
 
       gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
 
-      if (usuarioIsentoGPS()) {
-        gpsStatus.className = "text-success font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK (verificação isenta)`;
-      } else if (pos.coords.accuracy > 30) {
-        gpsStatus.className = "text-warning font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Precisão Baixa`;
-      } else if (dist > GEOFENCE_RAIO_METROS) {
-        gpsStatus.className = "text-danger font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fora do Perímetro`;
-      } else {
-        gpsStatus.className = "text-success font-black";
-        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
-      }
+      // Verificação de GPS/geofencing desativada: status é apenas informativo,
+      // não bloqueia a marcação de ponto.
+      gpsStatus.className = "text-success font-black";
+      gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
     },
     (err) => {
       console.warn("Erro ao obter GPS:", err);
@@ -13193,28 +13294,12 @@ let pontoMarcacaoEmAndamento = false;
 async function registrarMarcacaoPonto(tipo) {
   if (pontoMarcacaoEmAndamento) return;
 
-  if (!pontoGpsCoords) {
-    showToast("Aguarde a obtenção da localização GPS antes de bater ponto.", "erro");
-    return;
-  }
-
   const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
 
-  // Geofencing Check (isento para usuários em NOMES_ISENTOS_GPS)
-  if (!usuarioIsentoGPS()) {
-    const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
-    const dist = calcularDistanciaHaversine(pontoGpsCoords.latitude, pontoGpsCoords.longitude, storeLoc.lat, storeLoc.lng);
-
-    if (pontoGpsAccuracy > 30) {
-      showToast("Precisão do GPS insuficiente. Mova-se para um local aberto.", "erro");
-      return;
-    }
-
-    if (dist > GEOFENCE_RAIO_METROS) {
-      showToast(`Marcação bloqueada: você está fora da cerca virtual (Distância: ${dist.toFixed(0)}m).`, "erro");
-      return;
-    }
-  }
+  // Verificação de GPS/geofencing desativada para todos os usuários
+  // (operadores, líderes de operação e administradores): a localização,
+  // quando disponível, é apenas registrada para fins de auditoria e não
+  // bloqueia mais a marcação de ponto.
 
   // Biometria facial: obrigatória sempre que a câmera está ativa
   if (pontoStream && !pontoFaceVerificada) {
@@ -13258,7 +13343,7 @@ async function registrarMarcacaoPonto(tipo) {
     const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
     const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
     const timestamp = new Date().toISOString();
-    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords.latitude}_${pontoGpsCoords.longitude}_${prevHash}`;
+    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords?.latitude ?? ""}_${pontoGpsCoords?.longitude ?? ""}_${prevHash}`;
     const currentHash = await calcularHashSha256(rawString);
 
     const newRecord = {
@@ -13267,7 +13352,7 @@ async function registrarMarcacaoPonto(tipo) {
       timestamp,
       tipo,
       operacao: storeName,
-      gps: `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}`,
+      gps: pontoGpsCoords ? `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}` : null,
       accuracy: pontoGpsAccuracy,
       photo: photoBase64,
       hash: currentHash,
@@ -13586,8 +13671,10 @@ function inicializarMetaHoraHora() {
   if (selector) {
     metaOperacaoAtiva = getLojaNomePorCodigo(currentStore);
     selector.value = metaOperacaoAtiva;
+    aplicarCorOperacaoSelect(selector);
     selector.onchange = (e) => {
       metaOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(selector);
       carregarMetaHoraHora();
     };
   }
@@ -14755,15 +14842,6 @@ async function carregarMetaHoraHora() {
   }
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
-
-  const esperadoEl = document.getElementById("meta-esperado-ate-agora");
-  if (esperadoEl) esperadoEl.textContent = formatBRL(esperadoAteAgora);
-  
-  // Card de Meta da Hora (Mostra a meta do slot ativo no momento)
-  const slotAtual = checkpoints.find(slot => agoraMin >= slot - 60 && agoraMin < slot) || checkpoints[checkpoints.length - 1];
-  const metaHoraAtual = calcularMetaProporcionalSlot(slotAtual, metaDiaria, checkpoints, diaSemanaHoje);
-  const porHoraEl = document.getElementById("meta-por-hora");
-  if (porHoraEl) porHoraEl.textContent = formatBRL(metaHoraAtual);
 
   // Mensagem motivacional
   const msgEl = document.getElementById("meta-mensagem-motivacional");

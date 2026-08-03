@@ -1134,7 +1134,7 @@ input:focus, select:focus {
   border-radius: var(--radius);
   padding: 26px;
   box-shadow: var(--shadow-md);
-  border-top: 5px solid var(--wine);
+  border-top: 5px solid var(--op-cor, var(--wine));
   transition: var(--transition);
   position: relative;
   overflow: hidden;
@@ -1202,6 +1202,29 @@ input:focus, select:focus {
   padding: 4px 12px;
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
+}
+
+/* ==========================================================================
+   IDENTIDADE VISUAL DAS OPERAÇÕES (emoji + cor fixos por loja)
+   ========================================================================== */
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--op-cor, #9ca3af) 14%, transparent);
+  color: var(--op-cor, inherit);
+  border: 1px solid color-mix(in srgb, var(--op-cor, #9ca3af) 45%, transparent);
+}
+
+.op-select {
+  border-left-width: 6px !important;
+  border-left-color: var(--op-select-cor, var(--border)) !important;
+  transition: border-color 0.2s ease;
 }
 
 /* ==========================================================================
@@ -1778,6 +1801,30 @@ tr.selected-row {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* Splash de abertura — cor de fundo definida inline no HTML (mesma cor
+   predominante do ícone, ver manifest.json). Cobre a tela inteira até o
+   app decidir entrar direto (sessão salva) ou mostrar o login. */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+#boot-splash img {
+  width: 128px;
+  height: 128px;
+  border-radius: 28px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+#boot-splash.boot-splash-out {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* UTILITY CLASSES */
