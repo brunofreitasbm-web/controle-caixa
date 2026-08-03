@@ -16,7 +16,7 @@ function notificacoesEventosAtivas(callback) {
 
 const REGRAS_PADRAO_NOTIFICACAO = {
   envelopes: { colab: false, lider: true, owner: true },
-  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: false },
   inventario_conclusao: { colab: false, lider: true, owner: true },
   conferencia_nfe: { colab: false, lider: true, owner: true },
   divergencia_caixa: { colab: false, lider: true, owner: true },
@@ -69,6 +69,12 @@ function regrasDoTipoNotificacao(rulesBrutas, notificationType) {
   // configuração antiga no banco diga o contrário.
   if (canonico === 'meta_lembrete') {
     return Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
+  }
+
+  // Início do Inventário Mensal: aviso é dirigido à Líder de Operação, nunca
+  // ao Owner — mesmo que uma configuração antiga no banco diga o contrário.
+  if (canonico === 'inventario_inicio') {
+    return Object.assign({}, typeRules, { owner: false });
   }
   return typeRules;
 }
