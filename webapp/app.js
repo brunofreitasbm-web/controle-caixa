@@ -1742,7 +1742,8 @@ function iniciarModuloBase(moduloOpcional) {
 
 /**
  * Função para calcular se a data atual corresponde ao 1º dia útil da última semana do mês
- * e notificar as colaboradoras da Cacau Show com prazo de 2 dias úteis, notificando Alexandra.
+ * e notificar as colaboradoras da Cacau Show com prazo de 2 dias úteis, notificando a gestão
+ * (líderes de operação e owners).
  */
 function verificarInventarioMensalNotificacao() {
   if (!currentUser) return;
@@ -1797,20 +1798,20 @@ function verificarInventarioMensalNotificacao() {
   const dataInicioStr = primeiroDiaUtilUltimaSemana.toLocaleDateString('pt-BR');
   const dataTerminoStr = dataTermino.toLocaleDateString('pt-BR');
 
-  // Disparar Notificação Silenciosa para Alexandra (Gestão/Dashboard) sobre o início e fim do prazo
-  const notifKeyAlexandra = `inv_notif_alexandra_${ano}_${mes}`;
-  if (!localStorage.getItem(notifKeyAlexandra)) {
-    localStorage.setItem(notifKeyAlexandra, "true");
+  // Disparar Notificação Silenciosa para a Gestão (líderes de operação e owners) sobre o início e fim do prazo
+  const notifKeyGestao = `inv_notif_gestao_${ano}_${mes}`;
+  if (!localStorage.getItem(notifKeyGestao)) {
+    localStorage.setItem(notifKeyGestao, "true");
     fetch('/api/notificar-gestao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         destinatarios: getDestinatariosNotificacao('inventario_inicio'),
         assunto: `📋 AVISO: Início do Inventário Mensal Obrigatório (${dataInicioStr})`,
-        mensagem: `Atenção Alexandra, o Inventário Mensal Obrigatório das lojas foi iniciado hoje (${dataInicioStr}). O prazo para conclusão pelas colaboradoras é de 2 dias úteis, finalizando em ${dataTerminoStr}.`,
+        mensagem: `O Inventário Mensal Obrigatório das lojas foi iniciado hoje (${dataInicioStr}). O prazo para conclusão pelas colaboradoras é de 2 dias úteis, finalizando em ${dataTerminoStr}.`,
         operador: currentUser.nome
       })
-    }).catch(err => console.error('Erro notificação Alexandra:', err));
+    }).catch(err => console.error('Erro notificação gestão:', err));
   }
 
   // Exibir Pop-up de Alerta para a Colaboradora
