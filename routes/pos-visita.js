@@ -242,13 +242,16 @@ router.get('/relatorio', (req, res) => {
 // AÇÃO 2 — PÓS-VENDA MULTIPLICADOR: controle de indicações
 // ==========================================================================
 // A mensagem de pós-visita promete 15 minutos VIP no Circuito para quem
-// indicar 2 amigos NOVOS. Sem um lugar pra anotar, a recepção se perde em
-// "quem indicou quem" e a promessa vira reclamação. Aqui cada família
-// indicadora tem uma linha; os amigos entram um de cada vez e a segunda
-// indicação libera o voucher.
+// indicar 2 amigos NOVOS. O controle acontece no balcão, de trás para frente:
+// quem chega diz "vim por indicação do Enzo" e informa o NOME e o WHATSAPP de
+// quem indicou. Por isso não existe cadastro prévio de indicador — a ficha
+// nasce sozinha na primeira indicação. É o que mantém o controle vivo depois
+// que o card da fila de pós-visita some, no dia seguinte.
+//
+// A chave é o telefone: dois "Enzo" existem, dois WhatsApps iguais não.
 // ==========================================================================
 
-function normalizarIndicacao(row) {
+function normalizarIndicador(row) {
   const r = normalizeRow(row);
   const amigos = [r.amigo1Nome, r.amigo2Nome].filter(n => n && String(n).trim());
   return {
@@ -263,9 +266,9 @@ function normalizarIndicacao(row) {
 // primeiro — é a ação pendente da operadora. Depois os em andamento, e por
 // último os já entregues.
 router.get('/indicacoes', (req, res) => {
-  db.all(`SELECT * FROM pos_visita_indicacoes ORDER BY criadoEm DESC`, [], (err, rows) => {
+  db.all(`SELECT * FROM pos_visita_indicadores ORDER BY atualizadoEm DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    const registros = (rows || []).map(normalizarIndicacao);
+    const registros = (rows || []).map(normalizarIndicador);
     const peso = (i) => {
       if (i.voucherLiberado && !i.voucherEntregue) return 0;
       if (!i.voucherLiberado) return 1;
@@ -285,71 +288,86 @@ router.get('/indicacoes', (req, res) => {
   });
 });
 
-router.post('/indicacoes', (req, res) => {
+// Ponto de entrada único do controle: registra a chegada de um amigo novo
+// informando quem indicou. Cria a ficha do indicador se ainda não existir e
+// ocupa o próximo slot livre. O slot é decidido aqui, no servidor, para que
+// dois atendimentos simultâneos não gravem no mesmo campo nem passem de 2.
+router.post('/indicacoes/registrar', (req, res) => {
   const responsavel = String(req.body.responsavel || '').trim();
   const crianca = String(req.body.crianca || '').trim();
+  const amigoNome = String(req.body.amigoNome || '').trim();
   const telefone = normalizarTelefone(req.body.telefone);
 
-  if (!responsavel || !crianca || !telefone) {
-    return res.status(400).json({ error: 'Responsável, criança e telefone são obrigatórios.' });
+  if (!responsavel || !telefone || !amigoNome) {
+    return res.status(400).json({ error: 'Informe o nome e o WhatsApp de quem indicou, e o nome de quem chegou.' });
   }
 
   const agora = new Date().toISOString();
-  const id = `${telefone}_${crianca}`;
 
-  db.get(
-    `SELECT id FROM pos_visita_indicacoes WHERE telefone = ? AND crianca = ?`,
-    [telefone, crianca],
-    (err, existente) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (existente) {
-        return res.status(409).json({ error: 'Essa família já está na lista de indicadores.' });
-      }
-      db.run(
-        `INSERT INTO pos_visita_indicacoes (id, responsavel, telefone, crianca, criadoEm, atualizadoEm)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [id, responsavel, telefone, crianca, agora, agora],
+  db.get(`SELECT * FROM pos_visita_indicadores WHERE telefone = ?`, [telefone], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (!row) {
+      return db.run(
+        `INSERT INTO pos_visita_indicadores (id, responsavel, telefone, crianca, amigo1Nome, amigo1Em, criadoEm, atualizadoEm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [telefone, responsavel, telefone, crianca || null, amigoNome, agora, agora, agora],
         (err2) => {
           if (err2) return res.status(500).json({ error: err2.message });
-          res.json({ success: true, id });
+          res.json({ success: true, id: telefone, responsavel, indicacoesFeitas: 1, voucherLiberado: false });
         }
       );
     }
-  );
-});
 
-// Registra a chegada de um amigo novo. O slot é decidido no servidor (1 e
-// depois 2) para que dois atendimentos simultâneos não sobrescrevam o mesmo
-// campo nem passem de 2 indicações.
-router.post('/indicacoes/registrar-amigo', (req, res) => {
-  const { id } = req.body;
-  const nomeAmigo = String(req.body.nomeAmigo || '').trim();
-  if (!id || !nomeAmigo) {
-    return res.status(400).json({ error: 'Campos "id" e "nomeAmigo" são obrigatórios.' });
-  }
-
-  db.get(`SELECT * FROM pos_visita_indicacoes WHERE id = ?`, [id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Indicador não encontrado.' });
-
-    const atual = normalizarIndicacao(row);
+    const atual = normalizarIndicador(row);
     if (atual.indicacoesFeitas >= 2) {
-      return res.status(409).json({ error: 'Essa família já completou as 2 indicações.' });
+      return res.status(409).json({
+        error: `${atual.responsavel} já completou as 2 indicações — o voucher está no card, aguardando a entrega.`
+      });
+    }
+
+    // A mesma pessoa lançada duas vezes (fila cheia, operadora na dúvida se
+    // já anotou) daria 2/2 com um amigo só, e o voucher sairia indevido.
+    const repetido = [atual.amigo1Nome, atual.amigo2Nome]
+      .filter(Boolean)
+      .some(n => String(n).trim().toLowerCase() === amigoNome.toLowerCase());
+    if (repetido) {
+      return res.status(409).json({ error: `${amigoNome} já consta como indicação de ${atual.responsavel}.` });
     }
 
     const campoNome = atual.indicacoesFeitas === 0 ? 'amigo1Nome' : 'amigo2Nome';
     const campoData = atual.indicacoesFeitas === 0 ? 'amigo1Em' : 'amigo2Em';
-    const agora = new Date().toISOString();
 
     db.run(
-      `UPDATE pos_visita_indicacoes SET ${campoNome} = ?, ${campoData} = ?, atualizadoEm = ? WHERE id = ?`,
-      [nomeAmigo, agora, agora, id],
-      (err2) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        res.json({ success: true, indicacoesFeitas: atual.indicacoesFeitas + 1 });
+      `UPDATE pos_visita_indicadores
+       SET ${campoNome} = ?, ${campoData} = ?, responsavel = ?, crianca = COALESCE(?, crianca), atualizadoEm = ?
+       WHERE telefone = ?`,
+      [amigoNome, agora, responsavel, crianca || null, agora, telefone],
+      (err3) => {
+        if (err3) return res.status(500).json({ error: err3.message });
+        const feitas = atual.indicacoesFeitas + 1;
+        res.json({ success: true, id: atual.id, responsavel, indicacoesFeitas: feitas, voucherLiberado: feitas >= 2 });
       }
     );
   });
+});
+
+// Complementa a ficha depois: o nome da criança quase nunca vem no balcão, e
+// é ele que personaliza a mensagem do voucher.
+router.post('/indicacoes/atualizar', (req, res) => {
+  const { id } = req.body;
+  const crianca = String(req.body.crianca || '').trim();
+  if (!id) return res.status(400).json({ error: 'Campo "id" é obrigatório.' });
+
+  const agora = new Date().toISOString();
+  db.run(
+    `UPDATE pos_visita_indicadores SET crianca = ?, atualizadoEm = ? WHERE id = ?`,
+    [crianca || null, agora, id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
 });
 
 // Marca que a mensagem de "Voucher liberado" já foi disparada no WhatsApp.
@@ -358,7 +376,7 @@ router.post('/indicacoes/voucher-enviado', (req, res) => {
   if (!id) return res.status(400).json({ error: 'Campo "id" é obrigatório.' });
   const agora = new Date().toISOString();
   db.run(
-    `UPDATE pos_visita_indicacoes SET voucherEnviadoEm = ?, atualizadoEm = ? WHERE id = ?`,
+    `UPDATE pos_visita_indicadores SET voucherEnviadoEm = ?, atualizadoEm = ? WHERE id = ?`,
     [agora, agora, id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -377,7 +395,7 @@ router.post('/indicacoes/voucher-entregue', (req, res) => {
 
   const agora = new Date().toISOString();
   db.run(
-    `UPDATE pos_visita_indicacoes SET voucherEntregue = 1, voucherEntregueEm = ?, brindeEscolhido = ?, atualizadoEm = ? WHERE id = ?`,
+    `UPDATE pos_visita_indicadores SET voucherEntregue = 1, voucherEntregueEm = ?, brindeEscolhido = ?, atualizadoEm = ? WHERE id = ?`,
     [agora, brindeEscolhido || null, agora, id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -387,7 +405,7 @@ router.post('/indicacoes/voucher-entregue', (req, res) => {
 });
 
 router.delete('/indicacoes/:id', (req, res) => {
-  db.run(`DELETE FROM pos_visita_indicacoes WHERE id = ?`, [req.params.id], (err) => {
+  db.run(`DELETE FROM pos_visita_indicadores WHERE id = ?`, [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });

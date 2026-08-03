@@ -4657,6 +4657,15 @@ button:disabled:not(.fa-section *) {
   .pv-grid { grid-template-columns: repeat(6, 1fr); }
 }
 
+/* Formulário de indicação recebida: é preenchido no balcão, com a família
+   esperando, então os campos acompanham a largura disponível em vez de
+   espremer quatro colunas fixas num tablet. */
+.pv-ind-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
 [data-tip]::after {
   content: attr(data-tip);
   position: absolute;

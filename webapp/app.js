@@ -14024,21 +14024,14 @@ function criarCardPosVisita(registro, habilitado) {
         <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
       </button>
       <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
-      <button type="button" class="pv-btn-indicacao w-full px-4 py-1.5 bg-brand-800 hover:bg-brand-700 text-white font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Coloca essa família no controle de indicações da Ação 2, para anotar os 2 amigos novos que ela indicar">
-        <i class="fa-solid fa-user-plus"></i> Acompanhar indicações
-      </button>
     </div>
   `;
 
+  // Sem atalho para o controle de indicações aqui de propósito: este card some
+  // no dia seguinte, e uma ficha criada por ele ficaria em 0/2 para sempre. A
+  // ficha nasce quando o primeiro amigo indicado chega ao balcão.
   const btn = card.querySelector(".pv-btn-enviar");
   btn.onclick = () => dispararMensagemPosVisita(registro, card);
-
-  const btnIndicacao = card.querySelector(".pv-btn-indicacao");
-  btnIndicacao.onclick = () => criarIndicador({
-    responsavel: registro.cliente,
-    crianca: registro.crianca,
-    telefone: registro.numeroCliente
-  }, btnIndicacao);
 
   return card;
 }
@@ -14091,12 +14084,19 @@ function dispararMensagemPosVisita(registro, card) {
 // INDICAÇÕES (Ação 2 — Pós-Venda Multiplicador)
 // ==========================================================================
 // A mensagem de pós-visita promete 15 minutos VIP no Circuito para quem
-// indicar 2 amigos NOVOS. Sem controle, a recepção não sabe quem indicou
-// quem e a promessa vira reclamação. Aqui cada família indicadora é um card
-// com o placar 0/2 → 1/2 → 2/2; a segunda indicação libera o botão de
-// parabéns no WhatsApp e, depois, a baixa do voucher no quiosque.
+// indicar 2 amigos NOVOS. O controle roda de trás para frente: quem chega
+// diz "vim por indicação do Enzo" e informa o nome e o WhatsApp de quem
+// indicou. A ficha nasce nessa primeira indicação e é encontrada pelo
+// TELEFONE na segunda — que libera o botão do voucher.
+//
+// Nada depende do card da fila de mensagens, que some no dia seguinte: o
+// controle vive por conta própria e a operadora preenche tudo na mão.
 // ==========================================================================
 const BRINDES_CIRCUITO = ["LandRover Branca", "Lamborghini Amarela", "Caminhão de Bombeiro"];
+
+// Lista completa em memória para o filtro de busca não precisar ir ao
+// servidor a cada tecla.
+let indicacoesFilaAtual = [];
 
 async function carregarIndicacoes() {
   const lista = document.getElementById("pv-ind-lista");
@@ -14106,7 +14106,19 @@ async function carregarIndicacoes() {
   const btnAdicionar = document.getElementById("pv-ind-btn-adicionar");
   if (btnAdicionar && !btnAdicionar.dataset.bound) {
     btnAdicionar.dataset.bound = "1";
-    btnAdicionar.onclick = adicionarIndicadorPeloFormulario;
+    btnAdicionar.onclick = registrarIndicacaoRecebida;
+    // Enter em qualquer campo do formulário registra — o balcão é rápido e a
+    // operadora está digitando com a família na frente.
+    ["pv-ind-responsavel", "pv-ind-telefone", "pv-ind-amigo", "pv-ind-crianca"].forEach(id => {
+      const campo = document.getElementById(id);
+      if (campo) campo.onkeydown = (e) => { if (e.key === "Enter") registrarIndicacaoRecebida(); };
+    });
+  }
+
+  const busca = document.getElementById("pv-ind-busca");
+  if (busca && !busca.dataset.bound) {
+    busca.dataset.bound = "1";
+    busca.oninput = () => renderizarListaIndicacoes();
   }
 
   try {
@@ -14128,17 +14140,50 @@ async function carregarIndicacoes() {
       badge.classList.toggle("hidden", resumo.aguardandoVoucher <= 0);
     }
 
-    lista.innerHTML = "";
-    if (!registros || registros.length === 0) {
-      vazio.classList.remove("hidden");
-      return;
-    }
-    vazio.classList.add("hidden");
-    registros.forEach(r => lista.appendChild(criarCardIndicacao(r)));
+    indicacoesFilaAtual = registros || [];
+    renderizarListaIndicacoes();
   } catch (err) {
     console.error("Erro ao carregar indicações:", err);
     showToast("Erro ao carregar as indicações.", "erro");
   }
+}
+
+function renderizarListaIndicacoes() {
+  const lista = document.getElementById("pv-ind-lista");
+  const vazio = document.getElementById("pv-ind-vazio");
+  if (!lista || !vazio) return;
+
+  const termo = (document.getElementById("pv-ind-busca")?.value || "").trim().toLowerCase();
+  // Busca também pelo telefone só com dígitos: a operadora digita "(91) 9…"
+  // e o banco guarda "5591…".
+  const digitos = termo.replace(/\D/g, "");
+
+  const filtrados = indicacoesFilaAtual.filter(r => {
+    if (!termo) return true;
+    const campos = [r.responsavel, r.crianca, r.amigo1Nome, r.amigo2Nome]
+      .filter(Boolean).join(" ").toLowerCase();
+    return campos.includes(termo) || (digitos && String(r.telefone || "").includes(digitos));
+  });
+
+  lista.innerHTML = "";
+  if (filtrados.length === 0) {
+    vazio.classList.remove("hidden");
+    vazio.querySelector("p").textContent = termo
+      ? "Nenhum indicador encontrado para essa busca."
+      : "Nenhuma indicação registrada ainda.";
+    return;
+  }
+  vazio.classList.add("hidden");
+  filtrados.forEach(r => lista.appendChild(criarCardIndicacao(r)));
+}
+
+// (91) 99999-8888 a partir de 5591999998888 — o número cru é ilegível no card.
+function formatarTelefoneBr(telefone) {
+  const d = String(telefone || "").replace(/\D/g, "");
+  const local = d.startsWith("55") ? d.slice(2) : d;
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  return telefone || "";
 }
 
 function criarCardIndicacao(registro) {
@@ -14171,12 +14216,20 @@ function criarCardIndicacao(registro) {
     .map(b => `<option value="${b}" ${registro.brindeEscolhido === b ? "selected" : ""}>${b}</option>`)
     .join("");
 
+  // O indicador é identificado pelo WhatsApp — é a chave do controle e o que
+  // a operadora confere quando a família volta. O nome da criança é opcional
+  // e por isso aparece como um complemento editável, não como título.
+  const linhaCrianca = registro.crianca
+    ? `<p class="text-[11px] text-ink-muted mt-0.5">🧩 ${registro.crianca}</p>`
+    : `<button type="button" class="pvi-btn-crianca text-[11px] text-ink-faint hover:text-ink underline mt-0.5" data-tip="Informe o nome da criança para personalizar a mensagem do voucher">+ nome da criança</button>`;
+
   card.innerHTML = `
     <div>
       <div class="flex items-start justify-between gap-2">
         <div>
-          <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
-          <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.responsavel}</p>
+          <p class="text-sm font-bold text-ink-strong">${registro.responsavel}</p>
+          <p class="text-xs text-ink-muted mt-0.5"><i class="fa-brands fa-whatsapp"></i> ${formatarTelefoneBr(registro.telefone)}</p>
+          ${linhaCrianca}
         </div>
         <span class="px-2 py-1 rounded-lg text-xs font-extrabold border ${feitas >= 2 ? "bg-success-soft border-success text-success" : "bg-surface-3 border-subtle text-ink"}">${feitas}/2</span>
       </div>
@@ -14185,8 +14238,8 @@ function criarCardIndicacao(registro) {
     </div>
     <div class="flex flex-col gap-1">
       ${feitas < 2 ? `
-        <button type="button" class="pvi-btn-amigo w-full px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Anote o amigo novo que acabou de chegar dizendo que veio por indicação dessa família">
-          <i class="fa-solid fa-user-plus"></i> Registrar amigo indicado
+        <button type="button" class="pvi-btn-amigo w-full px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Atalho para quando a ficha já está na tela: registra a 2ª indicação sem digitar o WhatsApp de novo">
+          <i class="fa-solid fa-user-plus"></i> Registrar 2ª indicação
         </button>` : ""}
       ${feitas >= 2 && !registro.voucherEntregue ? `
         <button type="button" class="pvi-btn-parabens w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Abre o WhatsApp com a mensagem de voucher liberado já pronta">
@@ -14210,6 +14263,9 @@ function criarCardIndicacao(registro) {
   const btnAmigo = card.querySelector(".pvi-btn-amigo");
   if (btnAmigo) btnAmigo.onclick = () => registrarAmigoIndicado(registro);
 
+  const btnCrianca = card.querySelector(".pvi-btn-crianca");
+  if (btnCrianca) btnCrianca.onclick = () => definirCriancaIndicador(registro);
+
   const btnParabens = card.querySelector(".pvi-btn-parabens");
   if (btnParabens) btnParabens.onclick = () => enviarParabensVoucher(registro, btnParabens);
 
@@ -14223,76 +14279,110 @@ function criarCardIndicacao(registro) {
   return card;
 }
 
-async function adicionarIndicadorPeloFormulario() {
-  const responsavel = document.getElementById("pv-ind-responsavel").value.trim();
-  const crianca = document.getElementById("pv-ind-crianca").value.trim();
-  const telefone = document.getElementById("pv-ind-telefone").value.trim();
+// Entrada principal: quem chegou + quem indicou. O servidor acha a ficha pelo
+// WhatsApp e decide se é a 1ª ou a 2ª indicação.
+async function registrarIndicacaoRecebida() {
+  const campoResp = document.getElementById("pv-ind-responsavel");
+  const campoTel = document.getElementById("pv-ind-telefone");
+  const campoAmigo = document.getElementById("pv-ind-amigo");
+  const campoCrianca = document.getElementById("pv-ind-crianca");
   const msg = document.getElementById("pv-ind-msg");
+  const btn = document.getElementById("pv-ind-btn-adicionar");
 
-  if (!responsavel || !crianca || !telefone) {
-    msg.textContent = "Preencha responsável, criança e WhatsApp.";
+  const responsavel = campoResp.value.trim();
+  const telefone = campoTel.value.trim();
+  const amigoNome = campoAmigo.value.trim();
+  const crianca = campoCrianca.value.trim();
+
+  if (!responsavel || !telefone || !amigoNome) {
+    msg.textContent = "Preencha quem indicou (nome e WhatsApp) e quem chegou agora.";
+    return;
+  }
+  // Um número de verdade tem 10 ou 11 dígitos com DDD. Barrar aqui evita criar
+  // uma ficha órfã que nunca mais será encontrada na segunda indicação.
+  if (telefone.replace(/\D/g, "").length < 10) {
+    msg.textContent = "WhatsApp incompleto — informe com DDD.";
     return;
   }
 
-  const ok = await criarIndicador({ responsavel, crianca, telefone });
-  if (ok) {
-    document.getElementById("pv-ind-responsavel").value = "";
-    document.getElementById("pv-ind-crianca").value = "";
-    document.getElementById("pv-ind-telefone").value = "";
-    msg.textContent = "Indicador adicionado!";
-    setTimeout(() => { msg.textContent = ""; }, 3000);
-  } else {
-    msg.textContent = "";
-  }
-}
-
-// Usado tanto pelo formulário quanto pelo atalho no card da fila de mensagens.
-async function criarIndicador({ responsavel, crianca, telefone }, botao) {
-  if (botao) botao.disabled = true;
+  btn.disabled = true;
+  msg.textContent = "Registrando...";
   try {
-    const res = await fetch(`${API_BASE}/pos-visita/indicacoes`, {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ responsavel, crianca, telefone })
+      body: JSON.stringify({ responsavel, telefone, amigoNome, crianca })
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Falha ao adicionar indicador");
+    if (!res.ok) throw new Error(json.error || "Falha ao registrar indicação");
 
-    showToast(`${crianca} entrou no controle de indicações. 🧩`, "sucesso");
-    if (botao) botao.innerHTML = '<i class="fa-solid fa-check"></i> No controle de indicações';
+    if (json.voucherLiberado) {
+      showToast(`2/2! Voucher VIP de ${responsavel} liberado 🎉`, "sucesso");
+      msg.textContent = `Voucher liberado — envie os parabéns no card de ${responsavel}.`;
+    } else {
+      showToast(`Indicação 1/2 registrada para ${responsavel}.`, "sucesso");
+      msg.textContent = "Registrado! Falta 1 amigo novo para o voucher.";
+    }
+
+    [campoResp, campoTel, campoAmigo, campoCrianca].forEach(c => { c.value = ""; });
+    campoResp.focus();
+    setTimeout(() => { msg.textContent = ""; }, 6000);
     carregarIndicacoes();
-    return true;
   } catch (err) {
-    console.error("Erro ao adicionar indicador:", err);
-    showToast(err.message || "Erro ao adicionar indicador.", "erro");
-    if (botao) botao.disabled = false;
-    return false;
+    console.error("Erro ao registrar indicação:", err);
+    msg.textContent = err.message || "Erro ao registrar indicação.";
+    showToast(err.message || "Erro ao registrar indicação.", "erro");
+  } finally {
+    btn.disabled = false;
   }
 }
 
+// Atalho do card: a ficha já está na tela, então só falta o nome de quem
+// chegou — não faz sentido pedir o WhatsApp de novo.
 async function registrarAmigoIndicado(registro) {
-  const nomeAmigo = prompt(`Quem veio por indicação de ${registro.responsavel}?\n\nDigite o nome do amigo novo (responsável ou criança):`);
+  const nomeAmigo = prompt(`Quem chegou por indicação de ${registro.responsavel}?\n\nDigite o nome de quem está sendo atendido:`);
   if (!nomeAmigo || !nomeAmigo.trim()) return;
 
   try {
-    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar-amigo`, {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: registro.id, nomeAmigo: nomeAmigo.trim() })
+      body: JSON.stringify({
+        responsavel: registro.responsavel,
+        telefone: registro.telefone,
+        amigoNome: nomeAmigo.trim()
+      })
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Falha ao registrar amigo");
+    if (!res.ok) throw new Error(json.error || "Falha ao registrar indicação");
 
     showToast(
-      json.indicacoesFeitas >= 2
-        ? `2/2! Voucher VIP de ${registro.crianca} liberado 🎉`
+      json.voucherLiberado
+        ? `2/2! Voucher VIP de ${registro.responsavel} liberado 🎉`
         : `Indicação ${json.indicacoesFeitas}/2 registrada.`,
       "sucesso"
     );
     carregarIndicacoes();
   } catch (err) {
-    console.error("Erro ao registrar amigo indicado:", err);
-    showToast(err.message || "Erro ao registrar amigo.", "erro");
+    console.error("Erro ao registrar indicação:", err);
+    showToast(err.message || "Erro ao registrar indicação.", "erro");
+  }
+}
+
+async function definirCriancaIndicador(registro) {
+  const crianca = prompt(`Nome da criança de ${registro.responsavel}:`);
+  if (crianca === null) return;
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/atualizar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: registro.id, crianca: crianca.trim() })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar o nome da criança");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao salvar nome da criança:", err);
+    showToast("Erro ao salvar o nome da criança.", "erro");
   }
 }
 
@@ -14324,7 +14414,7 @@ async function marcarVoucherEntregue(registro, brindeEscolhido) {
       body: JSON.stringify({ id: registro.id, brindeEscolhido })
     });
     if (!res.ok) throw new Error("Falha ao dar baixa no voucher");
-    showToast(`Voucher de ${registro.crianca} baixado — ${brindeEscolhido}. 🏎️`, "sucesso");
+    showToast(`Voucher de ${registro.responsavel} baixado — ${brindeEscolhido}. 🏎️`, "sucesso");
     carregarIndicacoes();
   } catch (err) {
     console.error("Erro ao dar baixa no voucher:", err);
@@ -14333,7 +14423,7 @@ async function marcarVoucherEntregue(registro, brindeEscolhido) {
 }
 
 async function removerIndicador(registro) {
-  if (!confirm(`Remover ${registro.crianca} do controle de indicações?`)) return;
+  if (!confirm(`Remover a ficha de ${registro.responsavel} do controle de indicações?`)) return;
   try {
     const res = await fetch(`${API_BASE}/pos-visita/indicacoes/${encodeURIComponent(registro.id)}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Falha ao remover");

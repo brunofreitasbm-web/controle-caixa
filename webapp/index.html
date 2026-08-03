@@ -141,7 +141,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -3212,27 +3212,31 @@
       <div id="pv-subtab-indicacoes" class="hidden">
 
         <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
-          <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-user-plus"></i> Novo indicador
+          <h3 class="text-sm font-extrabold text-ink uppercase tracking-wider mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-user-plus"></i> Registrar indicação recebida
           </h3>
-          <p class="text-[11px] text-brand-400 mb-3">Cadastre a família que recebeu o convite. Quando um amigo novo chegar e disser "vim por indicação do(a) …", clique em <strong>Registrar amigo</strong> no card dela. Na segunda indicação o Voucher VIP é liberado automaticamente.</p>
-          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+          <p class="text-[11px] text-ink-muted mb-3">Quando alguém chegar dizendo <em>"vim por indicação do(a) …"</em>, peça o <strong>nome e o WhatsApp de quem indicou</strong> e lance aqui. O controle é feito pelo WhatsApp: se já houver ficha para aquele número, esta vira a 2ª indicação e o botão do voucher é liberado na hora.</p>
+          <div class="pv-ind-form-grid">
             <div class="field">
-              <label for="pv-ind-responsavel">Responsável</label>
-              <input type="text" id="pv-ind-responsavel" placeholder="Nome do responsável">
+              <label for="pv-ind-responsavel">Quem indicou (nome)</label>
+              <input type="text" id="pv-ind-responsavel" placeholder="Nome do indicador" autocomplete="off">
             </div>
             <div class="field">
-              <label for="pv-ind-crianca">Criança</label>
-              <input type="text" id="pv-ind-crianca" placeholder="Nome da criança">
+              <label for="pv-ind-telefone" data-tip="É a chave do controle — só números; o DDI 55 é adicionado automaticamente">WhatsApp de quem indicou</label>
+              <input type="tel" id="pv-ind-telefone" placeholder="(91) 90000-0000" autocomplete="off">
             </div>
             <div class="field">
-              <label for="pv-ind-telefone" data-tip="Só números — o DDI 55 é adicionado automaticamente">WhatsApp</label>
-              <input type="tel" id="pv-ind-telefone" placeholder="(91) 90000-0000">
+              <label for="pv-ind-amigo">Quem chegou agora</label>
+              <input type="text" id="pv-ind-amigo" placeholder="Nome de quem está sendo atendido" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="pv-ind-crianca" data-tip="Opcional — se souber, personaliza a mensagem do voucher. Dá para preencher depois no card">Criança do indicador (opcional)</label>
+              <input type="text" id="pv-ind-crianca" placeholder="Nome da criança" autocomplete="off">
             </div>
           </div>
-          <div class="form-actions" style="margin-top: 0.75rem; display:flex; align-items:center; gap:0.75rem;">
+          <div class="form-actions" style="margin-top: 0.75rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
             <button type="button" id="pv-ind-btn-adicionar" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
-              <i class="fa-solid fa-plus"></i> Adicionar indicador
+              <i class="fa-solid fa-check"></i> Registrar indicação
             </button>
             <span id="pv-ind-msg" class="form-msg" role="status"></span>
           </div>
@@ -3267,10 +3271,15 @@
           </div>
         </div>
 
+        <div class="field mb-3">
+          <label for="pv-ind-busca" data-tip="Filtra por nome do indicador, WhatsApp, criança ou nome do amigo indicado">Buscar no controle</label>
+          <input type="search" id="pv-ind-busca" placeholder="Nome, WhatsApp ou amigo indicado…" autocomplete="off">
+        </div>
+
         <div id="pv-ind-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
-          <i class="fa-solid fa-user-group text-brand-500 text-2xl mb-2 block"></i>
-          <p class="text-sm font-bold text-brand-200">Nenhum indicador cadastrado ainda.</p>
-          <p class="text-[11px] text-brand-400 mt-1">Cadastre acima a família que recebeu o convite de indicação.</p>
+          <i class="fa-solid fa-user-group text-ink-faint text-2xl mb-2 block"></i>
+          <p class="text-sm font-bold text-ink">Nenhuma indicação registrada ainda.</p>
+          <p class="text-[11px] text-ink-muted mt-1">Assim que alguém chegar dizendo que veio por indicação, registre no formulário acima.</p>
         </div>
 
         <div id="pv-ind-lista" class="pv-grid"></div>
@@ -4019,13 +4028,13 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="mensagens-pos-visita.js?v=2"></script>
+<script src="mensagens-pos-visita.js?v=3"></script>
 <script src="mensagens-aniversario.js?v=3"></script>
 <script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
-<script src="app.js?v=44"></script>
+<script src="app.js?v=45"></script>
 </body>
 </html>

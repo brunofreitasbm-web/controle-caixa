@@ -85,6 +85,17 @@ function gerarMensagemPosVisita(nomeResponsavel, nomeCrianca) {
   return preencher(bruto, nomeResponsavel, nomeCrianca);
 }
 
+// Quem chega ao balcão informa o nome e o WhatsApp de quem indicou — o nome
+// da criança quase nunca vem junto. Sem ele, usamos uma redação que fala do
+// prêmio sem citar ninguém, em vez de deixar um "undefined" na mensagem.
+const PARABENS_VOUCHER_SEM_CRIANCA = [
+  "Parabéns, {{nome_responsavel}}! 🎉💙 Seus dois amiguinhos indicados já vieram nos visitar! Por isso o Voucher VIP de 15 minutos no FaçaAmigos Circuito está liberado aqui no nosso quiosque — é só passar aqui e escolher entre a LandRover Branca, a Lamborghini Amarela e o Caminhão de Bombeiro. 🏎️🚒✨",
+  "Deu certo, {{nome_responsavel}}! 🥳 As duas indicações fecharam e o Voucher VIP está liberado: 15 minutos gratuitos no FaçaAmigos Circuito! 🏎️ É só vir ao quiosque escolher a LandRover Branca, a Lamborghini Amarela ou o Caminhão de Bombeiro. 💙",
+  "Oba, {{nome_responsavel}}! ✨ Seus dois amiguinhos indicados já brincaram com a gente, e o prêmio saiu: 15 Minutos VIP no nosso Circuito! 🚒 Passe no quiosque pra retirar o voucher e escolher entre LandRover Branca, Lamborghini Amarela e Caminhão de Bombeiro. 🎉"
+];
+
 function gerarMensagemVoucherLiberado(nomeResponsavel, nomeCrianca) {
-  return preencher(sortear(PARABENS_VOUCHER), nomeResponsavel, nomeCrianca);
+  const crianca = (nomeCrianca || '').trim();
+  if (!crianca) return preencher(sortear(PARABENS_VOUCHER_SEM_CRIANCA), nomeResponsavel, '');
+  return preencher(sortear(PARABENS_VOUCHER), nomeResponsavel, crianca);
 }

@@ -451,16 +451,18 @@ function initDb(onSuccess) {
           UNIQUE(dataSessao, numeroCliente, crianca)
         )`,
         // Ação 2 — Pós-Venda Multiplicador (ver acao_2_pos_venda.md): controle
-        // das indicações prometidas na mensagem de pós-visita. Uma linha por
-        // família indicadora; os dois amigos novos entram um de cada vez
-        // (1/2, depois 2/2) e é a segunda que libera o Voucher VIP de 15
-        // minutos no Circuito. Chave por (telefone, criança) porque é assim
-        // que a recepção identifica quem indicou.
-        `CREATE TABLE IF NOT EXISTS pos_visita_indicacoes (
+        // das indicações prometidas na mensagem de pós-visita.
+        //
+        // A chave é o TELEFONE, sozinho. Quem chega ao balcão diz o nome e o
+        // WhatsApp de quem indicou — é só isso que a recepção tem em mãos, e o
+        // WhatsApp é o único dado que identifica a família sem ambiguidade
+        // (dois "Enzo" existem; dois números iguais, não). Por isso `crianca`
+        // é opcional: o nome do filho quase nunca vem nessa hora.
+        `CREATE TABLE IF NOT EXISTS pos_visita_indicadores (
           id TEXT PRIMARY KEY,
           responsavel TEXT NOT NULL,
-          telefone TEXT NOT NULL,
-          crianca TEXT NOT NULL,
+          telefone TEXT NOT NULL UNIQUE,
+          crianca TEXT,
           amigo1Nome TEXT,
           amigo1Em TEXT,
           amigo2Nome TEXT,
@@ -471,8 +473,7 @@ function initDb(onSuccess) {
           brindeEscolhido TEXT,
           observacoes TEXT,
           criadoEm TEXT,
-          atualizadoEm TEXT,
-          UNIQUE(telefone, crianca)
+          atualizadoEm TEXT
         )`,
         // Aniversários (FaçaAmigos): cadastro de crianças importado de PDF,
         // usado para disparar parabéns no WhatsApp no dia do aniversário.
@@ -564,6 +565,36 @@ function initDb(onSuccess) {
               }
             });
           });
+        });
+      });
+
+      // Indicações da Ação 2: a primeira versão da tabela era chaveada por
+      // (telefone, criança) e exigia cadastrar o indicador antes das
+      // indicações chegarem. Na prática quem chega ao balcão só sabe o nome e
+      // o WhatsApp de quem indicou, então a chave virou o telefone sozinho —
+      // o que exigiu uma tabela nova (SQLite não remove constraint). Copiamos
+      // o que existia e derrubamos a antiga. Sem transação de propósito: cada
+      // passo é idempotente e o erro de "tabela não existe" é esperado em
+      // instalações novas.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run(
+            `INSERT INTO pos_visita_indicadores
+               (id, responsavel, telefone, crianca, amigo1Nome, amigo1Em, amigo2Nome, amigo2Em,
+                voucherEnviadoEm, voucherEntregue, voucherEntregueEm, brindeEscolhido, observacoes, criadoEm, atualizadoEm)
+             SELECT telefone, responsavel, telefone, crianca, amigo1Nome, amigo1Em, amigo2Nome, amigo2Em,
+                    voucherEnviadoEm, voucherEntregue, voucherEntregueEm, brindeEscolhido, observacoes, criadoEm, atualizadoEm
+             FROM pos_visita_indicacoes
+             ON CONFLICT DO NOTHING`,
+            [],
+            () => resolve()
+          );
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('DROP TABLE IF EXISTS pos_visita_indicacoes', [], () => resolve());
         });
       });
 
