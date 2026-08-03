@@ -1,56 +1,68 @@
-// Mensagens de pós-visita do Playground FaçaAmigos — disparadas para os
-// responsáveis de toda criança que visitou o espaço. Tom: carinhoso,
-// acolhedor, cheio de emojis, nunca corporativo. Sempre pergunta o que a
-// criança achou do espaço, agradece a visita, reforça que não somos "só
-// mais um parquinho de shopping" (atividades lúdicas sem telas, pensadas
-// pro desenvolvimento infantil, com um diferencial do FaçaAmigos citado) e
-// termina com um convite sutil (subliminar) pra próxima visita + o link do
-// site, encaixado como continuação natural da frase, não como propaganda.
+// Mensagens de pós-visita do Playground FaçaAmigos — disparadas no dia
+// seguinte para os responsáveis de toda criança que visitou o espaço.
 //
-// Em vez de 700 strings fixas (repetitivas e difíceis de manter), a
-// mensagem final combina 4 blocos — saudação (10) × pergunta (10) ×
-// diferencial (7) × fechamento com link (2) = 1.400 combinações possíveis,
+// Desde a "Ação 2 — Pós-Venda Multiplicador" (ver acao_2_pos_venda.md), a
+// mensagem tem dois objetivos, nessa ordem: perguntar como a criança ficou
+// depois da visita (sono/experiência) e convidar o responsável a indicar
+// 2 amigos NOVOS — quem nunca esteve no espaço. Fechando os dois, a criança
+// ganha 15 minutos VIP no FaçaAmigos Circuito, à escolha entre a LandRover
+// Branca, a Lamborghini Amarela e o Caminhão de Bombeiro.
+//
+// Tom: carinhoso, acolhedor, cheio de emojis, nunca corporativo.
+//
+// Em vez de centenas de strings fixas (repetitivas e difíceis de manter), a
+// mensagem final combina 4 blocos — saudação/sono (10) × convite de
+// indicação (8) × prêmio (6) × fechamento (4) = 1.920 combinações possíveis,
 // sorteadas aleatoriamente a cada clique em "Enviar mensagem".
+//
+// Regra de escrita: o cadastro NÃO informa o gênero da criança. Nos blocos
+// novos, repetimos o NOME em vez de usar "o(a)" / "ele(a)".
 
 const SAUDACOES = [
-  "Bom dia, {{nome_responsavel}}! 🧩💙 Passando aqui com o coração cheio depois da visita do(a) {{nome_crianca}} ontem.",
-  "Oii, {{nome_responsavel}}! ✨ Ainda estamos sorrindo aqui de lembrar do(a) {{nome_crianca}} brincando com a gente.",
-  "Bom dia! 🎈 {{nome_responsavel}}, que alegria receber o(a) {{nome_crianca}} no nosso espaço!",
-  "Oi, {{nome_responsavel}}! 🥰 Só passando pra dizer o quanto foi bom ter o(a) {{nome_crianca}} por aqui.",
-  "Bom dia, {{nome_responsavel}}! 🌈 A equipe do Playground ainda comenta do sorriso do(a) {{nome_crianca}}.",
-  "Oii! 💙 {{nome_responsavel}}, viemos com todo carinho falar sobre a visitinha do(a) {{nome_crianca}}.",
-  "Bom dia, {{nome_responsavel}}! 🎨 Foi um prazer enorme ter o(a) {{nome_crianca}} brincando com a gente.",
-  "Oi, tudo bem, {{nome_responsavel}}? 🧸 Passando pra dar notícias frescas da diversão do(a) {{nome_crianca}} por aqui.",
-  "Bom dia! 🦋 {{nome_responsavel}}, a turminha sentiu falta do(a) {{nome_crianca}} assim que a visita acabou!",
-  "Oii, {{nome_responsavel}}! ✨💙 Chegando com carinho pra saber como está o(a) {{nome_crianca}} depois da nossa brincadeira."
+  "Bom dia, {{nome_responsavel}}! 🧩💙 Aqui é da equipe do Playground FaçaAmigos. Como {{nome_crianca}} dormiu depois da visita de ontem?",
+  "Oii, {{nome_responsavel}}! ✨ Passando pra saber como {{nome_crianca}} ficou depois de brincar com a gente ontem — o sono costuma vir bem tranquilo!",
+  "Bom dia, {{nome_responsavel}}! 🌈 Ficamos pensando aqui: como foi a noite de {{nome_crianca}} depois de tanta brincadeira boa?",
+  "Oi, {{nome_responsavel}}, tudo bem? 🥰 A equipe do FaçaAmigos queria saber como {{nome_crianca}} ficou depois da visita de ontem.",
+  "Bom dia! 🎈 {{nome_responsavel}}, aqui é do Playground FaçaAmigos — nos conta, como {{nome_crianca}} dormiu hoje?",
+  "Oii, {{nome_responsavel}}! 💙 Depois de brincar com a nossa equipe especializada, a criançada costuma relaxar de verdade. Como {{nome_crianca}} passou a noite?",
+  "Bom dia, {{nome_responsavel}}! 🧸 Foi uma alegria receber {{nome_crianca}} ontem. Como ficou o sono depois de tanta energia gasta aqui?",
+  "Oi, {{nome_responsavel}}! 🦋 Passando com carinho pra saber como {{nome_crianca}} está hoje, depois da visitinha de ontem.",
+  "Bom dia, {{nome_responsavel}}! 🎨 A equipe ainda comenta do sorriso de {{nome_crianca}} por aqui. Como foi o resto do dia de vocês?",
+  "Oii! ✨💙 {{nome_responsavel}}, chegando pra saber como {{nome_crianca}} ficou depois de brincar com a nossa turminha ontem."
 ];
 
-const PERGUNTAS = [
-  "O que ele(a) achou do nosso espaço? Adoraríamos saber! 😊",
-  "Ele(a) contou pra vocês como foi o dia por aqui? Ficamos curiosos pra saber o que mais marcou! 🌟",
-  "Queremos muito saber: o que ele(a) mais curtiu na visita? 🎉",
-  "Adoramos receber o(a) {{nome_crianca}} — será que ele(a) já contou o que achou por aqui? 💭",
-  "Ficamos com aquela vontade de saber: qual foi a parte favorita dele(a) na visita? 🥰",
-  "Nos conta: o que o(a) {{nome_crianca}} achou do nosso cantinho? Toda opinião da turminha vale ouro pra gente! 💛",
-  "Será que rolou algum comentário em casa sobre a visita? Adoraríamos saber o que ficou marcado! 😄",
-  "O(A) {{nome_crianca}} pareceu bem à vontade por aqui — o que vocês acharam da experiência? 🌼",
-  "Ficamos na expectativa: o que ele(a) mais gostou de fazer com a gente? 🎈",
-  "Adoramos ter recebido vocês — nos conta o que achou do nosso espaço, viu? 💙"
+const CONVITES = [
+  "Aproveitando, temos um presente bem especial pra vocês! 🎁 Se você indicar 2 amiguinhos que ainda não conhecem o nosso espaço, {{nome_crianca}} ganha um prêmio incrível.",
+  "E olha só, separamos uma surpresa pra vocês! 🎁 Indicando 2 amiguinhos que nunca vieram ao FaçaAmigos, {{nome_crianca}} sai ganhando.",
+  "Ah, e temos uma novidade que é a cara de vocês! ✨ Basta indicar 2 amiguinhos que ainda não conhecem o nosso espaço pra {{nome_crianca}} ganhar um presente especial.",
+  "Já que você faz parte da nossa turminha, queremos te dar um mimo! 💛 Indique 2 famílias que ainda não vieram ao FaçaAmigos e {{nome_crianca}} ganha um prêmio.",
+  "E temos um convite carinhoso: 💙 se você indicar 2 amiguinhos que nunca visitaram o nosso espaço, tem presente esperando por {{nome_crianca}}.",
+  "Aproveitando a conversa, olha que legal! 🌟 Indicando 2 amiguinhos novinhos aqui no FaçaAmigos, {{nome_crianca}} ganha uma recompensa especial.",
+  "E antes que a gente esqueça: temos um agrado pra vocês! 🎉 É só indicar 2 amiguinhos que ainda não conhecem o espaço pra {{nome_crianca}} ser premiado.",
+  "Ah! E como vocês já fazem parte da nossa família, um presente: 🥰 indique 2 amiguinhos que nunca vieram ao FaçaAmigos e {{nome_crianca}} ganha uma surpresa."
 ];
 
-const DIFERENCIAIS = [
-  "Sabia que, no tempo que passou aqui, nossos profissionais desenvolveram uma atividade lúdica especial, longe de telas? Aqui no Playground FaçaAmigos, cada brincadeira é pensada pro desenvolvimento da criança — a gente não é só mais um parquinho de shopping. 🧩✨",
-  "Enquanto ele(a) brincava, nossa equipe conduzia atividades lúdicas sem telas, voltadas pro desenvolvimento infantil — esse é o nosso jeito de fazer diferente de um parquinho comum. 💙🎨",
-  "No Playground FaçaAmigos cada minuto de brincadeira tem intenção: nossos profissionais criam atividades lúdicas, sem telas, pensadas pro desenvolvimento de cada criança. Não somos só um espacinho de shopping — somos muito mais que isso. 🌈",
-  "Uma coisa que nos deixa orgulhosos: enquanto os pequenos brincam, a equipe conduz atividades lúdicas longe das telas, pensadas com carinho pro desenvolvimento deles. É esse o diferencial do FaçaAmigos. 🧸💛",
-  "Cada visita ao FaçaAmigos é recheada de atividades lúdicas sem tela nenhuma, sempre com foco no desenvolvimento infantil — muito além do que um parquinho comum de shopping oferece. ✨🧩",
-  "Aqui a brincadeira tem propósito: nossos profissionais desenvolvem atividades lúdicas, sem telas, voltadas pro desenvolvimento de cada criança que passa por nós. Esse é o coração do Playground FaçaAmigos. 💙",
-  "Enquanto a turminha se diverte, a gente cuida de cada detalhe: atividades lúdicas, sem telas, pensadas pro desenvolvimento infantil. Não é só um parquinho — é um espaço feito com propósito. 🌟🎈"
+const PREMIOS = [
+  "São 15 minutos VIP gratuitos no nosso FaçaAmigos Circuito! 🏎️🚒 {{nome_crianca}} escolhe entre pilotar a exclusiva LandRover Branca, a Lamborghini Amarela ou o super Caminhão de Bombeiro.",
+  "O prêmio são 15 minutos VIP no FaçaAmigos Circuito, de graça! 🚗✨ E quem escolhe é {{nome_crianca}}: LandRover Branca, Lamborghini Amarela ou Caminhão de Bombeiro.",
+  "15 Minutos VIP gratuitos no FaçaAmigos Circuito 🏎️💨 — com direito a escolher entre a LandRover Branca, a Lamborghini Amarela e o Caminhão de Bombeiro!",
+  "Falamos de 15 minutos VIP, por nossa conta, no FaçaAmigos Circuito! 🚒🏎️ {{nome_crianca}} decide qual leva pra pista: LandRover Branca, Lamborghini Amarela ou Caminhão de Bombeiro.",
+  "O presente são 15 minutinhos VIP gratuitos no nosso Circuito! ✨🚗 Dá pra escolher a LandRover Branca, a Lamborghini Amarela ou o Caminhão de Bombeiro — os queridinhos da turma.",
+  "Reservamos 15 minutos VIP gratuitos no FaçaAmigos Circuito pra {{nome_crianca}}! 🏎️🚒 A escolha do veículo é toda dela: LandRover Branca, Lamborghini Amarela ou Caminhão de Bombeiro."
 ];
 
 const FECHAMENTOS = [
-  "Já estamos com saudade e torcendo pela próxima visitinha! Se bater aquela vontade de matar a saudade da turminha, dá uma espiadinha aqui: sl1nk.com/facaamigosbelem 💙✨",
-  "Guardamos um cantinho especial esperando pela volta do(a) {{nome_crianca}} — dá uma olhada nas novidades por aqui: institutofacaamigos.com.br/playground/index.html 🧩💛"
+  "Pra participar, é só pedir aos amiguinhos que avisem na recepção que vieram pela sua indicação. 💙 Qualquer dúvida, me chama por aqui! institutofacaamigos.com.br/playground/index.html",
+  "Pra valer, basta que os amigos digam na chegada que vieram por sua indicação. 🧩 Se quiser mostrar o espaço pra eles, manda esse link: institutofacaamigos.com.br/playground/index.html",
+  "É bem simples: os amiguinhos só precisam informar na recepção que vieram por sua indicação. ✨ Já deixo aqui o nosso cantinho pra você compartilhar: institutofacaamigos.com.br/playground/index.html",
+  "Combinado assim: quando os amiguinhos chegarem, é só avisarem que a indicação foi sua. 💛 Estamos te esperando de volta — dá uma espiadinha nas novidades: institutofacaamigos.com.br/playground/index.html"
+];
+
+// Enviada quando a segunda indicação fecha o pacote (submenu "Indicações").
+const PARABENS_VOUCHER = [
+  "Parabéns, {{nome_responsavel}}! 🎉💙 Seus dois amiguinhos indicados já vieram nos visitar! O Voucher VIP de 15 minutos de {{nome_crianca}} no FaçaAmigos Circuito está liberado aqui no nosso quiosque — é só passar aqui e escolher entre a LandRover Branca, a Lamborghini Amarela e o Caminhão de Bombeiro. 🏎️🚒✨",
+  "Deu certo, {{nome_responsavel}}! 🥳 As duas indicações fecharam e o Voucher VIP de {{nome_crianca}} está liberado: 15 minutos gratuitos no FaçaAmigos Circuito! 🏎️ É só vir ao quiosque escolher a LandRover Branca, a Lamborghini Amarela ou o Caminhão de Bombeiro. 💙",
+  "Oba, {{nome_responsavel}}! ✨ Seus dois amiguinhos indicados já brincaram com a gente, e por isso {{nome_crianca}} ganhou 15 Minutos VIP no nosso Circuito! 🚒 Passe no quiosque pra retirar o voucher e escolher entre LandRover Branca, Lamborghini Amarela e Caminhão de Bombeiro. 🎉"
 ];
 
 function preencher(texto, nomeResponsavel, nomeCrianca) {
@@ -59,11 +71,20 @@ function preencher(texto, nomeResponsavel, nomeCrianca) {
     .split('{{nome_crianca}}').join(nomeCrianca);
 }
 
+function sortear(lista) {
+  return lista[Math.floor(Math.random() * lista.length)];
+}
+
 function gerarMensagemPosVisita(nomeResponsavel, nomeCrianca) {
-  const saudacao = SAUDACOES[Math.floor(Math.random() * SAUDACOES.length)];
-  const pergunta = PERGUNTAS[Math.floor(Math.random() * PERGUNTAS.length)];
-  const diferencial = DIFERENCIAIS[Math.floor(Math.random() * DIFERENCIAIS.length)];
-  const fechamento = FECHAMENTOS[Math.floor(Math.random() * FECHAMENTOS.length)];
-  const bruto = `${saudacao} ${pergunta} ${diferencial} ${fechamento}`;
+  const bruto = [
+    sortear(SAUDACOES),
+    sortear(CONVITES),
+    sortear(PREMIOS),
+    sortear(FECHAMENTOS)
+  ].join(' ');
   return preencher(bruto, nomeResponsavel, nomeCrianca);
+}
+
+function gerarMensagemVoucherLiberado(nomeResponsavel, nomeCrianca) {
+  return preencher(sortear(PARABENS_VOUCHER), nomeResponsavel, nomeCrianca);
 }

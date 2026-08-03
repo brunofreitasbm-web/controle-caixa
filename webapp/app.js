@@ -13701,7 +13701,11 @@ function renderPosVisita() {
   const btnAtualizar = document.getElementById("pv-btn-atualizar");
   if (btnAtualizar && !btnAtualizar.dataset.bound) {
     btnAtualizar.dataset.bound = "1";
-    btnAtualizar.onclick = () => carregarPosVisita();
+    btnAtualizar.onclick = () => {
+      carregarPosVisita();
+      carregarRelatorioPosVisita();
+      carregarIndicacoes();
+    };
   }
 
   const inputData = document.getElementById("pv-import-data");
@@ -13717,8 +13721,52 @@ function renderPosVisita() {
     inputArquivo.onchange = importarCsvPosVisita;
   }
 
+  inicializarSubTabsPosVisita();
+
   carregarPosVisita();
   carregarRelatorioPosVisita();
+  carregarIndicacoes();
+}
+
+// ==========================================================================
+// SUB-ABAS DA PÓS-VISITA: "Fila de mensagens" e "Indicações"
+// ==========================================================================
+// A fila é o trabalho do dia; as indicações são o acompanhamento da Ação 2
+// (Pós-Venda Multiplicador), que vive em outro ritmo — o amigo indicado pode
+// aparecer semanas depois. Separar evita poluir a fila de disparo.
+let pvSubTabAtiva = "fila";
+
+function inicializarSubTabsPosVisita() {
+  const btnFila = document.getElementById("pv-subtab-btn-fila");
+  const btnInd = document.getElementById("pv-subtab-btn-indicacoes");
+  if (!btnFila || !btnInd || btnFila.dataset.bound) return;
+  btnFila.dataset.bound = "1";
+
+  btnFila.onclick = () => ativarSubTabPosVisita("fila");
+  btnInd.onclick = () => ativarSubTabPosVisita("indicacoes");
+  ativarSubTabPosVisita(pvSubTabAtiva);
+}
+
+function ativarSubTabPosVisita(nome) {
+  pvSubTabAtiva = nome;
+  const ATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-800 text-white shadow";
+  const INATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-transparent text-brand-300 hover:text-white";
+
+  const btnFila = document.getElementById("pv-subtab-btn-fila");
+  const btnInd = document.getElementById("pv-subtab-btn-indicacoes");
+  const painelFila = document.getElementById("pv-subtab-fila");
+  const painelInd = document.getElementById("pv-subtab-indicacoes");
+  if (!btnFila || !btnInd || !painelFila || !painelInd) return;
+
+  const ehFila = nome === "fila";
+  btnFila.className = ehFila ? ATIVO : INATIVO;
+  // O botão de Indicações carrega um badge dentro dele; recriar a classe não
+  // mexe no conteúdo, então o badge sobrevive à troca de aba.
+  btnInd.className = ehFila ? INATIVO : ATIVO;
+  painelFila.classList.toggle("hidden", !ehFila);
+  painelInd.classList.toggle("hidden", ehFila);
+
+  if (!ehFila) carregarIndicacoes();
 }
 
 // Dispara assim que o operador escolhe o arquivo — sem botão extra, sem
@@ -13880,11 +13928,21 @@ function criarCardPosVisita(registro, habilitado) {
         <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
       </button>
       <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
+      <button type="button" class="pv-btn-indicacao w-full px-4 py-1.5 bg-brand-800 hover:bg-brand-700 text-white font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Coloca essa família no controle de indicações da Ação 2, para anotar os 2 amigos novos que ela indicar">
+        <i class="fa-solid fa-user-plus"></i> Acompanhar indicações
+      </button>
     </div>
   `;
 
   const btn = card.querySelector(".pv-btn-enviar");
   btn.onclick = () => dispararMensagemPosVisita(registro, card);
+
+  const btnIndicacao = card.querySelector(".pv-btn-indicacao");
+  btnIndicacao.onclick = () => criarIndicador({
+    responsavel: registro.cliente,
+    crianca: registro.crianca,
+    telefone: registro.numeroCliente
+  }, btnIndicacao);
 
   return card;
 }
@@ -13931,6 +13989,263 @@ function dispararMensagemPosVisita(registro, card) {
       vazio.classList.remove("hidden");
     }
   }, 1500);
+}
+
+// ==========================================================================
+// INDICAÇÕES (Ação 2 — Pós-Venda Multiplicador)
+// ==========================================================================
+// A mensagem de pós-visita promete 15 minutos VIP no Circuito para quem
+// indicar 2 amigos NOVOS. Sem controle, a recepção não sabe quem indicou
+// quem e a promessa vira reclamação. Aqui cada família indicadora é um card
+// com o placar 0/2 → 1/2 → 2/2; a segunda indicação libera o botão de
+// parabéns no WhatsApp e, depois, a baixa do voucher no quiosque.
+// ==========================================================================
+const BRINDES_CIRCUITO = ["LandRover Branca", "Lamborghini Amarela", "Caminhão de Bombeiro"];
+
+async function carregarIndicacoes() {
+  const lista = document.getElementById("pv-ind-lista");
+  const vazio = document.getElementById("pv-ind-vazio");
+  if (!lista) return;
+
+  const btnAdicionar = document.getElementById("pv-ind-btn-adicionar");
+  if (btnAdicionar && !btnAdicionar.dataset.bound) {
+    btnAdicionar.dataset.bound = "1";
+    btnAdicionar.onclick = adicionarIndicadorPeloFormulario;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes`);
+    if (!res.ok) throw new Error("Falha ao carregar indicações");
+    const { registros, resumo } = await res.json();
+
+    document.getElementById("pv-ind-total").textContent = resumo.total;
+    document.getElementById("pv-ind-andamento").textContent = resumo.emAndamento;
+    document.getElementById("pv-ind-aguardando").textContent = resumo.aguardandoVoucher;
+    document.getElementById("pv-ind-entregues").textContent = resumo.entregues;
+    document.getElementById("pv-ind-amigos").textContent = resumo.amigosNovos;
+
+    // O badge do menu mostra só o que exige ação: voucher conquistado e ainda
+    // não entregue.
+    const badge = document.getElementById("pv-badge-indicacoes");
+    if (badge) {
+      badge.textContent = resumo.aguardandoVoucher;
+      badge.classList.toggle("hidden", resumo.aguardandoVoucher <= 0);
+    }
+
+    lista.innerHTML = "";
+    if (!registros || registros.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+    registros.forEach(r => lista.appendChild(criarCardIndicacao(r)));
+  } catch (err) {
+    console.error("Erro ao carregar indicações:", err);
+    showToast("Erro ao carregar as indicações.", "erro");
+  }
+}
+
+function criarCardIndicacao(registro) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const feitas = registro.indicacoesFeitas;
+  const amigos = [
+    { nome: registro.amigo1Nome, em: registro.amigo1Em },
+    { nome: registro.amigo2Nome, em: registro.amigo2Em }
+  ].filter(a => a.nome);
+
+  const listaAmigos = amigos.length
+    ? `<ul class="mt-2 text-[11px] text-brand-300 space-y-0.5">${amigos
+        .map(a => `<li><i class="fa-solid fa-check text-emerald-400"></i> ${a.nome} <span class="text-brand-500">· ${formatarDataBr(a.em)}</span></li>`)
+        .join("")}</ul>`
+    : `<p class="mt-2 text-[11px] text-brand-500">Nenhum amigo indicado ainda.</p>`;
+
+  let statusHtml;
+  if (registro.voucherEntregue) {
+    statusHtml = `<p class="text-[11px] text-emerald-400 font-bold mt-1"><i class="fa-solid fa-trophy"></i> Voucher usado${registro.brindeEscolhido ? ` — ${registro.brindeEscolhido}` : ""} · ${formatarDataBr(registro.voucherEntregueEm)}</p>`;
+  } else if (registro.voucherLiberado) {
+    statusHtml = `<p class="text-[11px] text-amber-400 font-bold mt-1"><i class="fa-solid fa-gift"></i> Voucher VIP liberado! ${registro.voucherEnviadoEm ? "Parabéns já enviado." : "Avise a família."}</p>`;
+  } else {
+    statusHtml = `<p class="text-[11px] text-sky-400 font-bold mt-1"><i class="fa-solid fa-hourglass-half"></i> Faltam ${2 - feitas} amigo(s) novo(s)</p>`;
+  }
+
+  const opcoesBrinde = BRINDES_CIRCUITO
+    .map(b => `<option value="${b}" ${registro.brindeEscolhido === b ? "selected" : ""}>${b}</option>`)
+    .join("");
+
+  card.innerHTML = `
+    <div>
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
+          <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.responsavel}</p>
+        </div>
+        <span class="px-2 py-1 rounded-lg text-xs font-extrabold ${feitas >= 2 ? "bg-emerald-700 text-white" : "bg-brand-800 text-brand-200"}">${feitas}/2</span>
+      </div>
+      ${statusHtml}
+      ${listaAmigos}
+    </div>
+    <div class="flex flex-col gap-1">
+      ${feitas < 2 ? `
+        <button type="button" class="pvi-btn-amigo w-full px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Anote o amigo novo que acabou de chegar dizendo que veio por indicação dessa família">
+          <i class="fa-solid fa-user-plus"></i> Registrar amigo indicado
+        </button>` : ""}
+      ${feitas >= 2 && !registro.voucherEntregue ? `
+        <button type="button" class="pvi-btn-parabens w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Abre o WhatsApp com a mensagem de voucher liberado já pronta">
+          <i class="fa-brands fa-whatsapp"></i> Enviar parabéns do voucher
+        </button>
+        <div class="flex gap-1 mt-1">
+          <select class="pvi-brinde flex-1 text-[11px] rounded-lg bg-brand-900 border border-brand-800 text-white px-2 py-1.5" data-tip="Veículo escolhido pela criança no Circuito">
+            <option value="">Veículo escolhido…</option>
+            ${opcoesBrinde}
+          </select>
+          <button type="button" class="pvi-btn-entregue px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-brand-950 font-extrabold text-[11px] rounded-lg transition" data-tip="Dá baixa: a criança já usou os 15 minutos VIP no Circuito">
+            <i class="fa-solid fa-check"></i> Usou
+          </button>
+        </div>` : ""}
+      <button type="button" class="pvi-btn-remover w-full px-4 py-1.5 text-brand-400 hover:text-red-400 font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Remove essa família do controle de indicações">
+        <i class="fa-solid fa-trash"></i> Remover
+      </button>
+    </div>
+  `;
+
+  const btnAmigo = card.querySelector(".pvi-btn-amigo");
+  if (btnAmigo) btnAmigo.onclick = () => registrarAmigoIndicado(registro);
+
+  const btnParabens = card.querySelector(".pvi-btn-parabens");
+  if (btnParabens) btnParabens.onclick = () => enviarParabensVoucher(registro, btnParabens);
+
+  const btnEntregue = card.querySelector(".pvi-btn-entregue");
+  if (btnEntregue) {
+    btnEntregue.onclick = () => marcarVoucherEntregue(registro, card.querySelector(".pvi-brinde").value);
+  }
+
+  card.querySelector(".pvi-btn-remover").onclick = () => removerIndicador(registro);
+
+  return card;
+}
+
+async function adicionarIndicadorPeloFormulario() {
+  const responsavel = document.getElementById("pv-ind-responsavel").value.trim();
+  const crianca = document.getElementById("pv-ind-crianca").value.trim();
+  const telefone = document.getElementById("pv-ind-telefone").value.trim();
+  const msg = document.getElementById("pv-ind-msg");
+
+  if (!responsavel || !crianca || !telefone) {
+    msg.textContent = "Preencha responsável, criança e WhatsApp.";
+    return;
+  }
+
+  const ok = await criarIndicador({ responsavel, crianca, telefone });
+  if (ok) {
+    document.getElementById("pv-ind-responsavel").value = "";
+    document.getElementById("pv-ind-crianca").value = "";
+    document.getElementById("pv-ind-telefone").value = "";
+    msg.textContent = "Indicador adicionado!";
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+  } else {
+    msg.textContent = "";
+  }
+}
+
+// Usado tanto pelo formulário quanto pelo atalho no card da fila de mensagens.
+async function criarIndicador({ responsavel, crianca, telefone }, botao) {
+  if (botao) botao.disabled = true;
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ responsavel, crianca, telefone })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao adicionar indicador");
+
+    showToast(`${crianca} entrou no controle de indicações. 🧩`, "sucesso");
+    if (botao) botao.innerHTML = '<i class="fa-solid fa-check"></i> No controle de indicações';
+    carregarIndicacoes();
+    return true;
+  } catch (err) {
+    console.error("Erro ao adicionar indicador:", err);
+    showToast(err.message || "Erro ao adicionar indicador.", "erro");
+    if (botao) botao.disabled = false;
+    return false;
+  }
+}
+
+async function registrarAmigoIndicado(registro) {
+  const nomeAmigo = prompt(`Quem veio por indicação de ${registro.responsavel}?\n\nDigite o nome do amigo novo (responsável ou criança):`);
+  if (!nomeAmigo || !nomeAmigo.trim()) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar-amigo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: registro.id, nomeAmigo: nomeAmigo.trim() })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao registrar amigo");
+
+    showToast(
+      json.indicacoesFeitas >= 2
+        ? `2/2! Voucher VIP de ${registro.crianca} liberado 🎉`
+        : `Indicação ${json.indicacoesFeitas}/2 registrada.`,
+      "sucesso"
+    );
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao registrar amigo indicado:", err);
+    showToast(err.message || "Erro ao registrar amigo.", "erro");
+  }
+}
+
+function enviarParabensVoucher(registro, btn) {
+  // window.open precisa continuar dentro do gesto do clique — nada de await
+  // antes dele.
+  const mensagem = gerarMensagemVoucherLiberado(registro.responsavel, registro.crianca);
+  window.open(`https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns enviado';
+
+  fetch(`${API_BASE}/pos-visita/indicacoes/voucher-enviado`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar parabéns como enviado:", err));
+}
+
+async function marcarVoucherEntregue(registro, brindeEscolhido) {
+  if (!brindeEscolhido) {
+    showToast("Escolha o veículo antes de dar baixa no voucher.", "erro");
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/voucher-entregue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: registro.id, brindeEscolhido })
+    });
+    if (!res.ok) throw new Error("Falha ao dar baixa no voucher");
+    showToast(`Voucher de ${registro.crianca} baixado — ${brindeEscolhido}. 🏎️`, "sucesso");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao dar baixa no voucher:", err);
+    showToast("Erro ao dar baixa no voucher.", "erro");
+  }
+}
+
+async function removerIndicador(registro) {
+  if (!confirm(`Remover ${registro.crianca} do controle de indicações?`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/${encodeURIComponent(registro.id)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Falha ao remover");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao remover indicador:", err);
+    showToast("Erro ao remover indicador.", "erro");
+  }
 }
 
 function formatarDataBr(dataIso) {

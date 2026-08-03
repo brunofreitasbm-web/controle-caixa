@@ -33,7 +33,7 @@ Voz da marca, obrigatória:
 
 Restrições absolutas:
 - Nunca invente fatos sobre a visita que não foram informados (não diga de que a criança brincou, com quem falou, nem o que ela disse).
-- Nunca mencione valores, promoções, descontos ou pacotes.
+- Nunca mencione valores, preços, descontos ou pacotes. Brinde ou benefício só entra na mensagem quando a instrução pedir explicitamente, e sempre com as palavras exatas que ela fornecer.
 - Nunca peça dados pessoais.
 - Não use asteriscos de markdown, títulos, listas nem aspas ao redor da mensagem.
 - Responda APENAS com o texto da mensagem, pronto para enviar.`;
@@ -116,8 +116,14 @@ async function mensagemPosVisita({ nomeResponsavel, nomeCrianca, tempoTotalMinut
 ${temTempo ? `- Tempo de permanência: ${min} minutos\n- Sobre isso: ${sobreTempo}` : '- O tempo de permanência não foi informado: não cite duração.'}
 - ${jaContactadoAntes ? 'Esta família JÁ visitou o espaço outras vezes: demonstre que reconhece a presença recorrente.' : 'Esta parece ser a primeira visita: acolha como quem recebe alguém novo.'}
 
-A mensagem deve agradecer a visita, perguntar o que a criança achou do espaço, citar o diferencial de forma leve, e fechar com o convite sutil e o link.
-Entre 3 e 5 linhas.`;
+Estrutura obrigatória, nessa ordem (Ação 2 — Pós-Venda Multiplicador):
+1. Cumprimente e pergunte como ${crianca} ficou depois da visita — o sono, o resto do dia. Pode comentar de leve que a criançada costuma relaxar depois de brincar com a nossa equipe especializada.
+2. Convide o responsável a indicar 2 amiguinhos que AINDA NÃO CONHECEM o espaço (precisa ser gente nova, que nunca veio ao FaçaAmigos).
+3. Diga o prêmio, sem alterar os termos: se as 2 indicações fecharem pacote no playground, ${crianca} ganha 15 minutos VIP gratuitos no FaçaAmigos Circuito, escolhendo entre a LandRover Branca, a Lamborghini Amarela e o Caminhão de Bombeiro.
+4. Explique que, para valer, os amigos indicados devem avisar na recepção que vieram por indicação dessa família. Feche com o link.
+
+Não invente outras regras, prazos, quantidades ou prêmios além dos acima.
+Entre 4 e 6 linhas.`;
 
   const texto = await gerarTexto(prompt, {
     sistema: VOZ_MARCA,
@@ -154,9 +160,10 @@ function limpar(texto) {
     return null;
   }
 
-  // Mensagem de WhatsApp muito longa não é lida. O template atual tem ~500
-  // caracteres; acima de 900 o modelo claramente se estendeu demais.
-  if (t.length > 900) {
+  // Mensagem de WhatsApp muito longa não é lida. O template da pós-visita
+  // (com o convite de indicação da Ação 2) tem ~800 caracteres; acima de
+  // 1200 o modelo claramente se estendeu demais.
+  if (t.length > 1200) {
     console.warn(`[IA Mensagens] Texto descartado: ${t.length} caracteres, acima do limite.`);
     return null;
   }

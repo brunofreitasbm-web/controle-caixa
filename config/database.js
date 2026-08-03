@@ -42,6 +42,14 @@ const camelCaseMap = {
   mensagemenviada: 'mensagemEnviada',
   mensagemenviadaem: 'mensagemEnviadaEm',
   jacontactadoantes: 'jaContactadoAntes',
+  amigo1nome: 'amigo1Nome',
+  amigo1em: 'amigo1Em',
+  amigo2nome: 'amigo2Nome',
+  amigo2em: 'amigo2Em',
+  voucherenviadoem: 'voucherEnviadoEm',
+  voucherentregue: 'voucherEntregue',
+  voucherentregueem: 'voucherEntregueEm',
+  brindeescolhido: 'brindeEscolhido',
   nomecrianca: 'nomeCrianca',
   nomeresponsavel: 'nomeResponsavel',
   mensagemenviadaano: 'mensagemEnviadaAno',
@@ -441,6 +449,30 @@ function initDb(onSuccess) {
           mensagemEnviadaEm TEXT,
           criadoEm TEXT,
           UNIQUE(dataSessao, numeroCliente, crianca)
+        )`,
+        // Ação 2 — Pós-Venda Multiplicador (ver acao_2_pos_venda.md): controle
+        // das indicações prometidas na mensagem de pós-visita. Uma linha por
+        // família indicadora; os dois amigos novos entram um de cada vez
+        // (1/2, depois 2/2) e é a segunda que libera o Voucher VIP de 15
+        // minutos no Circuito. Chave por (telefone, criança) porque é assim
+        // que a recepção identifica quem indicou.
+        `CREATE TABLE IF NOT EXISTS pos_visita_indicacoes (
+          id TEXT PRIMARY KEY,
+          responsavel TEXT NOT NULL,
+          telefone TEXT NOT NULL,
+          crianca TEXT NOT NULL,
+          amigo1Nome TEXT,
+          amigo1Em TEXT,
+          amigo2Nome TEXT,
+          amigo2Em TEXT,
+          voucherEnviadoEm TEXT,
+          voucherEntregue INTEGER DEFAULT 0,
+          voucherEntregueEm TEXT,
+          brindeEscolhido TEXT,
+          observacoes TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT,
+          UNIQUE(telefone, crianca)
         )`,
         // Aniversários (FaçaAmigos): cadastro de crianças importado de PDF,
         // usado para disparar parabéns no WhatsApp no dia do aniversário.

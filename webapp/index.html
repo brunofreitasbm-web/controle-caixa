@@ -3148,6 +3148,20 @@
         </div>
       </div>
 
+      <!-- Sub-abas: a fila de disparo do dia e o controle das indicações
+           prometidas na mensagem (Ação 2 — Pós-Venda Multiplicador). -->
+      <div class="flex items-center gap-2 bg-brand-950/60 p-1 rounded-xl border border-brand-800 w-full sm:w-auto justify-center mb-6">
+        <button type="button" id="pv-subtab-btn-fila" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-brand-800 text-white shadow" data-tip="Fila de mensagens de WhatsApp do dia seguinte">
+          <i class="fa-brands fa-whatsapp"></i> Fila de mensagens
+        </button>
+        <button type="button" id="pv-subtab-btn-indicacoes" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-transparent text-brand-300 hover:text-white" data-tip="Controle de quem indicou quem e liberação do Voucher VIP de 15 minutos no Circuito">
+          <i class="fa-solid fa-user-group"></i> Indicações
+          <span id="pv-badge-indicacoes" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-[10px] text-brand-950 font-extrabold">0</span>
+        </button>
+      </div>
+
+      <div id="pv-subtab-fila">
+
       <!-- Quadro de importação do CSV: escolher o arquivo já importa na hora,
            sem precisar de um botão extra — menos cliques pro operador. -->
       <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
@@ -3192,6 +3206,76 @@
       </div>
 
       <div id="pv-lista" class="pv-grid"></div>
+
+      </div><!-- /pv-subtab-fila -->
+
+      <!-- ---------- SUB-ABA: INDICAÇÕES (Ação 2 — Pós-Venda Multiplicador) ---------- -->
+      <div id="pv-subtab-indicacoes" class="hidden">
+
+        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
+          <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-user-plus"></i> Novo indicador
+          </h3>
+          <p class="text-[11px] text-brand-400 mb-3">Cadastre a família que recebeu o convite. Quando um amigo novo chegar e disser "vim por indicação do(a) …", clique em <strong>Registrar amigo</strong> no card dela. Na segunda indicação o Voucher VIP é liberado automaticamente.</p>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+            <div class="field">
+              <label for="pv-ind-responsavel">Responsável</label>
+              <input type="text" id="pv-ind-responsavel" placeholder="Nome do responsável">
+            </div>
+            <div class="field">
+              <label for="pv-ind-crianca">Criança</label>
+              <input type="text" id="pv-ind-crianca" placeholder="Nome da criança">
+            </div>
+            <div class="field">
+              <label for="pv-ind-telefone" data-tip="Só números — o DDI 55 é adicionado automaticamente">WhatsApp</label>
+              <input type="tel" id="pv-ind-telefone" placeholder="(91) 90000-0000">
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top: 0.75rem; display:flex; align-items:center; gap:0.75rem;">
+            <button type="button" id="pv-ind-btn-adicionar" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+              <i class="fa-solid fa-plus"></i> Adicionar indicador
+            </button>
+            <span id="pv-ind-msg" class="form-msg" role="status"></span>
+          </div>
+        </div>
+
+        <!-- Painel de acompanhamento da ação -->
+        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Acompanhamento da Ação 2 — quantas famílias estão participando e quantos clientes novos vieram por indicação">
+          <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple"></i> Acompanhamento da ação
+          </h3>
+          <div class="flex items-center gap-6 flex-wrap">
+            <div>
+              <div class="text-2xl font-extrabold text-white" id="pv-ind-total">0</div>
+              <div class="text-[11px] text-brand-400">indicadores</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-sky-400" id="pv-ind-andamento">0</div>
+              <div class="text-[11px] text-brand-400">em andamento</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-amber-400" id="pv-ind-aguardando">0</div>
+              <div class="text-[11px] text-brand-400">voucher a liberar</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-emerald-400" id="pv-ind-entregues">0</div>
+              <div class="text-[11px] text-brand-400">vouchers usados</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold text-fuchsia-400" id="pv-ind-amigos">0</div>
+              <div class="text-[11px] text-brand-400">clientes novos indicados</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="pv-ind-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
+          <i class="fa-solid fa-user-group text-brand-500 text-2xl mb-2 block"></i>
+          <p class="text-sm font-bold text-brand-200">Nenhum indicador cadastrado ainda.</p>
+          <p class="text-[11px] text-brand-400 mt-1">Cadastre acima a família que recebeu o convite de indicação.</p>
+        </div>
+
+        <div id="pv-ind-lista" class="pv-grid"></div>
+      </div>
     </section>
 
     <!-- ===================== ABA: ANIVERSÁRIOS (FaçaAmigos) ===================== -->
@@ -3936,7 +4020,7 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="mensagens-pos-visita.js?v=1"></script>
+<script src="mensagens-pos-visita.js?v=2"></script>
 <script src="mensagens-aniversario.js?v=3"></script>
 <script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa

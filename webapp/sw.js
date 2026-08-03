@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v48'; // v48: credita unidades reais em QTD Inventariada ao concluir conferencia (idempotente por NF)
+const CACHE_NAME = 'ponto-pwa-v49'; // v49: pos-visita com convite de indicacao (Acao 2) e submenu de controle de indicacoes
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
