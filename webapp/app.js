@@ -927,7 +927,8 @@ async function salvarRegistroAPI(reg) {
   }
   if (API_ONLINE) {
     try {
-      const res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+      const clientId = (window.RT && window.RT.clientId) || "";
+      const res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}&clientId=${encodeURIComponent(clientId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reg)
@@ -1025,7 +1026,8 @@ async function salvarRegistroFAAPI(reg) {
   }
   if (API_ONLINE) {
     try {
-      const res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+      const clientId = (window.RT && window.RT.clientId) || "";
+      const res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}&clientId=${encodeURIComponent(clientId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reg)
@@ -2758,7 +2760,7 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
 
   // Se salvar na API com sucesso, adicionamos localmente e atualizamos.
   const apiSalvo = await salvarRegistroAPI(registro);
-  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento"))) {
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento")) && !registros.some(r => r.id === registro.id)) {
     registros.push(registro);
   }
 
@@ -2929,7 +2931,7 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   };
 
   const apiSalvo = await salvarRegistroFAAPI(registro);
-  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento"))) {
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento")) && !registrosFA.some(r => r.id === registro.id)) {
     registrosFA.push(registro);
   }
 
