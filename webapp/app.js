@@ -434,9 +434,24 @@ function salvarRascunhosForm() {
     tipoOperacao: tipoOperacaoSelecionado,
     fundoCaixa: document.getElementById("fundo-caixa").value,
     valorEnvelope: document.getElementById("valor-envelope").value,
-    observacoes: document.getElementById("observacoes").value
+    observacoes: document.getElementById("observacoes").value,
+    // Persiste a foto em base64 junto do rascunho: sem isso, um reload do
+    // app (ex.: WebView derrubado pelo Android ao abrir a câmera nativa)
+    // perdia a foto, que só existia na variável fotoDataUrl em memória.
+    fotoEnvelope: fotoDataUrl
   };
-  localStorage.setItem("rascunho_registro_caixa", JSON.stringify(rascunhoCaixa));
+  try {
+    localStorage.setItem("rascunho_registro_caixa", JSON.stringify(rascunhoCaixa));
+  } catch (e) {
+    // Cota do localStorage estourada (ex.: foto grande) — tenta salvar de
+    // novo sem a foto pra não perder o resto do rascunho preenchido.
+    console.error("Erro ao salvar rascunho Caixa (tentando sem foto):", e);
+    try {
+      localStorage.setItem("rascunho_registro_caixa", JSON.stringify({ ...rascunhoCaixa, fotoEnvelope: null }));
+    } catch (e2) {
+      console.error("Erro ao salvar rascunho Caixa mesmo sem foto:", e2);
+    }
+  }
 }
 
 function salvarRascunhosFormFA() {
@@ -447,9 +462,19 @@ function salvarRascunhosFormFA() {
     tipoOperacao: faTipoOperacaoSelecionado,
     fundoCaixa: document.getElementById("fa-fundo-caixa").value,
     valorEnvelope: document.getElementById("fa-valor-envelope").value,
-    observacoes: document.getElementById("fa-observacoes").value
+    observacoes: document.getElementById("fa-observacoes").value,
+    fotoEnvelope: faFotoDataUrl
   };
-  localStorage.setItem("rascunho_registro_fa", JSON.stringify(rascunhoFa));
+  try {
+    localStorage.setItem("rascunho_registro_fa", JSON.stringify(rascunhoFa));
+  } catch (e) {
+    console.error("Erro ao salvar rascunho FA (tentando sem foto):", e);
+    try {
+      localStorage.setItem("rascunho_registro_fa", JSON.stringify({ ...rascunhoFa, fotoEnvelope: null }));
+    } catch (e2) {
+      console.error("Erro ao salvar rascunho FA mesmo sem foto:", e2);
+    }
+  }
 }
 
 function restaurarRascunhosForm() {
@@ -470,6 +495,11 @@ function restaurarRascunhosForm() {
       if (data.fundoCaixa) document.getElementById("fundo-caixa").value = data.fundoCaixa;
       if (data.valorEnvelope) document.getElementById("valor-envelope").value = data.valorEnvelope;
       if (data.observacoes) document.getElementById("observacoes").value = data.observacoes;
+      if (data.fotoEnvelope) {
+        fotoDataUrl = data.fotoEnvelope;
+        fotoPreview.src = fotoDataUrl;
+        fotoPreviewWrap.classList.remove("hidden");
+      }
     }
   } catch (e) {
     console.error("Erro ao restaurar rascunho Caixa:", e);
@@ -492,6 +522,11 @@ function restaurarRascunhosForm() {
       if (data.fundoCaixa) document.getElementById("fa-fundo-caixa").value = data.fundoCaixa;
       if (data.valorEnvelope) document.getElementById("fa-valor-envelope").value = data.valorEnvelope;
       if (data.observacoes) document.getElementById("fa-observacoes").value = data.observacoes;
+      if (data.fotoEnvelope) {
+        faFotoDataUrl = data.fotoEnvelope;
+        faFotoPreview.src = faFotoDataUrl;
+        faFotoPreviewWrap.classList.remove("hidden");
+      }
     }
   } catch (e) {
     console.error("Erro ao restaurar rascunho FA:", e);
@@ -939,7 +974,15 @@ async function salvarRegistroAPI(reg) {
   }
   // Fallback Local
   registros.push(reg);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  } catch (e) {
+    // Cota do localStorage estourada (comum quando várias fotos base64 se
+    // acumulam offline) não pode virar uma exceção não tratada aqui: isso
+    // travava o botão de salvar em "carregando" pra sempre, sem toast nem
+    // reset do formulário, dando a impressão de que a foto "sumiu".
+    console.error("Erro ao salvar registro no localStorage (fallback offline):", e);
+  }
   if (typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
   }
@@ -1037,7 +1080,11 @@ async function salvarRegistroFAAPI(reg) {
   }
   // Fallback Local
   registrosFA.push(reg);
-  localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  try {
+    localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  } catch (e) {
+    console.error("Erro ao salvar registro FA no localStorage (fallback offline):", e);
+  }
   if (typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "FA_CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
   }
@@ -1661,12 +1708,32 @@ function iniciarModuloBase(moduloOpcional) {
   document.getElementById("bottom-nav").classList.remove("hidden");
   document.getElementById("fab-novo-registro").classList.remove("hidden");
 
+  // Um registro de Abertura/Fechamento em andamento (com foto já anexada
+  // ou tipo de operação já escolhido) não pode ser descartado mandando o
+  // owner de volta pro Dashboard: foi o que fazia o app "voltar pra tela
+  // de início" e perder a foto sempre que a página recarregava no meio do
+  // preenchimento (ex.: WebView derrubado pelo Android ao abrir a câmera).
+  function temRascunhoEmAndamento(chave) {
+    try {
+      const raw = localStorage.getItem(chave);
+      if (!raw) return false;
+      const dados = JSON.parse(raw);
+      return !!(dados.tipoOperacao || dados.fotoEnvelope);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // Configura a aba padrão após selecionar módulo (Owners)
   if (currentUser.role === "owner" && moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
-      ativarTab("dashboard");
+      ativarTab(temRascunhoEmAndamento("rascunho_registro_caixa") ? "registro" : "dashboard");
     } else if (moduloOpcional === "faca-amigos") {
-      faSubTabAtiva = "fa-dashboard";
+      if (temRascunhoEmAndamento("rascunho_registro_fa")) {
+        faSubTabAtiva = "fa-registro";
+      } else {
+        faSubTabAtiva = "fa-dashboard";
+      }
       ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
@@ -2539,6 +2606,10 @@ fotoInput.addEventListener("change", () => {
       fotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
       fotoPreview.src = fotoDataUrl;
       fotoPreviewWrap.classList.remove("hidden");
+      // Persiste no rascunho imediatamente: capture="environment" abre a
+      // câmera nativa e sai do PWA, e o Android pode matar o WebView em
+      // segundo plano — sem isso, a foto some ao voltar da câmera.
+      salvarRascunhosForm();
     };
     img.src = e.target.result;
   };
@@ -2549,6 +2620,7 @@ document.getElementById("foto-remover").addEventListener("click", () => {
   fotoDataUrl = null;
   fotoInput.value = "";
   fotoPreviewWrap.classList.add("hidden");
+  salvarRascunhosForm();
 });
 
 // --- FA: Foto ---
@@ -2580,6 +2652,7 @@ faFotoInput.addEventListener("change", () => {
       faFotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
       faFotoPreview.src = faFotoDataUrl;
       faFotoPreviewWrap.classList.remove("hidden");
+      salvarRascunhosFormFA();
     };
     img.src = e.target.result;
   };
@@ -2590,6 +2663,7 @@ document.getElementById("fa-foto-remover").addEventListener("click", () => {
   faFotoDataUrl = null;
   faFotoInput.value = "";
   faFotoPreviewWrap.classList.add("hidden");
+  salvarRascunhosFormFA();
 });
 
 // --- Data/hora default = agora ---
