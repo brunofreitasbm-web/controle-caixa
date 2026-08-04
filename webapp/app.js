@@ -1522,7 +1522,9 @@ function ajustarCardsModulos() {
   if (btnCacau) btnCacau.classList.toggle("hidden", !(role === "owner" || role === "consultora" || role === "consultora_dashboard"));
   if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
   if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
-  if (btnPonto) btnPonto.classList.toggle("hidden", false); // Ponto é para todos os colaboradores
+  // Registro de Ponto do FaçaAmigos é feito por outro sistema — o módulo
+  // aqui é exclusivo do Cacau Show, não aparece para consultora_fa.
+  if (btnPonto) btnPonto.classList.toggle("hidden", role === "consultora_fa");
 
   // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
   // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
@@ -1548,6 +1550,13 @@ function iniciarModuloBase(moduloOpcional) {
     moduloOpcional = localStorage.getItem("ultimoModulo_" + currentUser.nome) || moduloOpcional;
   }
 
+  // Guarda-costas contra "ultimoModulo" salvo antes desta regra existir: uma
+  // consultora_fa não entra no módulo de Ponto (Cacau Show only) mesmo que
+  // tenha ficado gravado no localStorage dela de uma sessão antiga.
+  if (moduloOpcional === "controle-ponto" && currentUser.role === "consultora_fa") {
+    moduloOpcional = "faca-amigos";
+  }
+
   let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
 
   if (moduloOpcional) {
@@ -1563,7 +1572,9 @@ function iniciarModuloBase(moduloOpcional) {
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "controle-ponto", "configuracoes"];
+      // Sem "controle-ponto" aqui: Registro de Ponto do FaçaAmigos é feito por
+      // outro sistema, o módulo de Ponto deste app é exclusivo do Cacau Show.
+      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1621,12 +1632,10 @@ function iniciarModuloBase(moduloOpcional) {
     group.classList.toggle("hidden", !temTabVisivel);
   });
 
-  // "Registro de Ponto" existe duplicado nos dois grupos (Cacau Show e Faça
-  // Amigos) pra aparecer dentro do módulo em que a pessoa está. Isso faz o
-  // check acima (any tab-btn visível) achar o grupo do OUTRO negócio "não
-  // vazio" e deixá-lo visível — ex.: dentro do módulo Faça Amigos, o grupo
-  // "CACAU SHOW" aparecia na sidebar só por causa do Ponto compartilhado.
-  // Cada módulo é fechado: nunca mostra o grupo do outro negócio, ponto final.
+  // Reforço explícito: cada módulo é fechado, nunca mostra o grupo do outro
+  // negócio na sidebar, mesmo que algum tab-btn futuro volte a ser
+  // compartilhado entre os dois (caso do antigo Registro de Ponto, hoje
+  // exclusivo do Cacau Show — FaçaAmigos bate ponto em outro sistema).
   if (moduloOpcional === "faca-amigos") {
     document.getElementById("group-controle-caixa")?.classList.add("hidden");
   } else if (moduloOpcional === "cacau-show") {
@@ -2372,6 +2381,7 @@ function atualizarCamposPorOperacao() {
     fotoHint.textContent = "(Obrigatório no fechamento) *";
     atualizarSangriaMotivo();
   }
+  sugerirFundoCaixa();
 }
 
 function atualizarSangriaMotivo() {
@@ -2410,6 +2420,7 @@ function atualizarFaCamposPorOperacao() {
     fotoHint.textContent = "(Obrigatório no fechamento) *";
     atualizarFaSangriaMotivo();
   }
+  sugerirFundoCaixaFa();
 }
 
 function atualizarFaSangriaMotivo() {
@@ -2424,47 +2435,82 @@ function atualizarFaSangriaMotivo() {
 document.getElementById("fa-sangria").addEventListener("input", atualizarFaSangriaMotivo);
 
 // --- Sugestão automática de Fundo de Caixa (Cacau Show) ---
-document.getElementById("loja").addEventListener("change", () => {
+// Só faz sentido na Abertura (carregar o fundo do fechamento anterior). No
+// Fechamento a pessoa precisa CONTAR o dinheiro físico que sobra no caixa —
+// herdar aqui o valor sugerido da abertura mascararia uma sobra/falta real
+// (ver relato de fundo de fechamento idêntico ao da abertura no mesmo dia).
+function sugerirFundoCaixa() {
   const loja = document.getElementById("loja").value;
   const fundoInput = document.getElementById("fundo-caixa");
   const hint = document.getElementById("fundo-caixa-hint");
+
+  if (tipoOperacaoSelecionado !== "Abertura") {
+    hint.classList.add("hidden");
+    if (fundoInput.dataset.autoPreenchido === "1") {
+      fundoInput.value = "";
+      delete fundoInput.dataset.autoPreenchido;
+    }
+    return;
+  }
+
   const ultimo = [...registros]
     .filter(r => r.loja === loja)
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
 
-  if (ultimo) {
+  if (loja && ultimo) {
     if (!fundoInput.value) {
       let val = ultimo.fundoCaixa.toFixed(2).replace(".", ",");
       val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
       fundoInput.value = val;
+      fundoInput.dataset.autoPreenchido = "1";
     }
     hint.textContent = `Preenchido com o último fundo de caixa registrado em ${loja} (${formatBRL(ultimo.fundoCaixa)}). Edite se for diferente.`;
     hint.classList.remove("hidden");
   } else {
     hint.classList.add("hidden");
   }
+}
+document.getElementById("loja").addEventListener("change", sugerirFundoCaixa);
+document.getElementById("fundo-caixa").addEventListener("input", function () {
+  delete this.dataset.autoPreenchido;
 });
 
 // --- Sugestão automática de Fundo de Caixa (FaçaAmigos) ---
-document.getElementById("fa-loja").addEventListener("change", () => {
+// Mesma regra: nunca sugerir/herdar valor no Fechamento, só na Abertura.
+function sugerirFundoCaixaFa() {
   const loja = document.getElementById("fa-loja").value;
   const fundoInput = document.getElementById("fa-fundo-caixa");
   const hint = document.getElementById("fa-fundo-caixa-hint");
+
+  if (faTipoOperacaoSelecionado !== "Abertura") {
+    hint.classList.add("hidden");
+    if (fundoInput.dataset.autoPreenchido === "1") {
+      fundoInput.value = "";
+      delete fundoInput.dataset.autoPreenchido;
+    }
+    return;
+  }
+
   const ultimo = [...registrosFA]
     .filter(r => r.loja === loja)
     .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
 
-  if (ultimo) {
+  if (loja && ultimo) {
     if (!fundoInput.value) {
       let val = ultimo.fundoCaixa.toFixed(2).replace(".", ",");
       val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
       fundoInput.value = val;
+      fundoInput.dataset.autoPreenchido = "1";
     }
     hint.textContent = `Preenchido com o último fundo de caixa registrado em ${loja} (${formatBRL(ultimo.fundoCaixa)}). Edite se for diferente.`;
     hint.classList.remove("hidden");
   } else {
     hint.classList.add("hidden");
   }
+}
+document.getElementById("fa-loja").addEventListener("change", sugerirFundoCaixaFa);
+document.getElementById("fa-fundo-caixa").addEventListener("input", function () {
+  delete this.dataset.autoPreenchido;
 });
 
 // --- Tags de Observação (#14) ---
@@ -12886,17 +12932,33 @@ function inicializarPontoDb() {
   });
 }
 
+// Código de unidade do cadastro (colaboradores.unidade, ver
+// renderizarColaboradores) → nome de operação usado no seletor de Ponto.
+// Só lojas Cacau Show: o módulo de Ponto é exclusivo do Cacau Show (FaçaAmigos
+// bate ponto em outro sistema, ver ajustarCardsModulos/iniciarModuloBase).
+// "all" (Líder/Owner) e códigos não mapeados voltam null de propósito: quem
+// não tem uma unidade fixa cai no fallback antigo (loja Cacau Show ativa).
+function unidadeCadastroParaOperacaoPonto(codigo) {
+  const mapa = {
+    "9175": "Marambaia",
+    "9201": "Mário Covas",
+    "4304": "Icoaraci"
+  };
+  return mapa[codigo] || null;
+}
+
 function inicializarAbaPonto() {
   inicializarPontoDb();
 
-  // Seletor de operação: 1ª unidade do Faça Amigos por padrão para
-  // consultora_fa, senão a loja Cacau Show ativa. Trocar reinicia o rastreio
-  // de GPS para a nova operação.
+  // Seletor de operação: pré-seleciona pela Unidade/Loja cadastrada da
+  // colaboradora (Configurações → Colaboradores), pra evitar bater ponto
+  // marcado na loja errada. Sem unidade fixa (Líder/Owner com "all"), cai na
+  // loja Cacau Show ativa. Trocar reinicia o rastreio de GPS para a nova
+  // operação.
   const operacaoSelector = document.getElementById("ponto-operacao-selector");
   if (operacaoSelector) {
-    pontoOperacaoAtiva = currentUser && currentUser.role === "consultora_fa"
-      ? UNIDADES_FA[0]
-      : getLojaNomePorCodigo(currentStore);
+    const operacaoDaUnidade = currentUser && unidadeCadastroParaOperacaoPonto(currentUser.unidade);
+    pontoOperacaoAtiva = operacaoDaUnidade || getLojaNomePorCodigo(currentStore);
     operacaoSelector.value = pontoOperacaoAtiva;
     aplicarCorOperacaoSelect(operacaoSelector);
     operacaoSelector.onchange = (e) => {
@@ -15184,6 +15246,16 @@ async function carregarRelatorioPontoOperacao(operacao) {
   }
 }
 
+// Mesmos códigos do cadastro de Colaboradores (ver renderizarColaboradores),
+// sem emoji: fonte Helvetica do jsPDF não renderiza esses glifos no PDF.
+// Só lojas Cacau Show: o Espelho de Ponto é exclusivo desse módulo.
+const UNIDADE_LABEL_TEXTO = {
+  "9175": "9175 - Marambaia",
+  "9201": "9201 - Mário Covas",
+  "4304": "4304 - Icoaraci",
+  "all": "Todas as Lojas"
+};
+
 // Monta o PDF do Espelho de Ponto e devolve o `doc` do jsPDF (sem salvar) —
 // reaproveitado tanto pelo download direto quanto pelo envio por e-mail ao
 // contador, pra não duplicar o layout em dois lugares.
@@ -15209,8 +15281,8 @@ async function gerarDocEspelhoPontoPDF() {
   doc.text(`Portaria 671/2021 MTP - Identificação e Controle de Jornada`, 15, 28);
   doc.text(`Emissão: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`, 150, 28);
 
-  // Colaborador Info — dados pessoais, sem a unidade/loja (a folha de ponto
-  // identifica o trabalhador, não onde ele bateu ponto naquele dia).
+  // Colaborador Info — a Unidade/Loja aqui é a do CADASTRO (a quem o
+  // trabalhador pertence), não a operação de cada batida individual.
   doc.setTextColor(51, 51, 51);
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(12);
@@ -15219,6 +15291,7 @@ async function gerarDocEspelhoPontoPDF() {
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(10);
   doc.text(`Nome do Colaborador: ${currentUser.nome}`, 15, 60);
+  doc.text(`Unidade/Loja: ${UNIDADE_LABEL_TEXTO[currentUser.unidade] || "Não informado"}`, 110, 60);
   doc.text(`Cargo / Função: ${currentUser.role.toUpperCase()}`, 15, 66);
   doc.text(`CPF: ${currentUser.cpf || "Não informado"}`, 15, 72);
   if (currentUser.dataAdmissao) {
