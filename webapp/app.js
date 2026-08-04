@@ -2763,9 +2763,20 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
   }
 
   setLoading(btnSubmit, false);
-  showToast("Registro salvo com sucesso!", "sucesso");
   localStorage.removeItem("rascunho_registro_caixa");
-  await showModal(`Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi realizado com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+  if (apiSalvo) {
+    showToast("Registro salvo com sucesso!", "sucesso");
+    await showModal(`Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi realizado com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+  } else {
+    // salvarRegistroAPI() já guardou o registro só neste aparelho (localStorage +
+    // fila de sincronização) porque não conseguiu falar com o servidor — não dá
+    // pra dizer "sucesso" aqui, ou ninguém percebe que ainda falta sincronizar.
+    showToast("Sem conexão com o servidor — registro guardado neste aparelho.", "erro");
+    await showModal(
+      `Não foi possível conectar ao servidor agora. Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi salvo apenas neste aparelho e ainda NÃO está no histórico do sistema. Ele será enviado automaticamente quando a conexão voltar — não feche o app até ver a confirmação de sincronização.`,
+      { icon: "⚠️", title: "Salvo sem conexão" }
+    );
+  }
 
   // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
   if (tipoOperacaoSelecionado === "Abertura") {
@@ -2934,9 +2945,22 @@ document.getElementById("form-registro-fa").addEventListener("submit", async e =
   }
 
   setLoading(btnSubmit, false);
-  showToast("Registro FaçaAmigos salvo com sucesso!", "sucesso");
   localStorage.removeItem("rascunho_registro_fa");
-  await showModal(`Registro de ${faTipoOperacaoSelecionado} para ${loja} (FaçaAmigos) foi salvo com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+  if (apiSalvo) {
+    showToast("Registro FaçaAmigos salvo com sucesso!", "sucesso");
+    await showModal(`Registro de ${faTipoOperacaoSelecionado} para ${loja} (FaçaAmigos) foi salvo com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+  } else {
+    // salvarRegistroFAAPI() já guardou o registro só neste aparelho (localStorage +
+    // fila de sincronização) porque não conseguiu falar com o servidor — não dá
+    // pra dizer "sucesso" aqui, ou ninguém percebe que ainda falta sincronizar
+    // (foi exatamente isso que fez a abertura/fechamento do Parque Circuito
+    // "sumir" do histórico: salvou só localmente e nunca chegou ao banco).
+    showToast("Sem conexão com o servidor — registro guardado neste aparelho.", "erro");
+    await showModal(
+      `Não foi possível conectar ao servidor agora. O registro de ${faTipoOperacaoSelecionado} para ${loja} (FaçaAmigos) foi salvo apenas neste aparelho e ainda NÃO está no histórico do sistema. Ele será enviado automaticamente quando a conexão voltar — não feche o app até ver a confirmação de sincronização.`,
+      { icon: "⚠️", title: "Salvo sem conexão" }
+    );
+  }
 
   // Reconciliação FA: Abertura vs Fechamento anterior
   if (faTipoOperacaoSelecionado === "Abertura") {
