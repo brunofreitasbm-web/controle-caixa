@@ -750,25 +750,28 @@ async function inicializarDados() {
 
   if (API_ONLINE) {
     try {
-      const resReg = await fetch(`${API_BASE}/registros`);
+      const [resReg, resRegFA, resPins, resConfig] = await Promise.all([
+        fetch(`${API_BASE}/registros`),
+        fetch(`${API_BASE}/registros-fa`),
+        fetch(`${API_BASE}/pins`),
+        fetch(`${API_BASE}/config`)
+      ]);
+
       const dataReg = await resReg.json();
       registros = Array.isArray(dataReg) ? dataReg : [];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
 
       // Carregar registros FA
-      const resRegFA = await fetch(`${API_BASE}/registros-fa`);
       const dataRegFA = await resRegFA.json();
       registrosFA = Array.isArray(dataRegFA) ? dataRegFA : [];
 
       // GET /api/pins agora retorna apenas quais usuários têm PIN (sem os PINs reais)
-      const resPins = await fetch(`${API_BASE}/pins`);
       const pinsMap = await resPins.json();
       // Marcar quais usuários têm PIN configurado
       Object.keys(pinsMap).forEach(u => { pins[u] = pins[u] || '****'; });
       // Manter pins locais para fallback offline
       if (Object.keys(pins).length) localStorage.setItem(PIN_KEY, JSON.stringify(pins));
 
-      const resConfig = await fetch(`${API_BASE}/config`);
       config = await resConfig.json();
       if (!config.linkGrupo) config.linkGrupo = "";
 
@@ -3559,7 +3562,11 @@ function renderFaHistorico() {
 
 document.getElementById("fa-filtro-loja-hist").addEventListener("change", () => { faHistPaginaAtual = 1; renderFaHistorico(); });
 document.getElementById("fa-filtro-status-hist").addEventListener("change", () => { faHistPaginaAtual = 1; renderFaHistorico(); });
-document.getElementById("fa-busca-hist").addEventListener("input", () => { faHistPaginaAtual = 1; renderFaHistorico(); });
+let faBuscaHistDebounce;
+document.getElementById("fa-busca-hist").addEventListener("input", () => {
+  clearTimeout(faBuscaHistDebounce);
+  faBuscaHistDebounce = setTimeout(() => { faHistPaginaAtual = 1; renderFaHistorico(); }, 250);
+});
 
 // FA: Exportar CSV
 document.getElementById("fa-btn-exportar").addEventListener("click", () => {
@@ -5412,7 +5419,11 @@ function renderHistorico() {
 
 document.getElementById("filtro-loja-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
 document.getElementById("filtro-status-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
-document.getElementById("busca-hist").addEventListener("input", () => { histPaginaAtual = 1; renderHistorico(); });
+let buscaHistDebounce;
+document.getElementById("busca-hist").addEventListener("input", () => {
+  clearTimeout(buscaHistDebounce);
+  buscaHistDebounce = setTimeout(() => { histPaginaAtual = 1; renderHistorico(); }, 250);
+});
 
 // --- Dashboard Mensal ---
 function mesKey(iso) {

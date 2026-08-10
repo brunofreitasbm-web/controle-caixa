@@ -108,8 +108,8 @@ router.get('/relatorio', (req, res) => {
   const { operacao } = req.query;
 
   const sql = operacao && operacao !== 'todas'
-    ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC'
-    : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC';
+    ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC LIMIT 5000'
+    : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC LIMIT 5000';
   const params = operacao && operacao !== 'todas' ? [operacao] : [];
 
   db.all(sql, params, (err, rows) => {
