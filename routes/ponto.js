@@ -101,20 +101,43 @@ router.get('/historico', (req, res) => {
   });
 });
 
-// Relatório administrativo: todas as colaboradoras, filtrável por operação.
-// Sem exigir `usuario` — a UI que chama isso já restringe o acesso a
-// Líder de Operações/Owner (aplicarPermissoes no frontend).
+// Relatório administrativo: todas as colaboradoras se for gestor/owner, ou filtrado pelo próprio usuário.
 router.get('/relatorio', (req, res) => {
-  const { operacao } = req.query;
+  const { operacao, usuario } = req.query;
+  const userTrim = (usuario || '').trim();
 
-  const sql = operacao && operacao !== 'todas'
-    ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC LIMIT 5000'
-    : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC LIMIT 5000';
-  const params = operacao && operacao !== 'todas' ? [operacao] : [];
+  if (!userTrim) {
+    const sql = operacao && operacao !== 'todas'
+      ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC LIMIT 5000'
+      : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC LIMIT 5000';
+    const params = operacao && operacao !== 'todas' ? [operacao] : [];
+    return db.all(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ registros: rows || [] });
+    });
+  }
 
-  db.all(sql, params, (err, rows) => {
+  db.get('SELECT role FROM colaboradores WHERE nome = ?', [userTrim], (err, colab) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ registros: rows || [] });
+    const isGestor = colab && (colab.role === 'owner' || colab.role === 'consultora_dashboard');
+    
+    let sql, params;
+    if (isGestor) {
+      sql = operacao && operacao !== 'todas'
+        ? 'SELECT * FROM ponto_registros WHERE operacao = ? ORDER BY timestamp DESC LIMIT 5000'
+        : 'SELECT * FROM ponto_registros ORDER BY timestamp DESC LIMIT 5000';
+      params = operacao && operacao !== 'todas' ? [operacao] : [];
+    } else {
+      sql = operacao && operacao !== 'todas'
+        ? 'SELECT * FROM ponto_registros WHERE usuario = ? AND operacao = ? ORDER BY timestamp DESC LIMIT 5000'
+        : 'SELECT * FROM ponto_registros WHERE usuario = ? ORDER BY timestamp DESC LIMIT 5000';
+      params = operacao && operacao !== 'todas' ? [userTrim, operacao] : [userTrim];
+    }
+
+    db.all(sql, params, (err2, rows) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ registros: rows || [] });
+    });
   });
 });
 

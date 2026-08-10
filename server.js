@@ -190,7 +190,10 @@ app.get('/api/codbarra-consulta', async (req, res) => {
 app.get('/api/cron/backup-mensal', async (req, res) => {
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    const secretQuery = req.query.secret;
+    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
+    const validQuery = secretQuery === process.env.CRON_SECRET;
+    if (!validHeader && !validQuery) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }
   }
@@ -377,7 +380,10 @@ if (require.main === module) {
 app.get('/api/cron/ia-tick', async (req, res) => {
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    const secretQuery = req.query.secret;
+    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
+    const validQuery = secretQuery === process.env.CRON_SECRET;
+    if (!validHeader && !validQuery) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }
   }

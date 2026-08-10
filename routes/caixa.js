@@ -15,6 +15,11 @@ function semFoto(registro) {
   return { ...resto, temFoto: !!fotoEnvelope };
 }
 
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str || '');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 // Notificação de divergência de fundo de caixa (#8 Reconciliação)
 router.post('/divergencia', (req, res) => {
   const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body;
@@ -37,6 +42,12 @@ router.post('/divergencia', (req, res) => {
       console.log('Notificação de divergência por e-mail ignorada (nenhum destinatário configurado).');
       return res.json({ sent: false, reason: 'Nenhum destinatário configurado' });
     }
+
+    const lojaSafe = escapeHtml(loja);
+    const consultorSafe = escapeHtml(consultor);
+    const fundoAberturaNum = Number(fundoAbertura) || 0;
+    const fundoUltimoFechamentoNum = Number(fundoUltimoFechamento) || 0;
+    const diferencaNum = Number(diferenca) || 0;
     
     const transporter = nodemailer.createTransport({
       host,
@@ -48,15 +59,15 @@ router.post('/divergencia', (req, res) => {
     transporter.sendMail({
       from: `"Controle de Caixa Cacau Show" <${user}>`,
       to: targetEmails.join(', '),
-      subject: `⚠️ Divergência de Fundo de Caixa - Loja ${loja}`,
+      subject: `⚠️ Divergência de Fundo de Caixa - Loja ${lojaSafe}`,
       html: `<p>Olá,</p>
-<p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${loja}</strong>.</p>
+<p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${lojaSafe}</strong>.</p>
 <h3>Detalhes:</h3>
 <ul>
-  <li><strong>Consultor(a):</strong> ${consultor}</li>
-  <li><strong>Fundo de caixa na abertura:</strong> R$ ${fundoAbertura.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Fundo no último fechamento:</strong> R$ ${fundoUltimoFechamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Diferença:</strong> R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${diferenca > 0 ? 'a mais' : 'a menos'})</li>
+  <li><strong>Consultor(a):</strong> ${consultorSafe}</li>
+  <li><strong>Fundo de caixa na abertura:</strong> R$ ${fundoAberturaNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Fundo no último fechamento:</strong> R$ ${fundoUltimoFechamentoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Diferença:</strong> R$ ${Math.abs(diferencaNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${diferencaNum > 0 ? 'a mais' : 'a menos'})</li>
 </ul>
 <p>Por favor, investigue a divergência.</p>
 <p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
@@ -174,6 +185,13 @@ router.post('/registros-fa', (req, res) => {
   );
 });
 
+const COLUNAS_PERMITIDAS = new Set([
+  'consultor', 'loja', 'tipoOperacao', 'dataOperacao', 'fundoCaixa',
+  'valorEnvelope', 'valorFaturado', 'sangria', 'sangriaMotivo',
+  'observacoes', 'fotoEnvelope', 'status', 'dataRetirada', 'retiradoPor',
+  'confirmadoPorApp', 'autorizadoPor', 'mensagemGerada', 'deletadoEm'
+]);
+
 // FA-3. Atualizar registro FaçaAmigos
 router.put('/registros-fa/:id', (req, res) => {
   const { id } = req.params;
@@ -183,7 +201,7 @@ router.put('/registros-fa/:id', (req, res) => {
   const values = [];
 
   Object.keys(r).forEach(key => {
-    if (key === 'id') return;
+    if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
     fields.push(`${key} = ?`);
     if (key === 'mensagemGerada') {
       values.push(r[key] ? 1 : 0);
@@ -285,7 +303,7 @@ router.put('/registros/:id', (req, res) => {
   const values = [];
   
   Object.keys(r).forEach(key => {
-    if (key === 'id') return;
+    if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
     fields.push(`${key} = ?`);
     if (key === 'mensagemGerada') {
       values.push(r[key] ? 1 : 0);

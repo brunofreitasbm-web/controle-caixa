@@ -282,14 +282,14 @@ router.post('/nfs/:numero/concluir', (req, res) => {
   });
 });
 
-router.delete('/nfs', (req, res) => {
+router.delete('/nfs', requireOwner, (req, res) => {
   db.run('DELETE FROM nfs', [], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true, message: 'Todos os registros de NF-e foram removidos.' });
   });
 });
 
-router.delete('/nfs/:id', (req, res) => {
+router.delete('/nfs/:id', requireOwner, (req, res) => {
   const { id } = req.params;
   const cleanId = id.includes('_') ? id.split('_')[0] : id;
   db.run('DELETE FROM nfs WHERE id = ? OR numero = ?', [id, cleanId], function(err) {
@@ -333,6 +333,9 @@ router.post('/boletos/import', (req, res) => {
   // dezenas de linhas. Agora: 1 query pra trazer as duplicatas possíveis de
   // uma vez (só das lojas do lote) + 1 INSERT multi-linha.
   const lojas = [...new Set(boletos.map(b => b.loja).filter(Boolean))];
+  if (lojas.length === 0) {
+    return res.json({ success: true, insertedCount: 0, ignoredCount: boletos.length });
+  }
   const placeholdersLojas = lojas.map(() => '?').join(',');
 
   db.all(

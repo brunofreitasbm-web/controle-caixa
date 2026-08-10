@@ -2,6 +2,11 @@ const nodemailer = require('nodemailer');
 const webPush = require('web-push');
 const { db } = require('./database');
 
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str || '');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 // Chave mestra de notificações de eventos (e-mail + push).
 // Enquanto não estiver explicitamente ativada em Configurações, nenhum alerta é enviado.
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
@@ -151,18 +156,23 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
       auth: { user, pass }
     });
 
+    const lojaSafe = escapeHtml(loja);
+    const consultorSafe = escapeHtml(consultor);
+    const novoValorNum = Number(novoValor) || 0;
+    const totalPendenteNum = Number(totalPendente) || 0;
+
     const mailOptions = {
       from: `"Controle de Caixa Cacau Show" <${user}>`,
       to: targetEmails.join(', '),
-      subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${loja}`,
-      text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValor.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendente.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
+      subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${lojaSafe}`,
+      text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValorNum.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendenteNum.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
       html: `<p>Olá,</p>
-<p>O limite de <strong>R$ 1.000,00</strong> em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: <strong>${loja}</strong>.</p>
+<p>O limite de <strong>R$ 1.000,00</strong> em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: <strong>${lojaSafe}</strong>.</p>
 <h3>Detalhes:</h3>
 <ul>
-  <li><strong>Novo envelope registrado por:</strong> ${consultor}</li>
-  <li><strong>Valor do novo envelope:</strong> R$ ${novoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Valor total acumulado pendente de retirada nesta loja:</strong> R$ ${totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Novo envelope registrado por:</strong> ${consultorSafe}</li>
+  <li><strong>Valor do novo envelope:</strong> R$ ${novoValorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Valor total acumulado pendente de retirada nesta loja:</strong> R$ ${totalPendenteNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
 </ul>
 <p>Por favor, providencie a retirada.</p>
 <br>

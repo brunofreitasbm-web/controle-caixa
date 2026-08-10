@@ -3,7 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const { db, normalizeRow } = require('../config/database');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // Limite defensivo de 10MB
+});
 
 // Insere todos os registros da importação (sem filtro de tempo — o Bruno
 // pediu para considerar qualquer duração, não só >1h), deduplicando por
@@ -158,6 +161,16 @@ function normalizarDataLinha(valor, dataFallback) {
 }
 
 router.post('/importar-csv', upload.single('arquivo'), (req, res) => {
+  if (process.env.POS_VISITA_IMPORT_SECRET) {
+    const authHeader = req.headers['authorization'];
+    const secretQuery = req.query.secret || (req.body && req.body.secret);
+    const validHeader = authHeader === `Bearer ${process.env.POS_VISITA_IMPORT_SECRET}`;
+    const validQuery = secretQuery === process.env.POS_VISITA_IMPORT_SECRET;
+    if (!validHeader && !validQuery) {
+      return res.status(401).json({ error: 'Não autorizado. Token de importação inválido.' });
+    }
+  }
+
   if (!req.file) {
     return res.status(400).json({ error: 'Arquivo CSV é obrigatório.' });
   }

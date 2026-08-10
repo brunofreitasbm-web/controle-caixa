@@ -88,15 +88,36 @@ router.get('/pins', (req, res) => {
   });
 });
 
+const verifyAttempts = new Map();
+
+function checkVerifyRateLimit(key) {
+  const now = Date.now();
+  const entry = verifyAttempts.get(key);
+  if (!entry || now > entry.resetAt) {
+    verifyAttempts.set(key, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+  if (entry.count >= 10) {
+    return false;
+  }
+  entry.count += 1;
+  return true;
+}
+
 // Verificar PIN (autenticação segura — compara hash)
 router.post('/auth/verify', (req, res) => {
   const { usuario, pin } = req.body;
   if (!usuario || !pin) return res.status(400).json({ valid: false, error: 'Usuário e PIN são obrigatórios.' });
-  
+
+  const clientKey = `${req.ip}_${String(usuario).trim().toLowerCase()}`;
+  if (!checkVerifyRateLimit(clientKey)) {
+    return res.status(429).json({ valid: false, error: 'Muitas tentativas de login. Aguarde 1 minuto.' });
+  }
+
   db.get('SELECT pin FROM pins WHERE usuario = ?', [usuario], (err, row) => {
     if (err) return res.status(500).json({ valid: false, error: err.message });
     if (!row) return res.json({ valid: false, hasPin: false });
-    
+
     // Suporte a PINs antigos (texto puro) e novos (hash bcrypt)
     if (row.pin.startsWith('$2a$') || row.pin.startsWith('$2b$')) {
       // PIN já é hash bcrypt

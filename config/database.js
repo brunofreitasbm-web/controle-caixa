@@ -94,10 +94,11 @@ let db;
 if (isPostgres) {
   console.log('Iniciando conexão com banco de dados PostgreSQL (Supabase)...');
   const { Pool } = require('pg');
+  const sslRejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true';
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-      rejectUnauthorized: false
+      rejectUnauthorized: sslRejectUnauthorized
     }
   });
 

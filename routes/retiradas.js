@@ -147,6 +147,10 @@ router.post('/solicitacoes-retirada/:id/autorizar', requireOwner, async (req, re
     // mesmos campos, então não há motivo pra separar por linha. Os eventos de
     // tempo real continuam um por registro (é broadcast em memória, não
     // round-trip de banco, e cada cliente precisa do id individual).
+    if (!Array.isArray(solicitacao.registroIds) || solicitacao.registroIds.length === 0) {
+      return res.status(400).json({ error: 'Nenhum envelope para autorizar nesta solicitação.' });
+    }
+
     const placeholdersIds = solicitacao.registroIds.map(() => '?').join(',');
     db.run(
       `UPDATE ${tabela} SET status = ?, dataRetirada = ?, retiradoPor = ?, confirmadoPorApp = ?, autorizadoPor = ? WHERE id IN (${placeholdersIds})`,

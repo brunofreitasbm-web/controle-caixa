@@ -24,9 +24,13 @@ router.post('/biometria', (req, res) => {
     return res.status(400).json({ error: 'Usuário e embedding são obrigatórios.' });
   }
 
-  const agora = new Date().toISOString();
+  db.get('SELECT nome FROM colaboradores WHERE nome = ?', [usuario], (errColab, colab) => {
+    if (errColab) return res.status(500).json({ error: errColab.message });
+    if (!colab) return res.status(404).json({ error: 'Colaborador não encontrado para cadastrar biometria.' });
 
-  db.get('SELECT tentativasFalhas, bloqueadoAte FROM biometria_tentativas WHERE usuario = ?', [usuario], (err, tentativa) => {
+    const agora = new Date().toISOString();
+
+    db.get('SELECT tentativasFalhas, bloqueadoAte FROM biometria_tentativas WHERE usuario = ?', [usuario], (err, tentativa) => {
     if (err) return res.status(500).json({ error: err.message });
 
     if (tentativa && tentativa.bloqueadoAte && new Date(tentativa.bloqueadoAte) > new Date()) {
@@ -86,6 +90,7 @@ router.post('/biometria', (req, res) => {
       }
     );
   });
+ });
 });
 
 module.exports = router;

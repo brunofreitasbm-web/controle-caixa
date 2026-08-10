@@ -4,7 +4,10 @@ const multer = require('multer');
 const pdfjsLib = require('pdfjs-dist');
 const { db, normalizeRow } = require('../config/database');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // Limite defensivo de 10MB
+});
 
 const MESES = {
   jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
