@@ -297,6 +297,12 @@
         <h3>Controle de Ponto</h3>
         <p>Marcação de jornada e espelho de ponto</p>
       </button>
+
+      <button id="btn-mod-caixa" class="module-card card-caixa">
+        <span class="mod-icon"><i class="fa-solid fa-sack-dollar" style="color: #16a34a;"></i></span>
+        <h3>Fluxo de Caixa</h3>
+        <p>Painel, diário, teto de campanha e diagnóstico (Owner)</p>
+      </button>
     </div>
   </div>
 </div>
@@ -474,6 +480,23 @@
           <button class="tab-btn hidden" id="tab-btn-insights-ia" data-tab="insights-ia" role="tab" aria-selected="false" aria-controls="tab-insights-ia" data-tip="Briefing do dia, coach de conversão, escala e copiloto de meta">
             <span class="tab-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
             <span class="tab-text">Insights IA</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fluxo de Caixa: exclusivo Owner (TABS_POR_ROLE só inclui esta aba
+           para "owner"; ajustarCardsModulos() esconde o botão hidden abaixo
+           para qualquer outro perfil). -->
+      <div class="sidebar-group collapsed" id="group-fluxo-caixa">
+        <button class="sidebar-group-header is-direct" data-tab="fluxo-caixa" data-tip="Painel, diário do caixa, teto de campanha, referência e diagnóstico">
+          <span class="group-icon"><i class="fa-solid fa-sack-dollar"></i></span>
+          <span class="group-title">Fluxo de Caixa</span>
+          <span class="group-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </button>
+        <div class="sidebar-group-content">
+          <button class="tab-btn hidden" id="tab-btn-fluxo-caixa" data-tab="fluxo-caixa" role="tab" aria-selected="false" aria-controls="tab-fluxo-caixa" data-tip="Painel, diário do caixa, teto de campanha, referência e diagnóstico">
+            <span class="tab-icon"><i class="fa-solid fa-sack-dollar"></i></span>
+            <span class="tab-text">Fluxo de Caixa</span>
           </button>
         </div>
       </div>
@@ -2551,6 +2574,132 @@
       </div>
     </section>
 
+    <!-- ===================== FLUXO DE CAIXA (exclusivo Owner) =====================
+         Espelha a "Planilha de Controle Financeiro - Cacau Show.xlsx" (4 abas:
+         Painel, Diário do Caixa, Teto de Campanha, Referência), + Diagnóstico
+         por IA. Faturamento/dias abertos/títulos vêm automaticamente de
+         `registros`/`boletos` — ver services/fluxo-caixa-dados.js. -->
+    <section id="tab-fluxo-caixa" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-fluxo-caixa">
+      <div class="section-header mb-6">
+        <div>
+          <h2><i class="fa-solid fa-sack-dollar" style="color:#16a34a;"></i> Fluxo de Caixa</h2>
+          <p class="section-sub">Painel, diário do caixa, teto de campanha, referência e diagnóstico — visão exclusiva do Owner.</p>
+        </div>
+      </div>
+
+      <nav class="fc-subnav" id="fc-subnav" role="tablist" aria-label="Navegação Fluxo de Caixa">
+        <button class="fc-sub-btn active" data-fc-tab="fc-painel" id="fc-tablink-painel">Painel</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-diario" id="fc-tablink-diario">Diário do Caixa</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-teto" id="fc-tablink-teto">Teto de Campanha</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-referencia" id="fc-tablink-referencia">Referência</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-diagnostico" id="fc-tablink-diagnostico">Diagnóstico <i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      </nav>
+
+      <!-- SUB-TAB: PAINEL -->
+      <div id="fc-tab-fc-painel" class="fc-tab-panel">
+        <div class="card" style="margin-bottom:16px;">
+          <label for="fc-painel-mes">Mês de referência</label>
+          <input type="month" id="fc-painel-mes">
+        </div>
+        <div id="fc-painel-cards" class="cards-lojas"></div>
+        <div id="fc-painel-rede" class="card" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- SUB-TAB: DIÁRIO DO CAIXA -->
+      <div id="fc-tab-fc-diario" class="fc-tab-panel hidden">
+        <div class="card" style="margin-bottom:16px;">
+          <label for="fc-diario-mes">Mês de referência</label>
+          <input type="month" id="fc-diario-mes">
+          <p class="section-sub" style="margin-top:8px;">Venda diária somada automaticamente dos fechamentos de caixa já lançados (campo "Valor Faturado"). Alíquota de imposto vem da aba Referência.</p>
+        </div>
+        <div class="card rounded-2xl overflow-hidden" style="overflow-x:auto;">
+          <table class="w-full text-sm" id="fc-diario-tabela">
+            <thead><tr><th class="py-2 px-3 text-left">Data</th><th class="py-2 px-3 text-left">Loja</th><th class="py-2 px-3 text-right">Venda</th><th class="py-2 px-3 text-right">Transferir p/ Imposto</th><th class="py-2 px-3 text-left">Observação</th></tr></thead>
+            <tbody id="fc-diario-tbody"><tr><td colspan="5" class="py-8 text-center text-ink-muted">Selecione o mês.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: TETO DE CAMPANHA -->
+      <div id="fc-tab-fc-teto" class="fc-tab-panel hidden">
+        <form id="form-fc-campanha" class="card form-card" style="margin-bottom:16px;">
+          <h3>Nova campanha / atualizar pedido</h3>
+          <div class="grid-2">
+            <div class="field">
+              <label for="fc-campanha-nome">Nome da campanha *</label>
+              <input type="text" id="fc-campanha-nome" placeholder="Ex.: Páscoa 2027" required>
+            </div>
+            <div class="field">
+              <label for="fc-campanha-loja">Loja *</label>
+              <select id="fc-campanha-loja" required>
+                <option value="" disabled selected>Selecione</option>
+                <option>Marambaia</option>
+                <option>Icoaraci</option>
+                <option>Mário Covas</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fc-campanha-data">Data comemorativa</label>
+              <input type="date" id="fc-campanha-data">
+            </div>
+            <div class="field">
+              <label for="fc-campanha-mes-ref">Mês de referência (faturamento do ano anterior)</label>
+              <input type="month" id="fc-campanha-mes-ref">
+            </div>
+            <div class="field">
+              <label for="fc-campanha-faturamento-anterior">Faturou no mesmo mês do ano anterior (R$)</label>
+              <input type="text" id="fc-campanha-faturamento-anterior" inputmode="numeric" placeholder="Auto, a partir do mês de referência">
+            </div>
+            <div class="field">
+              <label for="fc-campanha-pedido">Pedido que estão oferecendo (R$)</label>
+              <input type="text" id="fc-campanha-pedido" inputmode="numeric" placeholder="R$ 0,00">
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="margin-top:12px;">Salvar</button>
+        </form>
+        <div id="fc-teto-lista"></div>
+      </div>
+
+      <!-- SUB-TAB: REFERÊNCIA -->
+      <div id="fc-tab-fc-referencia" class="fc-tab-panel hidden">
+        <p class="section-sub" style="margin-bottom:12px;">Números fixos da análise financeira — só mudam quando você reprocessa os dados (ex.: despesa fixa mudou). Editável, pré-preenchido com a última análise.</p>
+        <div class="card rounded-2xl overflow-hidden" style="overflow-x:auto; margin-bottom:16px;">
+          <table class="w-full text-sm" id="fc-referencia-tabela">
+            <thead><tr>
+              <th class="py-2 px-3 text-left">Loja</th>
+              <th class="py-2 px-3 text-right">Faturamento/mês</th>
+              <th class="py-2 px-3 text-right">Despesa fixa/mês</th>
+              <th class="py-2 px-3 text-right">Equilíbrio/mês</th>
+              <th class="py-2 px-3 text-right">Equilíbrio/dia</th>
+              <th class="py-2 px-3 text-right">Resultado (10m)</th>
+              <th class="py-2 px-3 text-right">Alíquota imposto</th>
+              <th class="py-2 px-3"></th>
+            </tr></thead>
+            <tbody id="fc-referencia-tbody"></tbody>
+          </table>
+        </div>
+        <h3 style="margin-bottom:8px;">Índice de sazonalidade (1,00 = dia comum da loja)</h3>
+        <div class="card rounded-2xl overflow-hidden" style="overflow-x:auto;">
+          <table class="w-full text-sm" id="fc-sazonal-tabela">
+            <thead><tr><th class="py-2 px-3 text-left">Mês</th><th class="py-2 px-3 text-right">Marambaia</th><th class="py-2 px-3 text-right">Icoaraci</th><th class="py-2 px-3 text-right">Mário Covas</th><th class="py-2 px-3 text-left">Situação</th></tr></thead>
+            <tbody id="fc-sazonal-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: DIAGNÓSTICO (IA) -->
+      <div id="fc-tab-fc-diagnostico" class="fc-tab-panel hidden">
+        <div class="ia-card">
+          <div class="ia-card-topo">
+            <h3><i class="fa-solid fa-stethoscope"></i> Diagnóstico de Fluxo de Caixa</h3>
+            <button type="button" id="fc-diagnostico-atualizar" class="btn-secondary btn-sm"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+          </div>
+          <p class="ia-card-sub">Situação por loja, teto de campanha, estação do ano e retirada dos sócios contra o sustentável — apurado a partir dos dados do sistema.</p>
+          <div id="fc-diagnostico-conteudo"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC ===================== -->
     <section id="tab-rh-modulo" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-rh-modulo">
       <div class="section-header mb-6">
@@ -3858,6 +4007,7 @@
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
 <script src="insights-ia.js?v=1"></script>
-<script src="app.js?v=46"></script>
+<script src="fluxo-caixa.js?v=1"></script>
+<script src="app.js?v=48"></script>
 </body>
 </html>

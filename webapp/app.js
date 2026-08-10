@@ -174,7 +174,7 @@ const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "fluxo-caixa", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1519,6 +1519,7 @@ function ajustarCardsModulos() {
   const btnFaca = document.getElementById("btn-mod-faca");
   const btnRh = document.getElementById("btn-mod-rh");
   const btnPonto = document.getElementById("btn-mod-ponto");
+  const btnCaixa = document.getElementById("btn-mod-caixa");
 
   const role = currentUser.role;
 
@@ -1528,6 +1529,9 @@ function ajustarCardsModulos() {
   // Registro de Ponto do FaçaAmigos é feito por outro sistema — o módulo
   // aqui é exclusivo do Cacau Show, não aparece para consultora_fa.
   if (btnPonto) btnPonto.classList.toggle("hidden", role === "consultora_fa");
+  // Fluxo de Caixa é acesso exclusivo do Owner, tanto no client (aqui) quanto
+  // no servidor (requireOwner em routes/fluxo-caixa.js).
+  if (btnCaixa) btnCaixa.classList.toggle("hidden", role !== "owner");
 
   // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
   // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
@@ -1585,6 +1589,9 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "controle-ponto") {
       tabsPermitidas = ["controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "fluxo-caixa") {
+      tabsPermitidas = ["fluxo-caixa", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
@@ -1628,7 +1635,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-fluxo-caixa", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1683,6 +1690,8 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
+    } else if (moduloOpcional === "fluxo-caixa") {
+      ativarTab("fluxo-caixa");
     }
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
@@ -1870,6 +1879,13 @@ if (btnModPonto) {
   });
 }
 
+const btnModCaixa = document.getElementById("btn-mod-caixa");
+if (btnModCaixa) {
+  btnModCaixa.addEventListener("click", () => {
+    iniciarModuloBase("fluxo-caixa");
+  });
+}
+
 // Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
 // num clique só, pro módulo escolhido.
 document.querySelectorAll(".module-switch-btn").forEach(btn => {
@@ -1963,7 +1979,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "aniversarios", "fluxo-caixa"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2041,6 +2057,7 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   if (tabName === "aniversarios") renderAniversarios();
+  if (tabName === "fluxo-caixa" && typeof ativarFcSubTab === "function") ativarFcSubTab(fcSubTabAtiva);
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
   observarTituloDaSecao(tabName);
@@ -2431,6 +2448,30 @@ function ativarFaSubTab(subTabName) {
 // Listeners para sub-abas FA
 document.querySelectorAll(".fa-sub-btn").forEach(btn => {
   btn.addEventListener("click", () => ativarFaSubTab(btn.dataset.faTab));
+});
+
+// Sub-tab ativa do Fluxo de Caixa (mesmo padrão de faSubTabAtiva/ativarFaSubTab).
+// As funções renderFc* vivem em webapp/fluxo-caixa.js.
+let fcSubTabAtiva = "fc-painel";
+
+function ativarFcSubTab(subTabName) {
+  fcSubTabAtiva = subTabName;
+  document.querySelectorAll(".fc-sub-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".fc-tab-panel").forEach(p => p.classList.add("hidden"));
+  const activeBtn = document.querySelector(`.fc-sub-btn[data-fc-tab="${subTabName}"]`);
+  if (activeBtn) activeBtn.classList.add("active");
+  const panel = document.getElementById(`fc-tab-${subTabName}`);
+  if (panel) panel.classList.remove("hidden");
+
+  if (subTabName === "fc-painel" && typeof renderFcPainel === "function") renderFcPainel();
+  if (subTabName === "fc-diario" && typeof renderFcDiario === "function") renderFcDiario();
+  if (subTabName === "fc-teto" && typeof renderFcTeto === "function") renderFcTeto();
+  if (subTabName === "fc-referencia" && typeof renderFcReferencia === "function") renderFcReferencia();
+  if (subTabName === "fc-diagnostico" && typeof renderFcDiagnostico === "function") renderFcDiagnostico();
+}
+
+document.querySelectorAll(".fc-sub-btn").forEach(btn => {
+  btn.addEventListener("click", () => ativarFcSubTab(btn.dataset.fcTab));
 });
 
 document.querySelectorAll(".tab-btn").forEach(btn => {

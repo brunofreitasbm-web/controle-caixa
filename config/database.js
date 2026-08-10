@@ -58,7 +58,24 @@ const camelCaseMap = {
   mimetype: 'mimeType',
   datavencimento: 'dataVencimento',
   vencimentosugeridoia: 'vencimentoSugeridoIA',
-  enviadopor: 'enviadoPor'
+  enviadopor: 'enviadoPor',
+  mesreferencia: 'mesReferencia',
+  saldooperacao: 'saldoOperacao',
+  saldoimposto: 'saldoImposto',
+  saldoreserva: 'saldoReserva',
+  retiradasocios: 'retiradaSocios',
+  datacomemorativa: 'dataComemorativa',
+  mesreferenciafaturamento: 'mesReferenciaFaturamento',
+  faturamentoanoanterior: 'faturamentoAnoAnterior',
+  pedidooferecido: 'pedidoOferecido',
+  fatorteto: 'fatorTeto',
+  multiplicadorroyalties: 'multiplicadorRoyalties',
+  faturamentomes: 'faturamentoMes',
+  despesafixames: 'despesaFixaMes',
+  pontoequilibriomes: 'pontoEquilibrioMes',
+  pontoequilibriodia: 'pontoEquilibrioDia',
+  resultado10meses: 'resultado10Meses',
+  aliquotaimposto: 'aliquotaImposto'
 };
 
 function normalizeRow(row) {
@@ -545,6 +562,74 @@ function initDb(onSuccess) {
           enviadoPor TEXT,
           criadoEm TEXT,
           atualizadoEm TEXT
+        )`,
+        // ------------------------------------------------------------------
+        // Módulo Fluxo de Caixa (exclusivo Owner) — só grava o que não dá
+        // para derivar de outra tabela. Faturamento/dias abertos/venda por
+        // dia vêm de `registros` (mesma fonte do Dashboard/Mensal do Cacau
+        // Show); títulos em aberto/vencidos vêm de `boletos`. Ver
+        // services/fluxo-caixa-dados.js.
+        // ------------------------------------------------------------------
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_mensal (
+          id TEXT PRIMARY KEY,
+          mesReferencia TEXT NOT NULL,
+          loja TEXT NOT NULL,
+          saldoOperacao DOUBLE PRECISION,
+          saldoImposto DOUBLE PRECISION,
+          saldoReserva DOUBLE PRECISION,
+          retiradaSocios DOUBLE PRECISION,
+          observacoes TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT,
+          UNIQUE(mesReferencia, loja)
+        )`,
+        // Teto de Compra de Campanha (Páscoa, Natal etc). `pedidoOferecido` é
+        // digitado pelo Bruno — não existe em nenhuma NF-e/boleto antes do
+        // pedido ser fechado. `faturamentoAnoAnterior` chega pré-preenchido a
+        // partir de `registros`, mas fica editável.
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_campanha (
+          id TEXT PRIMARY KEY,
+          nome TEXT NOT NULL,
+          dataComemorativa TEXT,
+          mesReferenciaFaturamento TEXT,
+          loja TEXT NOT NULL,
+          faturamentoAnoAnterior DOUBLE PRECISION,
+          pedidoOferecido DOUBLE PRECISION,
+          fatorTeto DOUBLE PRECISION DEFAULT 0.40,
+          multiplicadorRoyalties DOUBLE PRECISION DEFAULT 1.48,
+          observacoes TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT,
+          UNIQUE(nome, loja)
+        )`,
+        // Números de referência da análise financeira (contexto_cacau_show.md)
+        // — só mudam quando o Bruno reprocessa os dados, não são recalculados
+        // automaticamente pelo sistema.
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_referencia_loja (
+          loja TEXT PRIMARY KEY,
+          faturamentoMes DOUBLE PRECISION,
+          despesaFixaMes DOUBLE PRECISION,
+          pontoEquilibrioMes DOUBLE PRECISION,
+          pontoEquilibrioDia DOUBLE PRECISION,
+          resultado10Meses DOUBLE PRECISION,
+          aliquotaImposto DOUBLE PRECISION DEFAULT 0.082,
+          atualizadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_indice_sazonal (
+          id TEXT PRIMARY KEY,
+          loja TEXT NOT NULL,
+          mes INTEGER NOT NULL,
+          indice DOUBLE PRECISION,
+          situacao TEXT,
+          UNIQUE(loja, mes)
+        )`,
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_observacao_diaria (
+          id TEXT PRIMARY KEY,
+          data TEXT NOT NULL,
+          loja TEXT NOT NULL,
+          observacao TEXT,
+          criadoEm TEXT,
+          UNIQUE(data, loja)
         )`
       ];
 
@@ -850,7 +935,11 @@ function initDb(onSuccess) {
         `CREATE INDEX IF NOT EXISTS idx_documentos_auditoria_negocio_criado ON documentos_auditoria(negocio, criadoEm DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_documentos_auditoria_vencimento ON documentos_auditoria(dataVencimento)`,
         // Retiradas pendentes de autorização.
-        `CREATE INDEX IF NOT EXISTS idx_solicitacoes_retirada_status_criado ON solicitacoes_retirada(status, criadoEm DESC)`
+        `CREATE INDEX IF NOT EXISTS idx_solicitacoes_retirada_status_criado ON solicitacoes_retirada(status, criadoEm DESC)`,
+        // Fluxo de Caixa: painel/diário filtram por mês, campanhas por loja.
+        `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_mensal_mes ON fluxo_caixa_mensal(mesReferencia)`,
+        `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_campanha_loja ON fluxo_caixa_campanha(loja)`,
+        `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_obs_diaria_data ON fluxo_caixa_observacao_diaria(data)`
       ];
       indicesConsulta.forEach(sqlIndice => {
         promise = promise.then(() => {
@@ -914,6 +1003,55 @@ function initDb(onSuccess) {
             Promise.all(inserts).then(() => resolve());
           });
         });
+      });
+
+      // Seed dos números de referência do Fluxo de Caixa (contexto_cacau_show.md,
+      // base set/2025-jun/2026). ON CONFLICT DO NOTHING: só grava se a loja
+      // ainda não tiver linha — depois do primeiro boot o Owner edita pela
+      // tela e o seed nunca mais sobrescreve o valor real.
+      promise = promise.then(() => {
+        const referenciaSeed = [
+          { loja: 'Marambaia', faturamentoMes: 118566, despesaFixaMes: 33012, pontoEquilibrioMes: 83767, pontoEquilibrioDia: 2755, resultado10Meses: 137401 },
+          { loja: 'Icoaraci', faturamentoMes: 71775, despesaFixaMes: 18163, pontoEquilibrioMes: 46018, pontoEquilibrioDia: 1514, resultado10Meses: 100375 },
+          { loja: 'Mário Covas', faturamentoMes: 25629, despesaFixaMes: 10782, pontoEquilibrioMes: 27247, pontoEquilibrioDia: 896, resultado10Meses: -2439 }
+        ];
+        const agora = new Date().toISOString();
+        return Promise.all(referenciaSeed.map(r => new Promise(resolve => {
+          db.run(
+            `INSERT INTO fluxo_caixa_referencia_loja
+              (loja, faturamentoMes, despesaFixaMes, pontoEquilibrioMes, pontoEquilibrioDia, resultado10Meses, aliquotaImposto, atualizadoEm)
+             VALUES (?, ?, ?, ?, ?, ?, 0.082, ?)
+             ON CONFLICT(loja) DO NOTHING`,
+            [r.loja, r.faturamentoMes, r.despesaFixaMes, r.pontoEquilibrioMes, r.pontoEquilibrioDia, r.resultado10Meses, agora],
+            () => resolve()
+          );
+        })));
+      });
+
+      // Seed do índice de sazonalidade mensal (1,00 = dia comum daquela loja).
+      promise = promise.then(() => {
+        const SITUACAO_POR_MES = { 1: 'PREPARAR', 2: 'PREPARAR', 3: 'COLHER', 4: 'COLHER', 5: 'ATRAVESSAR', 6: 'ATRAVESSAR', 7: 'ATRAVESSAR', 8: 'ATRAVESSAR', 9: 'ATRAVESSAR', 10: 'ATRAVESSAR', 11: 'ATRAVESSAR', 12: 'COLHER' };
+        const indicesPorLoja = {
+          'Marambaia': [0.44, 0.51, 2.20, 2.46, 0.60, 0.65, 0.31, 0.41, 0.40, 0.55, 0.74, 2.44],
+          'Icoaraci': [0.43, 0.53, 1.03, 3.82, 0.71, 0.88, 0.36, 0.45, 0.62, 0.64, 0.57, 1.64],
+          'Mário Covas': [0.58, 1.04, 1.44, 3.21, 0.75, 0.97, 0.53, 0.61, 0.54, 0.60, 0.35, 1.13]
+        };
+        const linhas = [];
+        Object.entries(indicesPorLoja).forEach(([loja, indices]) => {
+          indices.forEach((indice, i) => {
+            const mes = i + 1;
+            linhas.push({ id: `sazonal-${loja}-${mes}`, loja, mes, indice, situacao: SITUACAO_POR_MES[mes] });
+          });
+        });
+        return Promise.all(linhas.map(l => new Promise(resolve => {
+          db.run(
+            `INSERT INTO fluxo_caixa_indice_sazonal (id, loja, mes, indice, situacao)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(loja, mes) DO NOTHING`,
+            [l.id, l.loja, l.mes, l.indice, l.situacao],
+            () => resolve()
+          );
+        })));
       });
 
       // Remove usuários desativados (LiderOP e as contas de treinamento) que

@@ -9,44 +9,12 @@
 
 const { dbAllAsync } = require('../config/database');
 const { gerarJSON, comCache, iaHabilitada, IAIndisponivelError } = require('./ia');
-
-// 9175/4304/9201 são os códigos usados na tabela `boletos`; o restante do
-// sistema (registros, metas, metas_vendas) identifica a loja pelo nome. Sem
-// esse mapa o briefing reportaria boletos de "9175" e vendas de "Marambaia"
-// como se fossem operações diferentes.
-const CODIGO_PARA_LOJA = { '9175': 'Marambaia', '4304': 'Icoaraci', '9201': 'Mário Covas' };
-
-const LOJAS_CACAU = ['Marambaia', 'Icoaraci', 'Mário Covas'];
-
-function hojeBrasil() {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).formatToParts(new Date());
-  const o = {};
-  p.forEach(x => { o[x.type] = x.value; });
-  return `${o.year}-${o.month}-${o.day}`;
-}
-
-function somarDias(dataISO, dias) {
-  const d = new Date(`${dataISO}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
-// A coluna `vencimento` da tabela boletos é texto no formato DD/MM/YYYY —
-// ordenar ou comparar direto no SQL daria resultado errado ('01/09' < '02/08').
-// Converte para ISO para poder comparar de verdade.
-function vencimentoParaISO(v) {
-  if (!v) return null;
-  const s = String(v).trim();
-  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return iso[0];
-  return null;
-}
-
-const reais = n => `R$ ${Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// CODIGO_PARA_LOJA/vencimentoParaISO/etc. vivem em fluxo-caixa-dados.js (o
+// módulo Fluxo de Caixa também precisa dos dois) — reexportados aqui para
+// não quebrar quem já importa este módulo.
+const {
+  CODIGO_PARA_LOJA, LOJAS_CACAU, hojeBrasil, somarDias, vencimentoParaISO, reais
+} = require('./fluxo-caixa-dados');
 
 // --------------------------------------------------------------------------
 // Apuração

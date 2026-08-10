@@ -41,6 +41,7 @@ const inventarioRoutes = require('./routes/inventario');
 const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
+const fluxoCaixaRoutes = require('./routes/fluxo-caixa');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -86,6 +87,7 @@ app.use('/api/pos-visita', posVisitaRoutes);
 app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
+app.use('/api/fluxo-caixa', fluxoCaixaRoutes);
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)

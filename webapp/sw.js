@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v53'; // v53: ponto do FaçaAmigos descartado, exclusivo do Cacau Show
+aconst CACHE_NAME = 'ponto-pwa-v53'; // v53: ponto do FaçaAmigos descartado, exclusivo do Cacau Show
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

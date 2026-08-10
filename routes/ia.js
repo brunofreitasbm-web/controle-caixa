@@ -15,6 +15,8 @@ const { gerarBriefing } = require('../services/ia-briefing');
 const { gerarEscala } = require('../services/ia-escala');
 const { mensagemAniversario, mensagemPosVisita } = require('../services/ia-mensagens');
 const { gerarAvisoCopiloto } = require('../services/ia-copiloto');
+const { gerarDiagnosticoFluxoCaixa } = require('../services/ia-fluxo-caixa');
+const requireOwner = require('./middleware/requireOwner');
 
 // Diagnóstico: permite conferir se a chave está configurada no ambiente sem
 // expor o valor dela.
@@ -180,6 +182,26 @@ router.get('/ia/copiloto', async (req, res) => {
     res.json(resultado);
   } catch (err) {
     console.error('[IA Copiloto] Erro:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------------------------------------------------------------
+// Diagnóstico de Fluxo de Caixa (exclusivo Owner)
+// GET /api/ia/fluxo-caixa[?mes=YYYY-MM][&forcar=true]&actorUsuario=Bruno
+// --------------------------------------------------------------------------
+router.get('/ia/fluxo-caixa', requireOwner, async (req, res) => {
+  const { mes, forcar } = req.query;
+
+  if (mes && !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+    return res.status(400).json({ error: 'Parâmetro "mes" deve estar no formato YYYY-MM.' });
+  }
+
+  try {
+    const resultado = await gerarDiagnosticoFluxoCaixa({ mesRef: mes || null, forcar: forcar === 'true' });
+    res.json(resultado);
+  } catch (err) {
+    console.error('[IA Fluxo de Caixa] Erro:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -2972,8 +2972,8 @@ body.tema-fa .topbar {
 
 .module-cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
   gap: clamp(10px, 3vw, 20px);
   margin-top: clamp(12px, 3vw, 24px);
 }
@@ -3031,11 +3031,14 @@ body.tema-fa .topbar {
   color: var(--coral);
 }
 
-/* Grid permanece 2x2 até 320px de largura (touch targets >= 48x48dp),
-   apenas com fontes/paddings reduzidos via clamp() acima. */
+/* Abaixo de 600px os 5 cards não cabem em 3 colunas sem esmagar o touch
+   target (>= 48x48dp) — cai para 2 colunas (3ª linha com 1 card sozinho). */
 @media (max-width: 600px) {
   .module-modal {
     padding: clamp(12px, 4vw, 20px);
+  }
+  .module-cards {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -3736,6 +3739,101 @@ body.tema-fa .topbar {
 
 .card-ponto h3 {
   color: #2563EB;
+}
+
+.card-caixa {
+  border-color: rgba(22, 163, 74, 0.4) !important;
+}
+
+.card-caixa:hover {
+  border-color: #16a34a !important;
+  box-shadow: 0 10px 30px rgba(22, 163, 74, 0.25) !important;
+}
+
+.card-caixa h3 {
+  color: #16a34a;
+}
+
+/* ============================================================
+   FLUXO DE CAIXA — sub-navegação interna (mesmo padrão de .fa-subnav,
+   com tom verde próprio em vez do coral do FaçaAmigos).
+   ============================================================ */
+.fc-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--gray-100);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.fc-sub-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.fc-sub-btn:hover {
+  background: rgba(22, 163, 74, 0.08);
+  color: #16a34a;
+}
+
+.fc-sub-btn.active {
+  background: #16a34a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+}
+
+.fc-tab-panel {
+  animation: fadeInUp 0.25s ease;
+}
+
+.fc-tab-panel input[type="text"],
+.fc-tab-panel input[type="month"],
+.fc-tab-panel input[type="date"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 0.8rem !important;
+}
+
+.fc-painel-form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.fc-painel-form label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fc-painel-form .fc-salvar-painel {
+  grid-column: 1 / -1;
 }
 
 .disc-badge {
