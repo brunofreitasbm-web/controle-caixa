@@ -1951,8 +1951,17 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
   showModal("PIN alterado com sucesso!", { icon: "✅", title: "Sucesso", btnText: "Fechar" });
 });
 
-// --- Tabs ---
-function ativarTab(tabName) {
+// --- Tabs & Histórico de Navegação ---
+var tabHistoryStack = [];
+var currentActiveTab = null;
+
+function ativarTab(tabName, skipHistory = false) {
+  if (currentActiveTab && currentActiveTab !== tabName && !skipHistory) {
+    tabHistoryStack.push(currentActiveTab);
+    if (tabHistoryStack.length > 30) tabHistoryStack.shift();
+  }
+  currentActiveTab = tabName;
+
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
   const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "aniversarios"];
 
@@ -2162,6 +2171,183 @@ document.addEventListener("keydown", (e) => {
     btnPrincipal.click();
   }
 });
+
+// ==========================================================================
+// GERENCIADOR GLOBAL DE GESTOS E ATALHOS DE NAVEGAÇÃO
+// ==========================================================================
+
+function mostrarToastNavegacao(mensagem) {
+  let toastEl = document.getElementById("toast-navegacao-feedback");
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "toast-navegacao-feedback";
+    toastEl.className = "toast-nav-badge";
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = mensagem;
+  toastEl.classList.add("visible");
+  clearTimeout(toastEl._timer);
+  toastEl._timer = setTimeout(() => {
+    toastEl.classList.remove("visible");
+  }, 1800);
+}
+
+function fecharModalAtivo() {
+  const overlaysVisiveis = Array.from(document.querySelectorAll(".modal-overlay, .rh-perfil-modal-overlay, .modal-confirm, .module-modal"))
+    .filter(o => !o.classList.contains("hidden") && getComputedStyle(o).display !== "none");
+  
+  if (overlaysVisiveis.length > 0) {
+    const topoModal = overlaysVisiveis[overlaysVisiveis.length - 1];
+    const btnFechar = topoModal.querySelector(".btn-secondary, .btn-cancel, [id$='-cancelar'], [id$='-fechar'], .modal-close");
+    if (btnFechar) {
+      btnFechar.click();
+    } else {
+      topoModal.classList.add("hidden");
+    }
+    return true;
+  }
+  return false;
+}
+
+function voltarTelaAnterior() {
+  // 1. Fechar modal aberto
+  if (fecharModalAtivo()) {
+    mostrarToastNavegacao("✕ Modal Fechado");
+    return true;
+  }
+
+  // 2. Fechar sidebar mobile se estiver aberta
+  if (document.documentElement.classList.contains("sidebar-mobile-open") || (typeof sidebarEl !== "undefined" && sidebarEl && sidebarEl.classList.contains("open"))) {
+    if (typeof fecharSidebarMobile === "function") fecharSidebarMobile();
+    mostrarToastNavegacao("← Menu Fechado");
+    return true;
+  }
+
+  // 3. Voltar no histórico de abas
+  if (typeof tabHistoryStack !== "undefined" && tabHistoryStack && tabHistoryStack.length > 0) {
+    const abaAnterior = tabHistoryStack.pop();
+    if (typeof ativarTab === "function") {
+      ativarTab(abaAnterior, true);
+      const btn = document.querySelector(`.tab-btn[data-tab="${abaAnterior}"]`);
+      const label = btn ? btn.textContent.trim() : abaAnterior;
+      mostrarToastNavegacao(`← Voltou para ${label}`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Atalhos globais de teclado (Backspace, Escape, Alt + Seta, Ctrl + K)
+document.addEventListener("keydown", (e) => {
+  const target = e.target;
+  const isInput = target && (
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT" ||
+    target.isContentEditable
+  );
+
+  // Esc -> Volta a tela ou fecha modal
+  if (e.key === "Escape") {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Backspace -> Volta a tela/modal somente se NÃO estiver digitando em campo de texto
+  if (e.key === "Backspace" && !isInput) {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Alt + Seta Esquerda -> Voltar tela
+  if (e.altKey && e.key === "ArrowLeft") {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Ctrl + K ou Cmd + K -> Foco na busca rápida
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    const campoBusca = document.querySelector("input[type='search'], #search-input, .input-busca, #filtro-busca, input[placeholder*='Buscar'], input[placeholder*='buscar']");
+    if (campoBusca) {
+      e.preventDefault();
+      campoBusca.focus();
+      if (campoBusca.select) campoBusca.select();
+      mostrarToastNavegacao("🔍 Busca Rápida");
+    }
+    return;
+  }
+});
+
+// Gestos Touch e Interações de Tela (Swipe horizontal, Double-Tap no Topo, Backdrop Click)
+(function inicializarGestosNavegacao() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const duration = Date.now() - touchStartTime;
+
+    // Ignora se o toque demorou muito (> 600ms) ou se o movimento vertical foi acentuado (> 70px)
+    if (duration > 600 || Math.abs(deltaY) > 70) return;
+
+    // Ignora gestos que iniciam em elementos de scroll horizontal (tabelas, carrosséis)
+    const target = e.target;
+    if (target && target.closest && target.closest(".no-swipe, .carousel, table, .overflow-x-auto, [data-no-swipe]")) {
+      return;
+    }
+
+    // Arraste da esquerda para a direita (Swipe Right) -> Voltar Tela
+    if (deltaX > 90) {
+      voltarTelaAnterior();
+    }
+  }, { passive: true });
+
+  // Fechar modais ao clicar no fundo escurecido (overlay backdrop)
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains("modal-overlay")) {
+      e.target.classList.add("hidden");
+      mostrarToastNavegacao("✕ Modal Fechado");
+    }
+  });
+
+  // Toque duplo no cabeçalho para rolar ao topo (Scroll to Top)
+  document.addEventListener("DOMContentLoaded", () => {
+    const headers = document.querySelectorAll("header, .app-header, .topbar, .navbar, .sidebar-mobile-header");
+    headers.forEach(header => {
+      let lastTap = 0;
+      header.addEventListener("touchend", (e) => {
+        const currentTime = Date.now();
+        const tapLength = currentTime - lastTap;
+        if (tapLength < 300 && tapLength > 0) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          mostrarToastNavegacao("⬆ Topo da Página");
+          e.preventDefault();
+        }
+        lastTap = currentTime;
+      });
+    });
+  });
+})();
+
 
 // Toggle expandir/colapsar grupos da sidebar (Acordeão: abrir um grupo
 // recolhe automaticamente os demais, evitando uma sidebar gigante quando
