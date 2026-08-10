@@ -2464,10 +2464,13 @@ function ativarFcSubTab(subTabName) {
   if (panel) panel.classList.remove("hidden");
 
   if (subTabName === "fc-painel" && typeof renderFcPainel === "function") renderFcPainel();
+  if (subTabName === "fc-rotina" && typeof renderFcRotina === "function") renderFcRotina();
+  if (subTabName === "fc-checklist" && typeof renderFcChecklist === "function") renderFcChecklist();
   if (subTabName === "fc-diario" && typeof renderFcDiario === "function") renderFcDiario();
   if (subTabName === "fc-teto" && typeof renderFcTeto === "function") renderFcTeto();
   if (subTabName === "fc-referencia" && typeof renderFcReferencia === "function") renderFcReferencia();
   if (subTabName === "fc-diagnostico" && typeof renderFcDiagnostico === "function") renderFcDiagnostico();
+  if (typeof renderFcSazonalidadeBanner === "function") renderFcSazonalidadeBanner();
 }
 
 document.querySelectorAll(".fc-sub-btn").forEach(btn => {

@@ -337,4 +337,90 @@ router.put('/referencia/:loja', async (req, res) => {
   }
 });
 
+// --------------------------------------------------------------------------
+// CHECKLIST DOS 30 DIAS & MOTOR DE SAZONALIDADE (COACH FINANCEIRO)
+// --------------------------------------------------------------------------
+router.get('/checklist', async (req, res) => {
+  try {
+    const rows = await dbAllAsync('SELECT * FROM fluxo_caixa_checklist ORDER BY ordem ASC');
+    res.json(rows.map(normalizeRow));
+  } catch (err) {
+    console.error('[Fluxo de Caixa] Erro ao buscar checklist:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/checklist/:id', async (req, res) => {
+  const { id } = req.params;
+  const { concluido, notas } = req.body || {};
+  try {
+    const agora = concluido ? new Date().toISOString() : null;
+    await dbRunAsync(
+      `UPDATE fluxo_caixa_checklist SET concluido = ?, concluidoEm = ?, notas = ? WHERE id = ?`,
+      [concluido ? 1 : 0, agora, notas ?? null, id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Fluxo de Caixa] Erro ao atualizar checklist:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/sazonalidade', async (req, res) => {
+  try {
+    const dataAtual = new Date();
+    const mesAtual = dataAtual.getMonth() + 1; // 1 a 12
+    const diaAtual = dataAtual.getDate();
+
+    let estacao = 'ATRAVESSAR'; // Travessia (maio a nov)
+    let nomeEstacao = 'Estação da Travessia (Maio a Novembro)';
+    let descricaoEstacao = '7 meses abaixo do equilíbrio que consomem R$ 169 mil/ano na rede. Viver da reserva com disciplina. Comprar só reposição de giro.';
+    let corEstacao = 'blue'; // visual tag
+    let oQueFazer = 'Manter a retirada no valor combinado (máx R$ 7.060/sócio). Usar tempo livre para treinar equipe e organizar processos.';
+    let oQueNaoFazer = 'NÃO aceitar campanha opcional (Namorados, Pais, Crianças). Nessas datas as três lojas vendem perto de um dia comum.';
+
+    if ([3, 4, 12].includes(mesAtual)) {
+      estacao = 'COLHER';
+      nomeEstacao = 'Estação da Colheita (Março, Abril e Dezembro)';
+      descricaoEstacao = 'Os 3 únicos meses em que a rede fica acima do ponto de equilíbrio. Juntos geram R$ 404 mil na rede.';
+      corEstacao = 'green';
+      oQueFazer = 'No último dia do mês, transferir a sobra inteira para a conta de reserva. Conferir se estoque de campanha saiu.';
+      oQueNaoFazer = 'NÃO comprar equipamento, reformar, aumentar retirada ou fechar pedido novo animado com o resultado.';
+    } else if ([1, 2].includes(mesAtual)) {
+      estacao = 'PREPARAR';
+      nomeEstacao = 'Estação da Preparação (Janeiro e Fevereiro)';
+      descricaoEstacao = 'Meses fracos de venda, mas chegam mercadorias da Páscoa e decide-se o tamanho do ano.';
+      corEstacao = 'amber';
+      oQueFazer = 'Fechar pedido de Páscoa usando a Regra 2 (máx 40% das vendas do ano anterior). Pagar últimas parcelas do Natal com reserva de dez.';
+      oQueNaoFazer = 'NÃO fechar pedido de Páscoa olhando o entusiasmo de dezembro. Dezembro já passou; vale a venda da Páscoa do ano anterior.';
+    }
+
+    const armadilhaDia15 = diaAtual >= 10 && diaAtual <= 20;
+
+    res.json({
+      mesAtual,
+      diaAtual,
+      estacao,
+      nomeEstacao,
+      descricaoEstacao,
+      corEstacao,
+      oQueFazer,
+      oQueNaoFazer,
+      armadilhaDia15,
+      metaReserva31Dec: 235927,
+      retiradaSustentavelSocio: 7060,
+      regrasDeOuro: [
+        'Regra 1: Todo dinheiro que entra é dividido no mesmo dia (8,2% imposto, reserva, operação).',
+        'Regra 2: Nunca comprar campanha acima de 40% do que a loja vendeu no mesmo mês do ano passado.',
+        'Regra 3: O dinheiro de março, abril e dezembro não é seu (vai para a conta de reserva).',
+        'Regra 4: Retirada fixa, no mesmo dia, no mesmo valor (máx R$ 7.060 por sócio/mês).',
+        'Regra 5: Boleto vencido é o sinal de alarme, não o problema (erro aconteceu 60 dias antes na compra).'
+      ]
+    });
+  } catch (err) {
+    console.error('[Fluxo de Caixa] Erro ao buscar sazonalidade:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

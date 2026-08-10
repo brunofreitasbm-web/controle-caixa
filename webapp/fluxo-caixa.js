@@ -337,8 +337,255 @@ async function renderFcDiagnostico(forcar = false) {
       <ul class="ia-lista">${diagnostico.alertas.map(a => `<li>${iaEscapar(a)}</li>`).join("")}</ul>
       <h4 class="ia-subtitulo"><i class="fa-solid fa-list-check"></i> Recomendações</h4>
       <ol class="ia-lista ia-lista-num">${diagnostico.recomendacoes.map(r => `<li>${iaEscapar(r)}</li>`).join("")}</ol>
-      ${diagnostico.fechamento ? `<p class="ia-fechamento">${iaEscapar(diagnostico.fechamento)}</p>` : ""}`;
+      ${diagnostico.fechamento ? `<p class="ia-fechamento">${iaEscapar(diagnostico.fechamento)}</p>` : ""} `;
   } catch (err) {
     el.innerHTML = iaErro(`Não foi possível gerar o diagnóstico: ${err.message}`);
+  }
+}
+
+// --------------------------------------------------------------------------
+// BANNER DE SAZONALIDADE & ARMADILHAS DO CAIXA
+// --------------------------------------------------------------------------
+async function renderFcSazonalidadeBanner() {
+  const container = document.getElementById("fc-sazonalidade-container");
+  if (!container) return;
+
+  try {
+    const saz = await fcBuscar("/fluxo-caixa/sazonalidade");
+
+    let corBg = "#eff6ff";
+    let corBorder = "#bfdbfe";
+    let corTexto = "#1e40af";
+    let icone = "fa-compass";
+
+    if (saz.estacao === "COLHER") {
+      corBg = "#f0fdf4";
+      corBorder = "#bbf7d0";
+      corTexto = "#166534";
+      icone = "fa-wheat-awn";
+    } else if (saz.estacao === "PREPARAR") {
+      corBg = "#fffbeb";
+      corBorder = "#fde68a";
+      corTexto = "#92400e";
+      icone = "fa-seedling";
+    }
+
+    container.innerHTML = `
+      <div style="background:${corBg}; border:1px solid ${corBorder}; color:${corTexto}; padding:16px; border-radius:12px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid ${icone}"></i> ${iaEscapar(saz.nomeEstacao)}
+          </h3>
+          <span style="background:rgba(255,255,255,0.8); border:1px solid ${corBorder}; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">
+            Meta Reserva até 31/12: R$ 235.927
+          </span>
+        </div>
+        <p style="margin:0 0 8px 0; font-size:13px; opacity:0.9;">${iaEscapar(saz.descricaoEstacao)}</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:10px; margin-top:10px; font-size:12px;">
+          <div style="background:rgba(255,255,255,0.7); padding:10px; border-radius:8px;">
+            <strong><i class="fa-solid fa-circle-check" style="color:#16a34a;"></i> O QUE FAZER:</strong><br>
+            ${iaEscapar(saz.oQueFazer)}
+          </div>
+          <div style="background:rgba(255,255,255,0.7); padding:10px; border-radius:8px;">
+            <strong><i class="fa-solid fa-circle-xmark" style="color:#dc2626;"></i> O QUE NÃO FAZER:</strong><br>
+            ${iaEscapar(saz.oQueNaoFazer)}
+          </div>
+        </div>
+      </div>
+
+      ${saz.armadilhaDia15 ? `
+        <div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 16px; border-radius:12px; display:flex; align-items:flex-start; gap:12px;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:20px; color:#dc2626; margin-top:2px;"></i>
+          <div>
+            <strong style="font-size:14px;">ALERTA: A Armadilha do Meio do Mês (Dia 10 a 20)</strong>
+            <p style="margin:4px 0 0 0; font-size:12px;">Olhar o saldo da conta neste período e achar que está bom é uma armadilha. Dentro deste saldo estão o imposto do dia 20, as despesas fixas do dia 8 e o boleto de campanha. Não decida compras ou retiradas com base no saldo de hoje!</p>
+          </div>
+        </div>
+      ` : ""}
+    `;
+  } catch (err) {
+    console.error("[Fluxo de Caixa] Erro ao renderizar sazonalidade:", err);
+  }
+}
+
+// --------------------------------------------------------------------------
+// SUB-ABA: ROTINA & AÇÕES (CALENDÁRIO DO MÊS)
+// --------------------------------------------------------------------------
+async function renderFcRotina() {
+  const el = document.getElementById("fc-rotina-conteudo");
+  if (!el) return;
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <h3><i class="fa-solid fa-calendar-days" style="color:#16a34a;"></i> O Calendário do Mês — Seis Momentos</h3>
+      <p class="section-sub">Nenhum momento leva mais de 15 minutos. É a rotina diária e mensal que sustenta o caixa saudável.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+      
+      <!-- Todo Dia -->
+      <div class="card" style="border-left: 4px solid #16a34a;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#16a34a;"><i class="fa-solid fa-sun"></i> Todo Dia (Fechamento)</h4>
+          <span class="badge" style="background:#dcfce7; color:#15803d;">5 minutos</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> No fechamento do caixa, separar e transferir <strong>8,2%</strong> do faturamento bruto do dia para a <strong>Conta Imposto</strong>.
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> É o hábito que sustenta tudo. O dinheiro do imposto do dia 20 já estará guardado sem esforço.
+        </p>
+        <button type="button" class="btn-secondary btn-sm" onclick="ativarFcSubTab('fc-diario')" style="width:100%;">
+          <i class="fa-solid fa-arrow-right"></i> Ir para Diário do Caixa (Conferir 8,2%)
+        </button>
+      </div>
+
+      <!-- Dia 1 -->
+      <div class="card" style="border-left: 4px solid #2563eb;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#2563eb;"><i class="fa-solid fa-1"></i> Dia 1 do Mês</h4>
+          <span class="badge" style="background:#dbeafe; color:#1e40af;">15 minutos</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> Anotar os 4 números do mês: (1) Venda do mês anterior, (2) Saldo das 3 contas, (3) Total de boletos em aberto e (4) Quanto está vencido.
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> São os 4 números que dizem se o mês foi bom. Sem eles vocês navegam no escuro.
+        </p>
+        <button type="button" class="btn-secondary btn-sm" onclick="ativarFcSubTab('fc-painel')" style="width:100%;">
+          <i class="fa-solid fa-pen-to-square"></i> Registrar Números no Painel Mensal
+        </button>
+      </div>
+
+      <!-- Dia 5 -->
+      <div class="card" style="border-left: 4px solid #d97706;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#d97706;"><i class="fa-solid fa-5"></i> Dia 5 do Mês</h4>
+          <span class="badge" style="background:#fef3c7; color:#b45309;">10 minutos</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> Conferir se a Conta de Operação tem o valor total da despesa fixa que vence no dia 8.
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> Três dias de antecedência resolvem quase tudo. Três horas, não.
+        </p>
+      </div>
+
+      <!-- Dia 8 -->
+      <div class="card" style="border-left: 4px solid #dc2626;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#dc2626;"><i class="fa-solid fa-8"></i> Dia 8 do Mês</h4>
+          <span class="badge" style="background:#fee2e2; color:#b91c1c;">Pagamento</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> Pagar a despesa fixa das lojas (aluguel, fornecedores, folha, sistemas).
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> Data fixa, valor conhecido. Nunca deveria ser surpresa.
+        </p>
+      </div>
+
+      <!-- Dia 20 -->
+      <div class="card" style="border-left: 4px solid #7c3aed;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#7c3aed;"><i class="fa-solid fa-building-columns"></i> Dia 20 do Mês</h4>
+          <span class="badge" style="background:#f3e8ff; color:#6d28d9;">Imposto</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> Pagar o imposto (DAS) utilizando exclusivamente o dinheiro acumulado na <strong>Conta Imposto</strong>.
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> Se a Regra 1 (8,2% todo dia) foi cumprida, o dinheiro estará 100% lá.
+        </p>
+      </div>
+
+      <!-- Último Dia -->
+      <div class="card" style="border-left: 4px solid #059669;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; color:#059669;"><i class="fa-solid fa-flag-checkered"></i> Último Dia do Mês</h4>
+          <span class="badge" style="background:#ecfdf5; color:#047857;">Fechamento</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0; color:#374151;">
+          <strong>O que fazer:</strong> Se o mês foi de Colheita (Março, Abril, Dezembro), transferir a sobra inteira para a <strong>Conta Reserva</strong> ANTES da virada do mês.
+        </p>
+        <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
+          <em>Por quê:</em> Dinheiro que passa da virada na conta de operação vira gasto ilícito/desnecessário.
+        </p>
+      </div>
+
+    </div>
+  `;
+}
+
+// --------------------------------------------------------------------------
+// SUB-ABA: PRÓXIMOS 30 DIAS (CHECKLIST OPERACIONAL)
+// --------------------------------------------------------------------------
+async function renderFcChecklist() {
+  const el = document.getElementById("fc-checklist-conteudo");
+  if (!el) return;
+
+  el.innerHTML = iaSpinner("Carregando checklist dos 30 dias...");
+
+  try {
+    const items = await fcBuscar("/fluxo-caixa/checklist");
+
+    const total = items.length;
+    const concluidos = items.filter(i => i.concluido).length;
+    const pct = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+
+    let html = `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h3><i class="fa-solid fa-list-check" style="color:#2563eb;"></i> Plano dos Próximos 30 Dias (Ordem de Execução)</h3>
+            <p class="section-sub" style="margin:0;">Não pule etapas e não tente fazer tudo no mesmo dia. Siga a ordem recomendada.</p>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:14px; font-weight:700; color:#1e293b;">Progresso: ${concluidos}/${total} (${pct}%)</div>
+            <div style="width:160px; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin-top:4px;">
+              <div style="width:${pct}%; height:100%; background:#2563eb; transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+    `;
+
+    items.forEach(item => {
+      const isDone = Boolean(item.concluido);
+      html += `
+        <div class="card" style="display:flex; align-items:flex-start; gap:14px; opacity:${isDone ? "0.75" : "1"}; background:${isDone ? "#f8fafc" : "#ffffff"}; border-left:4px solid ${isDone ? "#16a34a" : "#cbd5e1"};">
+          <input type="checkbox" id="chk-item-${item.id}" ${isDone ? "checked" : ""} onchange="salvarFcChecklist('${item.id}', this.checked)" style="width:20px; height:20px; margin-top:3px; cursor:pointer;">
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <label for="chk-item-${item.id}" style="font-weight:700; font-size:15px; cursor:pointer; ${isDone ? "text-decoration:line-through; color:#64748b;" : "color:#0f172a;"}">
+                #${item.ordem} · ${iaEscapar(item.titulo)}
+              </label>
+              <div style="display:flex; gap:6px;">
+                <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600;">${iaEscapar(item.quando)}</span>
+                <span class="badge" style="background:#f1f5f9; color:#475569; font-weight:600;"><i class="fa-solid fa-user"></i> ${iaEscapar(item.quem)}</span>
+              </div>
+            </div>
+            <p style="margin:6px 0 0 0; font-size:13px; color:#475569;">${iaEscapar(item.descricao || "")}</p>
+            ${isDone && item.concluidoEm ? `<div style="font-size:11px; color:#16a34a; margin-top:4px;"><i class="fa-solid fa-circle-check"></i> Concluído em ${new Date(item.concluidoEm).toLocaleDateString("pt-BR")}</div>` : ""}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    el.innerHTML = html;
+  } catch (err) {
+    el.innerHTML = iaErro(`Não foi possível carregar o checklist: ${err.message}`);
+  }
+}
+
+async function salvarFcChecklist(id, concluido) {
+  try {
+    await fcEnviar(`/fluxo-caixa/checklist/${id}`, "PUT", { concluido });
+    renderFcChecklist();
+  } catch (err) {
+    alert(`Erro ao salvar checklist: ${err.message}`);
   }
 }

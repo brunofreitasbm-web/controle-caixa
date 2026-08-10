@@ -630,6 +630,17 @@ function initDb(onSuccess) {
           observacao TEXT,
           criadoEm TEXT,
           UNIQUE(data, loja)
+        )`,
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_checklist (
+          id TEXT PRIMARY KEY,
+          ordem INTEGER NOT NULL,
+          quando TEXT NOT NULL,
+          titulo TEXT NOT NULL,
+          descricao TEXT,
+          quem TEXT NOT NULL,
+          concluido INTEGER DEFAULT 0,
+          concluidoEm TEXT,
+          notas TEXT
         )`
       ];
 
@@ -1049,6 +1060,32 @@ function initDb(onSuccess) {
              VALUES (?, ?, ?, ?, ?)
              ON CONFLICT(loja, mes) DO NOTHING`,
             [l.id, l.loja, l.mes, l.indice, l.situacao],
+            () => resolve()
+          );
+        })));
+      });
+
+      // Seed do checklist dos 30 dias (Coach Financeiro - Parte 7)
+      promise = promise.then(() => {
+        const checklistSeed = [
+          { id: 'chk-1', ordem: 1, quando: 'Esta semana', titulo: 'Abrir contas de Imposto e Reserva', descricao: 'Abrir a conta de imposto e a conta de reserva em cada CNPJ (3 contas por CNPJ).', quem: 'Você' },
+          { id: 'chk-2', ordem: 2, quando: 'Esta semana', titulo: 'Mapear retiradas e despesas fixas reais', descricao: 'Levantar no extrato quanto sai por mês que não está mapeado — o valor real das retiradas dos sócios e soma da despesa fixa.', quem: 'Você e o sócio' },
+          { id: 'chk-3', ordem: 3, quando: 'Esta semana', titulo: 'Quitar títulos vencidos (R$ 48,3 mil)', descricao: 'Quitar os R$ 48,3 mil de títulos vencidos das três lojas antes de autorizar qualquer compra nova.', quem: 'Você' },
+          { id: 'chk-4', ordem: 4, quando: 'Semana 2', titulo: 'Fixar retirada sustentável dos sócios', descricao: 'Definir a retirada fixa no valor sustentável (máximo R$ 7.060 por sócio/mês na rede).', quem: 'Você e o sócio' },
+          { id: 'chk-5', ordem: 5, quando: 'Semana 2', titulo: 'Iniciar transferência diária de 8,2% p/ Imposto', descricao: 'Começar a transferir 8,2% do faturamento de todo dia para a conta exclusiva de imposto.', quem: 'Equipe do caixa' },
+          { id: 'chk-6', ordem: 6, quando: 'Semana 3', titulo: 'Reperfilar parcelas do acordo da franqueadora', descricao: 'Ligar para a franqueadora e reperfilar as parcelas do acordo de agosto-outubro para dezembro e janeiro.', quem: 'Você' },
+          { id: 'chk-7', ordem: 7, quando: 'Semana 3', titulo: 'Travar compras de campanhas opcionais', descricao: 'Comunicar às três lojas: nenhuma compra de campanha opcional (Namorados, Pais, Crianças) até novembro.', quem: 'Você' },
+          { id: 'chk-8', ordem: 8, quando: 'Semana 4', titulo: 'Montar folha de acompanhamento do Dia 1', descricao: 'Montar a folha de acompanhamento com os 4 números do dia 1 (vendas do mês anterior, saldo das 3 contas, boletos em aberto e vencidos).', quem: 'Você' },
+          { id: 'chk-9', ordem: 9, quando: 'Semana 4', titulo: 'Investigar queda de vendas de julho na Marambaia', descricao: 'Investigar por que a venda de julho caiu na Marambaia (ruptura de estoque, equipe ou fluxo do ponto).', quem: 'Líder de operação' },
+          { id: 'chk-10', ordem: 10, quando: 'Antes de Outubro', titulo: 'Fechar pedido de Natal dentro do teto (40%)', descricao: 'Fechar o pedido de Natal usando os tetos de compra calculados com a Regra 2 (máximo de 40% das vendas de dez/2025).', quem: 'Você' }
+        ];
+
+        return Promise.all(checklistSeed.map(item => new Promise(resolve => {
+          db.run(
+            `INSERT INTO fluxo_caixa_checklist (id, ordem, quando, titulo, descricao, quem)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO NOTHING`,
+            [item.id, item.ordem, item.quando, item.titulo, item.descricao, item.quem],
             () => resolve()
           );
         })));

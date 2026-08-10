@@ -2582,13 +2582,18 @@
     <section id="tab-fluxo-caixa" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-fluxo-caixa">
       <div class="section-header mb-6">
         <div>
-          <h2><i class="fa-solid fa-sack-dollar" style="color:#16a34a;"></i> Fluxo de Caixa</h2>
-          <p class="section-sub">Painel, diário do caixa, teto de campanha, referência e diagnóstico — visão exclusiva do Owner.</p>
+          <h2><i class="fa-solid fa-sack-dollar" style="color:#16a34a;"></i> Fluxo de Caixa — Coach Financeiro</h2>
+          <p class="section-sub">Painel, rotina mensal, checklist dos 30 dias, diário do caixa, teto de campanha e diagnóstico — visão exclusiva do Owner.</p>
         </div>
       </div>
 
+      <!-- BANNER DE SAZONALIDADE & ARMADILHAS DO CAIXA -->
+      <div id="fc-sazonalidade-container" style="margin-bottom:16px;"></div>
+
       <nav class="fc-subnav" id="fc-subnav" role="tablist" aria-label="Navegação Fluxo de Caixa">
         <button class="fc-sub-btn active" data-fc-tab="fc-painel" id="fc-tablink-painel">Painel</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-rotina" id="fc-tablink-rotina"><i class="fa-solid fa-calendar-check" style="color:#16a34a;"></i> Rotina & Ações</button>
+        <button class="fc-sub-btn" data-fc-tab="fc-checklist" id="fc-tablink-checklist"><i class="fa-solid fa-list-check" style="color:#2563eb;"></i> Próximos 30 Dias</button>
         <button class="fc-sub-btn" data-fc-tab="fc-diario" id="fc-tablink-diario">Diário do Caixa</button>
         <button class="fc-sub-btn" data-fc-tab="fc-teto" id="fc-tablink-teto">Teto de Campanha</button>
         <button class="fc-sub-btn" data-fc-tab="fc-referencia" id="fc-tablink-referencia">Referência</button>
@@ -2603,6 +2608,16 @@
         </div>
         <div id="fc-painel-cards" class="cards-lojas"></div>
         <div id="fc-painel-rede" class="card" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- SUB-TAB: ROTINA & AÇÕES -->
+      <div id="fc-tab-fc-rotina" class="fc-tab-panel hidden">
+        <div id="fc-rotina-conteudo"></div>
+      </div>
+
+      <!-- SUB-TAB: PRÓXIMOS 30 DIAS (CHECKLIST) -->
+      <div id="fc-tab-fc-checklist" class="fc-tab-panel hidden">
+        <div id="fc-checklist-conteudo"></div>
       </div>
 
       <!-- SUB-TAB: DIÁRIO DO CAIXA -->
