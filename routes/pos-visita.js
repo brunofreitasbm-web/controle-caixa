@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { db, normalizeRow } = require('../config/database');
+const { normalizarTelefone } = require('../config/utils');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -107,13 +108,6 @@ function parsearCSV(texto) {
   }
 
   return linhas.map(parsearLinha);
-}
-
-function normalizarTelefone(valor) {
-  let digitos = String(valor || '').replace(/\D/g, '');
-  if (!digitos) return '';
-  if (digitos.length <= 11) digitos = `55${digitos}`;
-  return digitos;
 }
 
 // Tempo total (coluna N), formato "H:MM:SS" ou "H:MM" — o parsing anterior

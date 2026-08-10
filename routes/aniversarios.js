@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const pdfjsLib = require('pdfjs-dist');
 const { db, normalizeRow } = require('../config/database');
+const { normalizarTelefone } = require('../config/utils');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -77,13 +78,6 @@ function extrairCPF(linha, telefonesEncontrados) {
   const semPontuacao = [...linha.matchAll(/\b\d{11}\b/g)]
     .find(m => !telefonesEncontrados.includes(m[0]));
   return semPontuacao ? { match: semPontuacao[0], valor: semPontuacao[0] } : null;
-}
-
-function normalizarTelefone(valor) {
-  let digitos = String(valor || '').replace(/\D/g, '');
-  if (!digitos) return '';
-  if (digitos.length <= 11) digitos = `55${digitos}`;
-  return digitos;
 }
 
 // Depois de remover CPF/data/telefone da linha, sobra o texto com os dois

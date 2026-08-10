@@ -85,12 +85,13 @@ test('QA Hostil #1 - Rejeição de body vazio / nulo / campos em branco', async 
 // --------------------------------------------------------------------------
 test('QA Hostil #2 - Tratamento de sanitização e inputs maliciosos', async () => {
   const xssInput = "<script>alert('xss')</script>";
+  const telUnico = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
   const res = await request('/indicacoes/registrar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       responsavel: xssInput,
-      telefone: '11999998888',
+      telefone: telUnico,
       amigoNome: 'Amigo Teste XSS'
     })
   });
@@ -104,12 +105,13 @@ test('QA Hostil #2 - Tratamento de sanitização e inputs maliciosos', async () 
 // --------------------------------------------------------------------------
 test('QA Hostil #3 - Suporte a strings extensas e números limites', async () => {
   const nomeGigante = 'A'.repeat(5000);
+  const telUnico = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
   const res = await request('/indicacoes/registrar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       responsavel: nomeGigante,
-      telefone: '11977776666',
+      telefone: telUnico,
       amigoNome: 'Amigo Teste Boundary'
     })
   });
@@ -121,7 +123,7 @@ test('QA Hostil #3 - Suporte a strings extensas e números limites', async () =>
 // 4. QA HOSTIL: Cliques Repetidos e Disparos Simultâneos (Double-Submit)
 // --------------------------------------------------------------------------
 test('QA Hostil #4 - Concorrência e disparo simultâneo de requisições', async () => {
-  const telConcorrente = '11911112222';
+  const telConcorrente = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
   
   // Registrar amigo 1 e amigo 2 em paralelo
   const p1 = request('/indicacoes/registrar', {
@@ -198,4 +200,16 @@ test('QA Hostil #8 - Deleção repetida de registro (Idempotência)', async () =
 
   const res2 = await request('/indicacoes/id_inexistente_del', { method: 'DELETE' });
   assert.equal(res2.status, 200);
+});
+
+// --------------------------------------------------------------------------
+// 9. REATORAÇÃO: Validação do Utilitário Compartilhado normalizarTelefone
+// --------------------------------------------------------------------------
+test('Refatoração #9 - Utilitário compartilhado normalizarTelefone', () => {
+  const { normalizarTelefone } = require('../config/utils');
+  assert.equal(normalizarTelefone('91988887777'), '5591988887777');
+  assert.equal(normalizarTelefone('(91) 98888-7777'), '5591988887777');
+  assert.equal(normalizarTelefone('5591988887777'), '5591988887777');
+  assert.equal(normalizarTelefone(null), '');
+  assert.equal(normalizarTelefone(''), '');
 });
