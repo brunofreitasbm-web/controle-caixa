@@ -449,11 +449,6 @@
             <span class="tab-icon"><i class="fa-solid fa-scale-balanced" style="color: #ff7a00;"></i></span>
             <span class="tab-text">Regras de Bonificação (Owner)</span>
           </button>
-          <button class="tab-btn hidden" id="tab-btn-pos-visita" data-tab="pos-visita" role="tab" aria-selected="false" aria-controls="tab-pos-visita" data-tip="Importa o relatório do dia anterior e dispara WhatsApp para quem visitou o playground">
-            <span class="tab-icon"><i class="fa-solid fa-comment-dots" style="color: #25D366;"></i></span>
-            <span class="tab-text">Pós-Visita</span>
-            <span id="pv-badge" class="an-badge pv-badge hidden" data-tip="Mensagens de pós-visita ainda pendentes de envio">0</span>
-          </button>
           <button class="tab-btn hidden" id="tab-btn-aniversarios" data-tab="aniversarios" role="tab" aria-selected="false" aria-controls="tab-aniversarios" data-tip="Importa o cadastro de crianças (PDF) e dispara parabéns no WhatsApp no dia do aniversário">
             <span class="tab-icon"><i class="fa-solid fa-cake-candles" style="color: #f97316;"></i></span>
             <span class="tab-text">Aniversariantes</span>
@@ -3115,163 +3110,6 @@
         </div>
 
       </div>
-    </section>
-
-    <!-- ===================== ABA: PÓS-VISITA (FaçaAmigos) ===================== -->
-    <section id="tab-pos-visita" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-pos-visita">
-      <div class="section-header mb-6">
-        <div>
-          <h2 class="font-display text-xl font-bold text-ink-strong flex items-center gap-2">
-            <i class="fa-solid fa-comment-dots" style="color: #128C4A;"></i> PÓS-VISITA
-          </h2>
-          <p class="text-xs text-ink-muted mt-1">Importe o Relatório Operacional do dia anterior (CSV) e dispare WhatsApp para os responsáveis. Clique em "Enviar mensagem" pra abrir o WhatsApp já com o número e o texto prontos.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="button" id="pv-btn-atualizar" class="btn-secondary" data-tip="Recarrega a fila de mensagens pendentes">
-            <i class="fa-solid fa-rotate"></i> Atualizar
-          </button>
-        </div>
-      </div>
-
-      <!-- Sub-abas: a fila de disparo do dia e o controle das indicações
-           prometidas na mensagem (Ação 2 — Pós-Venda Multiplicador). -->
-      <div class="flex items-center gap-2 bg-surface-2 p-1 rounded-xl border border-subtle w-full sm:w-auto justify-center mb-6">
-        <button type="button" id="pv-subtab-btn-fila" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow" data-tip="Fila de mensagens de WhatsApp do dia seguinte">
-          <i class="fa-brands fa-whatsapp"></i> Fila de mensagens
-        </button>
-        <button type="button" id="pv-subtab-btn-indicacoes" class="pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong" data-tip="Controle de quem indicou quem e liberação do Voucher VIP de 15 minutos no Circuito">
-          <i class="fa-solid fa-user-group"></i> Indicações
-          <span id="pv-badge-indicacoes" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-warning-soft border border-warning text-warning text-[10px] font-extrabold">0</span>
-        </button>
-      </div>
-
-      <div id="pv-subtab-fila">
-
-      <!-- Quadro de importação do CSV: escolher o arquivo já importa na hora,
-           sem precisar de um botão extra — menos cliques pro operador. -->
-      <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
-        <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <i class="fa-solid fa-file-csv"></i> Importar Relatório Operacional (CSV)
-        </h3>
-        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-          <div class="field">
-            <label for="pv-import-data" data-tip="É só uma referência visual (vem com o dia anterior preenchido) — a data real de cada visita é lida direto da coluna do CSV">Data do relatório (referência)</label>
-            <input type="date" id="pv-import-data">
-          </div>
-          <div class="field">
-            <label for="pv-import-arquivo" data-tip="Escolher o arquivo já importa direto, sem precisar de outro clique">Arquivo CSV (importa ao escolher)</label>
-            <input type="file" id="pv-import-arquivo" accept=".csv,text/csv">
-          </div>
-        </div>
-        <div class="form-actions" style="margin-top: 0.75rem;">
-          <span id="pv-import-msg" class="form-msg" role="status"></span>
-        </div>
-      </div>
-
-      <!-- Quadro de relatório automático -->
-      <div id="pv-relatorio" class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Contagem automática de quantos registros foram importados e quantas mensagens já foram enviadas no mês atual">
-        <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <i class="fa-solid fa-chart-simple"></i> Relatório do mês <span id="pv-relatorio-data" class="text-brand-400 font-normal normal-case"></span>
-        </h3>
-        <div class="flex items-center gap-6">
-          <div>
-            <div class="text-2xl font-extrabold text-white" id="pv-relatorio-importados">0</div>
-            <div class="text-[11px] text-brand-400">importados</div>
-          </div>
-          <div>
-            <div class="text-2xl font-extrabold text-emerald-400" id="pv-relatorio-enviados">0</div>
-            <div class="text-[11px] text-brand-400">mensagens enviadas</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="pv-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
-        <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
-        <p class="text-sm font-bold text-brand-200">Nenhuma mensagem pendente — fila em dia! 💙</p>
-      </div>
-
-      <div id="pv-lista" class="pv-grid"></div>
-
-      </div><!-- /pv-subtab-fila -->
-
-      <!-- ---------- SUB-ABA: INDICAÇÕES (Ação 2 — Pós-Venda Multiplicador) ---------- -->
-      <div id="pv-subtab-indicacoes" class="hidden">
-
-        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6">
-          <h3 class="text-sm font-extrabold text-ink uppercase tracking-wider mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-user-plus"></i> Registrar indicação recebida
-          </h3>
-          <p class="text-[11px] text-ink-muted mb-3">Quando alguém chegar dizendo <em>"vim por indicação do(a) …"</em>, peça o <strong>nome e o WhatsApp de quem indicou</strong> e lance aqui. O controle é feito pelo WhatsApp: se já houver ficha para aquele número, esta vira a 2ª indicação e o botão do voucher é liberado na hora.</p>
-          <div class="pv-ind-form-grid">
-            <div class="field">
-              <label for="pv-ind-responsavel">Quem indicou (nome)</label>
-              <input type="text" id="pv-ind-responsavel" placeholder="Nome do indicador" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="pv-ind-telefone" data-tip="É a chave do controle — só números; o DDI 55 é adicionado automaticamente">WhatsApp de quem indicou</label>
-              <input type="tel" id="pv-ind-telefone" placeholder="(91) 90000-0000" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="pv-ind-amigo">Quem chegou agora</label>
-              <input type="text" id="pv-ind-amigo" placeholder="Nome de quem está sendo atendido" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="pv-ind-crianca" data-tip="Opcional — se souber, personaliza a mensagem do voucher. Dá para preencher depois no card">Criança do indicador (opcional)</label>
-              <input type="text" id="pv-ind-crianca" placeholder="Nome da criança" autocomplete="off">
-            </div>
-          </div>
-          <div class="form-actions" style="margin-top: 0.75rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <button type="button" id="pv-ind-btn-adicionar" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
-              <i class="fa-solid fa-check"></i> Registrar indicação
-            </button>
-            <span id="pv-ind-msg" class="form-msg" role="status"></span>
-          </div>
-        </div>
-
-        <!-- Painel de acompanhamento da ação -->
-        <div class="glass-card p-5 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg mb-6" data-tip="Acompanhamento da Ação 2 — quantas famílias estão participando e quantos clientes novos vieram por indicação">
-          <h3 class="text-sm font-extrabold text-brand-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-chart-simple"></i> Acompanhamento da ação
-          </h3>
-          <div class="flex items-center gap-6 flex-wrap">
-            <div>
-              <div class="text-2xl font-extrabold text-ink-strong" id="pv-ind-total">0</div>
-              <div class="text-[11px] text-ink-muted">indicadores</div>
-            </div>
-            <div>
-              <div class="text-2xl font-extrabold text-info" id="pv-ind-andamento">0</div>
-              <div class="text-[11px] text-ink-muted">em andamento</div>
-            </div>
-            <div>
-              <div class="text-2xl font-extrabold text-warning" id="pv-ind-aguardando">0</div>
-              <div class="text-[11px] text-ink-muted">voucher a liberar</div>
-            </div>
-            <div>
-              <div class="text-2xl font-extrabold text-success" id="pv-ind-entregues">0</div>
-              <div class="text-[11px] text-ink-muted">vouchers usados</div>
-            </div>
-            <div>
-              <div class="text-2xl font-extrabold text-accent" id="pv-ind-amigos">0</div>
-              <div class="text-[11px] text-ink-muted">clientes novos indicados</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="field mb-3">
-          <label for="pv-ind-busca" data-tip="Filtra por nome do indicador, WhatsApp, criança ou nome do amigo indicado">Buscar no controle</label>
-          <input type="search" id="pv-ind-busca" placeholder="Nome, WhatsApp ou amigo indicado…" autocomplete="off">
-        </div>
-
-        <div id="pv-ind-vazio" class="hidden glass-card p-6 rounded-2xl border border-brand-900 bg-brand-950/40 text-center">
-          <i class="fa-solid fa-user-group text-ink-faint text-2xl mb-2 block"></i>
-          <p class="text-sm font-bold text-ink">Nenhuma indicação registrada ainda.</p>
-          <p class="text-[11px] text-ink-muted mt-1">Assim que alguém chegar dizendo que veio por indicação, registre no formulário acima.</p>
-        </div>
-
-        <div id="pv-ind-lista" class="pv-grid"></div>
-      </div>
-    </section>
-
     <!-- ===================== ABA: ANIVERSÁRIOS (FaçaAmigos) ===================== -->
     <section id="tab-aniversarios" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-aniversarios">
       <div class="section-header mb-6">
@@ -4014,7 +3852,6 @@
 <!-- FAB — Floating Action Button (mobile) -->
 <button id="fab-novo-registro" class="fab hidden" aria-label="Novo registro"><i class="fa-solid fa-plus"></i></button>
 
-<script src="mensagens-pos-visita.js?v=3"></script>
 <script src="mensagens-aniversario.js?v=3"></script>
 <script src="camera-universal.js?v=2"></script>
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa

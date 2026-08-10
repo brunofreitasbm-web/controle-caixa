@@ -8,7 +8,6 @@ const ASSETS_TO_CACHE = [
   '/realtime.js',
   '/insights-ia.js',
   '/camera-universal.js',
-  '/mensagens-pos-visita.js',
   '/mensagens-aniversario.js',
   '/bluedox.html',
   '/bluedox.css',

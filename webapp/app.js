@@ -1571,13 +1571,13 @@ function iniciarModuloBase(moduloOpcional) {
       // "faca-amigos" em si) — "pos-visita"/"aniversarios" também estão na
       // lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro do módulo
       // Cacau Show antes desta correção.
-      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "pos-visita", "aniversarios"];
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "aniversarios"];
       tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "faca-amigos") {
       // Sem "controle-ponto" aqui: Registro de Ponto do FaçaAmigos é feito por
       // outro sistema, o módulo de Ponto deste app é exclusivo do Cacau Show.
-      tabsPermitidas = ["faca-amigos", "pos-visita", "aniversarios", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "aniversarios", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
       tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
@@ -1667,7 +1667,6 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
   // pra que o operador veja o número piscando assim que entra no módulo.
-  if (tabsPermitidas.includes("pos-visita")) buscarContagemPosVisitaPendentes();
   if (tabsPermitidas.includes("aniversarios")) buscarContagemAniversariosPendentes();
 
   // Menu rápido (grade desktop + barra mobile), curado por perfil
@@ -1955,7 +1954,7 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
 // --- Tabs ---
 function ativarTab(tabName) {
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "pos-visita", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2032,7 +2031,6 @@ function ativarTab(tabName) {
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
-  if (tabName === "pos-visita") renderPosVisita();
   if (tabName === "aniversarios") renderAniversarios();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
