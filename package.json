@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch-path=server.js server.js",
-    "test": "echo \"Sem suíte de testes automatizada ainda\" && exit 0"
+    "test": "node --test tests/hostile-qa.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

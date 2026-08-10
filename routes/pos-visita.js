@@ -18,35 +18,51 @@ const upload = multer({
 function inserirRegistros(registros) {
   const criadoEm = new Date().toISOString();
 
-  const validos = registros.filter(r => r.dataSessao && r.cliente && r.numeroCliente && r.crianca);
+  const validos = (registros || []).filter(r => r && r.dataSessao && r.cliente && r.numeroCliente && r.crianca);
   if (validos.length === 0) return Promise.resolve({ inseridos: 0 });
 
-  // Postgres não aceita a mesma chave de ON CONFLICT duas vezes dentro do
-  // mesmo INSERT multi-linha — dedup mantendo a última ocorrência (mesmo
-  // efeito líquido dos upserts sequenciais de antes, quando a mesma pessoa
-  // aparece mais de uma vez no relatório do dia).
   const porChave = new Map();
   validos.forEach(r => porChave.set(`${r.dataSessao}_${r.numeroCliente}_${r.crianca}`, r));
 
-  const placeholders = [];
-  const params = [];
-  porChave.forEach((r, id) => {
-    placeholders.push('(?, ?, ?, ?, ?, ?, ?)');
-    params.push(id, r.dataSessao, r.cliente, r.numeroCliente, r.crianca, r.tempoTotalMinutos || 0, criadoEm);
-  });
+  const listaRegistros = Array.from(porChave.values());
+  const TAMANHO_LOTE = 50; // Evita limite de variáveis do SQLite/Postgres
+  let totalInseridos = 0;
 
-  return new Promise(resolve => {
-    db.run(
-      `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
-       VALUES ${placeholders.join(', ')}
-       ON CONFLICT(dataSessao, numeroCliente, crianca) DO UPDATE SET tempoTotalMinutos = excluded.tempoTotalMinutos`,
-      params,
-      (err) => {
-        if (err) console.error('[Pós-Visita] Erro ao importar CSV:', err.message);
-        resolve({ inseridos: err ? 0 : validos.length });
-      }
-    );
-  });
+  const executarLote = (inicio) => {
+    if (inicio >= listaRegistros.length) {
+      return Promise.resolve({ inseridos: totalInseridos });
+    }
+
+    const lote = listaRegistros.slice(inicio, inicio + TAMANHO_LOTE);
+    const placeholders = [];
+    const params = [];
+
+    lote.forEach(r => {
+      const id = `${r.dataSessao}_${r.numeroCliente}_${r.crianca}`;
+      const tempo = Number.isFinite(r.tempoTotalMinutos) && r.tempoTotalMinutos >= 0 ? Math.min(r.tempoTotalMinutos, 14400) : 0;
+      placeholders.push('(?, ?, ?, ?, ?, ?, ?)');
+      params.push(id, String(r.dataSessao).substring(0, 10), String(r.cliente).substring(0, 255), String(r.numeroCliente).substring(0, 30), String(r.crianca).substring(0, 255), tempo, criadoEm);
+    });
+
+    return new Promise(resolve => {
+      db.run(
+        `INSERT INTO pos_visita_registros (id, dataSessao, cliente, numeroCliente, crianca, tempoTotalMinutos, criadoEm)
+         VALUES ${placeholders.join(', ')}
+         ON CONFLICT(dataSessao, numeroCliente, crianca) DO UPDATE SET tempoTotalMinutos = excluded.tempoTotalMinutos`,
+        params,
+        (err) => {
+          if (err) {
+            console.error('[Pós-Visita] Erro ao importar lote CSV:', err.message);
+          } else {
+            totalInseridos += lote.length;
+          }
+          resolve(executarLote(inicio + TAMANHO_LOTE));
+        }
+      );
+    });
+  };
+
+  return executarLote(0);
 }
 
 // --------------------------------------------------------------------------
@@ -108,27 +124,34 @@ function normalizarTelefone(valor) {
 // decimais (ex. "1.5" = 1h30).
 function normalizarTempoMinutos(valor) {
   if (typeof valor === 'number') {
-    // Fração de dia do Excel (célula de horário salva como número puro).
+    if (!Number.isFinite(valor) || valor < 0) return 0;
     if (valor > 0 && valor < 1) return Math.round(valor * 24 * 60);
-    return Math.round(valor);
+    return Math.min(Math.round(valor), 14400);
   }
   const texto = String(valor || '').trim().replace(',', '.');
 
   const comSegundos = texto.match(/^(\d+):(\d{2}):(\d{2})$/);
   if (comSegundos) {
-    return parseInt(comSegundos[1], 10) * 60 + parseInt(comSegundos[2], 10) + Math.round(parseInt(comSegundos[3], 10) / 60);
+    const mins = parseInt(comSegundos[1], 10) * 60 + parseInt(comSegundos[2], 10) + Math.round(parseInt(comSegundos[3], 10) / 60);
+    return Number.isFinite(mins) ? Math.min(Math.max(0, mins), 14400) : 0;
   }
   const comMinutos = texto.match(/^(\d+):(\d{2})$/);
-  if (comMinutos) return parseInt(comMinutos[1], 10) * 60 + parseInt(comMinutos[2], 10);
+  if (comMinutos) {
+    const mins = parseInt(comMinutos[1], 10) * 60 + parseInt(comMinutos[2], 10);
+    return Number.isFinite(mins) ? Math.min(Math.max(0, mins), 14400) : 0;
+  }
 
   const decimal = texto.match(/^\d*\.\d+$/);
   if (decimal) {
     const num = parseFloat(texto);
-    return num > 0 && num < 1 ? Math.round(num * 24 * 60) : Math.round(num * 60);
+    if (!Number.isFinite(num) || num < 0) return 0;
+    const mins = num > 0 && num < 1 ? Math.round(num * 24 * 60) : Math.round(num * 60);
+    return Math.min(mins, 14400);
   }
 
   const numeros = texto.match(/\d+/);
-  return numeros ? parseInt(numeros[0], 10) : 0;
+  const mins = numeros ? parseInt(numeros[0], 10) : 0;
+  return Number.isFinite(mins) ? Math.min(Math.max(0, mins), 14400) : 0;
 }
 
 // Período (coluna M), ex. "14:32 - 15:47" ou "14:32:10 às 15:47:22" — extrai
