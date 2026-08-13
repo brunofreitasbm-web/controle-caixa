@@ -9,7 +9,18 @@ router.get('/ifood-config', async (req, res) => {
   
   try {
     const config = await dbGetAsync("SELECT loja, merchantId, clientId FROM ifood_config WHERE loja = ?", [loja]);
-    res.json({ success: true, data: config || null });
+    // Postgres dobra identificadores não-citados para minúsculo (merchantid,
+    // clientid) — o Node pg devolve as chaves como o banco as armazenou, então
+    // sem essa normalização o front-end (que lê merchantId/clientId) recebia
+    // sempre undefined e os campos do formulário voltavam vazios.
+    const data = config
+      ? {
+          loja: config.loja,
+          merchantId: config.merchantId ?? config.merchantid,
+          clientId: config.clientId ?? config.clientid
+        }
+      : null;
+    res.json({ success: true, data });
   } catch (err) {
     console.error('[iFood] Erro GET config:', err);
     res.status(500).json({ error: err.message });
@@ -28,8 +39,9 @@ router.post('/ifood-config', async (req, res) => {
     // Permite atualizar sem re-enviar o Client Secret (se já estiver cadastrado)
     if (!finalSecret || finalSecret.trim() === '') {
        const existing = await dbGetAsync("SELECT clientSecret FROM ifood_config WHERE loja = ?", [loja]);
-       if (existing && existing.clientSecret) {
-         finalSecret = existing.clientSecret;
+       const existingSecret = existing ? (existing.clientSecret ?? existing.clientsecret) : null;
+       if (existingSecret) {
+         finalSecret = existingSecret;
        } else {
          return res.status(400).json({ error: 'Client Secret é obrigatório no primeiro cadastro.' });
        }

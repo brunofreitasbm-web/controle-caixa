@@ -37,7 +37,15 @@ router.get('/ifood/sync-status', async (req, res) => {
       [String(loja)]
     );
 
-    res.json(rows);
+    // Postgres dobra identificadores não-citados para minúsculo — sem isso o
+    // front-end (que lê codProdutoLocal/codProdutoIfood) recebia undefined.
+    const normalizados = rows.map(r => ({
+      ...r,
+      codProdutoLocal: r.codProdutoLocal ?? r.codprodutolocal,
+      codProdutoIfood: r.codProdutoIfood ?? r.codprodutoifood
+    }));
+
+    res.json(normalizados);
   } catch (err) {
     console.error('[Route] Erro no sync-status:', err);
     res.status(500).json({ error: 'Erro interno no servidor' });
@@ -58,7 +66,12 @@ router.get('/ifood/overview', async (req, res) => {
       FROM ifood_sync_history
       GROUP BY loja
     `);
-    const syncPorLoja = new Map(resumoSync.map(s => [s.loja, s]));
+    // Mesmo problema de folding do Postgres: o alias "ultimaSincronizacao" na
+    // query volta como "ultimasincronizacao".
+    const syncPorLoja = new Map(resumoSync.map(s => [
+      s.loja,
+      { ...s, ultimaSincronizacao: s.ultimaSincronizacao ?? s.ultimasincronizacao }
+    ]));
 
     const lojas = new Set([...configPorLoja.keys(), ...syncPorLoja.keys()]);
 
