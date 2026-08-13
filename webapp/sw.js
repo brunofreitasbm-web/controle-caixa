@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v59'; // v59: corrige ReferenceError (inicializarMetasImportTab não estava definida) — Importação de Metas Diárias (XLSX) agora funciona
+const CACHE_NAME = 'ponto-pwa-v60'; // v60: bump version to clear cache for app.js so inicializarMetasImportTab is available
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
