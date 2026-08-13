@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v60'; // v60: bump version to clear cache for app.js so inicializarMetasImportTab is available
+const CACHE_NAME = 'ponto-pwa-v61'; // v61: bump version to clear cache for index.html (aba iFood embutida) e ifood-gerenciamento.js
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
