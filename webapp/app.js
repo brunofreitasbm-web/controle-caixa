@@ -6257,7 +6257,12 @@ async function inscreverPushNotificacoes() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
-    const swReg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.register('/sw.js');
+    // register() resolve assim que o registro é aceito, mas o worker pode
+    // ainda estar instalando — pushManager.subscribe() exige um worker ATIVO,
+    // senão falha com "no active Service Worker". `.ready` só resolve quando
+    // já há um worker ativo controlando esta página.
+    const swReg = await navigator.serviceWorker.ready;
     console.log('Service Worker registrado', swReg);
 
     let subscription = await swReg.pushManager.getSubscription();
