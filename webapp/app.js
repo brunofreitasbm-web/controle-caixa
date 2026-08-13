@@ -1507,15 +1507,30 @@ function entrarNoApp() {
 
   let ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
   
-  if (currentUser && currentUser.unidade && currentUser.unidade !== "all") {
-    if (currentUser.unidade.startsWith("fa-")) {
-      ultimoModulo = "faca-amigos";
+  const unidadesStr = currentUser && currentUser.unidade ? currentUser.unidade : "";
+  const unidades = unidadesStr !== "all" && unidadesStr !== "" ? unidadesStr.split(",").map(u => u.trim()).filter(Boolean) : [];
+
+  if (unidadesStr === "all" || unidades.length === 0) {
+    if (ultimoModulo) {
+      iniciarModuloBase(ultimoModulo);
     } else {
-      ultimoModulo = "cacau-show";
+      document.getElementById("module-selection-overlay").classList.remove("hidden");
+      appEl.classList.add("hidden");
     }
+  } else if (unidades.length === 1) {
+    const singleUnit = unidades[0];
+    // UNIDADES_FA e ALIASES
+    let isFA = false;
+    if (singleUnit.startsWith("fa-")) {
+      isFA = true;
+    } else {
+      const pNome = OPERACOES_ALIASES[singleUnit] || singleUnit;
+      if (UNIDADES_FA.includes(pNome)) isFA = true;
+    }
+    ultimoModulo = isFA ? "faca-amigos" : "cacau-show";
     
     setTimeout(() => {
-      const nomeLoja = OPERACOES_ALIASES[currentUser.unidade] || currentUser.unidade;
+      const nomeLoja = OPERACOES_ALIASES[singleUnit] || singleUnit;
       
       const selectLoja = document.getElementById("loja");
       if (selectLoja) {
@@ -1529,14 +1544,57 @@ function entrarNoApp() {
         selectLojaFA.dispatchEvent(new Event("change"));
       }
     }, 150);
-  }
 
-  if (ultimoModulo) {
     iniciarModuloBase(ultimoModulo);
   } else {
-    document.getElementById("module-selection-overlay").classList.remove("hidden");
-    appEl.classList.add("hidden");
+    // Múltiplas unidades
+    mostrarSelecaoUnidade(unidades);
   }
+}
+
+function mostrarSelecaoUnidade(unidadesArray) {
+  const overlay = document.getElementById("unit-selection-overlay");
+  const container = document.getElementById("unit-selection-cards");
+  container.innerHTML = "";
+  appEl.classList.add("hidden");
+
+  unidadesArray.forEach(unidadeRaw => {
+    const nomeLoja = OPERACOES_ALIASES[unidadeRaw] || unidadeRaw;
+    const isFA = UNIDADES_FA.includes(nomeLoja) || unidadeRaw.startsWith("fa-");
+    const icone = isFA ? '<i class="fa-solid fa-heart" style="color: var(--coral);"></i>' : '<i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i>';
+    const sub = isFA ? 'FaçaAmigos' : 'Cacau Show';
+
+    const btn = document.createElement("button");
+    btn.className = `module-card ${isFA ? 'card-faca' : 'card-cacau'}`;
+    btn.innerHTML = `
+      <span class="mod-icon">${icone}</span>
+      <h3>${nomeLoja}</h3>
+      <p>${sub}</p>
+    `;
+    btn.onclick = () => {
+      overlay.classList.add("hidden");
+      const modulo = isFA ? "faca-amigos" : "cacau-show";
+      
+      setTimeout(() => {
+        const selectLoja = document.getElementById("loja");
+        if (selectLoja) {
+          selectLoja.value = nomeLoja;
+          selectLoja.dispatchEvent(new Event("change"));
+        }
+        
+        const selectLojaFA = document.getElementById("fa-loja");
+        if (selectLojaFA) {
+          selectLojaFA.value = nomeLoja;
+          selectLojaFA.dispatchEvent(new Event("change"));
+        }
+      }, 150);
+
+      iniciarModuloBase(modulo);
+    };
+    container.appendChild(btn);
+  });
+
+  overlay.classList.remove("hidden");
 }
 
 function ajustarCardsModulos() {
