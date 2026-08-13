@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full bg-slate-900 text-slate-100">
+<html lang="pt-BR" class="h-full bg-slate-50 text-slate-800">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>iFood Integration Hub v2 — Painel Independente</title>
+  <title>iFood Integration Hub v2 — Painel Light Mode</title>
 
   <!-- Google Fonts & Font Awesome -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,43 +16,85 @@
   <style>
     :root {
       --ifood-red: #ea1d2c;
-      --ifood-red-dark: #b81421;
-      --ifood-red-light: #ff4d5a;
-      --bg-dark: #0f172a;
-      --card-dark: #1e293b;
-      --border-dark: #334155;
+      --ifood-red-dark: #c11522;
+      --ifood-red-light: #fff1f2;
+      --bg-main: #f8fafc;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+      --text-heading: #0f172a;
+      --text-muted: #64748b;
     }
+
+    /* Dark theme overrides when .dark class is on html */
+    html.dark {
+      --bg-main: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --text-heading: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: var(--bg-dark);
-      color: #f8fafc;
+      background-color: var(--bg-main);
+      color: var(--text-heading);
+      transition: background-color 0.25s ease, color 0.25s ease;
     }
-    .glass-card {
-      background: rgba(30, 41, 59, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+
+    .premium-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
       border-radius: 1rem;
+      box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.05);
+      transition: all 0.2s ease;
     }
+    .premium-card:hover {
+      box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+    }
+
     .btn-ifood {
-      background: linear-gradient(135deg, var(--ifood-red), var(--ifood-red-dark));
+      background: linear-gradient(135deg, var(--ifood-red), #d91826);
       color: white;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .btn-ifood:hover {
-      background: linear-gradient(135deg, var(--ifood-red-light), var(--ifood-red));
-      box-shadow: 0 4px 20px rgba(234, 29, 44, 0.35);
+      background: linear-gradient(135deg, #ff2e3d, var(--ifood-red));
+      box-shadow: 0 6px 20px rgba(234, 29, 44, 0.3);
       transform: translateY(-1px);
     }
+
+    .store-tab {
+      background-color: var(--card-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+    .store-tab:hover {
+      background-color: #f1f5f9;
+      color: var(--text-heading);
+    }
+    html.dark .store-tab:hover {
+      background-color: #334155;
+    }
     .store-tab.active {
-      background: var(--ifood-red);
-      color: #ffffff;
-      border-color: var(--ifood-red);
-      box-shadow: 0 4px 14px rgba(234, 29, 44, 0.3);
+      background-color: var(--ifood-red) !important;
+      color: #ffffff !important;
+      border-color: var(--ifood-red) !important;
+      box-shadow: 0 4px 14px rgba(234, 29, 44, 0.25);
+    }
+
+    .nav-tab {
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+    }
+    .nav-tab:hover {
+      color: var(--text-heading);
     }
     .nav-tab.active {
-      color: var(--ifood-red-light);
+      color: var(--ifood-red);
       border-bottom-color: var(--ifood-red);
+      font-weight: 700;
     }
+
     .badge-status {
       font-size: 0.72rem;
       font-weight: 700;
@@ -60,36 +102,47 @@
       border-radius: 9999px;
       text-transform: uppercase;
       letter-spacing: 0.03em;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
     }
-    .badge-available { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
-    .badge-paused { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-available { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-paused { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge-error { background: #ffe4e6; color: #be123c; border: 1px solid #fecdd3; }
+
+    html.dark .badge-available { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
+    html.dark .badge-paused { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+    html.dark .badge-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
 
   <!-- Top Navigation Header -->
-  <header class="bg-slate-950/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+  <header class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-colors">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <!-- Brand Logo -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl btn-ifood flex items-center justify-center text-lg font-black shadow-lg shadow-red-900/40">
+        <div class="w-10 h-10 rounded-xl btn-ifood flex items-center justify-center text-lg font-black shadow-md shadow-red-500/20">
           <i class="fa-solid fa-motorcycle"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base font-extrabold text-white tracking-tight">Painel iFood v2</h1>
-            <span class="px-2 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30 rounded-md">Stand-alone</span>
+            <h1 class="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Painel iFood v2</h1>
+            <span class="px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-rose-200 dark:border-red-500/30 rounded-md">Modo Claro</span>
           </div>
-          <p class="text-xs text-slate-400">Gestão independente de estoque e credenciais da Merchant API</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Gestão independente de estoque e credenciais Merchant API</p>
         </div>
       </div>
 
-      <!-- Header Actions -->
+      <!-- Header Actions & Theme Switcher -->
       <div class="flex items-center gap-3">
-        <a href="index.html" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-2">
-          <i class="fa-solid fa-arrow-left text-slate-400"></i> Voltar ao Sistema Principal
+        <button id="btn-toggle-theme" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition flex items-center gap-2">
+          <i class="fa-solid fa-moon text-slate-500 dark:text-amber-400" id="icon-theme"></i> <span id="label-theme">Modo Escuro</span>
+        </button>
+
+        <a href="index.html" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition flex items-center gap-2">
+          <i class="fa-solid fa-arrow-left text-slate-400"></i> Voltar ao App
         </a>
       </div>
     </div>
@@ -99,24 +152,24 @@
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
     <!-- Store Selector Banner -->
-    <div class="glass-card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="premium-card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Selecione a Loja para Operar</span>
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">Selecione a Loja para Operar</span>
         <div class="flex flex-wrap gap-2" id="store-selector-container">
-          <button type="button" data-store="marambaia" class="store-tab active px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 transition flex items-center gap-2">
+          <button type="button" data-store="marambaia" class="store-tab active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
             <i class="fa-solid fa-store"></i> Marambaia
           </button>
-          <button type="button" data-store="icoaraci" class="store-tab px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 transition flex items-center gap-2">
+          <button type="button" data-store="icoaraci" class="store-tab px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
             <i class="fa-solid fa-store"></i> Icoaraci
           </button>
-          <button type="button" data-store="mario-covas" class="store-tab px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 transition flex items-center gap-2">
+          <button type="button" data-store="mario-covas" class="store-tab px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
             <i class="fa-solid fa-store"></i> Mário Covas
           </button>
         </div>
       </div>
 
       <div class="flex items-center gap-3 self-end md:self-auto">
-        <button id="btn-force-sync" type="button" class="btn-ifood px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2">
+        <button id="btn-force-sync" type="button" class="btn-ifood px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2">
           <i class="fa-solid fa-rotate"></i> Sincronizar Estoque Agora
         </button>
       </div>
@@ -124,56 +177,56 @@
 
     <!-- Store Overview Status Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="glass-card p-4">
-        <div class="flex items-center justify-between text-slate-400 mb-2">
+      <div class="premium-card p-4">
+        <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
           <span class="text-xs font-medium">Status da Conexão</span>
-          <i class="fa-solid fa-plug text-sm text-slate-500"></i>
+          <i class="fa-solid fa-plug text-sm text-slate-400"></i>
         </div>
-        <div id="card-status-conexao" class="text-lg font-bold text-slate-100 flex items-center gap-2">
+        <div id="card-status-conexao" class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <span class="badge-status badge-paused"><i class="fa-solid fa-spinner fa-spin"></i> Verificando...</span>
         </div>
-        <p class="text-[11px] text-slate-400 mt-1" id="card-merchant-id">Merchant ID: --</p>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1" id="card-merchant-id">Merchant ID: --</p>
       </div>
 
-      <div class="glass-card p-4">
-        <div class="flex items-center justify-between text-slate-400 mb-2">
+      <div class="premium-card p-4">
+        <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
           <span class="text-xs font-medium">Itens Mapeados</span>
-          <i class="fa-solid fa-boxes-stacked text-sm text-slate-500"></i>
+          <i class="fa-solid fa-boxes-stacked text-sm text-slate-400"></i>
         </div>
-        <div id="card-total-itens" class="text-xl font-extrabold text-white">0</div>
-        <p class="text-[11px] text-slate-400 mt-1" id="card-itens-ativos">0 ativos no iFood</p>
+        <div id="card-total-itens" class="text-2xl font-extrabold text-slate-900 dark:text-white">0</div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1" id="card-itens-ativos">0 ativos no iFood</p>
       </div>
 
-      <div class="glass-card p-4">
-        <div class="flex items-center justify-between text-slate-400 mb-2">
+      <div class="premium-card p-4">
+        <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
           <span class="text-xs font-medium">Última Atualização</span>
-          <i class="fa-solid fa-clock-rotate-left text-sm text-slate-500"></i>
+          <i class="fa-solid fa-clock-rotate-left text-sm text-slate-400"></i>
         </div>
-        <div id="card-ultima-sync" class="text-sm font-bold text-slate-200">Nunca sincronizada</div>
-        <p class="text-[11px] text-slate-400 mt-1">Sincronização diária às 02:00</p>
+        <div id="card-ultima-sync" class="text-sm font-bold text-slate-800 dark:text-slate-200">Nunca sincronizada</div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Varredura diária às 02:00</p>
       </div>
 
-      <div class="glass-card p-4">
-        <div class="flex items-center justify-between text-slate-400 mb-2">
+      <div class="premium-card p-4">
+        <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
           <span class="text-xs font-medium">Autenticação OAuth2</span>
-          <i class="fa-solid fa-key text-sm text-slate-500"></i>
+          <i class="fa-solid fa-key text-sm text-slate-400"></i>
         </div>
-        <div id="card-token-status" class="text-sm font-bold text-slate-200">Pronto para Conexão</div>
-        <p class="text-[11px] text-slate-400 mt-1">Merchant API v1.0</p>
+        <div id="card-token-status" class="text-sm font-bold text-slate-800 dark:text-slate-200">Pronto para Conexão</div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Merchant API v1.0</p>
       </div>
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="glass-card">
-      <div class="border-b border-slate-800 px-4">
+    <div class="premium-card">
+      <div class="border-b border-slate-200 dark:border-slate-800 px-4">
         <nav class="flex space-x-6" aria-label="Tabs">
-          <button type="button" data-tab="tab-estoque" class="nav-tab active py-3.5 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
+          <button type="button" data-tab="tab-estoque" class="nav-tab active py-3.5 text-xs font-bold flex items-center gap-2">
             <i class="fa-solid fa-list-check"></i> Gestão de Cardápio e Estoque
           </button>
-          <button type="button" data-tab="tab-credenciais" class="nav-tab py-3.5 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
+          <button type="button" data-tab="tab-credenciais" class="nav-tab py-3.5 text-xs font-bold flex items-center gap-2">
             <i class="fa-solid fa-sliders"></i> Configurações de API & Credenciais
           </button>
-          <button type="button" data-tab="tab-logs" class="nav-tab py-3.5 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
+          <button type="button" data-tab="tab-logs" class="nav-tab py-3.5 text-xs font-bold flex items-center gap-2">
             <i class="fa-solid fa-clock-history"></i> Histórico de Sincronizações
           </button>
         </nav>
@@ -187,29 +240,29 @@
         <div id="tab-estoque" class="tab-content space-y-4">
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="relative w-full sm:w-72">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-xs text-slate-500"></i>
-              <input type="text" id="input-search-items" placeholder="Buscar produto ou código..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-red-500 transition">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-xs text-slate-400"></i>
+              <input type="text" id="input-search-items" placeholder="Buscar produto ou código..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-red-500 transition">
             </div>
-            <div class="text-xs text-slate-400 font-medium" id="inventory-summary-count">
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-medium" id="inventory-summary-count">
               Exibindo 0 produtos
             </div>
           </div>
 
-          <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/40">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="bg-slate-800/60 text-slate-400 font-semibold border-b border-slate-800">
+                <tr class="bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                   <th class="p-3.5">Descrição do Produto</th>
                   <th class="p-3.5">Cód. Produto Local</th>
                   <th class="p-3.5">Cód. Merchant iFood</th>
                   <th class="p-3.5">Status no iFood</th>
-                  <th class="p-3.5 text-right">Ação</th>
+                  <th class="p-3.5 text-right">Última Sincronização</th>
                 </tr>
               </thead>
-              <tbody id="table-inventory-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <tbody id="table-inventory-body" class="divide-y divide-slate-200 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
                 <tr>
-                  <td colspan="5" class="p-8 text-center text-slate-500">
-                    <i class="fa-solid fa-spinner fa-spin text-lg mb-2 block"></i> Carregando inventário da loja...
+                  <td colspan="5" class="p-8 text-center text-slate-400">
+                    <i class="fa-solid fa-spinner fa-spin text-lg mb-2 block text-red-500"></i> Carregando inventário da loja...
                   </td>
                 </tr>
               </tbody>
@@ -220,29 +273,29 @@
         <!-- TAB 2: Credenciais & API Config -->
         <div id="tab-credenciais" class="tab-content hidden space-y-6 max-w-2xl">
           <div>
-            <h3 class="text-sm font-bold text-white mb-1">Credenciais da Developer iFood Platform</h3>
-            <p class="text-xs text-slate-400">Insira as chaves de acesso obtidas no portal de desenvolvedores iFood para a loja selecionada.</p>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Credenciais da Developer iFood Platform</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Insira as chaves de acesso obtidas no portal de desenvolvedores iFood para a loja selecionada.</p>
           </div>
 
           <form id="form-ifood-credentials" class="space-y-4">
             <div>
-              <label for="cfg-merchant-id" class="block text-xs font-semibold text-slate-300 mb-1">Merchant ID (ID da Loja)</label>
-              <input type="text" id="cfg-merchant-id" required placeholder="Ex: 1a2b3c4d-5e6f-7g8h-9i0j..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
+              <label for="cfg-merchant-id" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Merchant ID (ID da Loja)</label>
+              <input type="text" id="cfg-merchant-id" required placeholder="Ex: 1a2b3c4d-5e6f-7g8h-9i0j..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
             </div>
 
             <div>
-              <label for="cfg-client-id" class="block text-xs font-semibold text-slate-300 mb-1">Client ID</label>
-              <input type="text" id="cfg-client-id" required placeholder="Seu Client ID do iFood Portal" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
+              <label for="cfg-client-id" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Client ID</label>
+              <input type="text" id="cfg-client-id" required placeholder="Seu Client ID do iFood Portal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
             </div>
 
             <div>
-              <label for="cfg-client-secret" class="block text-xs font-semibold text-slate-300 mb-1">Client Secret</label>
-              <input type="password" id="cfg-client-secret" placeholder="Deixe em branco se desejar manter a senha atual" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
-              <span class="text-[11px] text-slate-500 mt-1 block"><i class="fa-solid fa-lock text-slate-600"></i> Por segurança, a chave secreta é armazenada de forma encriptada.</span>
+              <label for="cfg-client-secret" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Client Secret</label>
+              <input type="password" id="cfg-client-secret" placeholder="Deixe em branco se desejar manter a senha atual" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl p-3 focus:outline-none focus:border-red-500 transition">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block"><i class="fa-solid fa-lock text-slate-400"></i> Por segurança, a chave secreta é armazenada de forma encriptada.</span>
             </div>
 
             <div class="pt-2 flex items-center justify-end gap-3">
-              <button type="submit" id="btn-save-credentials" class="btn-ifood px-6 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2">
+              <button type="submit" id="btn-save-credentials" class="btn-ifood px-6 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Salvar Credenciais
               </button>
             </div>
@@ -251,22 +304,22 @@
 
         <!-- TAB 3: Histórico de Logs -->
         <div id="tab-logs" class="tab-content hidden space-y-4">
-          <div class="text-xs text-slate-400">
+          <div class="text-xs text-slate-500 dark:text-slate-400">
             Registro detalhado das últimas execuções de varredura e sincronização de catálogo.
           </div>
-          <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/40">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="bg-slate-800/60 text-slate-400 font-semibold border-b border-slate-800">
+                <tr class="bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                   <th class="p-3.5">Data / Hora</th>
                   <th class="p-3.5">Loja</th>
                   <th class="p-3.5">Evento</th>
                   <th class="p-3.5">Resultado</th>
                 </tr>
               </thead>
-              <tbody id="table-logs-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <tbody id="table-logs-body" class="divide-y divide-slate-200 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
                 <tr>
-                  <td colspan="4" class="p-6 text-center text-slate-500">
+                  <td colspan="4" class="p-6 text-center text-slate-400">
                     Histórico consolidado com base na tabela `ifood_sync_history`.
                   </td>
                 </tr>
