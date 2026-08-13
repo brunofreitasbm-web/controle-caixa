@@ -7809,7 +7809,12 @@ function loadInventoryForCurrentStore() {
             const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
             if (countedBoxes <= 0) return;
 
-            const totalUnits = Math.round(countedBoxes * (p.boxMultiplier || 1));
+            // Recalcula o multiplicador a partir da descrição (sufixo "...100UN" etc.), com
+            // fallback pro boxMultiplier salvo na importação da NF-e — mesma regra usada em
+            // autoCreditNfProductToInventory, pra "QTD Inventariada" nunca ficar presa em
+            // caixas x1 quando a descrição não bateu no momento da importação original.
+            const multiplier = detectBoxMultiplier(null, p.description || '') || p.boxMultiplier || 1;
+            const totalUnits = Math.round(countedBoxes * multiplier);
             const key = `cacaushow_db_inventory_${currentStore}_${p.code}`;
             const localData = localStorage.getItem(key);
             let invProd = null;
@@ -7824,14 +7829,22 @@ function loadInventoryForCurrentStore() {
                 description: p.description,
                 validade: p.validade,
                 daysRemaining: p.daysRemaining,
-                countedQty: '',
+                countedQty: String(totalUnits),
                 dataEntrada: nf.info.emissao,
                 qtdEntradaUnidades: totalUnits,
                 qtdEntradaCaixas: countedBoxes
               };
               dbBridge.saveInventoryItem(currentStore, invProd);
               savedItems.push(invProd);
-            } else if (!invProd.qtdEntradaUnidades || !invProd.dataEntrada) {
+            } else if (invProd.qtdEntradaUnidades !== totalUnits || invProd.qtdEntradaCaixas !== countedBoxes || !invProd.dataEntrada) {
+              // Só regulariza a QTD Inventariada se ela ainda não foi ajustada manualmente
+              // (vazia ou igual à entrada antiga/errada) — não sobrescreve contagem física real.
+              const countedQtyVazia = invProd.countedQty === '' || invProd.countedQty === undefined || invProd.countedQty === null;
+              const countedQtyBatiaComEntradaAntiga = Number(invProd.countedQty) === Number(invProd.qtdEntradaUnidades || 0);
+              if (countedQtyVazia || countedQtyBatiaComEntradaAntiga) {
+                invProd.countedQty = String(totalUnits);
+              }
+
               invProd.dataEntrada = nf.info.emissao;
               invProd.qtdEntradaUnidades = totalUnits;
               invProd.qtdEntradaCaixas = countedBoxes;
@@ -7839,6 +7852,7 @@ function loadInventoryForCurrentStore() {
 
               const existing = savedItems.find(item => item.code === p.code);
               if (existing) {
+                existing.countedQty = invProd.countedQty;
                 existing.dataEntrada = nf.info.emissao;
                 existing.qtdEntradaUnidades = totalUnits;
                 existing.qtdEntradaCaixas = countedBoxes;
@@ -9917,7 +9931,6 @@ function renderTable() {
       </td>
       <td class="py-3 px-4 text-ink-strong font-medium text-xs">${p.description}</td>
       <td class="py-3 px-4 text-center font-mono text-xs text-ink-muted">${p.dataEntrada || '-'}</td>
-      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaUnidades ? `${p.qtdEntradaUnidades} UN` : '-'}</td>
       <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaCaixas ? `${p.qtdEntradaCaixas} CX` : '-'}</td>
       <td class="py-3 px-4 text-center">
         <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-surface-2 border border-subtle rounded px-2 py-1 text-ink text-xs" />
