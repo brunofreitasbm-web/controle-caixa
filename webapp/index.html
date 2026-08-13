@@ -16,8 +16,25 @@
      Roda aqui, e não no fim do app.js, porque o layout depende do
      resultado: executada depois, a página pintaria com a casca errada e
      se corrigiria em seguida, à vista do usuário (FOUC).
-
-     São DOIS eixos, não um. Derivar tudo do user-agent é o erro comum:
+     =================================================================== */ -->
+<script>
+  // ERROR BOUNDARY (Evita tela branca)
+  window.addEventListener('error', function(event) {
+    var err = document.createElement('div');
+    err.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:999999;color:#b91c1c;padding:30px;font-family:sans-serif;box-sizing:border-box;overflow:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;';
+    err.innerHTML = '<div style="max-width:600px;"><i class="fa-solid fa-triangle-exclamation" style="font-size:48px;margin-bottom:20px;"></i><h2 style="margin:0 0 10px;font-size:24px;">Ops! O sistema encontrou um erro.</h2><p style="margin:0 0 20px;color:#4b5563;">Não foi possível carregar a aplicação. Por favor, recarregue a página ou contate o suporte.</p><div style="background:#fee2e2;padding:15px;border-radius:8px;text-align:left;font-size:14px;overflow-x:auto;"><strong>Erro:</strong> ' + event.message + '<br><br>' + (event.error && event.error.stack ? event.error.stack.replace(/\\n/g, '<br>') : '') + '</div></div>';
+    if(document.body) document.body.appendChild(err); else window.onload = function() { document.body.appendChild(err); };
+  });
+  window.addEventListener('unhandledrejection', function(event) {
+    var err = document.createElement('div');
+    err.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:999999;color:#b91c1c;padding:30px;font-family:sans-serif;box-sizing:border-box;overflow:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;';
+    var reason = event.reason ? (event.reason.message || event.reason) : 'Erro de rede ou promessa rejeitada.';
+    var stack = event.reason && event.reason.stack ? event.reason.stack.replace(/\\n/g, '<br>') : '';
+    err.innerHTML = '<div style="max-width:600px;"><i class="fa-solid fa-triangle-exclamation" style="font-size:48px;margin-bottom:20px;"></i><h2 style="margin:0 0 10px;font-size:24px;">Erro de Conexão/Inicialização</h2><p style="margin:0 0 20px;color:#4b5563;">Houve um problema ao carregar dados essenciais do sistema.</p><div style="background:#fee2e2;padding:15px;border-radius:8px;text-align:left;font-size:14px;overflow-x:auto;"><strong>Detalhes:</strong> ' + reason + '<br><br>' + stack + '</div></div>';
+    if(document.body) document.body.appendChild(err); else window.onload = function() { document.body.appendChild(err); };
+  });
+</script>
+<script>
        · idioma   (ios | android | desktop) — qual convenção seguir.
                   Vem da plataforma.
        · densidade (compact | expanded)     — se cabe barra lateral fixa

@@ -1,4 +1,4 @@
-aconst CACHE_NAME = 'ponto-pwa-v53'; // v53: ponto do FaçaAmigos descartado, exclusivo do Cacau Show
+const CACHE_NAME = 'ponto-pwa-v54'; // v54: cache bump to fix aconst error and force reload
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
