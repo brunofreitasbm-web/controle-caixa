@@ -33,6 +33,7 @@ function ifoodMostrarFeedback(elId, mensagem, tipo = "sucesso") {
   if (!el) return;
   el.textContent = mensagem;
   el.className = `feedback ${tipo}`;
+  el.style.display = "block";
   setTimeout(() => { el.style.display = "none"; }, 5000);
 }
 
@@ -58,7 +59,7 @@ async function carregarOverviewIfood() {
   }
   renderizarGridIfood();
   if (!ifoodLojaSelecionada && IFOOD_LOJAS.length > 0) {
-    selecionarLojaIfood(IFOOD_LOJAS[0].valor);
+    selecionarLojaIfood(IFOOD_LOJAS[0].valor, false);
   }
 }
 
@@ -89,7 +90,7 @@ function renderizarGridIfood() {
         <span><i class="fa-regular fa-clock"></i> ${ifoodFormatData(info ? info.ultimaSincronizacao : null)}</span>
       </div>
     `;
-    card.addEventListener("click", () => selecionarLojaIfood(loja.valor));
+    card.addEventListener("click", () => selecionarLojaIfood(loja.valor, true));
     grid.appendChild(card);
   });
 }
@@ -98,7 +99,7 @@ function renderizarGridIfood() {
 // Seleção de loja / painel de detalhe
 // ---------------------------------------------------------------------
 
-function selecionarLojaIfood(valor) {
+function selecionarLojaIfood(valor, userAction = false) {
   ifoodLojaSelecionada = valor;
   renderizarGridIfood();
 
@@ -106,7 +107,9 @@ function selecionarLojaIfood(valor) {
   const detalheNome = document.getElementById("detalhe-nome-loja");
   if (painelDetalhe) painelDetalhe.style.display = "block";
   if (detalheNome) detalheNome.textContent = ifoodNomeLoja(valor);
-  if (painelDetalhe) painelDetalhe.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (userAction && painelDetalhe) {
+    painelDetalhe.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 
   carregarSyncStatusIfood();
   carregarConfigIfood();
@@ -114,6 +117,8 @@ function selecionarLojaIfood(valor) {
 
 function ligarAbasIfood() {
   document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(btn => {
+    if (btn.dataset.boundTab) return;
+    btn.dataset.boundTab = "true";
     btn.addEventListener("click", () => {
       document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(b => b.classList.remove("ativa"));
       document.querySelectorAll(".conteudo-aba").forEach(p => p.classList.remove("ativa"));
@@ -140,10 +145,20 @@ async function carregarSyncStatusIfood() {
 
   try {
     const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-status?loja=${encodeURIComponent(ifoodLojaSelecionada)}`);
-    const dados = await res.json();
+    const json = await res.json();
+
+    if (!res.ok || (json && json.error)) {
+      resumoEl.textContent = "Erro ao carregar dados";
+      vazioEl.style.display = "block";
+      vazioEl.textContent = (json && json.error) ? json.error : "Erro de resposta da API.";
+      return;
+    }
+
+    const dados = Array.isArray(json) ? json : (json.data || []);
 
     if (!Array.isArray(dados) || dados.length === 0) {
       vazioEl.style.display = "block";
+      vazioEl.textContent = "Nenhuma sincronização registrada para esta loja ainda.";
       resumoEl.textContent = "Nenhum item sincronizado";
       return;
     }
@@ -165,6 +180,8 @@ async function carregarSyncStatusIfood() {
   } catch (err) {
     console.error("Erro ao carregar status de sincronização:", err);
     resumoEl.textContent = "Erro ao carregar dados.";
+    vazioEl.style.display = "block";
+    vazioEl.textContent = "Erro de conexão ao buscar status de sincronização.";
   }
 }
 
@@ -293,5 +310,3 @@ function inicializarIfoodGerenciamento() {
 document.addEventListener("DOMContentLoaded", () => {
   inicializarIfoodGerenciamento();
 });
-
-

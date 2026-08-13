@@ -1734,6 +1734,7 @@ function iniciarModuloBase(moduloOpcional) {
     "cacau-show": "group-controle-caixa",
     "faca-amigos": "group-faca-amigos",
     "rh-modulo": "group-rh-equipe",
+    "ifood-modulo": "group-controle-caixa",
   };
   const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
   document.querySelectorAll(".sidebar-group").forEach(group => {
@@ -1763,6 +1764,8 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
+    } else if (moduloOpcional === "ifood-modulo") {
+      ativarTab("ifood");
     }
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
