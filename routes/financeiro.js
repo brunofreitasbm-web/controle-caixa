@@ -308,14 +308,15 @@ router.get('/boletos', (req, res) => {
 });
 
 // Chave de duplicata: replica a regra original — se o boleto vem com
-// docFaturamento, casa por (loja, docFaturamento, valor); senão por
-// (loja, documento, valor). valor é normalizado a 2 casas pra não perder
+// docFaturamento, casa por (loja, docFaturamento, parcela, valor); senão por
+// (loja, documento, parcela, valor). valor é normalizado a 2 casas pra não perder
 // duplicata por diferença de representação float entre banco e JS.
-function chaveDuplicataBoleto(loja, documento, docFaturamento, valor) {
+function chaveDuplicataBoleto(loja, documento, docFaturamento, parcela, valor) {
   const valorFixo = Number(valor || 0).toFixed(2);
+  const parc = (parcela || '').toString().trim();
   return docFaturamento
-    ? `df|${loja}|${docFaturamento}|${valorFixo}`
-    : `d|${loja}|${documento}|${valorFixo}`;
+    ? `df|${loja}|${docFaturamento}|${parc}|${valorFixo}`
+    : `d|${loja}|${documento}|${parc}|${valorFixo}`;
 }
 
 router.post('/boletos/import', (req, res) => {
@@ -339,21 +340,21 @@ router.post('/boletos/import', (req, res) => {
   const placeholdersLojas = lojas.map(() => '?').join(',');
 
   db.all(
-    `SELECT loja, documento, docFaturamento, valor FROM boletos WHERE loja IN (${placeholdersLojas})`,
+    `SELECT loja, documento, docFaturamento, parcela, valor FROM boletos WHERE loja IN (${placeholdersLojas})`,
     lojas,
     (err, existentes) => {
       if (err) return res.status(500).json({ error: err.message });
 
       const chavesExistentes = new Set();
       (existentes || []).forEach(row => {
-        if (row.docFaturamento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, null, row.docFaturamento, row.valor));
-        if (row.documento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, row.documento, null, row.valor));
+        if (row.docFaturamento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, null, row.docFaturamento, row.parcela, row.valor));
+        if (row.documento) chavesExistentes.add(chaveDuplicataBoleto(row.loja, row.documento, null, row.parcela, row.valor));
       });
 
       const paraInserir = [];
       const ignorados = [];
       boletos.forEach(b => {
-        const chave = chaveDuplicataBoleto(b.loja, b.documento, b.docFaturamento, b.valor);
+        const chave = chaveDuplicataBoleto(b.loja, b.documento, b.docFaturamento, b.parcela, b.valor);
         if (chavesExistentes.has(chave)) ignorados.push(b);
         else paraInserir.push(b);
       });

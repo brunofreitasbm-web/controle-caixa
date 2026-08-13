@@ -10418,21 +10418,19 @@ function parseMoedaPdf(str) {
 // código da loja encontrado ou null se não houver nenhuma referência.
 function detectStoreFromBoletoLine(texto) {
   const upper = texto.toUpperCase();
-  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688') || upper.includes('PA ANANIDEUA SUPER MIX MATEUS COQ')) return '9201';
-  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056') || upper.includes('PA BELEM CRUZEIRO') || upper.includes('PA BELÉM CRUZEIRO')) return '4304';
-  if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495')) return '9175';
+  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688') || upper.includes('PA ANANIDEUA') || upper.includes('ANANIDEUA')) return '9201';
+  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056') || upper.includes('PA BELEM CRUZEIRO') || upper.includes('PA BELÉM CRUZEIRO') || upper.includes('CRUZEIRO')) return '4304';
+  if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495') || upper.includes('PA BELEM MARAMBAIA') || upper.includes('PA BELÉM MARAMBAIA')) return '9175';
   return null;
 }
 
 // Extrai os boletos do texto do relatório de "Consulta de Títulos" (portal
-// Cacau Digital). O relatório é uma página web impressa em PDF: o texto de
+// Cacau Digital / Hybris Reports). O relatório é uma página web impressa em PDF: o texto de
 // uma mesma linha da tabela às vezes quebra em várias linhas internas (o
 // valor "R$" fica separado do número, por exemplo) — por isso NÃO dá pra
 // confiar em "uma linha de texto = um boleto". Em vez disso, cortamos o
-// texto inteiro em blocos usando o "Número Doc." (10 dígitos + "-" + 3
-// dígitos de sequência) como âncora, já que ele aparece de forma confiável
-// no início de cada linha da tabela, e extraímos os campos de dentro de
-// cada bloco (que pode ter quebras de linha no meio).
+// texto inteiro em blocos usando o "Número Doc." (9 a 10 dígitos + "-" + sufixo)
+// como âncora, já que ele aparece de forma confiável no início de cada linha da tabela.
 function extrairBoletosDoTexto(items, fullText) {
   const boletosExtraidos = [];
   const lojaDoRelatorio = detectStoreFromBoletoLine(fullText);
@@ -10443,8 +10441,8 @@ function extrairBoletosDoTexto(items, fullText) {
   pages.forEach(pageNum => {
     const pageItems = items.filter(item => item.page === pageNum);
 
-    // 1. Find all prefix items (document number prefixes: 9-10 digits, optionally ending with a hyphen, located at x between 38 and 46)
-    const prefixItems = pageItems.filter(item => item.x >= 38 && item.x <= 46 && /^\d{9,10}-?$/.test(item.str));
+    // 1. Find all prefix items (document number prefixes: 8-10 digits, optionally ending with a hyphen, located at x between 35 and 55)
+    const prefixItems = pageItems.filter(item => item.x >= 35 && item.x <= 55 && /^\d{8,10}-?$/.test(item.str));
     
     // Sort prefix items by Y descending
     prefixItems.sort((a, b) => b.y - a.y);
@@ -10479,8 +10477,8 @@ function extrairBoletosDoTexto(items, fullText) {
 
       const prefixItem = row.prefix;
 
-      // Find suffix
-      const suffixItem = row.items.find(item => item.x > prefixItem.x && item.x < 70 && (/^\d{3}$/.test(item.str) || /^[A-Z]{2,3}$/.test(item.str)));
+      // Find suffix (e.g. 001, 002, SS, etc.)
+      const suffixItem = row.items.find(item => item.x > prefixItem.x && item.x < 75 && (/^\d{1,3}$/.test(item.str) || /^[A-Z0-9]{1,3}$/.test(item.str)));
       
       let documento = prefixItem.str;
       if (suffixItem) {
@@ -10503,7 +10501,7 @@ function extrairBoletosDoTexto(items, fullText) {
       }
 
       // Find valor
-      const valorItems = row.items.filter(item => item.x >= 480 && item.x <= 515);
+      const valorItems = row.items.filter(item => item.x >= 460 && item.x <= 535);
       let valorStr = "";
       valorItems.forEach(vi => {
         valorStr += " " + vi.str;
@@ -10513,17 +10511,23 @@ function extrairBoletosDoTexto(items, fullText) {
       const valor = parseMoedaPdf(valorStr);
       if (!valor) return;
 
-      // Find Doc. Faturamento
-      const docFatPrefixItem = row.items.find(item => item.x >= 370 && item.x <= 395 && /^\d{6,9}-$/.test(item.str));
+      // Find Doc. Faturamento (e.g. 003885871-001, 0105381695, 0000000000000000, ACORDO)
       let docFaturamento = null;
+      const docFatPrefixItem = row.items.find(item => item.x >= 360 && item.x <= 420 && (/^\d{6,16}-?$/.test(item.str) || /^ACORDO$/i.test(item.str)));
       if (docFatPrefixItem) {
-        const docFatSuffixItem = row.items.find(item => item.x > docFatPrefixItem.x && item.x < 420 && /^\d{3}$/.test(item.str));
-        if (docFatSuffixItem) {
-          docFaturamento = `${docFatPrefixItem.str}${docFatSuffixItem.str}`;
+        if (docFatPrefixItem.str.endsWith('-')) {
+          const docFatSuffixItem = row.items.find(item => item.x > docFatPrefixItem.x && item.x < 435 && /^\d{1,3}$/.test(item.str));
+          if (docFatSuffixItem) {
+            docFaturamento = `${docFatPrefixItem.str}${docFatSuffixItem.str}`;
+          } else {
+            docFaturamento = docFatPrefixItem.str;
+          }
+        } else {
+          docFaturamento = docFatPrefixItem.str;
         }
       }
 
-      const parcelaItem = row.items.find(item => item.x >= 300 && item.x <= 330 && /^\d+\/\d+$/.test(item.str));
+      const parcelaItem = row.items.find(item => item.x >= 295 && item.x <= 340 && /^\d+\/\d+$/.test(item.str));
       const parcela = parcelaItem ? parcelaItem.str : "1/1";
 
       const rowText = row.items.map(item => item.str).join(" ");
@@ -10531,7 +10535,7 @@ function extrairBoletosDoTexto(items, fullText) {
       const loja = lojaNoBloco || lojaDoRelatorio || currentStore || "9175";
       const lojaAutoDetectada = !!(lojaNoBloco || lojaDoRelatorio);
 
-      const descItems = row.items.filter(item => item.x >= 185 && item.x < 300);
+      const descItems = row.items.filter(item => item.x >= 180 && item.x < 295);
       let descricao = descItems.map(item => item.str).join(" ").trim();
       if (!descricao) descricao = "Duplicata Cacau Show";
 
