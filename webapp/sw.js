@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v55'; // v55: fix broken inline <script> in index.html causing blank white screen after splash
+const CACHE_NAME = 'ponto-pwa-v56'; // v56: restore Fluxo de Caixa/Insights IA/Boletos markup deleted by mistake in cf36d9a (crashed on login for owners with a stale "ultimoModulo" pointing at the removed sections)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
