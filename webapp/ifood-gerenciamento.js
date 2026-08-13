@@ -163,17 +163,23 @@ async function carregarSyncStatusIfood() {
       return;
     }
 
-    const ativos = dados.filter(i => i.status_enviado === "AVAILABLE").length;
-    resumoEl.textContent = `${dados.length} itens pareados — ${ativos} ativos, ${dados.length - ativos} pausados`;
+    const ativos = dados.filter(i => i.status_enviado === "AVAILABLE");
+    resumoEl.textContent = `${ativos.length} produtos ativos no cardápio (${dados.length - ativos.length} pausados ocultos)`;
 
-    dados.forEach(item => {
-      const isAtivo = item.status_enviado === "AVAILABLE";
+    if (ativos.length === 0) {
+      vazioEl.style.display = "block";
+      vazioEl.textContent = "Nenhum produto ativo com estoque no cardápio desta loja.";
+      return;
+    }
+
+    ativos.forEach(item => {
+      const isAtivo = true;
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="p-3">${item.descricao || "--"}</td>
         <td class="p-3">${item.codProdutoLocal || "--"}</td>
         <td class="p-3">${item.codProdutoIfood || "--"}</td>
-        <td class="p-3"><span class="badge ${isAtivo ? "ok" : "pausado"}">${isAtivo ? "Ativo" : "Pausado"}</span></td>
+        <td class="p-3"><span class="badge ok">Ativo</span></td>
       `;
       tbody.appendChild(tr);
     });

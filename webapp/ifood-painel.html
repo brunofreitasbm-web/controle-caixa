@@ -2,6 +2,7 @@
 <html lang="pt-BR" class="h-full bg-slate-50 text-slate-800">
 <head>
   <meta charset="UTF-8">
+  <script>window.location.href = 'index.html';</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>iFood Integration Hub v2 — Painel Light Mode</title>
 
@@ -239,9 +240,15 @@
         <!-- TAB 1: Cardápio & Estoque -->
         <div id="tab-estoque" class="tab-content space-y-4">
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div class="relative w-full sm:w-72">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-xs text-slate-400"></i>
-              <input type="text" id="input-search-items" placeholder="Buscar produto ou código..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-red-500 transition">
+            <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <div class="relative w-full sm:w-72">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-xs text-slate-400"></i>
+                <input type="text" id="input-search-items" placeholder="Buscar produto ou código..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-red-500 transition">
+              </div>
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600 dark:text-slate-300 select-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-xl">
+                <input type="checkbox" id="chk-ocultar-pausados" checked class="rounded border-slate-300 text-red-600 focus:ring-red-500">
+                <span><i class="fa-solid fa-eye-slash text-slate-400"></i> Ocultar pausados (sem estoque)</span>
+              </label>
             </div>
             <div class="text-xs text-slate-500 dark:text-slate-400 font-medium" id="inventory-summary-count">
               Exibindo 0 produtos
@@ -275,6 +282,44 @@
           <div>
             <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Credenciais da Developer iFood Platform</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400">Insira as chaves de acesso obtidas no portal de desenvolvedores iFood para a loja selecionada.</p>
+          </div>
+
+          <!-- Ativação por Código (8 Caracteres) -->
+          <div class="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border border-red-200 dark:border-red-500/30 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-lg font-bold shadow-md shadow-red-500/20">
+                <i class="fa-solid fa-key"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Ativação Rápida por Código (8 Caracteres)</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Gere o código de autorização de 8 dígitos para ativar a loja diretamente no Portal iFood.</p>
+              </div>
+            </div>
+
+            <div id="user-code-box" class="hidden bg-white dark:bg-slate-900 border border-red-300 dark:border-red-500/40 rounded-xl p-4 text-center space-y-3">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Seu Código de Ativação iFood</span>
+              <div id="display-user-code" class="text-3xl font-black font-mono tracking-widest text-red-600 dark:text-red-400 select-all py-1">
+                ---- ----
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-300">
+                1. Copie o código acima e abra o <a id="link-verification-url" href="https://portal.ifood.com.br/apps/authorize" target="_blank" class="underline font-bold text-red-600 dark:text-red-400">Portal iFood <i class="fa-solid fa-up-right-from-square text-[10px]"></i></a>.<br>
+                2. Cole o código no campo de ativação e clique em <b>Autorizar</b> no iFood.
+              </p>
+              <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <button type="button" id="btn-copy-user-code" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 transition">
+                  <i class="fa-solid fa-copy mr-1"></i> Copiar Código
+                </button>
+                <button type="button" id="btn-complete-user-code" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition">
+                  <i class="fa-solid fa-circle-check mr-1"></i> Finalizar Integração
+                </button>
+              </div>
+            </div>
+
+            <div class="flex justify-start">
+              <button type="button" id="btn-generate-user-code" class="btn-ifood px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Código de Ativação (8 Dígitos)
+              </button>
+            </div>
           </div>
 
           <form id="form-ifood-credentials" class="space-y-4">

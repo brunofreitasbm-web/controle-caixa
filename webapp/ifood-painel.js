@@ -181,7 +181,7 @@ async function carregarInventarioLoja() {
     const dados = Array.isArray(json) ? json : (json.data || []);
     inventoryItemsCache = dados;
 
-    renderizarTabelaInventario(inventoryItemsCache);
+    aplicarFiltrosInventario();
   } catch (err) {
     console.error("Erro ao carregar inventário:", err);
     tbody.innerHTML = `
@@ -194,24 +194,53 @@ async function carregarInventarioLoja() {
   }
 }
 
+function aplicarFiltrosInventario() {
+  const busca = (document.getElementById("input-search-items")?.value || "").toLowerCase().trim();
+  const ocultarPausados = document.getElementById("chk-ocultar-pausados")?.checked ?? true;
+
+  let filtrados = inventoryItemsCache;
+
+  if (ocultarPausados) {
+    filtrados = filtrados.filter(item => item.status_enviado === "AVAILABLE");
+  }
+
+  if (busca) {
+    filtrados = filtrados.filter(item => {
+      const desc = (item.descricao || "").toLowerCase();
+      const codLocal = (item.codProdutoLocal || "").toLowerCase();
+      const codIfood = (item.codProdutoIfood || "").toLowerCase();
+      return desc.includes(busca) || codLocal.includes(busca) || codIfood.includes(busca);
+    });
+  }
+
+  renderizarTabelaInventario(filtrados);
+}
+
 function renderizarTabelaInventario(lista) {
   const tbody = document.getElementById("table-inventory-body");
   const countEl = document.getElementById("inventory-summary-count");
   if (!tbody) return;
 
+  const totalAtivos = inventoryItemsCache.filter(i => i.status_enviado === "AVAILABLE").length;
+  const totalPausados = inventoryItemsCache.length - totalAtivos;
+  const ocultarPausados = document.getElementById("chk-ocultar-pausados")?.checked ?? true;
+
   if (!Array.isArray(lista) || lista.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="5" class="p-8 text-center text-slate-400">
-          <i class="fa-solid fa-box-open text-2xl mb-2 block text-slate-300 dark:text-slate-600"></i> Nenhum produto sincronizado com o iFood nesta loja ainda.
+          <i class="fa-solid fa-box-open text-2xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+          ${ocultarPausados ? "Nenhum produto ativo com estoque nesta loja (Itens sem estoque estão ocultos)." : "Nenhum produto encontrado nesta loja."}
         </td>
       </tr>
     `;
-    if (countEl) countEl.textContent = "0 produtos registrados";
+    if (countEl) countEl.textContent = "0 produtos exibidos";
     return;
   }
 
-  if (countEl) countEl.textContent = `Exibindo ${lista.length} produtos`;
+  if (countEl) {
+    countEl.textContent = `Exibindo ${lista.length} produtos ${ocultarPausados ? `ativos (${totalPausados} pausados ocultos)` : `registrados`}`;
+  }
 
   tbody.innerHTML = "";
   lista.forEach(item => {
@@ -359,23 +388,15 @@ function inicializarEventosUI() {
     });
   });
 
-  // Busca em tempo real na tabela
+  // Busca e Filtros em tempo real na tabela
   const inputSearch = document.getElementById("input-search-items");
   if (inputSearch) {
-    inputSearch.addEventListener("input", (e) => {
-      const q = e.target.value.toLowerCase().trim();
-      if (!q) {
-        renderizarTabelaInventario(inventoryItemsCache);
-        return;
-      }
-      const filtrados = inventoryItemsCache.filter(item => {
-        const desc = (item.descricao || "").toLowerCase();
-        const codLocal = (item.codProdutoLocal || "").toLowerCase();
-        const codIfood = (item.codProdutoIfood || "").toLowerCase();
-        return desc.includes(q) || codLocal.includes(q) || codIfood.includes(q);
-      });
-      renderizarTabelaInventario(filtrados);
-    });
+    inputSearch.addEventListener("input", aplicarFiltrosInventario);
+  }
+
+  const chkOcultar = document.getElementById("chk-ocultar-pausados");
+  if (chkOcultar) {
+    chkOcultar.addEventListener("change", aplicarFiltrosInventario);
   }
 
   // Formulário de credenciais
@@ -388,6 +409,103 @@ function inicializarEventosUI() {
   const btnSync = document.getElementById("btn-force-sync");
   if (btnSync) {
     btnSync.addEventListener("click", forcarSincronizacaoEstoque);
+  }
+
+  // Ativação por Código de 8 Caracteres (User Code)
+  const btnGenCode = document.getElementById("btn-generate-user-code");
+  if (btnGenCode) {
+    btnGenCode.addEventListener("click", gerarCodigoAtivacaoIfood);
+  }
+
+  const btnCopyCode = document.getElementById("btn-copy-user-code");
+  if (btnCopyCode) {
+    btnCopyCode.addEventListener("click", copiarCodigoUserCode);
+  }
+
+  const btnCompCode = document.getElementById("btn-complete-user-code");
+  if (btnCompCode) {
+    btnCompCode.addEventListener("click", finalizarAtivacaoCodigoIfood);
+  }
+}
+
+let currentAuthorizationVerifier = null;
+
+async function gerarCodigoAtivacaoIfood() {
+  const btn = document.getElementById("btn-generate-user-code");
+  const codeBox = document.getElementById("user-code-box");
+  const displayCode = document.getElementById("display-user-code");
+  const linkUrl = document.getElementById("link-verification-url");
+
+  if (!btn || !displayCode) return;
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Solicitando código ao iFood...`;
+
+  try {
+    const res = await fetch(`${API_BASE}/ifood/user-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loja: lojaAtiva })
+    });
+    const json = await res.json();
+
+    if (res.ok && json.success && json.userCode) {
+      displayCode.textContent = json.userCode;
+      currentAuthorizationVerifier = json.authorizationCodeVerifier;
+      if (linkUrl && json.verificationUrl) {
+        linkUrl.href = json.verificationUrl;
+      }
+      if (codeBox) codeBox.classList.remove("hidden");
+      mostrarFeedback("Código de 8 dígitos gerado com sucesso! Copie e cole no Portal iFood.");
+    } else {
+      mostrarFeedback(json.error || "Não foi possível gerar o código do iFood.", "erro");
+    }
+  } catch (err) {
+    console.error(err);
+    mostrarFeedback("Erro de comunicação ao solicitar código.", "erro");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+async function finalizarAtivacaoCodigoIfood() {
+  const btn = document.getElementById("btn-complete-user-code");
+  if (!btn) return;
+
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verificando autorização...`;
+
+  try {
+    const res = await fetch(`${API_BASE}/ifood/complete-user-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loja: lojaAtiva, verifier: currentAuthorizationVerifier })
+    });
+    const json = await res.json();
+
+    if (res.ok && json.success) {
+      mostrarFeedback(json.message || "Integração ativada e autorizada com sucesso!");
+      await carregarOverviewGeral();
+      await carregarCredenciaisLoja();
+    } else {
+      mostrarFeedback(json.error || "Código ainda não foi autorizado no Portal iFood. Cole o código no iFood e tente novamente.", "erro");
+    }
+  } catch (err) {
+    console.error(err);
+    mostrarFeedback("Erro ao verificar autorização do código.", "erro");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+function copiarCodigoUserCode() {
+  const codeText = document.getElementById("display-user-code")?.textContent.trim();
+  if (codeText) {
+    navigator.clipboard.writeText(codeText);
+    mostrarFeedback(`Código "${codeText}" copiado para a área de transferência!`);
   }
 }
 

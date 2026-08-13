@@ -315,7 +315,7 @@
         <p>Marcação de jornada e espelho de ponto</p>
       </button>
 
-      <button id="btn-mod-ifood" class="module-card card-ifood">
+      <button id="btn-mod-ifood" class="module-card card-ifood hidden" style="display: none !important;">
         <span class="mod-icon"><i class="fa-solid fa-motorcycle" style="color: #ea1d2c;"></i></span>
         <h3>Módulo iFood</h3>
         <p>Gestão de Cardápio e Integração</p>
@@ -441,7 +441,7 @@
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventários</span>
           </button>
-          <button class="tab-btn" id="tab-btn-ifood" data-tab="ifood" role="tab" aria-selected="false" aria-controls="tab-ifood" data-tip="Configurações e Sincronização iFood">
+          <button class="tab-btn hidden" id="tab-btn-ifood" data-tab="ifood" role="tab" aria-selected="false" aria-controls="tab-ifood" data-tip="Configurações e Sincronização iFood" style="display: none !important;">
             <span class="tab-icon"><i class="fa-solid fa-motorcycle"></i></span>
             <span class="tab-text">Integração iFood</span>
           </button>
@@ -3105,8 +3105,8 @@
       </div>
     </section>
 
-    <!-- ===================== TAB: IFOOD ===================== -->
-    <section id="tab-ifood" class="tab-panel hidden" role="tabpanel" aria-labelledby="tablink-ifood">
+    <!-- ===================== TAB: IFOOD (OCULTO) ===================== -->
+    <section id="tab-ifood" class="tab-panel hidden" role="tabpanel" aria-labelledby="tablink-ifood" style="display: none !important;">
       <div class="section-header mb-6">
         <div>
           <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
