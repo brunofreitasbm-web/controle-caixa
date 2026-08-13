@@ -229,6 +229,14 @@ function initDb(onSuccess) {
           chave TEXT PRIMARY KEY,
           valor TEXT
         )`,
+        `CREATE TABLE IF NOT EXISTS ifood_config (
+          loja TEXT PRIMARY KEY,
+          merchantId TEXT NOT NULL,
+          clientId TEXT NOT NULL,
+          clientSecret TEXT NOT NULL,
+          token TEXT,
+          tokenExpiraEm BIGINT
+        )`,
         `CREATE TABLE IF NOT EXISTS pins (
           usuario TEXT PRIMARY KEY,
           pin TEXT

@@ -42,6 +42,7 @@ const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
 const catalogoRoutes = require('./routes/catalogo');
+const ifoodConfigRoutes = require('./routes/ifood-config');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -88,6 +89,7 @@ app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 app.use('/api', catalogoRoutes);
+app.use('/api', ifoodConfigRoutes);
 
 // Link compartilhável por loja (/catalogo/marambaia, /catalogo/icoaraci,
 // /catalogo/mario-covas): serve sempre a mesma página, que lê o slug da URL
