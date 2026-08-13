@@ -7,28 +7,28 @@ const IFOOD_API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
 
-const LOJAS = [
+const IFOOD_LOJAS = [
   { valor: "marambaia", nome: "Marambaia" },
   { valor: "icoaraci", nome: "Icoaraci" },
   { valor: "mario-covas", nome: "Mário Covas" }
 ];
 
-let overviewPorLoja = new Map();
-let lojaSelecionada = null;
+let ifoodOverviewPorLoja = new Map();
+let ifoodLojaSelecionada = null;
 
-function nomeLoja(valor) {
-  const loja = LOJAS.find(l => l.valor === valor);
+function ifoodNomeLoja(valor) {
+  const loja = IFOOD_LOJAS.find(l => l.valor === valor);
   return loja ? loja.nome : valor;
 }
 
-function formatarData(iso) {
+function ifoodFormatData(iso) {
   if (!iso) return "Nunca sincronizada";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("pt-BR");
 }
 
-function mostrarFeedback(elId, mensagem, tipo = "sucesso") {
+function ifoodMostrarFeedback(elId, mensagem, tipo = "sucesso") {
   const el = document.getElementById(elId);
   if (!el) return;
   el.textContent = mensagem;
@@ -40,32 +40,32 @@ function mostrarFeedback(elId, mensagem, tipo = "sucesso") {
 // Visão geral (grid de lojas)
 // ---------------------------------------------------------------------
 
-async function carregarOverview() {
+async function carregarOverviewIfood() {
   const resumoEl = document.getElementById("resumo-geral");
   try {
     const res = await fetch(`${IFOOD_API_BASE}/ifood/overview`);
     const json = await res.json();
     const dados = (json.success && json.data) ? json.data : [];
 
-    overviewPorLoja = new Map(dados.map(d => [d.loja, d]));
+    ifoodOverviewPorLoja = new Map(dados.map(d => [d.loja, d]));
 
     const configuradas = dados.filter(d => d.configurado).length;
-    if (resumoEl) resumoEl.textContent = `${configuradas} de ${LOJAS.length} lojas configuradas`;
+    if (resumoEl) resumoEl.textContent = `${configuradas} de ${IFOOD_LOJAS.length} lojas configuradas`;
   } catch (err) {
     console.error("Erro ao carregar visão geral:", err);
-    overviewPorLoja = new Map();
+    ifoodOverviewPorLoja = new Map();
     if (resumoEl) resumoEl.textContent = "Erro ao carregar visão geral. Exibindo lojas sem dados de sincronização.";
   }
-  renderizarGrid();
+  renderizarGridIfood();
 }
 
-function renderizarGrid() {
+function renderizarGridIfood() {
   const grid = document.getElementById("grid-lojas");
   if (!grid) return;
   grid.innerHTML = "";
 
-  LOJAS.forEach(loja => {
-    const info = overviewPorLoja.get(loja.valor);
+  IFOOD_LOJAS.forEach(loja => {
+    const info = ifoodOverviewPorLoja.get(loja.valor);
     const configurado = Boolean(info && info.configurado);
 
     let badgeHtml;
@@ -78,15 +78,15 @@ function renderizarGrid() {
     }
 
     const card = document.createElement("div");
-    card.className = "card-loja" + (lojaSelecionada === loja.valor ? " selecionada" : "");
+    card.className = "card-loja" + (ifoodLojaSelecionada === loja.valor ? " selecionada" : "");
     card.innerHTML = `
       <div class="nome">${loja.nome}</div>
       ${badgeHtml}
       <div class="linha-info">
-        <span><i class="fa-regular fa-clock"></i> ${formatarData(info ? info.ultimaSincronizacao : null)}</span>
+        <span><i class="fa-regular fa-clock"></i> ${ifoodFormatData(info ? info.ultimaSincronizacao : null)}</span>
       </div>
     `;
-    card.addEventListener("click", () => selecionarLoja(loja.valor));
+    card.addEventListener("click", () => selecionarLojaIfood(loja.valor));
     grid.appendChild(card);
   });
 }
@@ -95,21 +95,21 @@ function renderizarGrid() {
 // Seleção de loja / painel de detalhe
 // ---------------------------------------------------------------------
 
-function selecionarLoja(valor) {
-  lojaSelecionada = valor;
-  renderizarGrid();
+function selecionarLojaIfood(valor) {
+  ifoodLojaSelecionada = valor;
+  renderizarGridIfood();
 
   const painelDetalhe = document.getElementById("painel-detalhe");
   const detalheNome = document.getElementById("detalhe-nome-loja");
   if (painelDetalhe) painelDetalhe.style.display = "block";
-  if (detalheNome) detalheNome.textContent = nomeLoja(valor);
+  if (detalheNome) detalheNome.textContent = ifoodNomeLoja(valor);
   if (painelDetalhe) painelDetalhe.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
-  carregarSyncStatus();
-  carregarConfig();
+  carregarSyncStatusIfood();
+  carregarConfigIfood();
 }
 
-function ligarAbas() {
+function ligarAbasIfood() {
   document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(b => b.classList.remove("ativa"));
@@ -125,7 +125,7 @@ function ligarAbas() {
 // Sincronização
 // ---------------------------------------------------------------------
 
-async function carregarSyncStatus() {
+async function carregarSyncStatusIfood() {
   const tbody = document.getElementById("tabela-sync-body");
   const vazioEl = document.getElementById("sync-vazio");
   const resumoEl = document.getElementById("sync-resumo");
@@ -136,7 +136,7 @@ async function carregarSyncStatus() {
   resumoEl.textContent = "Carregando...";
 
   try {
-    const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-status?loja=${encodeURIComponent(lojaSelecionada)}`);
+    const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-status?loja=${encodeURIComponent(ifoodLojaSelecionada)}`);
     const dados = await res.json();
 
     if (!Array.isArray(dados) || dados.length === 0) {
@@ -165,7 +165,7 @@ async function carregarSyncStatus() {
   }
 }
 
-async function sincronizarAgora() {
+async function sincronizarAgoraIfood() {
   const btn = document.getElementById("btn-sincronizar");
   if (!btn) return;
   const originalHtml = btn.innerHTML;
@@ -176,19 +176,19 @@ async function sincronizarAgora() {
     const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-force`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ loja: lojaSelecionada })
+      body: JSON.stringify({ loja: ifoodLojaSelecionada })
     });
     const json = await res.json();
 
     if (res.ok && json.success) {
-      mostrarFeedback("feedback-sync", `Sincronização concluída! ${json.count} itens pareados.`);
-      await Promise.all([carregarSyncStatus(), carregarOverview()]);
+      ifoodMostrarFeedback("feedback-sync", `Sincronização concluída! ${json.count} itens pareados.`);
+      await Promise.all([carregarSyncStatusIfood(), carregarOverviewIfood()]);
     } else {
-      mostrarFeedback("feedback-sync", json.error || "Falha na sincronização.", "erro");
+      ifoodMostrarFeedback("feedback-sync", json.error || "Falha na sincronização.", "erro");
     }
   } catch (err) {
     console.error(err);
-    mostrarFeedback("feedback-sync", "Erro de conexão ao sincronizar.", "erro");
+    ifoodMostrarFeedback("feedback-sync", "Erro de conexão ao sincronizar.", "erro");
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHtml;
@@ -199,7 +199,7 @@ async function sincronizarAgora() {
 // Configuração
 // ---------------------------------------------------------------------
 
-async function carregarConfig() {
+async function carregarConfigIfood() {
   const inputMerchantId = document.getElementById("input-merchant-id");
   const inputClientId = document.getElementById("input-client-id");
   const inputClientSecret = document.getElementById("input-client-secret");
@@ -212,7 +212,7 @@ async function carregarConfig() {
   inputClientSecret.placeholder = "Seu Client Secret";
 
   try {
-    const res = await fetch(`${IFOOD_API_BASE}/ifood-config?loja=${encodeURIComponent(lojaSelecionada)}`);
+    const res = await fetch(`${IFOOD_API_BASE}/ifood-config?loja=${encodeURIComponent(ifoodLojaSelecionada)}`);
     const json = await res.json();
 
     if (json.success && json.data) {
@@ -225,15 +225,15 @@ async function carregarConfig() {
   }
 }
 
-async function salvarConfig(e) {
+async function salvarConfigIfood(e) {
   e.preventDefault();
 
   const merchantId = document.getElementById("input-merchant-id").value.trim();
   const clientId = document.getElementById("input-client-id").value.trim();
   const clientSecret = document.getElementById("input-client-secret").value.trim();
 
-  if (!lojaSelecionada || !merchantId || !clientId) {
-    mostrarFeedback("feedback-config", "Preencha os campos obrigatórios.", "erro");
+  if (!ifoodLojaSelecionada || !merchantId || !clientId) {
+    ifoodMostrarFeedback("feedback-config", "Preencha os campos obrigatórios.", "erro");
     return;
   }
 
@@ -247,21 +247,21 @@ async function salvarConfig(e) {
     const res = await fetch(`${IFOOD_API_BASE}/ifood-config`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ loja: lojaSelecionada, merchantId, clientId, clientSecret })
+      body: JSON.stringify({ loja: ifoodLojaSelecionada, merchantId, clientId, clientSecret })
     });
     const json = await res.json();
 
     if (json.success) {
-      mostrarFeedback("feedback-config", "Configuração salva com sucesso!");
+      ifoodMostrarFeedback("feedback-config", "Configuração salva com sucesso!");
       document.getElementById("input-client-secret").value = "";
       document.getElementById("input-client-secret").placeholder = "•••••••• (Preenchido)";
-      await carregarOverview();
+      await carregarOverviewIfood();
     } else {
-      mostrarFeedback("feedback-config", json.error || "Erro ao salvar as configurações.", "erro");
+      ifoodMostrarFeedback("feedback-config", json.error || "Erro ao salvar as configurações.", "erro");
     }
   } catch (err) {
     console.error(err);
-    mostrarFeedback("feedback-config", "Erro de conexão ao salvar.", "erro");
+    ifoodMostrarFeedback("feedback-config", "Erro de conexão ao salvar.", "erro");
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHtml;
@@ -273,21 +273,22 @@ async function salvarConfig(e) {
 // ---------------------------------------------------------------------
 
 function inicializarIfoodGerenciamento() {
-  ligarAbas();
+  ligarAbasIfood();
   const btnSync = document.getElementById("btn-sincronizar");
   if (btnSync && !btnSync.dataset.bound) {
     btnSync.dataset.bound = "true";
-    btnSync.addEventListener("click", sincronizarAgora);
+    btnSync.addEventListener("click", sincronizarAgoraIfood);
   }
   const formCfg = document.getElementById("form-config");
   if (formCfg && !formCfg.dataset.bound) {
     formCfg.dataset.bound = "true";
-    formCfg.addEventListener("submit", salvarConfig);
+    formCfg.addEventListener("submit", salvarConfigIfood);
   }
-  carregarOverview();
+  carregarOverviewIfood();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   inicializarIfoodGerenciamento();
 });
+
 
