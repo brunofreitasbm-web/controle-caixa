@@ -121,24 +121,9 @@ router.put('/inventario/:loja/:cod', (req, res) => {
     publish('inventario.item', payload, { origem: clientId, usuario });
     res.json({ success: true, atualizadoEm });
 
-    // Sincronização iFood (Fire and forget)
-    // Se a quantidade foi contada (não vazia)
-    if (payload.item.countedQty !== '') {
-      const { atualizarEstoque, atualizarStatusItem } = require('../services/ifood');
-      const qtdStr = payload.item.countedQty;
-      const qtd = Number(qtdStr);
-      
-      // 1. Envia quantidade pro iFood
-      atualizarEstoque(loja, cod, qtd).catch(e => console.error('[iFood] Erro sync estoque:', e));
-      
-      // 2. Se zerou, pausa o item imediatamente
-      if (qtd === 0) {
-        atualizarStatusItem(loja, cod, 'UNAVAILABLE').catch(e => console.error('[iFood] Erro pausa item:', e));
-      } else if (qtd > 0) {
-        // Opcional: Se voltou a ter estoque, garante que tá ativo
-        atualizarStatusItem(loja, cod, 'AVAILABLE').catch(e => console.error('[iFood] Erro reativar item:', e));
-      }
-    }
+    // Sincronização iFood Automática (Fire and forget)
+    const { syncIfoodInventory } = require('../services/ifood-sync');
+    syncIfoodInventory(loja).catch(e => console.error('[iFood Auto-Sync] Erro no item:', e));
   });
 });
 
@@ -216,43 +201,9 @@ router.post('/inventario/bulk', (req, res) => {
 
     res.json({ success: true, gravados, erros });
 
-    // Sincronização iFood (Bulk)
-    if (itens.length > 0) {
-      const { atualizarEstoque, atualizarStatusLote } = require('../services/ifood');
-      
-      // Filtra apenas itens que foram contados agora
-      const validItems = itens.filter(i => i.countedQty !== undefined && i.countedQty !== null && i.countedQty !== '');
-      if (validItems.length > 0) {
-         // O iFood aceita array de produtos no endpoint de inventory
-         const payloadEstoque = validItems.map(i => ({
-            productId: String(i.code || i.codProduto || '').trim(),
-            amount: Number(i.countedQty)
-         }));
-         
-         const endpointBulk = `/inventory/v1.0/merchants/{merchantId}/inventory`;
-         const { fetchIfood } = require('../services/ifood');
-         // Chamamos fetchIfood direto se a lib de serviços não exportar algo Bulk. 
-         // Ou atualizamos 1 a 1 de forma silenciosa para não onerar o iFood.
-         // Vamos iterar os que zeraram
-         const zerados = validItems.filter(i => Number(i.countedQty) === 0).map(i => String(i.code || i.codProduto).trim());
-         const comEstoque = validItems.filter(i => Number(i.countedQty) > 0).map(i => String(i.code || i.codProduto).trim());
-
-         // Assíncrono - Fire and forget
-         setTimeout(() => {
-            validItems.forEach(item => {
-              atualizarEstoque(loja, String(item.code || item.codProduto).trim(), Number(item.countedQty))
-                .catch(e => console.error('[iFood] Erro sync estoque bulk:', e));
-            });
-
-            if (zerados.length > 0) {
-              atualizarStatusLote(loja, zerados, 'UNAVAILABLE').catch(e => console.error('[iFood] Erro pausa bulk:', e));
-            }
-            if (comEstoque.length > 0) {
-              atualizarStatusLote(loja, comEstoque, 'AVAILABLE').catch(e => console.error('[iFood] Erro reativar bulk:', e));
-            }
-         }, 1000); // pequeno atraso para não prender o response
-      }
-    }
+    // Sincronização iFood Automática em Lote (Entrada de NF-e / Inventário)
+    const { syncIfoodInventory } = require('../services/ifood-sync');
+    syncIfoodInventory(loja).catch(e => console.error('[iFood Auto-Sync] Erro no bulk:', e));
   }
 });
 

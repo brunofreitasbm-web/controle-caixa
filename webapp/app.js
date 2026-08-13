@@ -9592,6 +9592,22 @@ function concluirConferenciaAtiva() {
     }
   });
 
+  // 4. Dispara a atualização automática do iFood para as lojas que receberam produtos desta NF-e
+  if (API_ONLINE) {
+    const targetStoresSync = new Set(activeNfNumbers.map(numNF => (importedNfs[numNF]?.info?.targetStore) || currentStore));
+    targetStoresSync.forEach(st => {
+      fetch(`${API_BASE}/ifood/sync-force`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loja: st })
+      }).then(r => r.json()).then(res => {
+        if (res && res.success) {
+          showToast(`iFood Cardápio Atualizado (${st}): ${res.disponiveis || 0} produtos com estoque ativados!`, 'sucesso');
+        }
+      }).catch(e => console.error('[iFood Auto-Sync NF-e Error]:', e));
+    });
+  }
+
   // Save changes locally
   localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
 
