@@ -3,7 +3,7 @@
 // e histórico de itens pareados/sincronizados. Reaproveita os endpoints
 // já existentes em routes/ifood-config.js e routes/ifood-sync.js.
 
-const API_BASE = window.location.protocol === "file:"
+const IFOOD_API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
 
@@ -30,6 +30,7 @@ function formatarData(iso) {
 
 function mostrarFeedback(elId, mensagem, tipo = "sucesso") {
   const el = document.getElementById(elId);
+  if (!el) return;
   el.textContent = mensagem;
   el.className = `feedback ${tipo}`;
   setTimeout(() => { el.style.display = "none"; }, 5000);
@@ -42,24 +43,25 @@ function mostrarFeedback(elId, mensagem, tipo = "sucesso") {
 async function carregarOverview() {
   const resumoEl = document.getElementById("resumo-geral");
   try {
-    const res = await fetch(`${API_BASE}/ifood/overview`);
+    const res = await fetch(`${IFOOD_API_BASE}/ifood/overview`);
     const json = await res.json();
     const dados = (json.success && json.data) ? json.data : [];
 
     overviewPorLoja = new Map(dados.map(d => [d.loja, d]));
 
     const configuradas = dados.filter(d => d.configurado).length;
-    resumoEl.textContent = `${configuradas} de ${LOJAS.length} lojas configuradas`;
+    if (resumoEl) resumoEl.textContent = `${configuradas} de ${LOJAS.length} lojas configuradas`;
   } catch (err) {
     console.error("Erro ao carregar visão geral:", err);
     overviewPorLoja = new Map();
-    resumoEl.textContent = "Erro ao carregar visão geral. Exibindo lojas sem dados de sincronização.";
+    if (resumoEl) resumoEl.textContent = "Erro ao carregar visão geral. Exibindo lojas sem dados de sincronização.";
   }
   renderizarGrid();
 }
 
 function renderizarGrid() {
   const grid = document.getElementById("grid-lojas");
+  if (!grid) return;
   grid.innerHTML = "";
 
   LOJAS.forEach(loja => {
@@ -97,21 +99,24 @@ function selecionarLoja(valor) {
   lojaSelecionada = valor;
   renderizarGrid();
 
-  document.getElementById("painel-detalhe").style.display = "block";
-  document.getElementById("detalhe-nome-loja").textContent = nomeLoja(valor);
-  document.getElementById("painel-detalhe").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const painelDetalhe = document.getElementById("painel-detalhe");
+  const detalheNome = document.getElementById("detalhe-nome-loja");
+  if (painelDetalhe) painelDetalhe.style.display = "block";
+  if (detalheNome) detalheNome.textContent = nomeLoja(valor);
+  if (painelDetalhe) painelDetalhe.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
   carregarSyncStatus();
   carregarConfig();
 }
 
 function ligarAbas() {
-  document.querySelectorAll("nav.abas button").forEach(btn => {
+  document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("nav.abas button").forEach(b => b.classList.remove("ativa"));
+      document.querySelectorAll("nav.abas-ifood button, nav.abas button").forEach(b => b.classList.remove("ativa"));
       document.querySelectorAll(".conteudo-aba").forEach(p => p.classList.remove("ativa"));
       btn.classList.add("ativa");
-      document.getElementById(`aba-${btn.dataset.aba}`).classList.add("ativa");
+      const alvoAba = document.getElementById(`aba-${btn.dataset.aba}`);
+      if (alvoAba) alvoAba.classList.add("ativa");
     });
   });
 }
@@ -124,12 +129,14 @@ async function carregarSyncStatus() {
   const tbody = document.getElementById("tabela-sync-body");
   const vazioEl = document.getElementById("sync-vazio");
   const resumoEl = document.getElementById("sync-resumo");
+  if (!tbody || !vazioEl || !resumoEl) return;
+
   tbody.innerHTML = "";
   vazioEl.style.display = "none";
   resumoEl.textContent = "Carregando...";
 
   try {
-    const res = await fetch(`${API_BASE}/ifood/sync-status?loja=${encodeURIComponent(lojaSelecionada)}`);
+    const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-status?loja=${encodeURIComponent(lojaSelecionada)}`);
     const dados = await res.json();
 
     if (!Array.isArray(dados) || dados.length === 0) {
@@ -145,10 +152,10 @@ async function carregarSyncStatus() {
       const isAtivo = item.status_enviado === "AVAILABLE";
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${item.descricao || "--"}</td>
-        <td>${item.codProdutoLocal || "--"}</td>
-        <td>${item.codProdutoIfood || "--"}</td>
-        <td><span class="badge ${isAtivo ? "ok" : "pausado"}">${isAtivo ? "Ativo" : "Pausado"}</span></td>
+        <td class="p-3">${item.descricao || "--"}</td>
+        <td class="p-3">${item.codProdutoLocal || "--"}</td>
+        <td class="p-3">${item.codProdutoIfood || "--"}</td>
+        <td class="p-3"><span class="badge ${isAtivo ? "ok" : "pausado"}">${isAtivo ? "Ativo" : "Pausado"}</span></td>
       `;
       tbody.appendChild(tr);
     });
@@ -160,12 +167,13 @@ async function carregarSyncStatus() {
 
 async function sincronizarAgora() {
   const btn = document.getElementById("btn-sincronizar");
+  if (!btn) return;
   const originalHtml = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...';
 
   try {
-    const res = await fetch(`${API_BASE}/ifood/sync-force`, {
+    const res = await fetch(`${IFOOD_API_BASE}/ifood/sync-force`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ loja: lojaSelecionada })
@@ -196,13 +204,15 @@ async function carregarConfig() {
   const inputClientId = document.getElementById("input-client-id");
   const inputClientSecret = document.getElementById("input-client-secret");
 
+  if (!inputMerchantId || !inputClientId || !inputClientSecret) return;
+
   inputMerchantId.value = "";
   inputClientId.value = "";
   inputClientSecret.value = "";
   inputClientSecret.placeholder = "Seu Client Secret";
 
   try {
-    const res = await fetch(`${API_BASE}/ifood-config?loja=${encodeURIComponent(lojaSelecionada)}`);
+    const res = await fetch(`${IFOOD_API_BASE}/ifood-config?loja=${encodeURIComponent(lojaSelecionada)}`);
     const json = await res.json();
 
     if (json.success && json.data) {
@@ -228,12 +238,13 @@ async function salvarConfig(e) {
   }
 
   const btn = document.getElementById("btn-salvar-config");
+  if (!btn) return;
   const originalHtml = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
 
   try {
-    const res = await fetch(`${API_BASE}/ifood-config`, {
+    const res = await fetch(`${IFOOD_API_BASE}/ifood-config`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ loja: lojaSelecionada, merchantId, clientId, clientSecret })
@@ -261,9 +272,22 @@ async function salvarConfig(e) {
 // Inicialização
 // ---------------------------------------------------------------------
 
-document.addEventListener("DOMContentLoaded", () => {
+function inicializarIfoodGerenciamento() {
   ligarAbas();
-  document.getElementById("btn-sincronizar").addEventListener("click", sincronizarAgora);
-  document.getElementById("form-config").addEventListener("submit", salvarConfig);
+  const btnSync = document.getElementById("btn-sincronizar");
+  if (btnSync && !btnSync.dataset.bound) {
+    btnSync.dataset.bound = "true";
+    btnSync.addEventListener("click", sincronizarAgora);
+  }
+  const formCfg = document.getElementById("form-config");
+  if (formCfg && !formCfg.dataset.bound) {
+    formCfg.dataset.bound = "true";
+    formCfg.addEventListener("submit", salvarConfig);
+  }
   carregarOverview();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  inicializarIfoodGerenciamento();
 });
+

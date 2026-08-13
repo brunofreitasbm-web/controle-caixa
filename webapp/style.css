@@ -5192,3 +5192,72 @@ button:disabled:not(.fa-section *) {
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
+/* ==========================================================================
+   INTEGRAÇÃO IFOOD (ESTILOS DO PAINEL NATIVO)
+   ========================================================================== */
+.grid-lojas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.card-loja {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-loja:hover {
+  border-color: #ea1d2c;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(234, 29, 44, 0.08);
+}
+.card-loja.selecionada {
+  border-color: #ea1d2c;
+  box-shadow: 0 0 0 2px rgba(234, 29, 44, 0.2);
+  background: #fffafa;
+}
+.card-loja .nome {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink, #0f172a);
+  margin-bottom: 8px;
+}
+.card-loja .linha-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--ink-muted, #64748b);
+  margin-top: 8px;
+}
+.badge-ifood, .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-block;
+}
+.badge-ifood.ok, .badge.ok { background: #dcfce7; color: #14532d; }
+.badge-ifood.pendente, .badge.pendente { background: #fef3c7; color: #78350f; }
+.badge-ifood.pausado, .badge.pausado { background: #f1f5f9; color: #64748b; }
+
+.painel-ifood, .painel {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.painel-ifood nav.abas button.ativa, nav.abas button.ativa {
+  color: #ea1d2c;
+  border-bottom-color: #ea1d2c;
+}
+.feedback.sucesso { background: #dcfce7; color: #14532d; display: block !important; }
+.feedback.erro { background: #fee2e2; color: #991b1b; display: block !important; }
+
+

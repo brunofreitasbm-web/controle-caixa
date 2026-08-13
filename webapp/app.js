@@ -2051,7 +2051,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "ifood"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2117,6 +2117,7 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   if (tabName === "aniversarios") renderAniversarios();
+  if (tabName === "ifood" && typeof inicializarIfoodGerenciamento === "function") inicializarIfoodGerenciamento();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
   observarTituloDaSecao(tabName);
