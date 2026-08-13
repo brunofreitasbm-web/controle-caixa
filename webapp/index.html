@@ -3170,46 +3170,8 @@
 
           <p class="text-xs text-ink-muted mb-4">Pausar ou ativar produtos de forma manual no iFood.</p>
 
-          <div class="flex flex-col gap-3">
-            <!-- Produto Exemplo 1 -->
-            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle">
-              <div>
-                <p class="text-sm font-bold text-ink">Trufa LaNut 30g</p>
-                <p class="text-xs text-ink-muted">Cód: 1002345</p>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer" checked>
-                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                <span class="ml-2 text-xs font-bold text-ink">Ativo</span>
-              </label>
-            </div>
-
-            <!-- Produto Exemplo 2 -->
-            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle opacity-75">
-              <div>
-                <p class="text-sm font-bold text-ink">Caixa Presente Especial</p>
-                <p class="text-xs text-ink-muted">Cód: 1005678</p>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer">
-                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                <span class="ml-2 text-xs font-bold text-ink-muted">Pausado</span>
-              </label>
-            </div>
-
-            <!-- Produto Exemplo 3 -->
-            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle">
-              <div>
-                <p class="text-sm font-bold text-ink">Tablete 70% Cacau</p>
-                <p class="text-xs text-ink-muted">Cód: 1003421</p>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer" checked>
-                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                <span class="ml-2 text-xs font-bold text-ink">Ativo</span>
-              </label>
-            </div>
-
+          <div id="ifood-synced-list" class="flex flex-col gap-3">
+            <div class="text-center text-ink-muted text-sm py-4">Nenhum produto sincronizado. Clique em "Forçar Sinc."</div>
           </div>
         </div>
 

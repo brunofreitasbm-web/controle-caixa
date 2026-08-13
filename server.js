@@ -43,6 +43,10 @@ const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
 const catalogoRoutes = require('./routes/catalogo');
 const ifoodConfigRoutes = require('./routes/ifood-config');
+const ifoodSyncRoutes = require('./routes/ifood-sync');
+
+// Importar serviço cron
+const { syncAllIfoodStores } = require('./services/ifood-sync');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -90,6 +94,7 @@ app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 app.use('/api', catalogoRoutes);
 app.use('/api', ifoodConfigRoutes);
+app.use('/api', ifoodSyncRoutes);
 
 // Link compartilhável por loja (/catalogo/marambaia, /catalogo/icoaraci,
 // /catalogo/mario-covas): serve sempre a mesma página, que lê o slug da URL
@@ -222,6 +227,13 @@ if (require.main === module) {
   cron.schedule('0 6 * * *', () => {
     enviarBackupMensalSilencioso().catch(err => {
       console.error('[Backup Mensal] Erro na verificação diária:', err);
+    });
+  });
+
+  // Sincronização iFood - Varredura diária às 02:00
+  cron.schedule('0 2 * * *', () => {
+    syncAllIfoodStores().catch(err => {
+      console.error('[iFood Sync] Erro no cron diário:', err);
     });
   });
 }

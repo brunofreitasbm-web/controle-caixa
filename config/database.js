@@ -718,6 +718,15 @@ function initDb(onSuccess) {
           pagamentoConfirmadoPor TEXT,
           criadoEm TEXT NOT NULL,
           atualizadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS ifood_sync_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          loja TEXT NOT NULL,
+          codProdutoLocal TEXT,
+          codProdutoIfood TEXT,
+          descricao TEXT,
+          status_enviado TEXT,
+          data_sincronizacao TEXT
         )`
       ];
 
