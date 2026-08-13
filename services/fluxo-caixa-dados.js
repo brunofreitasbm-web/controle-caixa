@@ -1,11 +1,12 @@
 // ==========================================================================
 // FLUXO DE CAIXA — apuração compartilhada
 // ==========================================================================
-// Fonte única de verdade usada tanto por routes/fluxo-caixa.js (Painel,
-// Diário do Caixa, Teto de Campanha) quanto por services/ia-fluxo-caixa.js
-// (diagnóstico). CODIGO_PARA_LOJA e vencimentoParaISO vinham duplicados só
-// dentro de services/ia-briefing.js — movidos para cá e reexportados de lá,
-// para não ter duas versões da mesma regra.
+// Fonte única de verdade usada por services/ia-briefing.js (briefing diário)
+// para apurar faturamento, dias abertos e títulos. CODIGO_PARA_LOJA e
+// vencimentoParaISO vinham duplicados só dentro de services/ia-briefing.js —
+// movidos para cá e reexportados de lá, para não ter duas versões da mesma
+// regra. As telas de Fluxo de Caixa e o diagnóstico por IA que também usavam
+// este arquivo foram removidos.
 // ==========================================================================
 
 const { dbAllAsync, normalizeRow } = require('../config/database');

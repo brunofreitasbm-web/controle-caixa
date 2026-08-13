@@ -42,8 +42,7 @@ mudar `IA_PROVIDER` e informar a chave correspondente
 ## As quatro regras
 
 1. **A IA sugere, o humano aprova.** Nenhum endpoint de IA escreve em tabela
-   de negócio. O briefing não baixa boleto; o coach não altera
-   bonificação; a escala não muda jornada.
+   de negócio.
 2. **Todo uso tem fallback.** Se a API cair ou a cota estourar, a
    funcionalidade continua com o comportamento determinístico anterior.
 3. **Cache no banco** (tabela `ia_cache`). Camada gratuita tem cota diária.
@@ -71,12 +70,13 @@ prosa ("sua conversaoAtualPercent de 36.4").
 
 | Item | Endpoint | Serviço |
 |---|---|---|
-| 1 | `GET /api/ia/coach?usuario&unidade&competencia` | `ia-coach.js` |
 | 2 | `GET /api/ia/briefing?data` | `ia-briefing.js` |
-| 4 | `GET /api/ia/escala?loja&data&janela` | `ia-escala.js` |
 | 5 | `POST /api/ia/mensagem` | `ia-mensagens.js` |
 | 6 | `GET /api/ia/copiloto?loja&horaSlot&data` | `ia-copiloto.js` |
 | — | `GET /api/ia/status` | diagnóstico |
+
+Os itens 1 (coach de conversão) e 4 (escala inteligente), que alimentavam o
+painel "Insights IA", foram removidos junto com esse menu.
 
 Todos aceitam `forcar=true` para ignorar o cache (exceto mensagem e copiloto,
 que não usam cache por serem sempre únicos).
@@ -138,20 +138,3 @@ Cada serviço tem uma trava determinística que descarta saída ruim:
   melhor uma mensagem genérica correta do que uma personalizada malfeita.
 - **Copiloto**: rejeita texto acima de 200 caracteres, que a notificação push
   cortaria no meio.
-- **Escala**: `MIN_DIAS_HISTORICO` (14 dias). Abaixo disso o serviço **se
-  recusa a recomendar** e devolve o que está faltando. Recomendação de escala
-  com histórico curto confunde dia atípico com padrão, e isso mexe com a
-  jornada de pessoas. Não baixe esse limite em produção.
-
-## Estado dos dados (julho/2026)
-
-O item 4 (escala) está bloqueado pela trava porque:
-
-- `ponto_registros` está **vazia** — não há marcações de ponto.
-- `vendas_horarias` está **vazia**.
-- `metas_vendas` tem apenas **2 dias** de histórico.
-
-A funcionalidade passa a operar sozinha assim que o registro de Meta Hora a
-Hora acumular duas semanas. O ponto é necessário para comparar demanda com
-quadro escalado; sem ele, a análise cobre só a demanda e declara isso nas
-ressalvas.

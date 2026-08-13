@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v56'; // v56: restore Fluxo de Caixa/Insights IA/Boletos markup deleted by mistake in cf36d9a (crashed on login for owners with a stale "ultimoModulo" pointing at the removed sections)
+const CACHE_NAME = 'ponto-pwa-v57'; // v57: remove Boletos/Auditoria de Boletos/Insights IA/Fluxo de Caixa (menus e telas) — dessa vez com guarda em iniciarModuloBase() contra "ultimoModulo" salvo apontando pra "fluxo-caixa" (ver app.js), pra não repetir o crash do v56
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,7 +6,6 @@ const ASSETS_TO_CACHE = [
   '/tailwind-compiled.css',
   '/app.js',
   '/realtime.js',
-  '/insights-ia.js',
   '/camera-universal.js',
   '/mensagens-aniversario.js',
   '/bluedox.html',

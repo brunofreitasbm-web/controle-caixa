@@ -172,9 +172,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "meta-hora-hora", "controle-ponto", "insights-ia", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "boletos", "auditoria-boletos", "meta-hora-hora", "insights-ia", "fluxo-caixa", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -198,8 +198,6 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard" },
     { tab: "historico", icon: "fa-receipt", label: "Histórico" },
     { tab: "importacoes", icon: "fa-file-import", label: "Importações" },
-    { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
-    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
   consultora_fa: [
     { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope" },
@@ -208,8 +206,6 @@ const QUICK_MENU_POR_ROLE = {
   owner: [
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA" },
-    { tab: "boletos", icon: "fa-file-invoice-dollar", label: "Boletos" },
-    { tab: "insights-ia", icon: "fa-wand-magic-sparkles", label: "Insights IA" },
   ],
 };
 
@@ -1602,7 +1598,6 @@ function ajustarCardsModulos() {
   const btnFaca = document.getElementById("btn-mod-faca");
   const btnRh = document.getElementById("btn-mod-rh");
   const btnPonto = document.getElementById("btn-mod-ponto");
-  const btnCaixa = document.getElementById("btn-mod-caixa");
 
   const role = currentUser.role;
 
@@ -1612,9 +1607,6 @@ function ajustarCardsModulos() {
   // Registro de Ponto do FaçaAmigos é feito por outro sistema — o módulo
   // aqui é exclusivo do Cacau Show, não aparece para consultora_fa.
   if (btnPonto) btnPonto.classList.toggle("hidden", role === "consultora_fa");
-  // Fluxo de Caixa é acesso exclusivo do Owner, tanto no client (aqui) quanto
-  // no servidor (requireOwner em routes/fluxo-caixa.js).
-  if (btnCaixa) btnCaixa.classList.toggle("hidden", role !== "owner");
 
   // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
   // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
@@ -1647,6 +1639,14 @@ function iniciarModuloBase(moduloOpcional) {
     moduloOpcional = "faca-amigos";
   }
 
+  // Guarda contra "ultimoModulo" salvo no localStorage como "fluxo-caixa" antes
+  // deste módulo ser removido: sem isso, nenhum dos ramos abaixo bate e a
+  // sidebar cai na lista crua e sem filtro de TABS_POR_ROLE (ver histórico do
+  // mesmo problema em webapp/sw.js, causado por uma remoção anterior).
+  if (moduloOpcional === "fluxo-caixa") {
+    moduloOpcional = currentUser.role === "consultora_fa" ? "faca-amigos" : "cacau-show";
+  }
+
   let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
 
   if (moduloOpcional) {
@@ -1672,9 +1672,6 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "controle-ponto") {
       tabsPermitidas = ["controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    } else if (moduloOpcional === "fluxo-caixa") {
-      tabsPermitidas = ["fluxo-caixa", "configuracoes"];
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
@@ -1685,21 +1682,11 @@ function iniciarModuloBase(moduloOpcional) {
     btn.classList.toggle("active", btn.dataset.modulo === moduloOpcional);
   });
 
-  // Boletos e Auditoria de Boletos já são restritos por perfil em TABS_POR_ROLE
-  // (boletos: consultora_dashboard/owner; auditoria-boletos: owner). Antes havia
-  // também uma lista de nomes cravados aqui (["Alexandra","Bruno","Isabella"])
-  // que duplicava essa checagem — se um(a) novo(a) Líder de Operações fosse
-  // contratado(a) com outro nome, o botão sumia silenciosamente pra ela mesmo
-  // tendo o perfil certo. Restrição por perfil (role) é a única fonte de verdade.
-  if (currentUser.role !== "owner") {
-    tabsPermitidas = tabsPermitidas.filter(tab => tab !== "auditoria-boletos");
-  }
-
   // Os passo a passo de importação são material de apoio de quem opera a
   // extração no Cacau Digital: Líder de Operações (consultora_dashboard) e
   // owner, que administra o sistema. Para os demais perfis só ocupam espaço.
   const mostrarPassoAPasso = currentUser.role === "consultora_dashboard" || currentUser.role === "owner";
-  ["passo-a-passo-xml", "passo-a-passo-titulos"].forEach(id => {
+  ["passo-a-passo-xml"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", !mostrarPassoAPasso);
   });
@@ -1718,7 +1705,7 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-faca-amigos", "group-insights-ia", "group-fluxo-caixa", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+  ["group-controle-caixa", "group-faca-amigos", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
@@ -1773,8 +1760,6 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
-    } else if (moduloOpcional === "fluxo-caixa") {
-      ativarTab("fluxo-caixa");
     }
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
@@ -1962,13 +1947,6 @@ if (btnModPonto) {
   });
 }
 
-const btnModCaixa = document.getElementById("btn-mod-caixa");
-if (btnModCaixa) {
-  btnModCaixa.addEventListener("click", () => {
-    iniciarModuloBase("fluxo-caixa");
-  });
-}
-
 // Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
 // num clique só, pro módulo escolhido.
 document.querySelectorAll(".module-switch-btn").forEach(btn => {
@@ -2062,7 +2040,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "auditoria-boletos", "meta-hora-hora", "insights-ia", "configuracoes", "controle-ponto", "aniversarios", "fluxo-caixa"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2102,13 +2080,6 @@ function ativarTab(tabName, skipHistory = false) {
     inicializarPainelConfiguracoes();
   }
 
-  // Painel Insights IA (insights-ia.js). Popula os seletores e carrega o
-  // briefing; os demais cartões ficam sob demanda para não gastar seis
-  // requisições da cota gratuita só por abrir a aba.
-  if (tabName === "insights-ia" && typeof inicializarInsightsIA === "function") {
-    inicializarInsightsIA();
-  }
-
   // Sync bottom nav + grade de atalhos (#7). Quando duas pílulas apontam pro
   // mesmo data-tab (ex.: "Registrar Envelope" e "Meta & Bonificação", ambas
   // faca-amigos), prioriza a que casa também com a sub-aba atual — cada
@@ -2130,17 +2101,11 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
   if (tabName === "colaboradores") renderizarColaboradores();
   if (tabName === "rh-modulo") renderRhModulo();
-  if (tabName === "boletos") carregarBoletosServidor();
-  if (tabName === "auditoria-boletos") carregarBoletosServidor();
-  // A importação de títulos precisa da lista atual em memória para detectar
-  // duplicados antes de gravar.
-  if (tabName === "importacoes") carregarBoletosServidor();
   if (tabName === "importar-meta") renderImportarMeta();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   if (tabName === "aniversarios") renderAniversarios();
-  if (tabName === "fluxo-caixa" && typeof ativarFcSubTab === "function") ativarFcSubTab(fcSubTabAtiva);
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
   observarTituloDaSecao(tabName);
@@ -2531,33 +2496,6 @@ function ativarFaSubTab(subTabName) {
 // Listeners para sub-abas FA
 document.querySelectorAll(".fa-sub-btn").forEach(btn => {
   btn.addEventListener("click", () => ativarFaSubTab(btn.dataset.faTab));
-});
-
-// Sub-tab ativa do Fluxo de Caixa (mesmo padrão de faSubTabAtiva/ativarFaSubTab).
-// As funções renderFc* vivem em webapp/fluxo-caixa.js.
-let fcSubTabAtiva = "fc-painel";
-
-function ativarFcSubTab(subTabName) {
-  fcSubTabAtiva = subTabName;
-  document.querySelectorAll(".fc-sub-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".fc-tab-panel").forEach(p => p.classList.add("hidden"));
-  const activeBtn = document.querySelector(`.fc-sub-btn[data-fc-tab="${subTabName}"]`);
-  if (activeBtn) activeBtn.classList.add("active");
-  const panel = document.getElementById(`fc-tab-${subTabName}`);
-  if (panel) panel.classList.remove("hidden");
-
-  if (subTabName === "fc-painel" && typeof renderFcPainel === "function") renderFcPainel();
-  if (subTabName === "fc-rotina" && typeof renderFcRotina === "function") renderFcRotina();
-  if (subTabName === "fc-checklist" && typeof renderFcChecklist === "function") renderFcChecklist();
-  if (subTabName === "fc-diario" && typeof renderFcDiario === "function") renderFcDiario();
-  if (subTabName === "fc-teto" && typeof renderFcTeto === "function") renderFcTeto();
-  if (subTabName === "fc-referencia" && typeof renderFcReferencia === "function") renderFcReferencia();
-  if (subTabName === "fc-diagnostico" && typeof renderFcDiagnostico === "function") renderFcDiagnostico();
-  if (typeof renderFcSazonalidadeBanner === "function") renderFcSazonalidadeBanner();
-}
-
-document.querySelectorAll(".fc-sub-btn").forEach(btn => {
-  btn.addEventListener("click", () => ativarFcSubTab(btn.dataset.fcTab));
 });
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -7192,74 +7130,6 @@ function inicializarImportedNfs() {
   nfGalleryStoreFilter = 'todas';
 }
 
-function verificarBoletosVesperaNotificacao() {
-  const amanha = new Date();
-  amanha.setDate(amanha.getDate() + 1);
-  const amanhaStr = amanha.toLocaleDateString("pt-BR");
-  const hojeStr = new Date().toLocaleDateString("pt-BR");
-
-  boletos.forEach(b => {
-    if (b.status === "Aberto" && b.vencimento === amanhaStr) {
-      const key = `notif_vespera_${b.id}_${hojeStr}`;
-      if (!localStorage.getItem(key)) {
-        const storeLabel = b.loja === "9175" ? "Marambaia (9175)" : (b.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
-        
-        fetch('/api/notificar-gestao', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            destinatarios: ['Isabella'],
-            assunto: `⏳ Boleto Vencendo Amanhã - Loja ${storeLabel}`,
-            mensagem: `Atenção Isabella,\n\nHá um boleto vencendo amanhã (${b.vencimento}) no valor de ${formatBRL(b.valor)} para a loja ${storeLabel}.\n\n` +
-              `• Loja: ${storeLabel}\n` +
-              `• Valor: ${formatBRL(b.valor)}\n` +
-              `• Descrição: ${b.descricao}\n` +
-              `• Documento: ${b.documento}`,
-            operador: 'Sistema'
-          })
-        })
-        .then(() => {
-          localStorage.setItem(key, "true");
-        })
-        .catch(err => console.error("Erro ao notificar boleto de véspera:", err));
-      }
-    }
-  });
-}
-
-async function carregarBoletosServidor() {
-  try {
-    const res = await fetch("/api/boletos");
-    if (res.ok) {
-      const todos = await res.json();
-      const agora = new Date().getTime();
-      
-      // Filtrar boletos pagos há mais de 24 horas no frontend
-      boletos = todos.filter(b => {
-        if (b.status === "Pago" && b.pagoEm) {
-          const tempoPagamento = new Date(b.pagoEm).getTime();
-          if (agora - tempoPagamento > 24 * 60 * 60 * 1000) {
-            return false;
-          }
-        }
-        return true;
-      });
-      
-      renderBoletos();
-      verificarBoletosVesperaNotificacao();
-      if (window.carregarAuditoriaBoletos) {
-        window.carregarAuditoriaBoletos();
-      }
-    }
-  } catch (err) {
-    console.error("Erro ao carregar boletos do servidor:", err);
-  }
-}
-
-async function inicializarBoletos() {
-  await carregarBoletosServidor();
-}
-
 // Init Event Listeners para a Logística
 // ==========================================================================
 // MÓDULO: PREFERÊNCIAS DE NOTIFICAÇÕES (Owner pode configurar)
@@ -7601,7 +7471,6 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarAutosaveForm();
   registrarLimparErroAoDigitar();
   inicializarImportedNfs();
-  inicializarBoletos();
   renderNotificationTable();
   setupNotificationEvents();
 
@@ -7745,7 +7614,6 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarInsercaoManualInventario();
 
   checkMonthlyInventoryAlert();
-  inicializarBoletosTab();
   inicializarMetasImportTab();
 });
 
@@ -10156,1227 +10024,6 @@ function exportExcel() {
     }
   }
 }
-
-/* ==========================================================================
-   MÓDULO DE GESTÃO DE BOLETOS
-   ========================================================================== */
-
-let boletos = [];
-let boletosSelecionados = new Set();
-
-
-function inicializarBoletosTab() {
-  const fileInput = document.getElementById("boleto-pdf-file");
-  if (fileInput) {
-    fileInput.addEventListener("change", function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        parseBoletoPdf(file);
-        fileInput.value = "";
-      }
-    });
-  }
-
-  const storeFilter = document.getElementById("boleto-store-filter");
-  if (storeFilter) {
-    storeFilter.addEventListener("change", () => renderBoletos());
-  }
-
-  const btnAll = document.getElementById("boleto-filter-all");
-  const btnAberto = document.getElementById("boleto-filter-aberto");
-  const btnPago = document.getElementById("boleto-filter-pago");
-
-  let statusFilter = "all";
-
-  if (btnAll) {
-    btnAll.addEventListener("click", () => {
-      statusFilter = "all";
-      btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
-      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-danger border border-danger";
-      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-success border border-success";
-      renderBoletos(statusFilter);
-    });
-  }
-
-  if (btnAberto) {
-    btnAberto.addEventListener("click", () => {
-      statusFilter = "Aberto";
-      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-ink border border-subtle";
-      btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
-      if (btnPago) btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-success border border-success";
-      renderBoletos(statusFilter);
-    });
-  }
-
-  if (btnPago) {
-    btnPago.addEventListener("click", () => {
-      statusFilter = "Pago";
-      if (btnAll) btnAll.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-ink border border-subtle";
-      if (btnAberto) btnAberto.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-surface-2 text-danger border border-danger";
-      btnPago.className = "px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md";
-      renderBoletos(statusFilter);
-    });
-  }
-
-  const btnBatchPagar = document.getElementById("btn-boleto-batch-pagar");
-  if (btnBatchPagar) btnBatchPagar.addEventListener("click", () => window.marcarBoletosComoPagoEmLote());
-
-  const btnBatchApagar = document.getElementById("btn-boleto-batch-apagar");
-  if (btnBatchApagar) btnBatchApagar.addEventListener("click", () => window.excluirBoletosEmLote());
-
-  const auditoriaStoreFilter = document.getElementById("auditoria-store-filter");
-  if (auditoriaStoreFilter) {
-    auditoriaStoreFilter.addEventListener("change", () => carregarAuditoriaBoletos());
-  }
-
-  const btnAtualizarAuditoria = document.getElementById("btn-atualizar-auditoria");
-  if (btnAtualizarAuditoria) {
-    btnAtualizarAuditoria.addEventListener("click", () => {
-      carregarAuditoriaBoletos();
-      showToast("Auditoria de Boletos atualizada!", "sucesso");
-    });
-  }
-
-  renderBoletos();
-}
-
-// ==========================================================================
-// IMPORTAÇÃO DE METAS DIÁRIAS (XLSX) — alimenta o Meta Hora a Hora com os
-// valores reais da coluna "$ Meta Total" das planilhas de exportação por loja.
-// ==========================================================================
-function inicializarMetasImportTab() {
-  const fileInput = document.getElementById("metas-xlsx-file");
-  if (!fileInput) return;
-
-  fileInput.addEventListener("change", function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      parseMetasXlsx(file);
-      fileInput.value = "";
-    }
-  });
-}
-
-// A célula de data da planilha de metas costuma vir como serial do Excel
-// (ex.: 46024 = 02/01/2026) mesmo com `cellDates: true`, porque o export não
-// marca a coluna com formato de data. Aceita serial, Date e string dd/mm/aaaa.
-function normalizarDataPlanilha(cell) {
-  if (cell === undefined || cell === null || cell === '') return null;
-
-  const fmt = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-
-  if (cell instanceof Date) {
-    return fmt(cell.getFullYear(), cell.getMonth() + 1, cell.getDate());
-  }
-
-  if (typeof cell === 'number' && cell > 0) {
-    const partes = XLSX.SSF.parse_date_code(cell);
-    if (!partes || !partes.y) return null;
-    return fmt(partes.y, partes.m, partes.d);
-  }
-
-  const texto = cell.toString().trim();
-  const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (br) return fmt(Number(br[3]), Number(br[2]), Number(br[1]));
-  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return fmt(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-
-  return null;
-}
-
-function parseMetasXlsx(file) {
-  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
-    showToast("Apenas o Líder de Operações ou Owner podem importar Metas Diárias.", "erro");
-    return;
-  }
-
-  const loja = document.getElementById("metas-loja-selector").value;
-  const infoEl = document.getElementById("metas-import-info");
-
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-      // Localiza a linha de cabeçalho pelo texto exato das colunas que
-      // precisamos — resiliente a reordenação de colunas no export.
-      let headerRowIndex = -1;
-      let colData = -1, colMetaTotal = -1;
-      for (let r = 0; r < Math.min(10, rawRows.length); r++) {
-        const row = rawRows[r] || [];
-        const idxData = row.findIndex(v => (v || '').toString().trim() === 'Data');
-        const idxMeta = row.findIndex(v => (v || '').toString().trim() === '$ Meta Total');
-        if (idxData !== -1 && idxMeta !== -1) {
-          headerRowIndex = r;
-          colData = idxData;
-          colMetaTotal = idxMeta;
-          break;
-        }
-      }
-
-      if (headerRowIndex === -1) {
-        showToast('Não foi possível localizar as colunas "Data" e "$ Meta Total" na planilha.', "erro");
-        return;
-      }
-
-      // Extrai (data, valor), ignorando linhas sem uma das duas informações
-      // (ex.: a linha de rodapé "Total" ou dias sem meta cadastrada).
-      const brutos = [];
-      for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
-        const row = rawRows[r] || [];
-        const dataStr = normalizarDataPlanilha(row[colData]);
-        const valorCell = row[colMetaTotal];
-        if (!dataStr || valorCell === undefined || valorCell === null || valorCell === '') continue;
-        const valor = parseFloat(valorCell);
-        if (Number.isNaN(valor)) continue;
-
-        brutos.push({ data: dataStr, valor, competencia: dataStr.slice(0, 7) });
-      }
-
-      if (brutos.length === 0) {
-        showToast("Nenhuma linha com Data e Meta Total válidas foi encontrada.", "erro");
-        return;
-      }
-
-      // Um mês com só 1 linha representa o total do mês inteiro, não um valor
-      // diário — marcado como 'mensal' para o Meta Hora a Hora ignorar.
-      const contagemPorMes = {};
-      brutos.forEach(l => { contagemPorMes[l.competencia] = (contagemPorMes[l.competencia] || 0) + 1; });
-      const linhas = brutos.map(l => ({
-        data: l.data,
-        valor: l.valor,
-        origem: contagemPorMes[l.competencia] > 1 ? 'diaria' : 'mensal'
-      }));
-
-      const diasDiarios = linhas.filter(l => l.origem === 'diaria').length;
-      const mesesSoTotal = new Set(linhas.filter(l => l.origem === 'mensal').map(l => l.data.slice(0, 7))).size;
-
-      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loja: getLojaNomePorCodigo(loja), linhas })
-      });
-      if (!res.ok) throw new Error("Falha ao importar");
-
-      if (infoEl) {
-        infoEl.classList.remove("hidden");
-        infoEl.innerHTML = `${diasDiarios} dia(s) importado(s) como meta diária.` +
-          (mesesSoTotal > 0 ? `<br>${mesesSoTotal} mês(es) só com total mensal (sem detalhamento diário).` : '');
-      }
-      showToast(`Metas de ${getLojaNomePorCodigo(loja)} importadas com sucesso!`, "sucesso");
-    } catch (err) {
-      console.error("Erro ao importar metas diárias:", err);
-      showToast("Erro ao importar a planilha de metas. Confira o arquivo.", "erro");
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function parseBoletoPdf(file) {
-  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
-    showToast("Apenas o Líder de Operações ou Owner podem fazer importação de Boletos.", "erro");
-    return;
-  }
-  const fileInfo = document.getElementById("boleto-file-info");
-  const progressBar = document.getElementById("boleto-progress-bar");
-  const progressLabel = document.getElementById("boleto-progress-label");
-  if (fileInfo) {
-    fileInfo.classList.remove("hidden");
-    if (progressLabel) progressLabel.textContent = `Processando: ${file.name}... 0%`;
-    if (progressBar) progressBar.style.width = "0%";
-  }
-
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      const arrayBuffer = e.target.result;
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const allItems = [];
-      let fullText = "";
-      
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const percent = Math.round((i / pdf.numPages) * 100);
-        if (progressBar) progressBar.style.width = `${percent}%`;
-        if (progressLabel) progressLabel.textContent = `Lendo páginas... ${percent}% (${i}/${pdf.numPages})`;
-
-        const page = await pdf.getPage(i);
-        const text = await page.getTextContent();
-        
-        const pageItems = text.items
-          .map(item => ({
-            str: item.str,
-            x: Math.round(item.transform[4] * 10) / 10,
-            y: Math.round(item.transform[5] * 10) / 10,
-            w: Math.round(item.width * 10) / 10,
-            h: Math.round(item.height * 10) / 10,
-            page: i
-          }))
-          .filter(item => item.str.trim() !== '');
-          
-        allItems.push(...pageItems);
-        fullText += text.items.map(item => item.str).join(" ") + "\n";
-      }
-
-      const boletosExtraidos = extrairBoletosDoTexto(allItems, fullText);
-
-      const semLojaDetectada = boletosExtraidos.filter(b => !b.lojaAutoDetectada).length;
-      if (semLojaDetectada > 0) {
-        showToast(`${semLojaDetectada} boleto(s) sem loja identificada no PDF — alocado(s) à Loja Ativa. Confira antes de conferir.`, 'erro');
-      }
-
-      if (boletosExtraidos.length > 0) {
-        try {
-          const res = await fetch("/api/boletos/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ boletos: boletosExtraidos })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const novosCount = data.insertedCount;
-            const duplicadosCount = data.ignoredCount;
-
-            await carregarBoletosServidor();
-
-            if (novosCount > 0 && duplicadosCount > 0) {
-              showToast(`${novosCount} boletos importados. ${duplicadosCount} duplicado(s) ignorado(s).`, "info");
-              if (fileInfo) {
-                fileInfo.textContent = `Importados: ${novosCount}. Duplicados ignorados: ${duplicadosCount}.`;
-              }
-            } else if (novosCount === 0 && duplicadosCount > 0) {
-              showToast(`Nenhum boleto importado. Todos os ${duplicadosCount} boletos já foram importados anteriormente.`, "erro");
-              if (fileInfo) {
-                fileInfo.textContent = `Aviso: Todos os ${duplicadosCount} boletos já constavam no sistema.`;
-              }
-            } else {
-              showToast(`${novosCount} boletos carregados!`, "sucesso");
-              if (fileInfo) {
-                fileInfo.textContent = `Sucesso: ${novosCount} boletos carregados.`;
-              }
-            }
-          } else {
-            showToast("Erro ao importar boletos no servidor.", "erro");
-            if (fileInfo) fileInfo.textContent = "Erro na resposta do servidor.";
-          }
-        } catch (e) {
-          console.error("Erro ao enviar boletos:", e);
-          showToast("Erro de rede ao salvar boletos.", "erro");
-          if (fileInfo) fileInfo.textContent = "Erro de conexão.";
-        }
-      } else {
-        showToast("Não foi possível identificar boletos no formato do arquivo.", "erro");
-        if (fileInfo) {
-          fileInfo.textContent = "Erro: Formato de boleto não reconhecido.";
-        }
-      }
-    } catch (err) {
-      console.error("Erro PDF:", err);
-      showToast("Erro ao decodificar arquivo PDF.", "erro");
-      if (fileInfo) {
-        fileInfo.textContent = "Erro no processamento.";
-      }
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function parseMoedaPdf(str) {
-  if (!str) return 0;
-  let clean = str.replace(/[^\d.,]/g, '');
-  const lastDot = clean.lastIndexOf('.');
-  const lastComma = clean.lastIndexOf(',');
-  if (lastDot > lastComma) {
-    clean = clean.replace(/,/g, '');
-    return parseFloat(clean) || 0;
-  } else if (lastComma > lastDot) {
-    clean = clean.replace(/\./g, '').replace(',', '.');
-    return parseFloat(clean) || 0;
-  } else {
-    return parseFloat(clean) || 0;
-  }
-}
-
-// Varre um trecho de texto do relatório de boletos em busca de uma referência
-// de loja: código 9175/4304/9201, nome da filial, fragmento de CNPJ (mesmos
-// fragmentos usados em detectStoreFromRazaoSocial para a NF-e), ou o rótulo
-// interno do portal "Consulta de Títulos" (filtro "Lojas"), retornando o
-// código da loja encontrado ou null se não houver nenhuma referência.
-function detectStoreFromBoletoLine(texto) {
-  const upper = texto.toUpperCase();
-  if (upper.includes('9201') || upper.includes('MARIO COVAS') || upper.includes('MÁRIO COVAS') || upper.includes('0001008688') || upper.includes('PA ANANIDEUA') || upper.includes('ANANIDEUA')) return '9201';
-  if (upper.includes('4304') || upper.includes('ICOARACI') || upper.includes('0001008056') || upper.includes('PA BELEM CRUZEIRO') || upper.includes('PA BELÉM CRUZEIRO') || upper.includes('CRUZEIRO')) return '4304';
-  if (upper.includes('9175') || upper.includes('MARAMBAIA') || upper.includes('0001006495') || upper.includes('PA BELEM MARAMBAIA') || upper.includes('PA BELÉM MARAMBAIA')) return '9175';
-  return null;
-}
-
-// Extrai os boletos do texto do relatório de "Consulta de Títulos" (portal
-// Cacau Digital / Hybris Reports). O relatório é uma página web impressa em PDF: o texto de
-// uma mesma linha da tabela às vezes quebra em várias linhas internas (o
-// valor "R$" fica separado do número, por exemplo) — por isso NÃO dá pra
-// confiar em "uma linha de texto = um boleto". Em vez disso, cortamos o
-// texto inteiro em blocos usando o "Número Doc." (9 a 10 dígitos + "-" + sufixo)
-// como âncora, já que ele aparece de forma confiável no início de cada linha da tabela.
-function extrairBoletosDoTexto(items, fullText) {
-  const boletosExtraidos = [];
-  const lojaDoRelatorio = detectStoreFromBoletoLine(fullText);
-
-  // Group items by page
-  const pages = [...new Set(items.map(item => item.page))];
-  
-  pages.forEach(pageNum => {
-    const pageItems = items.filter(item => item.page === pageNum);
-
-    // 1. Find all prefix items (document number prefixes: 8-10 digits, optionally ending with a hyphen, located at x between 35 and 55)
-    const prefixItems = pageItems.filter(item => item.x >= 35 && item.x <= 55 && /^\d{8,10}-?$/.test(item.str));
-    
-    // Sort prefix items by Y descending
-    prefixItems.sort((a, b) => b.y - a.y);
-
-    // 2. Define rows based on prefix Y coordinates directly
-    const rows = prefixItems.map((prefix, idx) => {
-      // Top boundary: 20 units above prefix Y to cover any high elements in the row
-      const topBoundary = prefix.y + 20.0;
-      // Bottom boundary is exactly the next prefix's Y coordinate (or 0 for the last row)
-      const bottomBoundary = (idx + 1 < prefixItems.length) ? prefixItems[idx + 1].y : 0.0;
-      
-      return {
-        prefix,
-        topBoundary,
-        bottomBoundary,
-        items: []
-      };
-    });
-
-    // 3. Assign items to rows
-    pageItems.forEach(item => {
-      const row = rows.find(r => item.y > r.bottomBoundary && item.y <= r.topBoundary);
-      if (row) {
-        row.items.push(item);
-      }
-    });
-
-    // 4. Process each row
-    rows.forEach(row => {
-      // Sort items horizontally
-      row.items.sort((a, b) => a.x - b.x);
-
-      const prefixItem = row.prefix;
-
-      // Find suffix (e.g. 001, 002, SS, etc.)
-      const suffixItem = row.items.find(item => item.x > prefixItem.x && item.x < 75 && (/^\d{1,3}$/.test(item.str) || /^[A-Z0-9]{1,3}$/.test(item.str)));
-      
-      let documento = prefixItem.str;
-      if (suffixItem) {
-        const cleanPrefix = prefixItem.str.endsWith('-') ? prefixItem.str.slice(0, -1) : prefixItem.str;
-        documento = `${cleanPrefix}-${suffixItem.str}`;
-      }
-
-      // Only process debits
-      const isDebito = row.items.some(item => /d[eé]bito/i.test(item.str));
-      if (!isDebito) return;
-
-      // Find date
-      const dateItem = row.items.find(item => /^\b\d{2}\/\d{2}\/\d{2,4}\b$/.test(item.str));
-      if (!dateItem) return;
-      
-      let vencimento = dateItem.str;
-      const dateParts = vencimento.split('/');
-      if (dateParts[2].length === 2) {
-        vencimento = `${dateParts[0]}/${dateParts[1]}/20${dateParts[2]}`;
-      }
-
-      // Find valor
-      const valorItems = row.items.filter(item => item.x >= 460 && item.x <= 535);
-      let valorStr = "";
-      valorItems.forEach(vi => {
-        valorStr += " " + vi.str;
-      });
-      valorStr = valorStr.trim();
-
-      const valor = parseMoedaPdf(valorStr);
-      if (!valor) return;
-
-      // Find Doc. Faturamento (e.g. 003885871-001, 0105381695, 0000000000000000, ACORDO)
-      let docFaturamento = null;
-      const docFatPrefixItem = row.items.find(item => item.x >= 360 && item.x <= 420 && (/^\d{6,16}-?$/.test(item.str) || /^ACORDO$/i.test(item.str)));
-      if (docFatPrefixItem) {
-        if (docFatPrefixItem.str.endsWith('-')) {
-          const docFatSuffixItem = row.items.find(item => item.x > docFatPrefixItem.x && item.x < 435 && /^\d{1,3}$/.test(item.str));
-          if (docFatSuffixItem) {
-            docFaturamento = `${docFatPrefixItem.str}${docFatSuffixItem.str}`;
-          } else {
-            docFaturamento = docFatPrefixItem.str;
-          }
-        } else {
-          docFaturamento = docFatPrefixItem.str;
-        }
-      }
-
-      const parcelaItem = row.items.find(item => item.x >= 295 && item.x <= 340 && /^\d+\/\d+$/.test(item.str));
-      const parcela = parcelaItem ? parcelaItem.str : "1/1";
-
-      const rowText = row.items.map(item => item.str).join(" ");
-      const lojaNoBloco = detectStoreFromBoletoLine(rowText);
-      const loja = lojaNoBloco || lojaDoRelatorio || currentStore || "9175";
-      const lojaAutoDetectada = !!(lojaNoBloco || lojaDoRelatorio);
-
-      const descItems = row.items.filter(item => item.x >= 180 && item.x < 295);
-      let descricao = descItems.map(item => item.str).join(" ").trim();
-      if (!descricao) descricao = "Duplicata Cacau Show";
-
-      boletosExtraidos.push({
-        id: uid(),
-        documento,
-        docFaturamento,
-        parcela,
-        loja,
-        lojaAutoDetectada,
-        descricao,
-        vencimento,
-        valor,
-        status: "Aberto"
-      });
-    });
-  });
-
-  return boletosExtraidos;
-}
-
-function renderBoletos(statusFilter = "all") {
-  const storeFilter = document.getElementById("boleto-store-filter")?.value || "all";
-  const tbody = document.getElementById("boletos-tbody");
-  if (!tbody) return;
-
-  tbody.innerHTML = "";
-
-  let filtered = boletos.filter(b => {
-    const matchStore = (storeFilter === "all" || b.loja === storeFilter);
-    const matchStatus = (statusFilter === "all" || b.status === statusFilter);
-    return matchStore && matchStatus;
-  });
-
-  // Ordenar por data de vencimento (do mais antigo para o mais novo)
-  filtered.sort((a, b) => {
-    const parseData = (dateStr) => {
-      if (!dateStr) return new Date(0);
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-      }
-      return new Date(dateStr);
-    };
-    return parseData(a.vencimento) - parseData(b.vencimento);
-  });
-
-  let totalAberto = 0;
-  let totalAbertoAteHoje = 0;
-  let totalPago = 0;
-  let vencendoHoje = 0;
-  
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const hojeStr = hoje.toLocaleDateString("pt-BR");
-
-  const parseDataLocal = (dateStr) => {
-    if (!dateStr) return new Date(0);
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-    }
-    return new Date(dateStr);
-  };
-
-  boletos.forEach(b => {
-    const matchStore = (storeFilter === "all" || b.loja === storeFilter);
-    if (matchStore) {
-      if (b.status === "Aberto") {
-        totalAberto += b.valor;
-        
-        const dataVenc = parseDataLocal(b.vencimento);
-        dataVenc.setHours(0, 0, 0, 0);
-        if (dataVenc <= hoje) {
-          totalAbertoAteHoje += b.valor;
-        }
-        
-        if (b.vencimento === hojeStr) {
-          vencendoHoje++;
-        }
-      } else if (b.status === "Pago") {
-        totalPago += b.valor;
-      }
-    }
-  });
-
-  const statAberto = document.getElementById("stat-boletos-aberto-total");
-  const statAbertoHoje = document.getElementById("stat-boletos-aberto-hoje");
-  const statCount = document.getElementById("stat-boletos-count");
-  const statVencendo = document.getElementById("stat-boletos-vencendo-hoje");
-  const statPagos = document.getElementById("stat-boletos-pagos");
-
-  if (statAberto) statAberto.textContent = formatBRL(totalAberto);
-  if (statAbertoHoje) statAbertoHoje.textContent = formatBRL(totalAbertoAteHoje);
-  if (statCount) statCount.textContent = filtered.length;
-  if (statVencendo) statVencendo.textContent = vencendoHoje;
-  if (statPagos) statPagos.textContent = formatBRL(totalPago);
-
-  // Limpar seleção de boletos que não estão mais na lista filtrada
-  const idsFiltrados = new Set(filtered.map(b => b.id));
-  boletosSelecionados = new Set([...boletosSelecionados].filter(id => idsFiltrados.has(id)));
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `
-      <tr class="text-ink-muted text-center">
-        <td colspan="8" class="py-8">Nenhum boleto encontrado para os filtros selecionados.</td>
-      </tr>
-    `;
-    atualizarBatchBarBoletos(filtered);
-    return;
-  }
-
-  filtered.forEach(b => {
-    const tr = document.createElement("tr");
-    let statusClass = "status-aberto";
-    if (b.status === "Pago") statusClass = "status-retirado";
-
-    const storeLabel = b.loja === "9175" ? "Marambaia (9175)" : (b.loja === "4304" ? "Icoaraci (4304)" : "Mário Covas (9201)");
-
-    let actionButtons = "";
-    const isOwner = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
-
-    if (b.status === "Aberto") {
-      actionButtons += `<button class="btn-retirar" onclick="marcarBoletoComoPago('${b.id}')"><i class="fa-solid fa-check"></i> Pagar</button> `;
-    }
-
-    if (isOwner) {
-      actionButtons += `<button class="btn-excluir" onclick="excluirBoleto('${b.id}')"><i class="fa-solid fa-trash"></i></button>`;
-    }
-
-    const isSelected = boletosSelecionados.has(b.id);
-    if (isSelected) tr.classList.add("selected-row");
-
-    tr.innerHTML = `
-      <td class="py-3 px-4 text-center"><input type="checkbox" class="boleto-row-check" data-id="${b.id}" ${isSelected ? "checked" : ""}></td>
-      <td class="py-3 px-4 font-mono font-bold">${b.documento}</td>
-      <td class="py-3 px-4">${storeLabel}</td>
-      <td class="py-3 px-4">${b.descricao}</td>
-      <td class="py-3 px-4 text-center font-mono font-semibold">${b.vencimento}</td>
-      <td class="py-3 px-4 text-right font-mono font-bold">${formatBRL(b.valor)}</td>
-      <td class="py-3 px-4 text-center"><span class="status-pill ${statusClass}">${b.status}</span></td>
-      <td class="py-3 px-4 text-center">${actionButtons || "—"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  atualizarBatchBarBoletos(filtered);
-
-  const selectAll = document.getElementById("boleto-select-all");
-  if (selectAll) {
-    selectAll.onclick = () => {
-      if (selectAll.checked) {
-        filtered.forEach(b => boletosSelecionados.add(b.id));
-      } else {
-        boletosSelecionados.clear();
-      }
-      renderBoletos(statusFilter);
-    };
-  }
-
-  tbody.querySelectorAll(".boleto-row-check").forEach(chk => {
-    chk.addEventListener("change", (e) => {
-      e.stopPropagation();
-      const id = chk.dataset.id;
-      if (chk.checked) {
-        boletosSelecionados.add(id);
-      } else {
-        boletosSelecionados.delete(id);
-      }
-      renderBoletos(statusFilter);
-    });
-  });
-}
-
-function atualizarBatchBarBoletos(filtrados) {
-  const bar = document.getElementById("boleto-batch-actions");
-  const countInfo = document.getElementById("boleto-batch-count-info");
-  const selectAllCheckbox = document.getElementById("boleto-select-all");
-  if (!bar) return;
-
-  if (boletosSelecionados.size > 0) {
-    bar.classList.remove("hidden");
-    const selecionadosList = boletos.filter(b => boletosSelecionados.has(b.id));
-    const totalValor = selecionadosList.reduce((s, b) => s + (Number(b.valor) || 0), 0);
-    countInfo.textContent = `${boletosSelecionados.size} boleto(s) selecionado(s) (${formatBRL(totalValor)})`;
-  } else {
-    bar.classList.add("hidden");
-  }
-
-  if (selectAllCheckbox) {
-    selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(b => boletosSelecionados.has(b.id));
-    selectAllCheckbox.indeterminate = boletosSelecionados.size > 0 && !selectAllCheckbox.checked;
-  }
-}
-
-window.marcarBoletosComoPagoEmLote = async function() {
-  const ids = Array.from(boletosSelecionados);
-  const selecionados = boletos.filter(b => ids.includes(b.id));
-  const abertos = selecionados.filter(b => b.status === "Aberto");
-
-  if (abertos.length === 0) {
-    showToast("Nenhum boleto em aberto selecionado — os demais já estão pagos.", "info");
-    return;
-  }
-
-  const totalValor = abertos.reduce((s, b) => s + (Number(b.valor) || 0), 0);
-  const confirmado = await showConfirm(`Confirmar pagamento de ${abertos.length} boleto(s) selecionado(s), totalizando ${formatBRL(totalValor)}?`, {
-    confirmText: "Confirmar Pagamento"
-  });
-  if (!confirmado) return;
-
-  try {
-    await Promise.all(abertos.map(b => fetch("/api/boletos/pago", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: b.id })
-    })));
-    boletosSelecionados.clear();
-    await carregarBoletosServidor();
-    showToast(`${abertos.length} boleto(s) marcado(s) como pago!`, "sucesso");
-  } catch (err) {
-    console.error(err);
-    showToast("Erro de rede ao pagar boletos em lote.", "erro");
-  }
-};
-
-window.excluirBoletosEmLote = async function() {
-  const ids = Array.from(boletosSelecionados);
-  if (ids.length === 0) return;
-
-  const confirmado = await showConfirm(`Deseja realmente excluir ${ids.length} boleto(s) selecionado(s)? Esta ação não pode ser desfeita.`, {
-    confirmText: "Excluir Selecionados",
-    confirmClass: "btn-danger"
-  });
-  if (!confirmado) return;
-
-  try {
-    const resultados = await Promise.all(ids.map(id => fetch(`/api/boletos/${id}`, { method: "DELETE" })));
-    const falhas = resultados.filter(r => !r.ok).length;
-    boletosSelecionados.clear();
-    await carregarBoletosServidor();
-    if (falhas > 0) {
-      showToast(`${ids.length - falhas} excluído(s). ${falhas} com erro.`, "info");
-    } else {
-      showToast(`${ids.length} boleto(s) excluído(s) com sucesso.`, "sucesso");
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("Erro de rede ao excluir boletos em lote.", "erro");
-  }
-};
-
-window.marcarBoletoComoPago = async function(id) {
-  try {
-    const res = await fetch("/api/boletos/pago", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id })
-    });
-    if (res.ok) {
-      await carregarBoletosServidor();
-      showToast("Boleto marcado como pago!", "sucesso");
-    } else {
-      showToast("Erro ao marcar boleto como pago.", "erro");
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("Erro de rede ao marcar boleto.", "erro");
-  }
-};
-
-window.excluirBoleto = async function(id) {
-  const boleto = boletos.find(b => b.id === id);
-  const info = boleto ? `do fornecedor "${boleto.descricao}" no valor de R$ ${boleto.valor.toFixed(2).replace('.', ',')} (Doc: ${boleto.documento})` : "este boleto";
-  const confirm = await showConfirm(`Deseja realmente excluir o boleto ${info}? Esta ação não pode ser desfeita.`);
-  if (confirm) {
-    try {
-      const res = await fetch(`/api/boletos/${id}`, {
-        method: "DELETE"
-      });
-      if (res.ok) {
-        await carregarBoletosServidor();
-        showToast("Boleto excluído com sucesso.", "sucesso");
-      } else {
-        showToast("Erro ao excluir boleto.", "erro");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Erro de rede ao excluir boleto.", "erro");
-    }
-  }
-};
-
-// Decisão do owner (checkbox do comunicado da Auditoria de Boletos): manter o
-// alerta "vencido sem NF-e" sinalizado para este boleto, ou dispensá-lo (ex.:
-// SAF já aberta). Persistido no boleto, sobrevive a reload e a outros usuários.
-window.alternarPendenciaSaf = async function(id, dispensar) {
-  try {
-    const res = await fetch(`/api/boletos/${id}/pendencia-saf`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dispensada: dispensar, actorUsuario: currentUser ? currentUser.nome : "" })
-    });
-    if (res.ok) {
-      await carregarBoletosServidor();
-      showToast(dispensar ? "Pendência dispensada — o boleto saiu do alerta crítico." : "Pendência mantida — o boleto continua sinalizado.", "sucesso");
-    } else {
-      const dados = await res.json().catch(() => ({}));
-      showToast(dados.error || "Erro ao atualizar a pendência.", "erro");
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("Erro de rede ao atualizar a pendência.", "erro");
-  }
-};
-
-// Segunda passada da auditoria: o cruzamento principal só casa por número de
-// documento, então quando o "Doc. Faturamento" do relatório de títulos não bate
-// com o nNF do XML, o mesmo faturamento aparece duas vezes — uma linha "Sem
-// NF-e" e outra "Sem Boleto". Aqui essas sobras são pareadas por valor dentro da
-// MESMA loja e viradas numa linha só, marcada para revisão (o documento continua
-// não conferindo, então não é uma conciliação definitiva).
-function conciliarOrfaosPorValor(auditList) {
-  const TOLERANCIA = 0.05;
-  const boletosOrfaos = auditList.filter(i => i.statusText === "Sem NF-e");
-  const nfesOrfas = auditList.filter(i => i.statusText === "Sem Boleto");
-  const pareadas = new Set();
-
-  boletosOrfaos.forEach(boleto => {
-    const nfe = nfesOrfas.find(n =>
-      !pareadas.has(n) &&
-      n.loja === boleto.loja &&
-      Math.abs(n.valorNfe - boleto.valorBoletos) <= TOLERANCIA
-    );
-    if (!nfe) return;
-    pareadas.add(nfe);
-
-    boleto.nfeNumber = nfe.nfeNumber;
-    boleto.valorNfe = nfe.valorNfe;
-    boleto.statusText = "Conciliado por Valor";
-    boleto.statusClass = "bg-warning-soft text-warning border border-warning";
-    boleto.descDivergencia = "Pareado por valor (documento não confere) — revisar";
-    boleto.isDivergent = false;
-  });
-
-  pareadas.forEach(nfe => {
-    const idx = auditList.indexOf(nfe);
-    if (idx > -1) auditList.splice(idx, 1);
-  });
-}
-
-window.carregarAuditoriaBoletos = function() {
-  const storeFilter = document.getElementById("auditoria-store-filter")?.value || "all";
-  const tbody = document.getElementById("auditoria-tbody");
-  if (!tbody) return;
-
-  tbody.innerHTML = "";
-
-  // Data de hoje (zerada) e parser de "DD/MM/AAAA" — usados abaixo para achar
-  // boletos cujo vencimento já passou sem a NF-e correspondente ter sido lançada.
-  const auditoriaHoje = new Date();
-  auditoriaHoje.setHours(0, 0, 0, 0);
-  const parseDataBoletoBR = (str) => {
-    if (!str) return null;
-    const partes = str.split('/');
-    if (partes.length !== 3) return null;
-    const data = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
-    return isNaN(data.getTime()) ? null : data;
-  };
-
-  // 1. Group boletos by base document number and store (e.g. "123456" + "_" + "9175")
-  // Prioriza "docFaturamento" (o número que realmente corresponde à NF-e no
-  // relatório de títulos, ex.: "003902732-001" → "3902732"); boletos antigos,
-  // importados antes desse campo existir, caem no comportamento anterior
-  // (usar o próprio "documento").
-  const boletosAgrupados = {};
-  boletos.forEach(b => {
-    let baseDoc;
-    if (b.docFaturamento) {
-      baseDoc = b.docFaturamento.split("-")[0].trim().replace(/^0+/, "") || "0";
-    } else {
-      baseDoc = b.documento.split("-")[0].trim();
-    }
-    const groupKey = `${baseDoc}_${b.loja}`;
-    
-    if (!boletosAgrupados[groupKey]) {
-      boletosAgrupados[groupKey] = {
-        baseDoc: baseDoc,
-        groupKey: groupKey,
-        documentosOriginais: [],
-        lojas: new Set(),
-        valorTotal: 0,
-        boletosRef: []
-      };
-    }
-    boletosAgrupados[groupKey].documentosOriginais.push(b.documento);
-    boletosAgrupados[groupKey].lojas.add(b.loja);
-    boletosAgrupados[groupKey].valorTotal += b.valor;
-    boletosAgrupados[groupKey].boletosRef.push(b);
-  });
-
-  // 2. Correlate with importedNfs
-  const auditMap = {};
-
-  // Add from boletos
-  Object.keys(boletosAgrupados).forEach(groupKey => {
-    const group = boletosAgrupados[groupKey];
-    const storeOfGroup = Array.from(group.lojas)[0] || "9175";
-    
-    let matchesStoreFilter = false;
-    if (storeFilter === "all") {
-      matchesStoreFilter = true;
-    } else {
-      matchesStoreFilter = (storeOfGroup === storeFilter);
-    }
-
-    if (!matchesStoreFilter) return;
-
-    auditMap[groupKey] = {
-      baseDoc: group.baseDoc,
-      groupKey: groupKey,
-      boletosGroup: group,
-      nfeRef: null,
-      loja: storeOfGroup
-    };
-  });
-
-  // Add from importedNfs
-  Object.keys(importedNfs).forEach(key => {
-    const nf = importedNfs[key];
-    const targetStore = nf.info.targetStore || "9175";
-    const nNF = nf.info.numero;
-    const groupKey = `${nNF}_${targetStore}`;
-    
-    if (storeFilter !== "all" && targetStore !== storeFilter) {
-      return;
-    }
-
-    if (!auditMap[groupKey]) {
-      auditMap[groupKey] = {
-        baseDoc: nNF,
-        groupKey: groupKey,
-        boletosGroup: null,
-        nfeRef: nf,
-        loja: targetStore
-      };
-    } else {
-      auditMap[groupKey].nfeRef = nf;
-    }
-  });
-
-  const auditList = [];
-  let totalNfeAuditado = 0;
-  let totalBoletoAuditado = 0;
-  let divergenciasCount = 0;
-
-  Object.keys(auditMap).forEach(key => {
-    const item = auditMap[key];
-    const nfe = item.nfeRef;
-    const bg = item.boletosGroup;
-
-    let valorNfe = 0;
-    let valorBoletos = 0;
-    let statusText = "OK";
-    let statusClass = "bg-success-soft text-success border border-success";
-    let isDivergent = false;
-    let descDivergencia = "";
-    let boletosVencidosSemNfe = [];
-
-    if (nfe) {
-      valorNfe = nfe.info.valorTotal || 0;
-      totalNfeAuditado += valorNfe;
-    }
-
-    if (bg) {
-      valorBoletos = bg.valorTotal;
-      totalBoletoAuditado += valorBoletos;
-    }
-
-    if (nfe && bg) {
-      const nfeStore = nfe.info.targetStore || "9175";
-      const boletoStores = Array.from(bg.lojas);
-      const storeMismatch = !boletoStores.includes(nfeStore);
-      const duplicatas = nfe.info.duplicatas || [];
-
-      if (storeMismatch) {
-        isDivergent = true;
-        statusText = "Loja Divergente";
-        descDivergencia = `NF-e na loja ${nfeStore}, Títulos na loja ${boletoStores.join(', ')}`;
-        statusClass = "bg-warning-soft text-warning border border-warning";
-      } else if (duplicatas.length > 0) {
-        // Cruzamento por parcela: cada duplicata da NF-e (Nº de Ordem / Vencimento /
-        // Valor) é pareada com um boleto do grupo. Cobre parcelamento (2+ duplicatas
-        // com vencimentos e valores diferentes para a mesma NF-e) comparando cada
-        // parcela individualmente, em vez de só bater o total.
-        const boletosDisponiveis = bg.boletosRef.slice();
-        const problemas = [];
-
-        duplicatas.forEach(dup => {
-          // 1ª tentativa: casar pelo sufixo do documento (Nº de Ordem / nDup)
-          let idx = boletosDisponiveis.findIndex(b => {
-            const sufixo = (b.documento.split("-")[1] || "").replace(/^0+/, "");
-            const nDupLimpo = (dup.nDup || "").replace(/^0+/, "");
-            return sufixo && nDupLimpo && sufixo === nDupLimpo;
-          });
-
-          // 2ª tentativa: casar pelo boleto de valor mais próximo ainda disponível
-          if (idx === -1 && boletosDisponiveis.length > 0) {
-            idx = boletosDisponiveis.reduce((melhorIdx, b, i) => {
-              const diffAtual = Math.abs(b.valor - dup.valor);
-              const diffMelhor = melhorIdx === -1 ? Infinity : Math.abs(boletosDisponiveis[melhorIdx].valor - dup.valor);
-              return diffAtual < diffMelhor ? i : melhorIdx;
-            }, -1);
-          }
-
-          if (idx === -1) {
-            problemas.push(`Parcela ${dup.nDup || '—'} (Venc. ${dup.vencimento || '—'}, ${formatBRL(dup.valor)}): sem boleto correspondente`);
-            return;
-          }
-
-          const boletoPareado = boletosDisponiveis[idx];
-          boletosDisponiveis.splice(idx, 1);
-
-          const valorDivergente = Math.abs(boletoPareado.valor - dup.valor) > 0.05;
-          const vencDivergente = !!dup.vencimento && boletoPareado.vencimento !== dup.vencimento;
-
-          if (valorDivergente || vencDivergente) {
-            const partes = [];
-            if (vencDivergente) partes.push(`vencimento NF-e ${dup.vencimento} ≠ boleto ${boletoPareado.vencimento}`);
-            if (valorDivergente) partes.push(`valor NF-e ${formatBRL(dup.valor)} ≠ boleto ${formatBRL(boletoPareado.valor)}`);
-            problemas.push(`Doc. ${boletoPareado.documento}: ${partes.join(' e ')}`);
-          }
-        });
-
-        if (problemas.length > 0) {
-          isDivergent = true;
-          statusText = duplicatas.length > 1 ? "Divergência de Parcela" : "Divergência de Valor";
-          descDivergencia = problemas.join(' | ');
-          statusClass = "bg-danger-soft text-danger border border-danger";
-        } else {
-          statusText = "Conciliado";
-          statusClass = "bg-success-soft text-success border border-success";
-        }
-      } else {
-        // Sem detalhe de duplicatas na NF-e (XML antigo ou importado via Excel):
-        // volta à comparação por total, como antes.
-        const diff = Math.abs(valorNfe - valorBoletos);
-        if (diff > 0.05) {
-          isDivergent = true;
-          statusText = "Divergência de Valor";
-          descDivergencia = `Diferença de ${formatBRL(diff)}`;
-          statusClass = "bg-danger-soft text-danger border border-danger";
-        } else {
-          statusText = "Conciliado";
-          statusClass = "bg-success-soft text-success border border-success";
-        }
-      }
-    } else if (bg && !nfe) {
-      isDivergent = true;
-      statusText = "Sem NF-e";
-      descDivergencia = "Nenhuma NF-e importada correspondente a este título";
-      statusClass = "bg-warning-soft text-warning border border-warning";
-
-      // Regra crítica: boleto em aberto cujo vencimento já passou e a NF-e
-      // correspondente nunca foi lançada. É dinheiro prestes a sair sem nota —
-      // por isso vira alerta separado abaixo (após a 2ª tentativa de conciliar
-      // por valor), com apelo visual forte e pedido de abertura de SAF.
-      boletosVencidosSemNfe = bg.boletosRef.filter(b => {
-        if (b.status !== "Aberto") return false;
-        const dataVenc = parseDataBoletoBR(b.vencimento);
-        return dataVenc && dataVenc < auditoriaHoje;
-      });
-    } else if (nfe && !bg) {
-      isDivergent = true;
-      statusText = "Sem Boleto";
-      descDivergencia = "Nenhum boleto registrado para esta NF-e";
-      statusClass = "bg-info-soft text-info border border-info";
-    }
-
-    auditList.push({
-      loja: item.loja,
-      nfeNumber: nfe ? nfe.info.numero : "—",
-      valorNfe: valorNfe,
-      documentoBoleto: bg ? bg.documentosOriginais.join(", ") : "—",
-      valorBoletos: valorBoletos,
-      statusText: statusText,
-      statusClass: statusClass,
-      descDivergencia: descDivergencia,
-      isDivergent: isDivergent,
-      boletosVencidosSemNfe: boletosVencidosSemNfe
-    });
-  });
-
-  conciliarOrfaosPorValor(auditList);
-
-  // Regra: boleto lançado, vencido, e a NF-e nunca deu entrada até lá — quem
-  // a conciliação por valor acima não resolveu (ou seja, não existe NF-e
-  // nenhuma sobrando pra casar) vira alerta crítico "picante", separado das
-  // divergências comuns, com o(s) boleto(s) nomeados e o pedido de abrir uma
-  // SAF para cancelar o título antes que ele seja pago sem nota.
-  const alertasSAF = [];
-  auditList.forEach(item => {
-    if (item.statusText !== "Sem NF-e" || !item.boletosVencidosSemNfe || !item.boletosVencidosSemNfe.length) return;
-
-    // O owner pode dispensar a pendência boleto a boleto (ex.: já abriu a SAF,
-    // ou tem um motivo pra manter o título mesmo assim). Só sobem a crítico os
-    // que ele não dispensou — os dispensados continuam listados no comunicado
-    // (com a marcação desmarcada) só para permitir reverter a decisão.
-    const mantidos = item.boletosVencidosSemNfe.filter(b => !b.pendenciaSafDispensada);
-
-    item.boletosVencidosSemNfe.forEach(b => {
-      alertasSAF.push({
-        loja: item.loja,
-        documento: b.documento,
-        id: b.id,
-        valor: b.valor,
-        vencimento: b.vencimento,
-        dispensada: !!b.pendenciaSafDispensada
-      });
-    });
-
-    if (!mantidos.length) return;
-
-    const docs = mantidos.map(b => b.documento).join(", ");
-    item.statusText = "🔥 Vencido sem NF-e";
-    item.statusClass = "bg-danger-solid text-white border-2 border-danger animate-pulse font-black";
-    item.descDivergencia = `Boleto ${docs} venceu sem a NF-e correspondente ter sido lançada — abrir SAF para cancelamento`;
-    item.exigeSAF = true;
-  });
-
-  divergenciasCount = auditList.filter(i => i.isDivergent).length;
-
-  // Notificação "⚠️ DIVERGÊNCIA DETECTADA: Auditoria de Boletos" desativada
-  // a pedido — a tabela/contadores de divergência abaixo continuam normais,
-  // só o disparo para Bruno/Isabella/Alexandra foi removido.
-
-  const alertaSafBox = document.getElementById("auditoria-alerta-saf");
-  const alertaSafLista = document.getElementById("auditoria-alerta-saf-lista");
-  if (alertaSafBox && alertaSafLista) {
-    if (alertasSAF.length > 0) {
-      alertaSafBox.classList.remove("hidden");
-      alertaSafLista.innerHTML = alertasSAF.map(a => `
-        <li class="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${a.dispensada ? "bg-surface-2 border border-subtle opacity-70" : "bg-danger-soft border border-danger"}">
-          <span class="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${a.dispensada ? "bg-surface-1 text-ink-muted" : "bg-danger-solid text-white"}">${nomeLoja(a.loja)}</span>
-          <span class="font-mono">Doc. ${a.documento}</span>
-          <span class="${a.dispensada ? "text-ink-muted" : "text-danger"}">Venceu em ${a.vencimento}</span>
-          <span class="font-mono font-bold">${formatBRL(a.valor)}</span>
-          <label class="ml-auto flex items-center gap-1.5 text-[10px] font-bold cursor-pointer select-none" title="Desmarque para dispensar este boleto do alerta (ex.: SAF já aberta)">
-            <input type="checkbox" class="cursor-pointer" ${a.dispensada ? "" : "checked"} onchange="window.alternarPendenciaSaf('${a.id}', !this.checked)">
-            Manter pendência
-          </label>
-        </li>
-      `).join("");
-    } else {
-      alertaSafBox.classList.add("hidden");
-      alertaSafLista.innerHTML = "";
-    }
-  }
-
-  const statNfe = document.getElementById("stat-audit-nfe-total");
-  const statBoleto = document.getElementById("stat-audit-boleto-total");
-  const statDivergente = document.getElementById("stat-audit-divergente");
-  const statStatus = document.getElementById("stat-audit-status");
-  const iconDivergente = document.getElementById("icon-audit-divergente");
-
-  if (statNfe) statNfe.textContent = formatBRL(totalNfeAuditado);
-  if (statBoleto) statBoleto.textContent = formatBRL(totalBoletoAuditado);
-  if (statDivergente) {
-    statDivergente.textContent = divergenciasCount;
-    statDivergente.className = divergenciasCount > 0 ? "text-2xl font-black text-danger" : "text-2xl font-black text-ink";
-  }
-  if (iconDivergente) {
-    iconDivergente.className = divergenciasCount > 0 ? "w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-danger font-black text-xl animate-pulse" : "w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-ink-muted font-black text-xl";
-  }
-
-  if (statStatus) {
-    if (divergenciasCount === 0) {
-      statStatus.textContent = "100% OK";
-      statStatus.className = "text-2xl font-black text-success";
-    } else {
-      statStatus.textContent = "Atenção";
-      statStatus.className = "text-2xl font-black text-warning";
-    }
-  }
-
-  if (auditList.length === 0) {
-    tbody.innerHTML = `
-      <tr class="text-ink-muted text-center">
-        <td colspan="6" class="py-8">Nenhum dado encontrado para os filtros selecionados.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  // Crítico (boleto vencido sem NF-e — abrir SAF) primeiro, depois as demais
-  // divergências, os pares conciliados por valor (que ainda pedem revisão), e
-  // por fim o que já está conciliado por documento.
-  const prioridade = item => item.exigeSAF ? -1 : (item.isDivergent ? 0 : (item.statusText === "Conciliado por Valor" ? 1 : 2));
-  auditList.sort((a, b) => prioridade(a) - prioridade(b) || a.loja.localeCompare(b.loja));
-
-  // Cada faixa de prioridade ganha uma linha-título, para separar o que exige
-  // ação do que já está resolvido.
-  const GRUPOS = [
-    { chave: -1, titulo: "🔥 Crítico — boleto vencido sem NF-e: abrir SAF para cancelamento", classe: "bg-danger-solid text-white" },
-    { chave: 0, titulo: "Divergências — exigem ação", classe: "bg-danger-soft text-danger" },
-    { chave: 1, titulo: "Conciliado por valor — revisar (documento não confere)", classe: "bg-warning-soft text-warning" },
-    { chave: 2, titulo: "Conciliado", classe: "bg-success-soft text-success" }
-  ];
-
-  let grupoAtual = null;
-  auditList.forEach(item => {
-    const p = prioridade(item);
-    if (p !== grupoAtual) {
-      grupoAtual = p;
-      const grupo = GRUPOS.find(g => g.chave === p);
-      const qtd = auditList.filter(i => prioridade(i) === p).length;
-      const trGrupo = document.createElement("tr");
-      trGrupo.innerHTML = `
-        <td colspan="6" class="py-2 px-4 text-[10px] font-extrabold uppercase tracking-widest ${grupo.classe}">
-          ${grupo.titulo} <span class="opacity-70">(${qtd})</span>
-        </td>
-      `;
-      tbody.appendChild(trGrupo);
-    }
-
-    const tr = document.createElement("tr");
-    const storeLabel = nomeLoja(item.loja);
-
-    // Diferença NF-e × Boleto só faz sentido quando existem os dois lados.
-    const temAmbos = item.valorNfe > 0 && item.valorBoletos > 0;
-    const diff = item.valorNfe - item.valorBoletos;
-    let diffHtml = '<span class="text-muted">—</span>';
-    if (temAmbos) {
-      diffHtml = Math.abs(diff) <= 0.05
-        ? '<span class="text-success font-bold">R$ 0,00</span>'
-        : `<span class="text-danger font-bold">${diff > 0 ? "+" : "−"}${formatBRL(Math.abs(diff))}</span>`;
-    }
-
-    tr.innerHTML = `
-      <td class="py-3 px-4 font-bold">${storeLabel}</td>
-      <td class="py-3 px-3 font-mono font-bold">${item.nfeNumber}</td>
-      <td class="py-3 px-3 text-right font-mono font-bold">${item.valorNfe > 0 ? formatBRL(item.valorNfe) : "—"}</td>
-      <td class="py-3 px-3 font-mono">${item.documentoBoleto}</td>
-      <td class="py-3 px-3 text-right font-mono font-bold">${item.valorBoletos > 0 ? formatBRL(item.valorBoletos) : "—"}</td>
-      <td class="py-3 px-4 text-center">
-        <div class="font-mono text-xs mb-1">${diffHtml}</div>
-        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${item.statusClass}">${item.statusText}</span>
-        ${item.descDivergencia ? `<div class="text-[10px] text-muted font-medium mt-1">${item.descDivergencia}</div>` : ""}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-};
 
 // ==========================================================================
 // CONFIGURAÇÕES: LÓGICA DE UI E EVENTOS
@@ -16191,13 +14838,6 @@ function _rtRegistrarHandlers() {
     }
   });
 
-  const TABS_BOLETOS = ["boletos", "auditoria-boletos", "importacoes"];
-  ["boleto.importados", "boleto.pago", "boleto.excluido"].forEach(tipo => {
-    RT.on(tipo, () => {
-      if (TABS_BOLETOS.includes(_rtTabAtual)) carregarBoletosServidor();
-    });
-  });
-
   ["venda.horaria", "meta.checkin", "metaLoja.importada"].forEach(tipo => {
     RT.on(tipo, () => {
       if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
@@ -16232,7 +14872,6 @@ function _rtRegistrarHandlers() {
 function _rtRecarregarTudoQueEstaAberto() {
   sincronizarInventarioDaLoja(currentStore);
   _rtRecarregarNfs();
-  if (["boletos", "auditoria-boletos", "importacoes"].includes(_rtTabAtual)) carregarBoletosServidor();
   if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
 }
 
