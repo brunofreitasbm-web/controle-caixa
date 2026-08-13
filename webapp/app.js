@@ -12760,6 +12760,145 @@ async function buscarMetaDiaLoja(loja, data) {
   }
 }
 
+// ==========================================================================
+// IMPORTAÇÃO DE METAS DIÁRIAS (XLSX) — alimenta o Meta Hora a Hora
+// ==========================================================================
+// Lê a planilha de exportação de metas da loja (coluna "$ Meta Total" por
+// dia) e importa em lote via POST /api/metas-lojas/importar. A função existia
+// só como chamada solta em DOMContentLoaded (nunca foi implementada) — o
+// input de arquivo em #metas-xlsx-file ficava sem nenhum listener.
+function inicializarMetasImportTab() {
+  const inputArquivo = document.getElementById("metas-xlsx-file");
+  const seletorLoja = document.getElementById("metas-loja-selector");
+  const infoEl = document.getElementById("metas-import-info");
+  if (!inputArquivo) return;
+
+  inputArquivo.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const codigoLoja = seletorLoja ? seletorLoja.value : "9175";
+    processarMetasXLSX(file, codigoLoja, infoEl);
+    inputArquivo.value = "";
+  });
+}
+
+function processarMetasXLSX(file, codigoLoja, infoEl) {
+  const loja = getLojaNomePorCodigo(codigoLoja);
+
+  const mostrarInfo = (texto) => {
+    if (!infoEl) return;
+    infoEl.textContent = texto;
+    infoEl.classList.remove("hidden");
+  };
+
+  mostrarInfo("Lendo planilha...");
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array", cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      let headerRowIndex = -1;
+      let headers = [];
+      for (let r = 0; r < Math.min(10, rawRows.length); r++) {
+        const row = rawRows[r] || [];
+        const temColunaMeta = row.some(v => typeof v === "string" && v.toLowerCase().replace(/\s+/g, " ").includes("meta total"));
+        if (temColunaMeta) {
+          headerRowIndex = r;
+          headers = row;
+          break;
+        }
+      }
+      if (headerRowIndex === -1) {
+        mostrarInfo('Não encontramos a coluna "$ Meta Total" nessa planilha. Confira o arquivo exportado.');
+        return;
+      }
+
+      const colMap = {};
+      headers.forEach((h, idx) => {
+        if (h) colMap[h.toString().trim().toLowerCase()] = idx;
+      });
+      const indiceCol = (candidatos) => {
+        for (const nome of candidatos) {
+          const idx = colMap[nome];
+          if (idx !== undefined) return idx;
+        }
+        return -1;
+      };
+      const idxData = indiceCol(["data", "dia", "data referência"]);
+      const idxMeta = indiceCol(["$ meta total", "meta total", "valor meta"]);
+
+      if (idxData === -1 || idxMeta === -1) {
+        mostrarInfo('Não encontramos as colunas de Data e "$ Meta Total" nessa planilha.');
+        return;
+      }
+
+      const paraDataISO = (valor) => {
+        if (valor instanceof Date && !isNaN(valor)) {
+          const ano = valor.getFullYear();
+          const mes = String(valor.getMonth() + 1).padStart(2, "0");
+          const dia = String(valor.getDate()).padStart(2, "0");
+          return `${ano}-${mes}-${dia}`;
+        }
+        if (typeof valor === "string") {
+          const m = valor.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+          if (m) {
+            const [, d, mo, a] = m;
+            const ano = a.length === 2 ? `20${a}` : a;
+            return `${ano}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+          }
+        }
+        return null;
+      };
+
+      const linhas = [];
+      for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+        const row = rawRows[r];
+        if (!row || row.length === 0) continue;
+
+        const dataISO = paraDataISO(row[idxData]);
+        if (!dataISO) continue; // pula linhas de total/rodapé sem data válida
+
+        const valorBruto = row[idxMeta];
+        const valor = typeof valorBruto === "number" ? valorBruto : parseFloat(String(valorBruto || "0").replace(/[^\d,.-]/g, "").replace(",", "."));
+        if (isNaN(valor)) continue;
+
+        linhas.push({ data: dataISO, valor, origem: "diaria" });
+      }
+
+      if (linhas.length === 0) {
+        mostrarInfo("Nenhuma linha com data e meta válidas foi encontrada nessa planilha.");
+        return;
+      }
+
+      mostrarInfo(`Importando ${linhas.length} dia(s) de meta para ${loja}...`);
+
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loja, linhas })
+      });
+      const resultado = await res.json();
+      if (!res.ok || resultado.error) throw new Error(resultado.error || `HTTP ${res.status}`);
+
+      mostrarInfo(`${resultado.count} dia(s) de meta importados para ${loja}.`);
+      showToast(`Metas diárias importadas para ${loja}!`, "sucesso");
+
+      if (metaOperacaoAtiva === loja && typeof carregarMetaHoraHora === "function") {
+        carregarMetaHoraHora();
+      }
+    } catch (err) {
+      console.error("Erro ao importar metas diárias:", err);
+      mostrarInfo("Erro ao importar a planilha: " + err.message);
+      showToast("Erro ao importar metas diárias.", "erro");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function inicializarMetaHoraHora() {
   const selector = document.getElementById("meta-operacao-selector");
   if (selector) {

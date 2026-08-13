@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v58'; // v58: adiciona o Catálogo Digital (vitrine pública /catalogo/:slug + painel interno catalogo-admin) ao precache
+const CACHE_NAME = 'ponto-pwa-v59'; // v59: corrige ReferenceError (inicializarMetasImportTab não estava definida) — Importação de Metas Diárias (XLSX) agora funciona
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
