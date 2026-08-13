@@ -10,12 +10,7 @@ const API_BASE = window.location.protocol === "file:"
 const LOJAS = [
   { valor: "marambaia", nome: "Marambaia" },
   { valor: "icoaraci", nome: "Icoaraci" },
-  { valor: "mario-covas", nome: "Mário Covas" },
-  { valor: "cidade-nova", nome: "Cidade Nova" },
-  { valor: "boulevard", nome: "Boulevard" },
-  { valor: "castanheira", nome: "Castanheira" },
-  { valor: "parque-shopping", nome: "Parque Shopping" },
-  { valor: "metropole", nome: "Metrópole" }
+  { valor: "mario-covas", nome: "Mário Covas" }
 ];
 
 let overviewPorLoja = new Map();
@@ -55,12 +50,12 @@ async function carregarOverview() {
 
     const configuradas = dados.filter(d => d.configurado).length;
     resumoEl.textContent = `${configuradas} de ${LOJAS.length} lojas configuradas`;
-
-    renderizarGrid();
   } catch (err) {
     console.error("Erro ao carregar visão geral:", err);
-    resumoEl.textContent = "Erro ao carregar visão geral.";
+    overviewPorLoja = new Map();
+    resumoEl.textContent = "Erro ao carregar visão geral. Exibindo lojas sem dados de sincronização.";
   }
+  renderizarGrid();
 }
 
 function renderizarGrid() {

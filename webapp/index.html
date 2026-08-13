@@ -3115,70 +3115,20 @@
           </h2>
           <p class="text-xs text-ink-strong mt-1">Gerencie a conexão de loja, status do cardápio e sincronização de estoque com o iFood.</p>
         </div>
-        <a href="/ifood-gerenciamento.html" class="px-4 py-2 bg-paper border border-border hover:bg-cream text-ink font-bold rounded-xl shadow-sm transition text-xs flex items-center gap-2">
-          <i class="fa-solid fa-up-right-from-square"></i> Abrir Painel de Gerenciamento
+        <a href="/ifood-gerenciamento.html" target="_blank" rel="noopener" class="px-4 py-2 bg-paper border border-border hover:bg-cream text-ink font-bold rounded-xl shadow-sm transition text-xs flex items-center gap-2">
+          <i class="fa-solid fa-up-right-from-square"></i> Abrir em Nova Aba
         </a>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- Configurações de Integração -->
-        <div class="card p-6 border-2 border-edge border-dashed">
-          <h3 class="text-md font-bold text-ink mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-gears text-ink-muted"></i> Configurações de Integração
-          </h3>
-          
-          <div class="flex flex-col gap-4">
-            <div>
-              <label class="block text-xs font-bold text-ink-muted mb-1">Status da API</label>
-              <div class="flex items-center gap-2 text-sm font-bold bg-surface-2 p-3 rounded-xl border border-subtle">
-                <div class="w-3 h-3 rounded-full bg-success"></div> <span class="text-ink">Conectado (Token Ativo)</span>
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="ifood-client-id">Client ID (iFood)</label>
-              <input type="text" id="ifood-client-id" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm transition" placeholder="Ex: 5a7b..." value="5a7b8e9f-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-            </div>
-
-            <div class="field">
-              <label for="ifood-client-secret">Client Secret</label>
-              <input type="password" id="ifood-client-secret" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm transition" placeholder="••••••••••••••••" value="fake-secret-123">
-            </div>
-
-            <div class="field">
-              <label for="ifood-merchant">Loja Ativa (Merchant ID)</label>
-              <select id="ifood-merchant" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm font-bold transition">
-                <option value="store-1">Loja Principal (ID: 987654)</option>
-                <option value="store-2">Loja Filial 2 (ID: 456123)</option>
-              </select>
-            </div>
-            
-            <button class="mt-2 py-3 bg-paper border border-border hover:bg-cream text-ink font-bold rounded-xl shadow-sm transition">
-              <i class="fa-solid fa-arrows-rotate"></i> Testar Conexão
-            </button>
-          </div>
-        </div>
-
-        <!-- Sincronização e Gestão de Estoque -->
-        <div class="card p-6 shadow-sm border border-border">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-md font-bold text-ink flex items-center gap-2">
-              <i class="fa-solid fa-boxes-stacked text-ink-muted"></i> Gestão de Cardápio
-            </h3>
-            <button id="btn-ifood-sync" class="px-4 py-2 bg-accent-soft hover:bg-surface-hover text-ink font-bold rounded-xl text-xs transition shadow-sm border border-accent">
-              <i class="fa-solid fa-cloud-arrow-up"></i> Forçar Sinc.
-            </button>
-          </div>
-
-          <p class="text-xs text-ink-muted mb-4">Pausar ou ativar produtos de forma manual no iFood.</p>
-
-          <div id="ifood-synced-list" class="flex flex-col gap-3">
-            <div class="text-center text-ink-muted text-sm py-4">Nenhum produto sincronizado. Clique em "Forçar Sinc."</div>
-          </div>
-        </div>
-
-      </div>
+      <!-- O painel real (dados, sincronização e configuração por loja) vive em ifood-gerenciamento.html/.js.
+           Em vez de duplicar essa lógica aqui dentro do app.js, essa aba embute o próprio painel. -->
+      <iframe
+        id="ifood-panel-iframe"
+        src="/ifood-gerenciamento.html"
+        title="Painel de Gerenciamento iFood"
+        style="width: 100%; min-height: 78vh; border: 1px solid var(--border); border-radius: 12px; background: #fff;"
+        loading="lazy"
+      ></iframe>
     </section>
 
   </main>
