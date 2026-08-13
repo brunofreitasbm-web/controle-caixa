@@ -103,6 +103,14 @@ app.get('/catalogo/:slug', (req, res) => {
   res.sendFile(path.join(__dirname, 'webapp', 'catalogo.html'));
 });
 
+// Painel iFood v2 Standalone (/ifood, /ifood-painel):
+app.get('/ifood-painel', (req, res) => {
+  res.sendFile(path.join(__dirname, 'webapp', 'ifood-painel.html'));
+});
+app.get('/ifood', (req, res) => {
+  res.sendFile(path.join(__dirname, 'webapp', 'ifood-painel.html'));
+});
+
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
 // ==========================================================================
