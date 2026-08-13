@@ -172,9 +172,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "ifood", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "ifood", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1672,6 +1672,9 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "controle-ponto") {
       tabsPermitidas = ["controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "ifood-modulo") {
+      tabsPermitidas = ["ifood", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
@@ -1944,6 +1947,14 @@ if (btnModPonto) {
   btnModPonto.addEventListener("click", () => {
     iniciarModuloBase("controle-ponto");
     ativarTab("controle-ponto");
+  });
+}
+
+const btnModIfood = document.getElementById("btn-mod-ifood");
+if (btnModIfood) {
+  btnModIfood.addEventListener("click", () => {
+    iniciarModuloBase("ifood-modulo");
+    ativarTab("ifood");
   });
 }
 

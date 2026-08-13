@@ -314,6 +314,12 @@
         <h3>Controle de Ponto</h3>
         <p>Marcação de jornada e espelho de ponto</p>
       </button>
+
+      <button id="btn-mod-ifood" class="module-card card-ifood">
+        <span class="mod-icon"><i class="fa-solid fa-motorcycle" style="color: #ea1d2c;"></i></span>
+        <h3>Módulo iFood</h3>
+        <p>Gestão de Cardápio e Integração</p>
+      </button>
     </div>
   </div>
 </div>
@@ -434,6 +440,10 @@
           <button class="tab-btn" id="tab-btn-inventario-estoque" data-tab="inventario-estoque" role="tab" aria-selected="false" aria-controls="tab-inventario-estoque" data-tip="Contagem de estoque por loja, compartilhada entre as consultoras">
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventários</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-ifood" data-tab="ifood" role="tab" aria-selected="false" aria-controls="tab-ifood" data-tip="Configurações e Sincronização iFood">
+            <span class="tab-icon"><i class="fa-solid fa-motorcycle"></i></span>
+            <span class="tab-text">Integração iFood</span>
           </button>
         </div>
       </div>
@@ -3091,6 +3101,116 @@
             </div>
           </div>
 
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== TAB: IFOOD ===================== -->
+    <section id="tab-ifood" class="tab-panel hidden" role="tabpanel" aria-labelledby="tablink-ifood">
+      <div class="section-header mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-motorcycle text-ink-muted" style="color: #ea1d2c;"></i> Integração iFood
+          </h2>
+          <p class="text-xs text-ink-strong mt-1">Gerencie a conexão de loja, status do cardápio e sincronização de estoque com o iFood.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Configurações de Integração -->
+        <div class="card p-6 border-2 border-edge border-dashed">
+          <h3 class="text-md font-bold text-ink mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-gears text-ink-muted"></i> Configurações de Integração
+          </h3>
+          
+          <div class="flex flex-col gap-4">
+            <div>
+              <label class="block text-xs font-bold text-ink-muted mb-1">Status da API</label>
+              <div class="flex items-center gap-2 text-sm font-bold bg-surface-2 p-3 rounded-xl border border-subtle">
+                <div class="w-3 h-3 rounded-full bg-success"></div> <span class="text-ink">Conectado (Token Ativo)</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="ifood-client-id">Client ID (iFood)</label>
+              <input type="text" id="ifood-client-id" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm transition" placeholder="Ex: 5a7b..." value="5a7b8e9f-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+            </div>
+
+            <div class="field">
+              <label for="ifood-client-secret">Client Secret</label>
+              <input type="password" id="ifood-client-secret" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm transition" placeholder="••••••••••••••••" value="fake-secret-123">
+            </div>
+
+            <div class="field">
+              <label for="ifood-merchant">Loja Ativa (Merchant ID)</label>
+              <select id="ifood-merchant" class="w-full bg-surface-2 border border-subtle focus:border-accent rounded-xl p-3 text-ink text-sm font-bold transition">
+                <option value="store-1">Loja Principal (ID: 987654)</option>
+                <option value="store-2">Loja Filial 2 (ID: 456123)</option>
+              </select>
+            </div>
+            
+            <button class="mt-2 py-3 bg-paper border border-border hover:bg-cream text-ink font-bold rounded-xl shadow-sm transition">
+              <i class="fa-solid fa-arrows-rotate"></i> Testar Conexão
+            </button>
+          </div>
+        </div>
+
+        <!-- Sincronização e Gestão de Estoque -->
+        <div class="card p-6 shadow-sm border border-border">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-md font-bold text-ink flex items-center gap-2">
+              <i class="fa-solid fa-boxes-stacked text-ink-muted"></i> Gestão de Cardápio
+            </h3>
+            <button id="btn-ifood-sync" class="px-4 py-2 bg-accent-soft hover:bg-surface-hover text-ink font-bold rounded-xl text-xs transition shadow-sm border border-accent">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Forçar Sinc.
+            </button>
+          </div>
+
+          <p class="text-xs text-ink-muted mb-4">Pausar ou ativar produtos de forma manual no iFood.</p>
+
+          <div class="flex flex-col gap-3">
+            <!-- Produto Exemplo 1 -->
+            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle">
+              <div>
+                <p class="text-sm font-bold text-ink">Trufa LaNut 30g</p>
+                <p class="text-xs text-ink-muted">Cód: 1002345</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer" checked>
+                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                <span class="ml-2 text-xs font-bold text-ink">Ativo</span>
+              </label>
+            </div>
+
+            <!-- Produto Exemplo 2 -->
+            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle opacity-75">
+              <div>
+                <p class="text-sm font-bold text-ink">Caixa Presente Especial</p>
+                <p class="text-xs text-ink-muted">Cód: 1005678</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                <span class="ml-2 text-xs font-bold text-ink-muted">Pausado</span>
+              </label>
+            </div>
+
+            <!-- Produto Exemplo 3 -->
+            <div class="flex justify-between items-center bg-surface-1 p-3 rounded-xl border border-subtle">
+              <div>
+                <p class="text-sm font-bold text-ink">Tablete 70% Cacau</p>
+                <p class="text-xs text-ink-muted">Cód: 1003421</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer" checked>
+                <div class="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                <span class="ml-2 text-xs font-bold text-ink">Ativo</span>
+              </label>
+            </div>
+
+          </div>
         </div>
 
       </div>
