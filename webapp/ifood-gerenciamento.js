@@ -57,6 +57,9 @@ async function carregarOverviewIfood() {
     if (resumoEl) resumoEl.textContent = "Erro ao carregar visão geral. Exibindo lojas sem dados de sincronização.";
   }
   renderizarGridIfood();
+  if (!ifoodLojaSelecionada && IFOOD_LOJAS.length > 0) {
+    selecionarLojaIfood(IFOOD_LOJAS[0].valor);
+  }
 }
 
 function renderizarGridIfood() {
