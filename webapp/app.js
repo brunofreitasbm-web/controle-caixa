@@ -1505,7 +1505,32 @@ function entrarNoApp() {
 
   ajustarCardsModulos();
 
-  const ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
+  let ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
+  
+  if (currentUser && currentUser.unidade && currentUser.unidade !== "all") {
+    if (currentUser.unidade.startsWith("fa-")) {
+      ultimoModulo = "faca-amigos";
+    } else {
+      ultimoModulo = "cacau-show";
+    }
+    
+    setTimeout(() => {
+      const nomeLoja = OPERACOES_ALIASES[currentUser.unidade] || currentUser.unidade;
+      
+      const selectLoja = document.getElementById("loja");
+      if (selectLoja) {
+        selectLoja.value = nomeLoja;
+        selectLoja.dispatchEvent(new Event("change"));
+      }
+      
+      const selectLojaFA = document.getElementById("fa-loja");
+      if (selectLojaFA) {
+        selectLojaFA.value = nomeLoja;
+        selectLojaFA.dispatchEvent(new Event("change"));
+      }
+    }, 150);
+  }
+
   if (ultimoModulo) {
     iniciarModuloBase(ultimoModulo);
   } else {
