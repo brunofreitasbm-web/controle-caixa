@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <title>Catálogo</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#c98a4b">
+  <style>
+    :root {
+      --primary: #c98a4b;
+      --primary-dark: #a8703a;
+      --bg: #fdfaf6;
+      --card: #ffffff;
+      --text: #3a2a1e;
+      --muted: #8a7768;
+      --border: #eee1d3;
+      --ok: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 88px;
+    }
+    header.loja-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 18px 16px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header.loja-header h1 { margin: 0; font-size: 1.25rem; }
+    header.loja-header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.9; }
+
+    .categoria { padding: 12px 16px 0; }
+    .categoria h2 { font-size: 1rem; margin: 8px 0; color: var(--primary-dark); }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (min-width: 620px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 900px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .produto-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .produto-foto {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #f2e9dd center/cover no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    .produto-info { padding: 8px 10px 10px; flex: 1; display: flex; flex-direction: column; }
+    .produto-nome { font-size: 0.85rem; font-weight: 600; line-height: 1.2; min-height: 2.2em; }
+    .produto-preco { color: var(--primary-dark); font-weight: 700; margin: 4px 0 8px; }
+    .produto-acao { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .btn-add {
+      background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      padding: 7px 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; width: 100%;
+    }
+    .stepper { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: space-between; }
+    .stepper button {
+      width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+      background: #fff; font-size: 1rem; cursor: pointer;
+    }
+    .stepper span { font-weight: 700; min-width: 18px; text-align: center; }
+
+    .vazio { text-align: center; color: var(--muted); padding: 40px 16px; }
+
+    .cart-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--primary-dark); color: #fff;
+      padding: 12px 16px; display: none;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+      z-index: 20;
+    }
+    .cart-bar.visivel { display: flex; }
+    .cart-bar button {
+      background: #fff; color: var(--primary-dark); border: none; border-radius: 8px;
+      padding: 10px 16px; font-weight: 700; cursor: pointer;
+    }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30;
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .overlay.aberto { display: flex; }
+    .sheet {
+      background: #fff; width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto;
+      border-radius: 16px 16px 0 0; padding: 18px 18px 24px;
+    }
+    .sheet h2 { margin-top: 0; }
+    .sheet-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 8px; }
+    .sheet-item .nome { flex: 1; font-size: 0.9rem; }
+    .campo { margin: 12px 0; }
+    .campo label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: var(--muted); }
+    .campo input, .campo select, .campo textarea {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem;
+    }
+    .tipo-entrega { display: flex; gap: 8px; }
+    .tipo-entrega label {
+      flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;
+      cursor: pointer; font-size: 0.85rem;
+    }
+    .tipo-entrega input { display: none; }
+    .tipo-entrega input:checked + span { color: var(--primary-dark); font-weight: 700; }
+    .resumo-total { font-size: 1.1rem; font-weight: 700; margin: 14px 0; text-align: right; }
+    .btn-fechar-pedido {
+      width: 100%; background: var(--ok); color: #fff; border: none; border-radius: 10px;
+      padding: 14px; font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-fechar-pedido:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-fechar-topo {
+      background: none; border: none; color: var(--muted); font-size: 1.3rem; float: right; cursor: pointer;
+    }
+    .aviso { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+    .estado-carregando { text-align: center; padding: 60px 16px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="loja-header">
+    <h1 id="loja-nome">Catálogo</h1>
+    <p id="loja-sub">Carregando produtos...</p>
+  </header>
+
+  <main id="conteudo"><div class="estado-carregando">Carregando catálogo...</div></main>
+
+  <div class="cart-bar" id="cart-bar">
+    <span id="cart-resumo">0 itens · R$ 0,00</span>
+    <button id="btn-ver-carrinho">Ver pedido</button>
+  </div>
+
+  <div class="overlay" id="overlay-carrinho">
+    <div class="sheet">
+      <button class="btn-fechar-topo" id="fechar-carrinho">×</button>
+      <h2>Seu pedido</h2>
+      <div id="lista-carrinho"></div>
+      <div class="resumo-total" id="total-produtos"></div>
+
+      <div class="campo">
+        <label>Seu nome</label>
+        <input type="text" id="cliente-nome" placeholder="Nome completo">
+      </div>
+      <div class="campo">
+        <label>WhatsApp para contato</label>
+        <input type="tel" id="cliente-telefone" placeholder="(91) 90000-0000">
+      </div>
+      <div class="campo">
+        <label>Como vai receber?</label>
+        <div class="tipo-entrega">
+          <label><input type="radio" name="tipo-entrega" value="retirada" checked><span>🏪 Retirar na loja</span></label>
+          <label><input type="radio" name="tipo-entrega" value="entrega"><span>🛵 Entrega</span></label>
+        </div>
+      </div>
+      <div class="campo" id="campo-cep" style="display:none">
+        <label>CEP de entrega</label>
+        <input type="text" id="cliente-cep" placeholder="00000-000" maxlength="9">
+        <div class="aviso" id="taxa-info"></div>
+      </div>
+      <div class="campo">
+        <label>Observações (opcional)</label>
+        <textarea id="cliente-obs" rows="2" placeholder="Ex.: sem casca, embalagem para presente..."></textarea>
+      </div>
+
+      <div class="resumo-total" id="total-geral"></div>
+      <button class="btn-fechar-pedido" id="btn-confirmar-pedido">Fechar pedido pelo WhatsApp</button>
+      <div class="aviso" id="erro-checkout"></div>
+    </div>
+  </div>
+
+  <script src="catalogo.js"></script>
+</body>
+</html>

@@ -75,7 +75,23 @@ const camelCaseMap = {
   pontoequilibriomes: 'pontoEquilibrioMes',
   pontoequilibriodia: 'pontoEquilibrioDia',
   resultado10meses: 'resultado10Meses',
-  aliquotaimposto: 'aliquotaImposto'
+  aliquotaimposto: 'aliquotaImposto',
+  codbarras: 'codBarras',
+  fotourl: 'fotoUrl',
+  visivelcatalogo: 'visivelCatalogo',
+  categoriaexibicao: 'categoriaExibicao',
+  whatsapppedidos: 'whatsappPedidos',
+  pixchave: 'pixChave',
+  pixtitular: 'pixTitular',
+  clientenome: 'clienteNome',
+  clientetelefone: 'clienteTelefone',
+  valorprodutos: 'valorProdutos',
+  tipoentrega: 'tipoEntrega',
+  distanciakm: 'distanciaKm',
+  taxaentrega: 'taxaEntrega',
+  valortotal: 'valorTotal',
+  confirmadopor: 'confirmadoPor',
+  pagamentoconfirmadopor: 'pagamentoConfirmadoPor'
 };
 
 function normalizeRow(row) {
@@ -641,6 +657,59 @@ function initDb(onSuccess) {
           concluido INTEGER DEFAULT 0,
           concluidoEm TEXT,
           notas TEXT
+        )`,
+        // ------------------------------------------------------------------
+        // Módulo Catálogo Digital — vitrine pública por loja (link
+        // compartilhável), carrinho no cliente e pedido fechado que vira
+        // aviso automático (WhatsApp) para o operador separar/entregar.
+        // Ver docs em routes/catalogo.js.
+        // ------------------------------------------------------------------
+        `CREATE TABLE IF NOT EXISTS catalogo_produtos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          codProduto TEXT UNIQUE NOT NULL,
+          descricao TEXT,
+          codBarras TEXT,
+          grupo TEXT,
+          preco REAL DEFAULT 0,
+          fotoUrl TEXT,
+          visivelCatalogo INTEGER DEFAULT 0,
+          categoriaExibicao TEXT,
+          atualizadoEm TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS catalogo_lojas (
+          loja TEXT PRIMARY KEY,
+          slug TEXT UNIQUE NOT NULL,
+          whatsappPedidos TEXT,
+          pixChave TEXT,
+          pixTitular TEXT,
+          latitude REAL,
+          longitude REAL,
+          ativo INTEGER DEFAULT 1
+        )`,
+        `CREATE TABLE IF NOT EXISTS catalogo_loja_produtos (
+          loja TEXT NOT NULL,
+          codProduto TEXT NOT NULL,
+          disponivel INTEGER DEFAULT 1,
+          PRIMARY KEY (loja, codProduto)
+        )`,
+        `CREATE TABLE IF NOT EXISTS catalogo_pedidos (
+          id TEXT PRIMARY KEY,
+          loja TEXT NOT NULL,
+          clienteNome TEXT NOT NULL,
+          clienteTelefone TEXT NOT NULL,
+          itens TEXT NOT NULL,
+          valorProdutos REAL DEFAULT 0,
+          tipoEntrega TEXT NOT NULL,
+          cep TEXT,
+          distanciaKm REAL,
+          taxaEntrega REAL DEFAULT 0,
+          valorTotal REAL DEFAULT 0,
+          observacoes TEXT,
+          status TEXT NOT NULL DEFAULT 'novo',
+          confirmadoPor TEXT,
+          pagamentoConfirmadoPor TEXT,
+          criadoEm TEXT NOT NULL,
+          atualizadoEm TEXT
         )`
       ];
 
@@ -950,7 +1019,11 @@ function initDb(onSuccess) {
         // Fluxo de Caixa: painel/diário filtram por mês, campanhas por loja.
         `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_mensal_mes ON fluxo_caixa_mensal(mesReferencia)`,
         `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_campanha_loja ON fluxo_caixa_campanha(loja)`,
-        `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_obs_diaria_data ON fluxo_caixa_observacao_diaria(data)`
+        `CREATE INDEX IF NOT EXISTS idx_fluxo_caixa_obs_diaria_data ON fluxo_caixa_observacao_diaria(data)`,
+        // Catálogo Digital: vitrine pública filtra por visível+grupo; painel
+        // do operador filtra pedidos por loja/status mais recentes primeiro.
+        `CREATE INDEX IF NOT EXISTS idx_catalogo_produtos_visivel ON catalogo_produtos(visivelCatalogo)`,
+        `CREATE INDEX IF NOT EXISTS idx_catalogo_pedidos_loja_status ON catalogo_pedidos(loja, status, criadoEm DESC)`
       ];
       indicesConsulta.forEach(sqlIndice => {
         promise = promise.then(() => {
@@ -1034,6 +1107,27 @@ function initDb(onSuccess) {
              VALUES (?, ?, ?, ?, ?, ?, 0.082, ?)
              ON CONFLICT(loja) DO NOTHING`,
             [r.loja, r.faturamentoMes, r.despesaFixaMes, r.pontoEquilibrioMes, r.pontoEquilibrioDia, r.resultado10Meses, agora],
+            () => resolve()
+          );
+        })));
+      });
+
+      // Seed das lojas do Catálogo Digital (mesmas coordenadas de LOJAS_GEOLOC
+      // no app.js). whatsappPedidos/pixChave ficam em branco até o Owner
+      // preencher em Configurações > Catálogo — sem eles, os botões de
+      // "abrir WhatsApp" do catálogo não têm pra onde apontar.
+      promise = promise.then(() => {
+        const lojasSeed = [
+          { loja: 'Marambaia', slug: 'marambaia', latitude: -1.4116, longitude: -48.4418 },
+          { loja: 'Icoaraci', slug: 'icoaraci', latitude: -1.3039, longitude: -48.4878 },
+          { loja: 'Mário Covas', slug: 'mario-covas', latitude: -1.3815, longitude: -48.4115 }
+        ];
+        return Promise.all(lojasSeed.map(l => new Promise(resolve => {
+          db.run(
+            `INSERT INTO catalogo_lojas (loja, slug, latitude, longitude, ativo)
+             VALUES (?, ?, ?, ?, 1)
+             ON CONFLICT(loja) DO NOTHING`,
+            [l.loja, l.slug, l.latitude, l.longitude],
             () => resolve()
           );
         })));

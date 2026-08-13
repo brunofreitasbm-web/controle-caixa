@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v57'; // v57: remove Boletos/Auditoria de Boletos/Insights IA/Fluxo de Caixa (menus e telas) — dessa vez com guarda em iniciarModuloBase() contra "ultimoModulo" salvo apontando pra "fluxo-caixa" (ver app.js), pra não repetir o crash do v56
+const CACHE_NAME = 'ponto-pwa-v58'; // v58: adiciona o Catálogo Digital (vitrine pública /catalogo/:slug + painel interno catalogo-admin) ao precache
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -11,6 +11,10 @@ const ASSETS_TO_CACHE = [
   '/bluedox.html',
   '/bluedox.css',
   '/bluedox.js',
+  '/catalogo.html',
+  '/catalogo.js',
+  '/catalogo-admin.html',
+  '/catalogo-admin.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

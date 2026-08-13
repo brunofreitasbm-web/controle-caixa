@@ -41,6 +41,7 @@ const inventarioRoutes = require('./routes/inventario');
 const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
+const catalogoRoutes = require('./routes/catalogo');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -86,6 +87,14 @@ app.use('/api/pos-visita', posVisitaRoutes);
 app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
+app.use('/api', catalogoRoutes);
+
+// Link compartilhável por loja (/catalogo/marambaia, /catalogo/icoaraci,
+// /catalogo/mario-covas): serve sempre a mesma página, que lê o slug da URL
+// no client-side e busca os produtos em GET /api/catalogo/:slug.
+app.get('/catalogo/:slug', (req, res) => {
+  res.sendFile(path.join(__dirname, 'webapp', 'catalogo.html'));
+});
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
