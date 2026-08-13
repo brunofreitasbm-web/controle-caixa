@@ -1,5 +1,5 @@
 // ==========================================================================
-// iFood Integration Hub v2 — Script Independente
+// iFood Integration Hub v2 — Script Independente (Light Mode & Dark Mode)
 // ==========================================================================
 
 const API_BASE = window.location.protocol === "file:"
@@ -15,6 +15,40 @@ const LOJAS_CONFIG = [
 let lojaAtiva = "marambaia";
 let overviewDataMap = new Map();
 let inventoryItemsCache = [];
+
+// --------------------------------------------------------------------------
+// Suporte a Temas (Light / Dark Mode)
+// --------------------------------------------------------------------------
+
+function inicializarTema() {
+  const btnToggle = document.getElementById("btn-toggle-theme");
+  const iconTheme = document.getElementById("icon-theme");
+  const labelTheme = document.getElementById("label-theme");
+
+  const salva = localStorage.getItem("ifood_theme") || "light";
+  if (salva === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+
+  function atualizarVisualBotao() {
+    const isDark = document.documentElement.classList.contains("dark");
+    if (iconTheme) iconTheme.className = isDark ? "fa-solid fa-sun text-amber-400" : "fa-solid fa-moon text-slate-500";
+    if (labelTheme) labelTheme.textContent = isDark ? "Modo Claro" : "Modo Escuro";
+  }
+
+  atualizarVisualBotao();
+
+  if (btnToggle) {
+    btnToggle.addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      const novoTema = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      localStorage.setItem("ifood_theme", novoTema);
+      atualizarVisualBotao();
+    });
+  }
+}
 
 // --------------------------------------------------------------------------
 // Funções Utilitárias & Feedbacks
@@ -37,8 +71,8 @@ function mostrarFeedback(msg, tipo = "sucesso") {
   el.textContent = msg;
   el.className = `mb-4 p-4 rounded-xl text-xs font-semibold ${
     tipo === "sucesso"
-      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-      : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+      ? "bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30"
+      : "bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30"
   }`;
   el.classList.remove("hidden");
 
@@ -122,7 +156,7 @@ async function carregarInventarioLoja() {
 
   tbody.innerHTML = `
     <tr>
-      <td colspan="5" class="p-8 text-center text-slate-500">
+      <td colspan="5" class="p-8 text-center text-slate-400">
         <i class="fa-solid fa-circle-notch fa-spin text-lg mb-2 block text-red-500"></i> Buscando produtos pareados no iFood...
       </td>
     </tr>
@@ -135,7 +169,7 @@ async function carregarInventarioLoja() {
     if (!res.ok || (json && json.error)) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" class="p-6 text-center text-rose-400">
+          <td colspan="5" class="p-6 text-center text-rose-600 dark:text-rose-400">
             <i class="fa-solid fa-triangle-exclamation mr-1"></i> ${json.error || "Erro ao consultar dados da loja."}
           </td>
         </tr>
@@ -152,7 +186,7 @@ async function carregarInventarioLoja() {
     console.error("Erro ao carregar inventário:", err);
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="p-6 text-center text-slate-500">
+        <td colspan="5" class="p-6 text-center text-slate-400">
           Erro de conexão ao buscar estoque da loja.
         </td>
       </tr>
@@ -168,8 +202,8 @@ function renderizarTabelaInventario(lista) {
   if (!Array.isArray(lista) || lista.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="p-8 text-center text-slate-500">
-          <i class="fa-solid fa-box-open text-2xl mb-2 block text-slate-600"></i> Nenhum produto sincronizado com o iFood nesta loja ainda.
+        <td colspan="5" class="p-8 text-center text-slate-400">
+          <i class="fa-solid fa-box-open text-2xl mb-2 block text-slate-300 dark:text-slate-600"></i> Nenhum produto sincronizado com o iFood nesta loja ainda.
         </td>
       </tr>
     `;
@@ -183,18 +217,18 @@ function renderizarTabelaInventario(lista) {
   lista.forEach(item => {
     const isAtivo = item.status_enviado === "AVAILABLE";
     const tr = document.createElement("tr");
-    tr.className = "hover:bg-slate-800/40 transition";
+    tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition";
     tr.innerHTML = `
-      <td class="p-3.5 font-medium text-white">${item.descricao || "--"}</td>
-      <td class="p-3.5 font-mono text-slate-400">${item.codProdutoLocal || "--"}</td>
-      <td class="p-3.5 font-mono text-slate-400">${item.codProdutoIfood || "--"}</td>
+      <td class="p-3.5 font-medium text-slate-900 dark:text-white">${item.descricao || "--"}</td>
+      <td class="p-3.5 font-mono text-slate-500 dark:text-slate-400">${item.codProdutoLocal || "--"}</td>
+      <td class="p-3.5 font-mono text-slate-500 dark:text-slate-400">${item.codProdutoIfood || "--"}</td>
       <td class="p-3.5">
         <span class="badge-status ${isAtivo ? "badge-available" : "badge-paused"}">
           <i class="fa-solid ${isAtivo ? "fa-circle-check" : "fa-pause"}"></i> ${isAtivo ? "Ativo" : "Pausado"}
         </span>
       </td>
-      <td class="p-3.5 text-right">
-        <span class="text-[11px] text-slate-500">${formatarDataHora(item.data_sincronizacao)}</span>
+      <td class="p-3.5 text-right font-mono text-[11px] text-slate-400">
+        ${formatarDataHora(item.data_sincronizacao)}
       </td>
     `;
     tbody.appendChild(tr);
@@ -358,6 +392,7 @@ function inicializarEventosUI() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  inicializarTema();
   inicializarEventosUI();
   await carregarOverviewGeral();
   selecionarLoja("marambaia");
