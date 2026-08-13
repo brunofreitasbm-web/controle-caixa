@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v54'; // v54: cache bump to fix aconst error and force reload
+const CACHE_NAME = 'ponto-pwa-v55'; // v55: fix broken inline <script> in index.html causing blank white screen after splash
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

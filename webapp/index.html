@@ -10,13 +10,6 @@
 <meta name="apple-mobile-web-app-title" content="HuB Operações">
 <title>HuB Operações</title>
 
-<!-- ===================================================================
-     DETECÇÃO DE PLATAFORMA — inline e antes de tudo, de propósito.
-     -------------------------------------------------------------------
-     Roda aqui, e não no fim do app.js, porque o layout depende do
-     resultado: executada depois, a página pintaria com a casca errada e
-     se corrigiria em seguida, à vista do usuário (FOUC).
-     =================================================================== */ -->
 <script>
   // ERROR BOUNDARY (Evita tela branca)
   window.addEventListener('error', function(event) {
@@ -34,7 +27,14 @@
     if(document.body) document.body.appendChild(err); else window.onload = function() { document.body.appendChild(err); };
   });
 </script>
-<script>
+<!-- ===================================================================
+     DETECÇÃO DE PLATAFORMA — inline e antes de tudo, de propósito.
+     -------------------------------------------------------------------
+     Roda aqui, e não no fim do app.js, porque o layout depende do
+     resultado: executada depois, a página pintaria com a casca errada e
+     se corrigiria em seguida, à vista do usuário (FOUC).
+
+     São DOIS eixos, não um. Derivar tudo do user-agent é o erro comum:
        · idioma   (ios | android | desktop) — qual convenção seguir.
                   Vem da plataforma.
        · densidade (compact | expanded)     — se cabe barra lateral fixa
@@ -43,7 +43,7 @@
      lateral persistente. Um Android em "modo desktop" continua android,
      mas expanded. Separar os eixos também é o que protege o layout de um
      user-agent falsificado — a densidade nunca depende dele.
-     =================================================================== */ -->
+     =================================================================== -->
 <script>
 (function () {
   var d = document.documentElement;
