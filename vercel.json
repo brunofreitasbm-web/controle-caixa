@@ -1,0 +1,39 @@
+{
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/catalogo/:path*",
+      "destination": "/webapp/catalogo.html"
+    },
+    {
+      "source": "/ifood-painel",
+      "destination": "/webapp/ifood-painel.html"
+    },
+    {
+      "source": "/ifood",
+      "destination": "/webapp/ifood-painel.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/webapp/$1"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/ia-tick",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/ifood-sync",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/backup-mensal",
+      "schedule": "0 6 1 * *"
+    }
+  ]
+}

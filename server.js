@@ -210,6 +210,27 @@ app.get('/api/codbarra-consulta', async (req, res) => {
   }
 });
 
+// Endpoint para acionar a sincronização iFood (Vercel Cron ou manual)
+app.get('/api/cron/ifood-sync', async (req, res) => {
+  if (process.env.CRON_SECRET) {
+    const auth = req.headers['authorization'];
+    const secretQuery = req.query.secret;
+    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
+    const validQuery = secretQuery === process.env.CRON_SECRET;
+    if (!validHeader && !validQuery) {
+      return res.status(401).json({ error: 'Não autorizado.' });
+    }
+  }
+  try {
+    const { syncAllIfoodStores } = require('./services/ifood-sync');
+    await syncAllIfoodStores();
+    res.json({ ok: true, mensagem: 'Sincronização iFood executada com sucesso.' });
+  } catch (err) {
+    console.error('[iFood Sync Cron] Erro:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint manual/opcional para forçar o backup mensal fora do agendamento
 app.get('/api/cron/backup-mensal', async (req, res) => {
   if (process.env.CRON_SECRET) {

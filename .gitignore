@@ -3,3 +3,5 @@ node_modules/
 database.db
 .vscode/
 frontend/dist/
+.vercel/
+.vercel
