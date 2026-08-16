@@ -3931,7 +3931,10 @@ function nomeDiaSemanaPorData(dataStr) {
   return DIAS_SEMANA_PT[new Date(ano, mes - 1, dia).getDay()];
 }
 
+const REGRA_FA_BONIFICACAO_PADRAO = { ouroPercentMin: 0.5, ouroValor: 100, diamantePercentMin: 0.6, diamanteValor: 150, pixMinVendas2h: 5, pixValor: 20, pixDiasSemana: ["Sexta-feira", "Sábado", "Domingo"] };
+
 function parseRegraFaBonificacao(regra) {
+  if (!regra) return { ...REGRA_FA_BONIFICACAO_PADRAO };
   return {
     ...regra,
     pixDiasSemana: typeof regra.pixDiasSemana === "string" ? JSON.parse(regra.pixDiasSemana) : (regra.pixDiasSemana || [])
@@ -3946,7 +3949,7 @@ async function buscarRegraFaBonificacao(competencia) {
   } catch (err) {
     console.error("Erro ao buscar regras de bonificação FA:", err);
     // Fallback local, idêntico ao padrão do backend, para não travar a tela offline.
-    return { ouroPercentMin: 0.5, ouroValor: 100, diamantePercentMin: 0.6, diamanteValor: 150, pixMinVendas2h: 5, pixValor: 20, pixDiasSemana: ["Sexta-feira", "Sábado", "Domingo"] };
+    return { ...REGRA_FA_BONIFICACAO_PADRAO };
   }
 }
 
