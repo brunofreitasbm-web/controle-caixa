@@ -41,12 +41,6 @@ const inventarioRoutes = require('./routes/inventario');
 const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
-const catalogoRoutes = require('./routes/catalogo');
-const ifoodConfigRoutes = require('./routes/ifood-config');
-const ifoodSyncRoutes = require('./routes/ifood-sync');
-
-// Importar serviço cron
-const { syncAllIfoodStores } = require('./services/ifood-sync');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -92,24 +86,6 @@ app.use('/api/pos-visita', posVisitaRoutes);
 app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
-app.use('/api', catalogoRoutes);
-app.use('/api', ifoodConfigRoutes);
-app.use('/api', ifoodSyncRoutes);
-
-// Link compartilhável por loja (/catalogo/marambaia, /catalogo/icoaraci,
-// /catalogo/mario-covas): serve sempre a mesma página, que lê o slug da URL
-// no client-side e busca os produtos em GET /api/catalogo/:slug.
-app.get('/catalogo/:slug', (req, res) => {
-  res.sendFile(path.join(__dirname, 'webapp', 'catalogo.html'));
-});
-
-// Painel iFood v2 Standalone (/ifood, /ifood-painel):
-app.get('/ifood-painel', (req, res) => {
-  res.sendFile(path.join(__dirname, 'webapp', 'ifood-painel.html'));
-});
-app.get('/ifood', (req, res) => {
-  res.sendFile(path.join(__dirname, 'webapp', 'ifood-painel.html'));
-});
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
@@ -210,27 +186,6 @@ app.get('/api/codbarra-consulta', async (req, res) => {
   }
 });
 
-// Endpoint para acionar a sincronização iFood (Vercel Cron ou manual)
-app.get('/api/cron/ifood-sync', async (req, res) => {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers['authorization'];
-    const secretQuery = req.query.secret;
-    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
-    const validQuery = secretQuery === process.env.CRON_SECRET;
-    if (!validHeader && !validQuery) {
-      return res.status(401).json({ error: 'Não autorizado.' });
-    }
-  }
-  try {
-    const { syncAllIfoodStores } = require('./services/ifood-sync');
-    await syncAllIfoodStores();
-    res.json({ ok: true, mensagem: 'Sincronização iFood executada com sucesso.' });
-  } catch (err) {
-    console.error('[iFood Sync Cron] Erro:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Endpoint manual/opcional para forçar o backup mensal fora do agendamento
 app.get('/api/cron/backup-mensal', async (req, res) => {
   if (process.env.CRON_SECRET) {
@@ -256,13 +211,6 @@ if (require.main === module) {
   cron.schedule('0 6 * * *', () => {
     enviarBackupMensalSilencioso().catch(err => {
       console.error('[Backup Mensal] Erro na verificação diária:', err);
-    });
-  });
-
-  // Sincronização iFood - Varredura diária às 02:00
-  cron.schedule('0 2 * * *', () => {
-    syncAllIfoodStores().catch(err => {
-      console.error('[iFood Sync] Erro no cron diário:', err);
     });
   });
 }

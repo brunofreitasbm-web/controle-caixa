@@ -1,22 +1,16 @@
-const CACHE_NAME = 'ponto-pwa-v62'; // v62: bump version to clear cache for index.html (aba iFood nativa) e ifood-gerenciamento.js
+const CACHE_NAME = 'ponto-pwa-v63'; // v63: remove catálogo/iFood (features apagadas) do cache
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/style.css',
   '/tailwind-compiled.css',
   '/app.js',
-  '/ifood-gerenciamento.js',
-  '/ifood-gerenciamento.html',
   '/realtime.js',
   '/camera-universal.js',
   '/mensagens-aniversario.js',
   '/bluedox.html',
   '/bluedox.css',
   '/bluedox.js',
-  '/catalogo.html',
-  '/catalogo.js',
-  '/catalogo-admin.html',
-  '/catalogo-admin.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

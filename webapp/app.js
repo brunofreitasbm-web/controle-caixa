@@ -172,9 +172,9 @@ let USERS = [
 
 const TABS_POR_ROLE = {
   consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "ifood", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
   consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "ifood", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
@@ -1672,9 +1672,6 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "controle-ponto") {
       tabsPermitidas = ["controle-ponto", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    } else if (moduloOpcional === "ifood-modulo") {
-      tabsPermitidas = ["ifood", "configuracoes"];
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
     document.getElementById("btn-trocar-modulo").classList.add("hidden");
@@ -1734,7 +1731,6 @@ function iniciarModuloBase(moduloOpcional) {
     "cacau-show": "group-controle-caixa",
     "faca-amigos": "group-faca-amigos",
     "rh-modulo": "group-rh-equipe",
-    "ifood-modulo": "group-controle-caixa",
   };
   const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
   document.querySelectorAll(".sidebar-group").forEach(group => {
@@ -1764,8 +1760,6 @@ function iniciarModuloBase(moduloOpcional) {
       ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
-    } else if (moduloOpcional === "ifood-modulo") {
-      ativarTab("ifood");
     }
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
@@ -1953,14 +1947,6 @@ if (btnModPonto) {
   });
 }
 
-const btnModIfood = document.getElementById("btn-mod-ifood");
-if (btnModIfood) {
-  btnModIfood.addEventListener("click", () => {
-    iniciarModuloBase("ifood-modulo");
-    ativarTab("ifood");
-  });
-}
-
 // Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
 // num clique só, pro módulo escolhido.
 document.querySelectorAll(".module-switch-btn").forEach(btn => {
@@ -2054,7 +2040,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "ifood"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2120,7 +2106,6 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   if (tabName === "aniversarios") renderAniversarios();
-  if (tabName === "ifood" && typeof inicializarIfoodGerenciamento === "function") inicializarIfoodGerenciamento();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
   observarTituloDaSecao(tabName);
@@ -9608,22 +9593,6 @@ function concluirConferenciaAtiva() {
       notificarGestaoConferencia('conclusao', numNF);
     }
   });
-
-  // 4. Dispara a atualização automática do iFood para as lojas que receberam produtos desta NF-e
-  if (API_ONLINE) {
-    const targetStoresSync = new Set(activeNfNumbers.map(numNF => (importedNfs[numNF]?.info?.targetStore) || currentStore));
-    targetStoresSync.forEach(st => {
-      fetch(`${API_BASE}/ifood/sync-force`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loja: st })
-      }).then(r => r.json()).then(res => {
-        if (res && res.success) {
-          showToast(`iFood Cardápio Atualizado (${st}): ${res.disponiveis || 0} produtos com estoque ativados!`, 'sucesso');
-        }
-      }).catch(e => console.error('[iFood Auto-Sync NF-e Error]:', e));
-    });
-  }
 
   // Save changes locally
   localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));

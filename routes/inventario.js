@@ -120,10 +120,6 @@ router.put('/inventario/:loja/:cod', (req, res) => {
 
     publish('inventario.item', payload, { origem: clientId, usuario });
     res.json({ success: true, atualizadoEm });
-
-    // Sincronização iFood Automática (Fire and forget)
-    const { syncIfoodInventory } = require('../services/ifood-sync');
-    syncIfoodInventory(loja).catch(e => console.error('[iFood Auto-Sync] Erro no item:', e));
   });
 });
 
@@ -200,10 +196,6 @@ router.post('/inventario/bulk', (req, res) => {
     }
 
     res.json({ success: true, gravados, erros });
-
-    // Sincronização iFood Automática em Lote (Entrada de NF-e / Inventário)
-    const { syncIfoodInventory } = require('../services/ifood-sync');
-    syncIfoodInventory(loja).catch(e => console.error('[iFood Auto-Sync] Erro no bulk:', e));
   }
 });
 
