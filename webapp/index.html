@@ -3455,6 +3455,11 @@
 <!-- realtime.js precisa vir antes do app.js: expõe window.RT, que o app usa
      para receber as alterações feitas pelos outros usuários logados. -->
 <script src="realtime.js?v=1"></script>
-<script src="app.js?v=53"></script>
+<!-- Módulos extraídos de app.js (mesmo escopo global de scripts clássicos —
+     sem bundler/ES modules; precisam carregar antes de app.js). -->
+<script src="modules/auditoria.js?v=1"></script>
+<script src="modules/meta-hora-hora.js?v=1"></script>
+<script src="modules/colaboradores.js?v=1"></script>
+<script src="app.js?v=54"></script>
 </body>
 </html>

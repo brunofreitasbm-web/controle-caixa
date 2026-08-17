@@ -1,10 +1,13 @@
-const CACHE_NAME = 'ponto-pwa-v63'; // v63: remove catálogo/iFood (features apagadas) do cache
+const CACHE_NAME = 'ponto-pwa-v64'; // v64: app.js dividido em módulos (auditoria, meta-hora-hora, colaboradores)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/style.css',
   '/tailwind-compiled.css',
   '/app.js',
+  '/modules/auditoria.js',
+  '/modules/meta-hora-hora.js',
+  '/modules/colaboradores.js',
   '/realtime.js',
   '/camera-universal.js',
   '/mensagens-aniversario.js',
