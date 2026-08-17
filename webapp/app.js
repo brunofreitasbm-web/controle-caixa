@@ -12780,10 +12780,14 @@ function criarCardPosVisita(registro, habilitado) {
 
 function dispararMensagemPosVisita(registro, card) {
   const btn = card.querySelector(".pv-btn-enviar");
-  // Mensagem personalizada pela IA quando já chegou; senão, o sorteio de
-  // template de sempre. Nunca espera aqui: o window.open abaixo precisa
-  // continuar dentro do gesto do clique.
-  const mensagem = registro._iaMensagem || gerarMensagemPosVisita(registro.cliente, registro.crianca);
+  // Mensagem personalizada pela IA. Sem fallback de template local (removido
+  // junto com mensagens-pos-visita.js) — se a IA ainda não respondeu, pede
+  // pra tentar de novo em vez de mandar uma mensagem vazia/quebrada.
+  if (!registro._iaMensagem) {
+    showToast("Mensagem ainda não está pronta, aguarde alguns segundos e tente novamente.", "info");
+    return;
+  }
+  const mensagem = registro._iaMensagem;
   const url = `https://wa.me/${registro.numeroCliente}?text=${encodeURIComponent(mensagem)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 
