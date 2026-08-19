@@ -115,11 +115,18 @@ if (isPostgres) {
   console.log('Iniciando conexão com banco de dados PostgreSQL (Supabase)...');
   const { Pool } = require('pg');
   const sslRejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true';
+  let dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl.includes('pooler.supabase.com:5432')) {
+    dbUrl = dbUrl.replace('pooler.supabase.com:5432', 'pooler.supabase.com:6543');
+  }
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: dbUrl,
     ssl: {
       rejectUnauthorized: sslRejectUnauthorized
-    }
+    },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000
   });
 
   db = {
