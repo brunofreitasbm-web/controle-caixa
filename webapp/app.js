@@ -6737,8 +6737,10 @@ function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
   const isDivergencia = textCheck.includes('divergênc') || textCheck.includes('divergenc');
 
   if (canal === "push" && !isDivergencia) {
-    // Enviar Push Notification
-    if ("serviceWorker" in navigator && "PushManager" in window) {
+    // Enviar Push Notification (só se a permissão já foi concedida — sem
+    // isso, showNotification() rejeita e o backend abaixo já cobre o aviso)
+    if ("serviceWorker" in navigator && "PushManager" in window &&
+        typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       navigator.serviceWorker.getRegistration().then(registration => {
         if (registration && registration.showNotification) {
           registration.showNotification(assunto, {
@@ -6749,7 +6751,7 @@ function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
             requireInteraction: true
           });
         }
-      });
+      }).catch(err => console.error('Erro ao exibir notificação local:', err));
     }
   }
 
