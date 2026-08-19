@@ -10,6 +10,7 @@ const camelCaseMap = {
   valorenvelope: 'valorEnvelope',
   valorfaturado: 'valorFaturado',
   fotoenvelope: 'fotoEnvelope',
+  temfoto: 'temFoto',
   dataretirada: 'dataRetirada',
   retiradopor: 'retiradoPor',
   confirmadoporapp: 'confirmadoPorApp',

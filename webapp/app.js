@@ -5211,11 +5211,10 @@ function fotoCelula(r) {
   if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
     return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
   }
-  // A lista (GET /registros, /registros-fa) não traz mais a foto em base64 —
-  // só a flag temFoto. Renderiza um placeholder e busca a imagem sob
-  // demanda (carregarFotosLazy), só das linhas que estão de fato na tela.
-  if (r.temFoto) {
-    return `<img class="thumb-btn thumb-lazy" data-id="${r.id}" alt="carregando foto...">`;
+  const temFoto = r.temFoto || r.temfoto;
+  if (temFoto) {
+    const placeholderSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'><rect width='36' height='36' fill='%23f1f5f9' rx='6'/><text x='50%' y='50%' font-size='14' fill='%2364748b' text-anchor='middle' dy='.3em'>📷</text></svg>`;
+    return `<img class="thumb-btn thumb-lazy" src="${placeholderSvg}" data-id="${r.id}" alt="foto envelope">`;
   }
   return `<span class="no-photo">sem foto</span>`;
 }
@@ -5225,7 +5224,7 @@ function fotoCelula(r) {
 // "registros" ou "registros-fa" (endpoint de foto correspondente).
 const _fotosListaEmCarregamento = new Set();
 function carregarFotosLazy(tbody, rota) {
-  if (!API_ONLINE || !tbody) return;
+  if (!tbody) return;
   tbody.querySelectorAll("img.thumb-lazy[data-id]").forEach(async (img) => {
     const id = img.dataset.id;
     const chave = `${rota}:${id}`;
@@ -5240,6 +5239,13 @@ function carregarFotosLazy(tbody, rota) {
           img.dataset.src = dados.fotoEnvelope;
           img.classList.remove("thumb-lazy");
           img.alt = "foto envelope";
+          img.onclick = (e) => {
+            e.stopPropagation();
+            abrirModalFoto(dados.fotoEnvelope);
+          };
+          const listaObj = rota === "registros-fa" ? registrosFA : registros;
+          const reg = (listaObj || []).find(x => String(x.id) === String(id));
+          if (reg) reg.fotoEnvelope = dados.fotoEnvelope;
         }
       }
     } catch (e) {
@@ -5519,6 +5525,7 @@ async function carregarSolicitacoesRetiradaPendentes() {
 // --- Modal foto ---
 const modalFoto = document.getElementById("modal-foto");
 function abrirModalFoto(src) {
+  if (!src || typeof src !== "string" || src.startsWith("data:image/svg+xml")) return;
   document.getElementById("modal-foto-img").src = src;
   modalFoto.classList.remove("hidden");
 }
