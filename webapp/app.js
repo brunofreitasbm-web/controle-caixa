@@ -6738,8 +6738,8 @@ function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
 
   if (canal === "push" && !isDivergencia) {
     // Enviar Push Notification
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.getRegistration().then(registration => {
+    if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window) {
+      const triggerPush = (registration) => {
         if (registration && registration.showNotification) {
           registration.showNotification(assunto, {
             body: mensagem,
@@ -6747,9 +6747,19 @@ function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
             badge: "/icons/icon-192.png",
             tag: "notificacao-cacau",
             requireInteraction: true
-          });
+          }).catch(err => console.warn("[Notification] Erro ao exibir:", err));
         }
-      });
+      };
+
+      if (Notification.permission === "granted") {
+        navigator.serviceWorker.getRegistration().then(triggerPush).catch(err => console.warn("[Notification] Erro ao obter SW:", err));
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            navigator.serviceWorker.getRegistration().then(triggerPush).catch(err => console.warn("[Notification] Erro ao obter SW:", err));
+          }
+        }).catch(err => console.warn("[Notification] Permissão recusada:", err));
+      }
     }
   }
 
@@ -7475,6 +7485,11 @@ function iniciarScannerInventario(cameraId = null) {
 
   startWith.catch(err => {
     console.warn('[Inventário Scanner] Erro ao iniciar câmera:', err);
+    const errStr = String(err && (err.name || err.message || err)).toLowerCase();
+    if (errStr.includes("notallowederror") || errStr.includes("permission") || errStr.includes("dismissed") || errStr.includes("denied")) {
+      showToast('Permissão de câmera negada ou cancelada. Habilite o acesso à câmera no seu navegador.', 'erro');
+      return;
+    }
     // Fallback: lista câmeras e tenta a traseira
     Html5Qrcode.getCameras().then(cameras => {
       if (!cameras || cameras.length === 0) {
@@ -8648,6 +8663,12 @@ function startNfScanner(selectedCameraId = null) {
 
   const config = { fps: 15, qrbox: { width: 300, height: 180 } };
 
+  const isPermissionError = (err) => {
+    if (!err) return false;
+    const str = String(err.name || err.message || err).toLowerCase();
+    return str.includes("notallowederror") || str.includes("permission") || str.includes("dismissed") || str.includes("denied");
+  };
+
   // If a specific camera ID was selected or passed, use it directly
   if (selectedCameraId) {
     html5QrCodeNf.start({ deviceId: { exact: selectedCameraId } }, config, onNfScanSuccess, () => { })
@@ -8656,6 +8677,11 @@ function startNfScanner(selectedCameraId = null) {
       })
       .catch(err => {
         console.error("Erro ao iniciar com camera ID:", err);
+        if (isPermissionError(err)) {
+          showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+          resetNfScannerUI();
+          return;
+        }
         showToast("Erro ao abrir a câmera selecionada. Tentando outra...", "erro");
         fallbackToCameraList();
       });
@@ -8669,6 +8695,11 @@ function startNfScanner(selectedCameraId = null) {
     })
     .catch(err => {
       console.warn("Erro ao iniciar facingMode environment. Tentando listar câmeras...", err);
+      if (isPermissionError(err)) {
+        showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+        resetNfScannerUI();
+        return;
+      }
       fallbackToCameraList();
     });
 
@@ -8702,7 +8733,11 @@ function startNfScanner(selectedCameraId = null) {
       })
       .catch(e => {
         console.error("Erro ao listar câmeras:", e);
-        showToast("Permissão negada ou erro ao acessar câmera.", "erro");
+        if (isPermissionError(e)) {
+          showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+        } else {
+          showToast("Permissão negada ou erro ao acessar câmera.", "erro");
+        }
         resetNfScannerUI();
       });
   }
