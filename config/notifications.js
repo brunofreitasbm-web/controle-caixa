@@ -52,7 +52,7 @@ const ALIASES_TIPO_NOTIFICACAO = {
   retirada_solicitada: ['retirada_solicitada'],
   abertura_unidade: ['abertura_unidade', 'abertura-unidade', 'abertura'],
   visao_19h: ['visao_19h', 'visao-19h'],
-  fechamento_unidade: ['fechamento_unidade', 'fechamento-unidade', 'fechamento'],
+  fechamento_unidade: ['fechamento_unidade', 'fechamento-unidade', 'fechamento', 'fechamento_caixa'],
   nfe_pendente: ['nfe_pendente', 'nfe-pendente']
 };
 
@@ -335,6 +335,35 @@ function enviarNotificacaoRetiradaSolicitada(loja, valorTotal, quantidade, solic
   const qtdTexto = quantidade > 1 ? `${quantidade} envelopes` : '1 envelope';
   const body = `${solicitadoPor} pediu para retirar ${qtdTexto} (R$ ${valorFmt}) da loja ${loja}. Abra o app para autorizar com seu PIN.`;
   enviarNotificacaoPushInterno(title, body, null, 'retirada_solicitada');
+}
+
+// Fechamento de caixa: avisa Líder de Operações e Owner a cada fechamento
+// registrado (Cacau Show ou Faça Amigos), independente do valor do envelope —
+// diferente do alerta de acúmulo (função `enviarEmailNotificacao` acima), que
+// só dispara ao atingir o limite de R$ 1.000 pendentes de retirada.
+function enviarNotificacaoFechamentoCaixa(loja, marca, dados) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+
+    const consultor = (dados && dados.consultor) || 'Colaboradora';
+    const fundoCaixa = Number(dados && dados.fundoCaixa) || 0;
+    const valorFaturado = Number(dados && dados.valorFaturado) || 0;
+    const lojaSafe = escapeHtml(loja);
+    const marcaLabel = marca === 'fa' ? ' (Faça Amigos)' : '';
+
+    const title = `🔒 Fechamento de Caixa - Loja ${loja}${marcaLabel}`;
+    const body = `${consultor} registrou o fechamento de caixa na loja ${loja}${marcaLabel}. Fundo de caixa: R$ ${fundoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Valor faturado: R$ ${valorFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
+
+    enviarNotificacaoPushInterno(title, body, null, 'fechamento_caixa');
+    obterEmailsDestinatarios('fechamento_caixa', (targetEmails) => {
+      const bodyHtml = `<p><strong>${escapeHtml(consultor)}</strong> registrou o fechamento de caixa na loja <strong>${lojaSafe}${marcaLabel}</strong>.</p>
+<ul>
+  <li><strong>Fundo de caixa:</strong> R$ ${fundoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+  <li><strong>Valor faturado:</strong> R$ ${valorFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+</ul>`;
+      enviarEmailGenerico(targetEmails, title, body, bodyHtml);
+    });
+  });
 }
 
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {

@@ -6,6 +6,7 @@ const http = require('http');
 process.env.DATABASE_URL = '';
 const { initDb, db } = require('../config/database');
 const posVisitaRouter = require('../routes/pos-visita');
+const nfeRouter = require('../routes/nfe');
 
 let server;
 let baseUrl;
@@ -17,6 +18,7 @@ before(() => {
         const app = express();
         app.use(express.json({ limit: '15mb' }));
         app.use('/api/pos-visita', posVisitaRouter);
+        app.use('/api/nfe', nfeRouter);
 
         server = http.createServer(app);
         server.listen(0, '127.0.0.1', () => {
@@ -212,4 +214,44 @@ test('Refatoração #9 - Utilitário compartilhado normalizarTelefone', () => {
   assert.equal(normalizarTelefone('5591988887777'), '5591988887777');
   assert.equal(normalizarTelefone(null), '');
   assert.equal(normalizarTelefone(''), '');
+});
+
+// --------------------------------------------------------------------------
+// 10. MÓDULO NFE: Validação de Endpoints de Conferência de NFE
+// --------------------------------------------------------------------------
+test('Módulo NFE #10 - Cadastro e Validação de Status de NFE', async () => {
+  const port = server.address().port;
+  const nfeUrl = `http://127.0.0.1:${port}/api/nfe`;
+
+  // 1. Criar NFE
+  const postRes = await fetch(nfeUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ loja: 'Marambaia', numeroNfe: '9988', valor: 450.50, observacoes: 'Teste QA' })
+  });
+  const postData = await postRes.json();
+  assert.equal(postRes.status, 200);
+  assert.equal(postData.success, true);
+  assert.ok(postData.id);
+
+  // 2. Listar NFEs
+  const getRes = await fetch(nfeUrl);
+  const getData = await getRes.json();
+  assert.equal(getRes.status, 200);
+  assert.ok(Array.isArray(getData));
+  const criada = getData.find(x => x.id === postData.id);
+  assert.ok(criada);
+  assert.equal(criada.loja, 'Marambaia');
+  assert.equal(criada.valor, 450.50);
+  assert.equal(criada.status, 'pendente');
+
+  // 3. Atualizar status para conferido
+  const putRes = await fetch(`${nfeUrl}/${postData.id}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'conferido', conferidoPor: 'Bruno' })
+  });
+  const putData = await putRes.json();
+  assert.equal(putRes.status, 200);
+  assert.equal(putData.success, true);
 });

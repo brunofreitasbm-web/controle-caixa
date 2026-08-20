@@ -230,6 +230,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
+    { tab: "nfe-owner", icon: "fa-receipt", label: "Conferência NFE", curto: "NFE" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
 };
@@ -250,7 +251,11 @@ const DEFAULT_NOTIF_PREFS = {
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
-  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
+  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "fechamento": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "abertura": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
+  "visao-19h": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
+  "nfe-pendente": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 // Chave mestra de notificações de eventos (email + push). Default: desativada.
@@ -737,7 +742,8 @@ function getDestinatariosNotificacao(tipo) {
     'envelopes': 'envelopes',
     'divergencia': 'divergencia',
     'meta_lembrete': 'meta-lembrete',
-    'meta_atraso': 'meta-atraso'
+    'meta_atraso': 'meta-atraso',
+    'fechamento_caixa': 'fechamento'
   };
 
   const prefKey = notifTypeMap[tipo] || tipo;
@@ -6968,7 +6974,11 @@ function renderNotificationTable() {
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
     "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
     "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
-    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" }
+    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" },
+    "fechamento": { title: "Fechamento de Caixa", desc: "Aviso a cada fechamento de caixa registrado (Cacau Show e Faça Amigos)" },
+    "abertura": { title: "Abertura de Unidade", desc: "Alerta em tempo real a cada abertura de caixa realizada" },
+    "visao-19h": { title: "Visão Geral das 19h", desc: "Resumo diário automático às 19:00 com meta, faturamento e sessões/locações" },
+    "nfe-pendente": { title: "Nova NFE a Conferir (Owner)", desc: "Aviso exclusivo para Owner de nova nota fiscal pendente de conferência" }
   };
 
   const prefs = loadNotificationPrefs();
@@ -7602,7 +7612,10 @@ function flashScanner(containerId) {
 // #inv-bipe-card, ...) a leitura aparece. Os elementos só existem dentro do
 // painel mobile de cada aba; se a aba nem foi montada ainda, os `if` abaixo
 // fazem a função virar no-op em vez de lançar erro.
-function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
+// `code`/`nfNum` alimentam o stepper +/- e o input de quantidade do cartão —
+// sem eles não dá pra saber qual produto (e, no caso de NF-e, qual nota)
+// ajustar quando o usuário mexe no stepper.
+function renderBipeFeedback(prefixo, { nome, ean, qtd, code, nfNum }) {
   const card = document.getElementById(prefixo + "-bipe-card");
   if (!card) return;
   card.classList.remove("hidden");
@@ -7612,7 +7625,14 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
       <div class="bipe-feedback-body">
         <span class="bipe-feedback-nome">${nome}</span>
         <span class="bipe-feedback-ean">EAN ${ean || "—"}</span>
-        <span class="bipe-feedback-contado">Contado: ${qtd}</span>
+      </div>
+    </div>
+    <div class="bipe-feedback-stepper">
+      <span class="bipe-feedback-stepper-label">Contado</span>
+      <div class="bipe-stepper-controls">
+        <button type="button" class="bipe-stepper-btn" data-delta="-1" aria-label="Diminuir quantidade contada">−</button>
+        <input type="number" class="bipe-stepper-input" value="${qtd}" min="0" inputmode="numeric" aria-label="Quantidade contada">
+        <button type="button" class="bipe-stepper-btn" data-delta="1" aria-label="Aumentar quantidade contada">+</button>
       </div>
     </div>
     <button type="button" class="btn-secondary bipe-btn-desfazer">Desfazer</button>
@@ -7621,6 +7641,42 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
     if (prefixo === "nf") desfazerUltimoBipeNf();
     else desfazerUltimoBipeInv();
   };
+
+  const input = card.querySelector(".bipe-stepper-input");
+  const aplicarQtd = (novoValor) => {
+    const valorFinal = Math.max(0, Math.round(Number(novoValor) || 0));
+    input.value = valorFinal;
+    ajustarQtdBipe(prefixo, code, valorFinal, nfNum);
+  };
+  card.querySelectorAll(".bipe-stepper-btn").forEach(btn => {
+    btn.onclick = () => aplicarQtd(Number(input.value || 0) + Number(btn.dataset.delta));
+  });
+  input.onchange = () => aplicarQtd(input.value);
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+// Ajusta a quantidade contada direto pelo stepper/input do cartão de
+// feedback do bipe — sem precisar abrir a tabela ou os cartões da lista.
+// Reusa o MESMO caminho de gravação que cada contexto já tinha (dbBridge.
+// saveInventoryItem no Inventário, saveNfQuantity na NF-e), pra não duplicar
+// a lógica de save/notificação/debounce que cada um carrega consigo.
+function ajustarQtdBipe(prefixo, code, novoValor, nfNum) {
+  if (!code) return;
+  const valorStr = novoValor.toString();
+
+  if (prefixo === "nf") {
+    saveNfQuantity(code, valorStr, nfNum);
+    if (nfBipesRecentes[0] && nfBipesRecentes[0].code === code) nfBipesRecentes[0].qtd = valorStr;
+  } else {
+    const p = products.find(prod => prod.code === code);
+    if (!p) return;
+    p.countedQty = valorStr;
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+    if (invBipesRecentes[0] && invBipesRecentes[0].code === code) invBipesRecentes[0].qtd = valorStr;
+  }
 
   atualizarListaBipeRecentes(prefixo);
 }
@@ -7775,9 +7831,9 @@ function onInventarioScanSuccess(decodedText) {
 
     flashScanner("scanner-container");
     ultimoBipeInv = { code: p.code };
-    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty });
+    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty, code: p.code });
     invBipesRecentes = invBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty });
+    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty, code: p.code });
 
     // A linha da tabela não existe pra rolar até ela na casca compacta — a
     // tabela some em favor do cartão de feedback acima (ver style.css).
@@ -9127,9 +9183,9 @@ function onNfScanSuccess(decodedText) {
 
     flashScanner("nf-scanner-container");
     ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
-    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty });
+    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty, code: p.code });
     nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty });
+    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
     // Focar no campo de quantidade inventariada do produto bipado — só faz
     // sentido no desktop, onde a tabela continua visível. Na casca compacta
@@ -9785,6 +9841,76 @@ function renderTable() {
     });
 
     tbody.appendChild(tr);
+  });
+
+  renderInventoryCards(filteredProducts);
+}
+
+// Lista em cartões de "Inventário de Estoque" — casca compacta only (ver
+// .density-compact .inv-produtos-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #inventory-tbody, e o input de quantidade
+// grava no MESMO objeto `p` que a tabela usa — tocar aqui equivale a editar
+// a linha correspondente na tabela.
+function renderInventoryCards(filteredProducts) {
+  const box = document.getElementById('inv-produtos-cards');
+  if (!box) return;
+  box.innerHTML = '';
+
+  filteredProducts.forEach(p => {
+    let statusClass = 'ok';
+    let statusLabel = 'No Prazo';
+    if (p.daysRemaining === null) {
+      statusClass = 'sem-validade';
+      statusLabel = 'Sem Validade';
+    } else if (p.daysRemaining <= 20) {
+      statusClass = 'critico';
+      statusLabel = 'Crítico';
+    } else if (p.daysRemaining <= 40) {
+      statusClass = 'alerta';
+      statusLabel = 'Alerta';
+    }
+
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const validadeFmt = p.validade && !isNaN(new Date(p.validade).getTime()) ? formatDate(new Date(p.validade)) : '—';
+    const diasTexto = p.daysRemaining !== null ? ` · ${p.daysRemaining} dias` : '';
+
+    const card = document.createElement('div');
+    card.className = `inv-produto-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="inv-produto-card-top">
+        <span class="inv-produto-card-cod">${cod7}</span>
+        <span class="inv-produto-card-status">${statusLabel}</span>
+      </div>
+      <div class="inv-produto-card-nome">${p.description}</div>
+      <div class="inv-produto-card-meta">Validade: ${validadeFmt}${diasTexto}${p.qtdEntradaCaixas ? ` · Entrada: ${p.qtdEntradaCaixas} CX` : ''}</div>
+      <div class="inv-produto-card-qtd">
+        <label>QTD Inventariada</label>
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input inv-produto-card-input" />
+      </div>
+    `;
+
+    const qtyInput = card.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+    });
+
+    box.appendChild(card);
   });
 }
 
@@ -14010,15 +14136,21 @@ async function carregarMetaHoraHora() {
     checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot
   });
 
-  // Progresso do dia
+  // Progresso do dia — anel (mesmo raio/circunferência do anel "Hoje" em
+  // atualizarPainelHoje: CIRC = 2·π·84 ≈ 527.8). A cor do arco segue o
+  // ritmo — verde quando bate/supera o esperado até agora, laranja quando
+  // está atrás — mesma regra que antes decidia a cor da barra linear.
   const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
-  const bar = document.getElementById("meta-progresso-bar");
-  if (bar) {
-    bar.style.width = `${pct}%`;
-    bar.className = totalHoje >= esperadoAteAgora
-      ? "bg-success-soft h-4 rounded-full transition-all duration-500"
-      : "bg-warning-soft h-4 rounded-full transition-all duration-500";
+  const CIRC_META = 527.8;
+  const ring = document.getElementById("meta-progresso-ring");
+  if (ring) {
+    ring.style.strokeDashoffset = String(CIRC_META * (1 - pct / 100));
+    ring.style.stroke = totalHoje >= esperadoAteAgora
+      ? "var(--tone-success-line)"
+      : "var(--tone-warning-line)";
   }
+  const ringPct = document.getElementById("meta-progresso-ring-pct");
+  if (ringPct) ringPct.textContent = `${Math.round(pct)}%`;
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
 
@@ -15131,12 +15263,234 @@ function _rtRegistrarHandlers() {
   });
 }
 
+// ==========================================================================
+// MÓDULO: CONFERÊNCIA NFE (EXCLUSIVO OWNER)
+// ==========================================================================
+
+let nfeLista = [];
+
+function isUsuarioOwner() {
+  if (!currentUser) return false;
+  const role = (currentUser.role || "").toLowerCase();
+  const nome = (currentUser.nome || "").toLowerCase();
+  return role === "owner" || nome === "bruno" || nome === "isabella";
+}
+
+function inicializarModuloNfeOwner() {
+  const btnTab = document.getElementById("tab-btn-nfe-owner");
+  if (btnTab) {
+    btnTab.classList.toggle("hidden", !isUsuarioOwner());
+  }
+
+  const btnNovaNfe = document.getElementById("btn-nova-nfe-modal");
+  const modalNfe = document.getElementById("modal-nfe");
+  const btnFecharModal = document.getElementById("btn-fechar-modal-nfe");
+  const btnCancelar = document.getElementById("btn-cancelar-nfe");
+  const formNfe = document.getElementById("form-nfe");
+  const btnFiltrar = document.getElementById("nfe-btn-filtrar");
+
+  if (btnNovaNfe) {
+    btnNovaNfe.addEventListener("click", () => {
+      if (modalNfe) {
+        formNfe.reset();
+        document.getElementById("nfe-form-data").value = new Date().toISOString().split("T")[0];
+        modalNfe.classList.remove("hidden");
+        modalNfe.classList.add("flex");
+      }
+    });
+  }
+
+  const fecharModal = () => {
+    if (modalNfe) {
+      modalNfe.classList.add("hidden");
+      modalNfe.classList.remove("flex");
+    }
+  };
+
+  if (btnFecharModal) btnFecharModal.addEventListener("click", fecharModal);
+  if (btnCancelar) btnCancelar.addEventListener("click", fecharModal);
+
+  if (formNfe) {
+    formNfe.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const loja = document.getElementById("nfe-form-loja").value;
+      const numeroNfe = document.getElementById("nfe-form-numero").value;
+      const valor = document.getElementById("nfe-form-valor").value;
+      const dataEmissao = document.getElementById("nfe-form-data").value;
+      const observacoes = document.getElementById("nfe-form-obs").value;
+
+      try {
+        const res = await fetch(`${API_BASE}/nfe?usuario=${encodeURIComponent(currentUser ? currentUser.nome : 'Owner')}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loja, numeroNfe, valor, dataEmissao, observacoes })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("NFE registrada com sucesso!", "sucesso");
+          fecharModal();
+          carregarNfesOwner();
+        } else {
+          showToast(data.error || "Erro ao registrar NFE", "erro");
+        }
+      } catch (err) {
+        console.error("Erro ao salvar NFE:", err);
+        showToast("Erro ao conectar com o servidor.", "erro");
+      }
+    });
+  }
+
+  if (btnFiltrar) {
+    btnFiltrar.addEventListener("click", () => {
+      carregarNfesOwner();
+    });
+  }
+
+  // Ouvir eventos realtime de NFE
+  if (window.RT) {
+    window.RT.on("nfe.criado", () => carregarNfesOwner());
+    window.RT.on("nfe.alterado", () => carregarNfesOwner());
+    window.RT.on("nfe.excluido", () => carregarNfesOwner());
+  }
+}
+
+async function carregarNfesOwner() {
+  if (!isUsuarioOwner()) return;
+
+  const loja = document.getElementById("nfe-filtro-loja") ? document.getElementById("nfe-filtro-loja").value : "";
+  const status = document.getElementById("nfe-filtro-status") ? document.getElementById("nfe-filtro-status").value : "";
+
+  let url = `${API_BASE}/nfe?1=1`;
+  if (loja) url += `&loja=${encodeURIComponent(loja)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    nfeLista = data || [];
+    renderizarNfesOwner();
+  } catch (err) {
+    console.error("Erro ao carregar NFEs:", err);
+  }
+}
+
+function renderizarNfesOwner() {
+  const tbody = document.getElementById("nfe-tabela-corpo");
+  if (!tbody) return;
+
+  let totalFaturado = 0;
+  let countPendente = 0;
+  let countConferido = 0;
+  let countDivergente = 0;
+
+  nfeLista.forEach(item => {
+    const val = Number(item.valor) || 0;
+    totalFaturado += val;
+    if (item.status === "conferido") countConferido++;
+    else if (item.status === "divergente") countDivergente++;
+    else countPendente++;
+  });
+
+  const statTotal = document.getElementById("nfe-stat-total");
+  const statPendente = document.getElementById("nfe-stat-pendente");
+  const statConferido = document.getElementById("nfe-stat-conferido");
+  const statDivergente = document.getElementById("nfe-stat-divergente");
+
+  if (statTotal) statTotal.textContent = formatBRL(totalFaturado);
+  if (statPendente) statPendente.textContent = countPendente;
+  if (statConferido) statConferido.textContent = countConferido;
+  if (statDivergente) statDivergente.textContent = countDivergente;
+
+  if (nfeLista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-muted">Nenhuma nota fiscal registrada.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = nfeLista.map(item => {
+    const valFmt = formatBRL(item.valor);
+    const dataFmt = item.dataEmissao ? item.dataEmissao.split('-').reverse().join('/') : '-';
+    
+    let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">Pendente</span>`;
+    if (item.status === "conferido") {
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">Conferido</span>`;
+    } else if (item.status === "divergente") {
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">Divergente</span>`;
+    }
+
+    return `
+      <tr class="hover:bg-paper/50 transition">
+        <td class="py-3 px-3 font-bold">${escapeHtml(item.loja)}</td>
+        <td class="py-3 px-3">${escapeHtml(item.numeroNfe || 'S/N')}</td>
+        <td class="py-3 px-3">${dataFmt}</td>
+        <td class="py-3 px-3 font-extrabold">${valFmt}</td>
+        <td class="py-3 px-3">${statusBadge}</td>
+        <td class="py-3 px-3 text-muted">${escapeHtml(item.conferidoPor || '-')}</td>
+        <td class="py-3 px-3 text-right space-x-1">
+          ${item.status !== 'conferido' ? `<button onclick="atualizarStatusNfe('${item.id}', 'conferido')" title="Marcar como Conferido" class="px-2 py-1 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] font-bold"><i class="fa-solid fa-check"></i></button>` : ''}
+          ${item.status !== 'divergente' ? `<button onclick="atualizarStatusNfe('${item.id}', 'divergente')" title="Marcar como Divergente" class="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[11px] font-bold"><i class="fa-solid fa-triangle-exclamation"></i></button>` : ''}
+          <button onclick="excluirNfe('${item.id}')" title="Excluir NFE" class="px-2 py-1 bg-surface-2 hover:bg-rose-950 text-muted hover:text-rose-400 rounded text-[11px]"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function atualizarStatusNfe(id, novoStatus) {
+  const usuario = currentUser ? currentUser.nome : "Owner";
+  try {
+    const res = await fetch(`${API_BASE}/nfe/${id}/status?usuario=${encodeURIComponent(usuario)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: novoStatus, conferidoPor: usuario })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Status da NFE alterado para ${novoStatus}.`, "sucesso");
+      carregarNfesOwner();
+    } else {
+      showToast(data.error || "Erro ao atualizar NFE", "erro");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar NFE:", err);
+    showToast("Erro ao conectar com o servidor.", "erro");
+  }
+}
+
+async function excluirNfe(id) {
+  if (!confirm("Deseja realmente excluir este registro de NFE?")) return;
+  const usuario = currentUser ? currentUser.nome : "Owner";
+  try {
+    const res = await fetch(`${API_BASE}/nfe/${id}?usuario=${encodeURIComponent(usuario)}`, {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast("Registro de NFE excluído.", "sucesso");
+      carregarNfesOwner();
+    } else {
+      showToast(data.error || "Erro ao excluir NFE", "erro");
+    }
+  } catch (err) {
+    console.error("Erro ao excluir NFE:", err);
+    showToast("Erro ao conectar com o servidor.", "erro");
+  }
+}
+
+window.atualizarStatusNfe = atualizarStatusNfe;
+window.excluirNfe = excluirNfe;
+
+document.addEventListener("DOMContentLoaded", () => {
+  inicializarModuloNfeOwner();
+});
+
 // Quando o canal não está disponível (rede que bloqueia conexão longa) ou
 // depois de um período longo em segundo plano, buscamos os dados na mão.
 function _rtRecarregarTudoQueEstaAberto() {
   sincronizarInventarioDaLoja(currentStore);
   _rtRecarregarNfs();
   if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
+  if (_rtTabAtual === "nfe-owner") carregarNfesOwner();
 }
 
 if (typeof window.RT !== "undefined") {

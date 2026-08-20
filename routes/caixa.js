@@ -180,6 +180,11 @@ router.post('/registros-fa', (req, res) => {
         }
       }
 
+      // Aviso de fechamento de caixa (Líder de Operações + Owner)
+      if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamentoCaixa(r.loja, 'fa', r);
+      }
+
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
       publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
@@ -291,6 +296,11 @@ router.post('/registros', (req, res) => {
             }
           );
         }
+      }
+
+      // Aviso de fechamento de caixa (Líder de Operações + Owner)
+      if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamentoCaixa(r.loja, 'cacau', r);
       }
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
