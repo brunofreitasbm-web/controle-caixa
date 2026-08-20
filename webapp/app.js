@@ -250,7 +250,8 @@ const DEFAULT_NOTIF_PREFS = {
   "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
   "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
-  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
+  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "fechamento": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 // Chave mestra de notificações de eventos (email + push). Default: desativada.
@@ -737,7 +738,8 @@ function getDestinatariosNotificacao(tipo) {
     'envelopes': 'envelopes',
     'divergencia': 'divergencia',
     'meta_lembrete': 'meta-lembrete',
-    'meta_atraso': 'meta-atraso'
+    'meta_atraso': 'meta-atraso',
+    'fechamento_caixa': 'fechamento'
   };
 
   const prefKey = notifTypeMap[tipo] || tipo;
@@ -6968,7 +6970,8 @@ function renderNotificationTable() {
     "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
     "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
     "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
-    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" }
+    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" },
+    "fechamento": { title: "Fechamento de Caixa", desc: "Aviso a cada fechamento de caixa registrado (Cacau Show e Faça Amigos)" }
   };
 
   const prefs = loadNotificationPrefs();
@@ -7602,7 +7605,10 @@ function flashScanner(containerId) {
 // #inv-bipe-card, ...) a leitura aparece. Os elementos só existem dentro do
 // painel mobile de cada aba; se a aba nem foi montada ainda, os `if` abaixo
 // fazem a função virar no-op em vez de lançar erro.
-function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
+// `code`/`nfNum` alimentam o stepper +/- e o input de quantidade do cartão —
+// sem eles não dá pra saber qual produto (e, no caso de NF-e, qual nota)
+// ajustar quando o usuário mexe no stepper.
+function renderBipeFeedback(prefixo, { nome, ean, qtd, code, nfNum }) {
   const card = document.getElementById(prefixo + "-bipe-card");
   if (!card) return;
   card.classList.remove("hidden");
@@ -7612,7 +7618,14 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
       <div class="bipe-feedback-body">
         <span class="bipe-feedback-nome">${nome}</span>
         <span class="bipe-feedback-ean">EAN ${ean || "—"}</span>
-        <span class="bipe-feedback-contado">Contado: ${qtd}</span>
+      </div>
+    </div>
+    <div class="bipe-feedback-stepper">
+      <span class="bipe-feedback-stepper-label">Contado</span>
+      <div class="bipe-stepper-controls">
+        <button type="button" class="bipe-stepper-btn" data-delta="-1" aria-label="Diminuir quantidade contada">−</button>
+        <input type="number" class="bipe-stepper-input" value="${qtd}" min="0" inputmode="numeric" aria-label="Quantidade contada">
+        <button type="button" class="bipe-stepper-btn" data-delta="1" aria-label="Aumentar quantidade contada">+</button>
       </div>
     </div>
     <button type="button" class="btn-secondary bipe-btn-desfazer">Desfazer</button>
@@ -7621,6 +7634,42 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
     if (prefixo === "nf") desfazerUltimoBipeNf();
     else desfazerUltimoBipeInv();
   };
+
+  const input = card.querySelector(".bipe-stepper-input");
+  const aplicarQtd = (novoValor) => {
+    const valorFinal = Math.max(0, Math.round(Number(novoValor) || 0));
+    input.value = valorFinal;
+    ajustarQtdBipe(prefixo, code, valorFinal, nfNum);
+  };
+  card.querySelectorAll(".bipe-stepper-btn").forEach(btn => {
+    btn.onclick = () => aplicarQtd(Number(input.value || 0) + Number(btn.dataset.delta));
+  });
+  input.onchange = () => aplicarQtd(input.value);
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+// Ajusta a quantidade contada direto pelo stepper/input do cartão de
+// feedback do bipe — sem precisar abrir a tabela ou os cartões da lista.
+// Reusa o MESMO caminho de gravação que cada contexto já tinha (dbBridge.
+// saveInventoryItem no Inventário, saveNfQuantity na NF-e), pra não duplicar
+// a lógica de save/notificação/debounce que cada um carrega consigo.
+function ajustarQtdBipe(prefixo, code, novoValor, nfNum) {
+  if (!code) return;
+  const valorStr = novoValor.toString();
+
+  if (prefixo === "nf") {
+    saveNfQuantity(code, valorStr, nfNum);
+    if (nfBipesRecentes[0] && nfBipesRecentes[0].code === code) nfBipesRecentes[0].qtd = valorStr;
+  } else {
+    const p = products.find(prod => prod.code === code);
+    if (!p) return;
+    p.countedQty = valorStr;
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+    if (invBipesRecentes[0] && invBipesRecentes[0].code === code) invBipesRecentes[0].qtd = valorStr;
+  }
 
   atualizarListaBipeRecentes(prefixo);
 }
@@ -7775,9 +7824,9 @@ function onInventarioScanSuccess(decodedText) {
 
     flashScanner("scanner-container");
     ultimoBipeInv = { code: p.code };
-    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty });
+    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty, code: p.code });
     invBipesRecentes = invBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty });
+    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty, code: p.code });
 
     // A linha da tabela não existe pra rolar até ela na casca compacta — a
     // tabela some em favor do cartão de feedback acima (ver style.css).
@@ -9127,9 +9176,9 @@ function onNfScanSuccess(decodedText) {
 
     flashScanner("nf-scanner-container");
     ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
-    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty });
+    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty, code: p.code });
     nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty });
+    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
     // Focar no campo de quantidade inventariada do produto bipado — só faz
     // sentido no desktop, onde a tabela continua visível. Na casca compacta
@@ -9785,6 +9834,76 @@ function renderTable() {
     });
 
     tbody.appendChild(tr);
+  });
+
+  renderInventoryCards(filteredProducts);
+}
+
+// Lista em cartões de "Inventário de Estoque" — casca compacta only (ver
+// .density-compact .inv-produtos-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #inventory-tbody, e o input de quantidade
+// grava no MESMO objeto `p` que a tabela usa — tocar aqui equivale a editar
+// a linha correspondente na tabela.
+function renderInventoryCards(filteredProducts) {
+  const box = document.getElementById('inv-produtos-cards');
+  if (!box) return;
+  box.innerHTML = '';
+
+  filteredProducts.forEach(p => {
+    let statusClass = 'ok';
+    let statusLabel = 'No Prazo';
+    if (p.daysRemaining === null) {
+      statusClass = 'sem-validade';
+      statusLabel = 'Sem Validade';
+    } else if (p.daysRemaining <= 20) {
+      statusClass = 'critico';
+      statusLabel = 'Crítico';
+    } else if (p.daysRemaining <= 40) {
+      statusClass = 'alerta';
+      statusLabel = 'Alerta';
+    }
+
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const validadeFmt = p.validade && !isNaN(new Date(p.validade).getTime()) ? formatDate(new Date(p.validade)) : '—';
+    const diasTexto = p.daysRemaining !== null ? ` · ${p.daysRemaining} dias` : '';
+
+    const card = document.createElement('div');
+    card.className = `inv-produto-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="inv-produto-card-top">
+        <span class="inv-produto-card-cod">${cod7}</span>
+        <span class="inv-produto-card-status">${statusLabel}</span>
+      </div>
+      <div class="inv-produto-card-nome">${p.description}</div>
+      <div class="inv-produto-card-meta">Validade: ${validadeFmt}${diasTexto}${p.qtdEntradaCaixas ? ` · Entrada: ${p.qtdEntradaCaixas} CX` : ''}</div>
+      <div class="inv-produto-card-qtd">
+        <label>QTD Inventariada</label>
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input inv-produto-card-input" />
+      </div>
+    `;
+
+    const qtyInput = card.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+    });
+
+    box.appendChild(card);
   });
 }
 
@@ -14010,15 +14129,21 @@ async function carregarMetaHoraHora() {
     checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot
   });
 
-  // Progresso do dia
+  // Progresso do dia — anel (mesmo raio/circunferência do anel "Hoje" em
+  // atualizarPainelHoje: CIRC = 2·π·84 ≈ 527.8). A cor do arco segue o
+  // ritmo — verde quando bate/supera o esperado até agora, laranja quando
+  // está atrás — mesma regra que antes decidia a cor da barra linear.
   const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
-  const bar = document.getElementById("meta-progresso-bar");
-  if (bar) {
-    bar.style.width = `${pct}%`;
-    bar.className = totalHoje >= esperadoAteAgora
-      ? "bg-success-soft h-4 rounded-full transition-all duration-500"
-      : "bg-warning-soft h-4 rounded-full transition-all duration-500";
+  const CIRC_META = 527.8;
+  const ring = document.getElementById("meta-progresso-ring");
+  if (ring) {
+    ring.style.strokeDashoffset = String(CIRC_META * (1 - pct / 100));
+    ring.style.stroke = totalHoje >= esperadoAteAgora
+      ? "var(--tone-success-line)"
+      : "var(--tone-warning-line)";
   }
+  const ringPct = document.getElementById("meta-progresso-ring-pct");
+  if (ringPct) ringPct.textContent = `${Math.round(pct)}%`;
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
 
