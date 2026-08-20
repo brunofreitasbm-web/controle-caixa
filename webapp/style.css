@@ -5792,14 +5792,129 @@ button:disabled:not(.fa-section *) {
   text-overflow: ellipsis;
 }
 
-/* Tabelas de produto de NF-e/Inventário: 6+ colunas fixas, mesma classe de
-   overflow que já quebrava em "Envelopes Aguardando Retirada" (Owner). Sem
-   equivalente em cartão ainda — a revisão item a item de uma nota/inventário
-   inteiro continua sendo tarefa de desktop; o mobile ganhou a bipagem rápida
-   com feedback (.bipe-mobile-panel, acima), não a edição linha a linha. */
-.density-compact #nf-tabela-produtos-wrap,
+/* Tabela de produto de NF-e: 6 colunas fixas, mesma classe de overflow que
+   já quebrava em "Envelopes Aguardando Retirada" (Owner). Sem equivalente em
+   cartão ainda — a revisão item a item de uma nota inteira continua sendo
+   tarefa de desktop; o mobile ganhou a bipagem rápida com feedback
+   (.bipe-mobile-panel, acima), não a edição linha a linha. */
+.density-compact #nf-tabela-produtos-wrap {
+  display: none;
+}
+
+/* Tabela de produto de Inventário: mesmo motivo (7 colunas fixas), mas AQUI
+   a lista inteira de produtos da loja tem um substituto em cartões
+   (#inv-produtos-cards, abaixo) — ao contrário da NF-e, o Owner precisa
+   revisar/editar item a item pelo celular, não só bipar. */
 .density-compact #inv-tabela-produtos-wrap {
   display: none;
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — "Inventário de Estoque" em cartões
+   --------------------------------------------------------------------------
+   A tabela ao lado tem 7 colunas fixas (cod_prod, produto, data entrada NF,
+   entrada CX, data validade, dias a vencer, qtd inventariada) — em 375px ela
+   vira uma faixa rolável ilegível. Os cartões são gerados pela MESMA
+   renderTable() a partir da MESMA lista `filteredProducts`, e o input de
+   quantidade grava no MESMO objeto `p` que a tabela usa — nunca uma segunda
+   fonte de dados.
+   ========================================================================== */
+.inv-produtos-cards { display: none; }
+
+.density-compact .inv-produtos-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inv-produto-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1.5px solid var(--edge-subtle);
+  border-left: 4px solid var(--edge-subtle);
+}
+
+.inv-produto-card.critico { border-left-color: var(--tone-danger-line); }
+.inv-produto-card.alerta { border-left-color: var(--tone-warning-line); }
+.inv-produto-card.ok { border-left-color: var(--tone-success-line); }
+
+.inv-produto-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inv-produto-card-cod {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-muted);
+  letter-spacing: 0.03em;
+}
+
+.inv-produto-card-status {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tone-success-soft);
+  color: var(--ink);
+}
+
+.inv-produto-card.critico .inv-produto-card-status { background: var(--tone-danger-soft); }
+.inv-produto-card.alerta .inv-produto-card-status { background: var(--tone-warning-soft); }
+.inv-produto-card.sem-validade .inv-produto-card-status { background: var(--surface-3); color: var(--ink-muted); }
+
+.inv-produto-card-nome {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.inv-produto-card-meta {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+
+.inv-produto-card-qtd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.inv-produto-card-qtd label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+
+.inv-produto-card-input {
+  width: 84px;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--edge-subtle);
+  border-radius: 10px;
+  padding: 6px 0;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.inv-produto-card-input:focus {
+  outline: none;
+  border-color: var(--edge-accent);
 }
 
 /* ==========================================================================

@@ -9789,6 +9789,76 @@ function renderTable() {
 
     tbody.appendChild(tr);
   });
+
+  renderInventoryCards(filteredProducts);
+}
+
+// Lista em cartões de "Inventário de Estoque" — casca compacta only (ver
+// .density-compact .inv-produtos-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #inventory-tbody, e o input de quantidade
+// grava no MESMO objeto `p` que a tabela usa — tocar aqui equivale a editar
+// a linha correspondente na tabela.
+function renderInventoryCards(filteredProducts) {
+  const box = document.getElementById('inv-produtos-cards');
+  if (!box) return;
+  box.innerHTML = '';
+
+  filteredProducts.forEach(p => {
+    let statusClass = 'ok';
+    let statusLabel = 'No Prazo';
+    if (p.daysRemaining === null) {
+      statusClass = 'sem-validade';
+      statusLabel = 'Sem Validade';
+    } else if (p.daysRemaining <= 20) {
+      statusClass = 'critico';
+      statusLabel = 'Crítico';
+    } else if (p.daysRemaining <= 40) {
+      statusClass = 'alerta';
+      statusLabel = 'Alerta';
+    }
+
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const validadeFmt = p.validade && !isNaN(new Date(p.validade).getTime()) ? formatDate(new Date(p.validade)) : '—';
+    const diasTexto = p.daysRemaining !== null ? ` · ${p.daysRemaining} dias` : '';
+
+    const card = document.createElement('div');
+    card.className = `inv-produto-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="inv-produto-card-top">
+        <span class="inv-produto-card-cod">${cod7}</span>
+        <span class="inv-produto-card-status">${statusLabel}</span>
+      </div>
+      <div class="inv-produto-card-nome">${p.description}</div>
+      <div class="inv-produto-card-meta">Validade: ${validadeFmt}${diasTexto}${p.qtdEntradaCaixas ? ` · Entrada: ${p.qtdEntradaCaixas} CX` : ''}</div>
+      <div class="inv-produto-card-qtd">
+        <label>QTD Inventariada</label>
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input inv-produto-card-input" />
+      </div>
+    `;
+
+    const qtyInput = card.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+    });
+
+    box.appendChild(card);
+  });
 }
 
 function exportExcel() {
