@@ -7326,6 +7326,11 @@ function inicializarInsercaoManualInventario() {
 
   // Leitor físico de código de barras: funciona como teclado, digitando o
   // código e enviando Enter ao final. Basta focar o campo e capturar o Enter.
+  // Com o leitor ativo, o Enter é hands-free: usa a MESMA resolução e as
+  // mesmas regras de bipe da câmera (onInventarioScanSuccess/resolverCodigoBipado
+  // → CodBarra → CSV → CodProduto, beep, vibração, cartão de feedback), em vez
+  // de exigir validade/quantidade preenchidas a cada leitura como no botão
+  // "Adicionar" manual — que continua disponível pra digitação sem leitor.
   let leitorFisicoAtivo = false;
 
   if (btnLeitorFisico) {
@@ -7346,10 +7351,15 @@ function inicializarInsercaoManualInventario() {
     if (e.key !== "Enter") return;
     e.preventDefault();
     if (!leitorFisicoAtivo) return;
-    btnAdicionar.click();
-    if (leitorFisicoAtivo) {
-      setTimeout(() => inputCodigo.focus(), 0);
-    }
+
+    const cleanCode = inputCodigo.value.trim();
+    if (!cleanCode) return;
+
+    onInventarioScanSuccess(cleanCode);
+
+    inputCodigo.value = "";
+    inputDescricao.value = "";
+    setTimeout(() => inputCodigo.focus(), 0);
   });
 
   // Evento de digitação no campo código/EAN para buscar descrição
