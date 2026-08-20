@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v66'; // v66: telas Hoje e Avisos (operador) + sino universal
+const CACHE_NAME = 'ponto-pwa-v67'; // v67: cartões mobile para Envelopes Aguardando Retirada (Owner)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

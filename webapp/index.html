@@ -160,7 +160,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=31">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -842,7 +842,7 @@
         <div id="bar-chart" class="bar-chart" role="img" aria-label="Gráfico de barras comparativo entre lojas"></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="envelopes-pendentes-secao">
         <div class="table-header">
           <h3>Envelopes Aguardando Retirada</h3>
           <div class="filters">
@@ -860,6 +860,11 @@
           <span id="batch-count-info">0 envelope(s) selecionado(s) (R$ 0,00)</span>
           <button id="btn-batch-retirar" class="btn-primary btn-batch">Marcar selecionados como retirados</button>
         </div>
+        <!-- Lista em cartões — só na casca compacta (ver .density-compact
+             .pendentes-cards em style.css). A tabela ao lado tem 9 colunas
+             fixas e não cabe em 375px; a lista reusa os MESMOS dados e o
+             MESMO Set de selecionados (renderDashboard preenche as duas). -->
+        <div id="pendentes-cards" class="pendentes-cards"></div>
         <div class="table-wrap">
           <table id="tabela-pendentes" aria-label="Envelopes aguardando retirada">
             <thead>
@@ -3561,6 +3566,6 @@
 <script src="modules/auditoria.js?v=1"></script>
 <script src="modules/meta-hora-hora.js?v=1"></script>
 <script src="modules/colaboradores.js?v=1"></script>
-<script src="app.js?v=56"></script>
+<script src="app.js?v=57"></script>
 </body>
 </html>

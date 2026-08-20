@@ -222,7 +222,12 @@ const QUICK_MENU_POR_ROLE = {
   ],
   owner: [
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS", curto: "Painel" },
-    { tab: "historico", icon: "fa-box-open", label: "Envelopes", curto: "Envelopes" },
+    // "Envelopes" mira o Dashboard, não o Histórico: a gestão de retirada em
+    // lote (lista selecionável + "Marcar como retirados") mora dentro do
+    // Dashboard, embaixo dos cards por loja — "Histórico Completo" é outra
+    // tela, uma tabela de auditoria com filtro/busca/exportação que não tem
+    // equivalente no design mobile. scrollTo pula direto pra seção certa.
+    { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
@@ -2588,6 +2593,15 @@ function renderMenuRapido() {
     btn.addEventListener("click", () => {
       if (item.faSubtab) faSubTabAtiva = item.faSubtab;
       ativarTab(item.tab);
+      // "Envelopes" (Owner) e "Painel" (dashboard) apontam pro MESMO tab —
+      // a gestão de retirada em lote mora dentro do Dashboard, não tem aba
+      // própria. scrollTo é o que faz os dois botões parecerem destinos
+      // diferentes: um cai no topo, o outro pula direto pra seção certa.
+      if (item.scrollTo) {
+        requestAnimationFrame(() => {
+          document.getElementById(item.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     });
     return btn;
   };
@@ -5226,6 +5240,7 @@ function renderDashboard() {
     });
 
   atualizarBatchBarPendentes(filtrados);
+  renderPendentesCards(filtrados, podeRetirar);
 
   document.getElementById("pendentes-vazio").classList.toggle("hidden", filtrados.length > 0);
 
@@ -5272,6 +5287,49 @@ function renderDashboard() {
     img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
   });
   carregarFotosLazy(tbody, "registros");
+}
+
+// Lista em cartões de "Envelopes Aguardando Retirada" — casca compacta only
+// (ver .density-compact .pendentes-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #tabela-pendentes, mesmo Set de seleção
+// (selecionadosPendentes): tocar o cartão faz exatamente o que marcar o
+// checkbox da linha faria. Sem permissão de retirada, o cartão vira só
+// leitura — sem toque, sem seleção, mesma regra da tabela.
+function renderPendentesCards(filtrados, podeRetirar) {
+  const box = document.getElementById("pendentes-cards");
+  if (!box) return;
+
+  box.innerHTML = "";
+  filtrados
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
+    .forEach(r => {
+      const dias = diffDias(r.dataOperacao);
+      const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosPendentes.has(String(r.id));
+
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "pendentes-card" + (isSelected ? " selected" : "") + (podeRetirar ? "" : " bloqueado");
+      card.innerHTML = `
+        ${podeRetirar ? `<span class="pendentes-card-check"><i class="fa-solid fa-check"></i></span>` : ""}
+        <span class="pendentes-card-body">
+          <span class="pendentes-card-loja">${opLabel(r.loja)}</span>
+          <span class="pendentes-card-meta">${r.consultor} · ${formatDataHora(r.dataOperacao)}</span>
+          <span class="pendentes-card-dias${risco ? " risco" : ""}">${dias}d aguardando</span>
+        </span>
+        <span class="pendentes-card-valor">${formatBRL(r.valorEnvelope)}</span>
+        ${podeRetirar ? "" : `<span class="pendentes-card-lock">🔒 Só Bruno, Isabella ou Alexandra</span>`}
+      `;
+      if (podeRetirar) {
+        card.addEventListener("click", () => {
+          const id = String(r.id);
+          if (selecionadosPendentes.has(id)) selecionadosPendentes.delete(id);
+          else selecionadosPendentes.add(id);
+          renderDashboard();
+        });
+      }
+      box.appendChild(card);
+    });
 }
 
 function fotoCelula(r) {

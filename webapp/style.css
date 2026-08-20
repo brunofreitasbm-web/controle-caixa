@@ -5503,3 +5503,115 @@ button:disabled:not(.fa-section *) {
 /* Cinco destinos entram em 390px, mas sem folga para padding lateral: o
    rótulo precisa da largura inteira do botão para não truncar "Inventário". */
 .density-compact .bottom-nav-btn { padding: 0 2px; }
+
+/* ==========================================================================
+   CASCA COMPACTA — "Envelopes Aguardando Retirada" (Owner) em cartões
+   --------------------------------------------------------------------------
+   A tabela ao lado tem 9 colunas fixas (checkbox, loja, consultor, data,
+   valor, dias, foto, aviso, ação) — em 375px ela vira uma faixa de ~960px
+   dentro de uma coluna de ~340px, rolável na horizontal e ilegível. Os
+   cartões são gerados pela MESMA renderDashboard() a partir dos mesmos
+   `filtrados`/`selecionadosPendentes` — nunca uma segunda fonte de dados.
+   ========================================================================== */
+.pendentes-cards { display: none; }
+
+.density-compact .pendentes-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.density-compact #envelopes-pendentes-secao .table-wrap {
+  display: none;
+}
+
+.pendentes-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1.5px solid var(--edge-subtle);
+  text-align: left;
+  cursor: pointer;
+  min-height: 64px;
+}
+
+.pendentes-card.selected {
+  border-color: var(--edge-accent);
+  background: var(--tone-accent-soft);
+}
+
+.pendentes-card-check {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  border: 2px solid var(--edge-strong);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 13px;
+}
+
+.pendentes-card.selected .pendentes-card-check {
+  border-color: var(--edge-accent);
+  background: var(--tone-accent-line);
+  color: var(--surface-canvas);
+}
+
+.pendentes-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pendentes-card-loja {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--ink-strong);
+}
+
+.pendentes-card-meta {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pendentes-card-dias {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.pendentes-card-dias.risco {
+  color: var(--tone-danger-ink);
+}
+
+.pendentes-card-valor {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--ink-strong);
+  text-align: right;
+}
+
+/* Envelope já retirado por outra pessoa entre um render e outro, ou perfil
+   sem permissão de retirada: cartão informativo, sem toque nem checkbox. */
+.pendentes-card.bloqueado {
+  cursor: default;
+}
+.pendentes-card-lock {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: right;
+  max-width: 90px;
+}
