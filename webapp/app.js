@@ -3426,6 +3426,7 @@ function mostrarGeradorMensagem(registro) {
   linkBtn.onclick = async () => await marcarGerado();
 
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
@@ -3589,6 +3590,7 @@ async function mostrarFaGeradorMensagem(registro) {
 
   linkBtn.onclick = async () => await marcarFaGerado();
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS RENDER FUNCTIONS ====================
