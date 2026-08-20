@@ -78,7 +78,11 @@ const camelCaseMap = {
   resultado10meses: 'resultado10Meses',
   aliquotaimposto: 'aliquotaImposto',
   codbarras: 'codBarras',
-  valortotal: 'valorTotal'
+  valortotal: 'valorTotal',
+  numeronfe: 'numeroNfe',
+  chaveacesso: 'chaveAcesso',
+  dataemissao: 'dataEmissao',
+  conferidopor: 'conferidoPor'
 };
 
 function normalizeRow(row) {
@@ -377,6 +381,19 @@ function initDb(onSuccess) {
           locacoes INTEGER NOT NULL DEFAULT 0,
           criadoEm TEXT,
           UNIQUE(usuario, unidade, data)
+        )`,
+        `CREATE TABLE IF NOT EXISTS nfe_conferencia (
+          id TEXT PRIMARY KEY,
+          loja TEXT NOT NULL,
+          numeroNfe TEXT,
+          chaveAcesso TEXT,
+          dataEmissao TEXT,
+          valor DOUBLE PRECISION NOT NULL,
+          status TEXT DEFAULT 'pendente',
+          observacoes TEXT,
+          conferidoPor TEXT,
+          criadoEm TEXT,
+          atualizadoEm TEXT
         )`,
         `CREATE TABLE IF NOT EXISTS fa_bonificacao_regras (
           competencia TEXT PRIMARY KEY,

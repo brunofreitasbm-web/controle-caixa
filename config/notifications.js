@@ -27,7 +27,11 @@ const REGRAS_PADRAO_NOTIFICACAO = {
   divergencia_caixa: { colab: false, lider: true, owner: true },
   meta_lembrete: { colab: true, lider: false, owner: false, colab_ch: 'push' },
   meta_atraso: { colab: false, lider: true, owner: true },
-  retirada_solicitada: { colab: false, lider: false, owner: true }
+  retirada_solicitada: { colab: false, lider: false, owner: true },
+  abertura_unidade: { colab: false, lider: true, owner: true },
+  visao_19h: { colab: false, lider: true, owner: true },
+  fechamento_unidade: { colab: false, lider: true, owner: true },
+  nfe_pendente: { colab: false, lider: false, owner: true }
 };
 
 // A tela de Configurações (webapp/app.js) grava as chaves com hífen
@@ -45,7 +49,11 @@ const ALIASES_TIPO_NOTIFICACAO = {
   divergencia_caixa: ['divergencia_caixa', 'divergencia'],
   meta_lembrete: ['meta_lembrete', 'meta-lembrete'],
   meta_atraso: ['meta_atraso', 'meta-atraso'],
-  retirada_solicitada: ['retirada_solicitada']
+  retirada_solicitada: ['retirada_solicitada'],
+  abertura_unidade: ['abertura_unidade', 'abertura-unidade', 'abertura'],
+  visao_19h: ['visao_19h', 'visao-19h'],
+  fechamento_unidade: ['fechamento_unidade', 'fechamento-unidade', 'fechamento'],
+  nfe_pendente: ['nfe_pendente', 'nfe-pendente']
 };
 
 function tipoCanonicoNotificacao(notificationType) {
@@ -439,6 +447,96 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   });
 }
 
+function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau Show') {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const fundoFmt = Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const title = `🟢 Abertura de Unidade - ${loja}`;
+    const body = `${consultor || 'Operador'} abriu o caixa em ${loja} (${sistema}). Fundo: R$ ${fundoFmt}.`;
+    enviarNotificacaoPushInterno(title, body, null, 'abertura_unidade');
+  });
+}
+
+function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show') {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const fatFmt = Number(valorFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const envFmt = Number(valorEnvelope || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const sessoesText = sessoesCount !== undefined && sessoesCount !== null ? ` | Sessões/Vendas: ${sessoesCount}` : '';
+    const title = `🔒 Fechamento de Caixa - ${loja}`;
+    const body = `${consultor || 'Operador'} encerrou o caixa em ${loja}. Faturado: R$ ${fatFmt} | Envelope: R$ ${envFmt}${sessoesText}`;
+    enviarNotificacaoPushInterno(title, body, null, 'fechamento_unidade');
+  });
+}
+
+function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const valFmt = Number(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const title = `🧾 Nova NFE a Conferir - ${loja}`;
+    const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} no valor de R$ ${valFmt} aguarda validação fiscal (Exclusivo Owner).`;
+    enviarNotificacaoPushInterno(title, body, null, 'nfe_pendente');
+  });
+}
+
+function enviarNotificacaoVisao19h() {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const hoje = agoraBrasilMeta().data;
+
+    db.all(
+      `SELECT loja, SUM(valorFaturado) as totalFat FROM registros WHERE dataOperacao = ? AND deletadoEm IS NULL GROUP BY loja`,
+      [hoje],
+      (err1, rows1) => {
+        db.all(
+          `SELECT loja, SUM(valorFaturado) as totalFat FROM registros_fa WHERE dataOperacao = ? AND deletadoEm IS NULL GROUP BY loja`,
+          [hoje],
+          (err2, rows2) => {
+            db.all(
+              `SELECT unidade as loja, (SUM(vendas30) + SUM(vendas1h) + SUM(vendas2h) + SUM(locacoes)) as totalSessoes FROM fa_bonificacao_diaria WHERE data = ? GROUP BY unidade`,
+              [hoje],
+              (err3, rows3) => {
+                const faturamentoPorLoja = {};
+                const sessoesPorLoja = {};
+
+                (rows1 || []).forEach(r => {
+                  faturamentoPorLoja[r.loja] = (faturamentoPorLoja[r.loja] || 0) + Number(r.totalFat || 0);
+                });
+                (rows2 || []).forEach(r => {
+                  faturamentoPorLoja[r.loja] = (faturamentoPorLoja[r.loja] || 0) + Number(r.totalFat || 0);
+                });
+                (rows3 || []).forEach(r => {
+                  sessoesPorLoja[r.loja] = Number(r.totalSessoes || 0);
+                });
+
+                const lojas = Object.keys(faturamentoPorLoja);
+                let totalGeral = 0;
+                let textoResumo = [];
+
+                if (lojas.length === 0) {
+                  textoResumo.push('Nenhuma movimentação financeira registrada hoje até as 19h.');
+                } else {
+                  lojas.forEach(loja => {
+                    const fat = faturamentoPorLoja[loja];
+                    totalGeral += fat;
+                    const sess = sessoesPorLoja[loja] ? ` (${sessoesPorLoja[loja]} sessões/locações)` : '';
+                    textoResumo.push(`${loja}: R$ ${fat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${sess}`);
+                  });
+                }
+
+                const title = '📊 Visão Geral Diária (19h)';
+                const body = `Total acumulado às 19h: R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` + textoResumo.join(' | ');
+                
+                enviarNotificacaoPushInterno(title, body, null, 'visao_19h');
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+}
+
 module.exports = {
   notificacoesEventosAtivas,
   obterEmailsDestinatarios,
@@ -446,6 +544,10 @@ module.exports = {
   enviarEmailGenerico,
   enviarNotificacaoPush,
   enviarNotificacaoRetiradaSolicitada,
+  enviarNotificacaoAbertura,
+  enviarNotificacaoFechamento,
+  enviarNotificacaoNfePendente,
+  enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
   META_JANELA_FECHAMENTO_DEPOIS_MIN,

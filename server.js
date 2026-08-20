@@ -22,7 +22,8 @@ const {
   enviarResumoAtrasoMeta,
   obterEmailsDestinatarios,
   enviarEmailGenerico,
-  enviarNotificacaoPush
+  enviarNotificacaoPush,
+  enviarNotificacaoVisao19h
 } = require('./config/notifications');
 
 const authRoutes = require('./routes/auth');
@@ -41,6 +42,7 @@ const inventarioRoutes = require('./routes/inventario');
 const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
+const nfeRoutes = require('./routes/nfe');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -86,6 +88,7 @@ app.use('/api/pos-visita', posVisitaRoutes);
 app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
+app.use('/api/nfe', nfeRoutes);
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
@@ -426,6 +429,12 @@ app.get('/api/cron/ia-tick', async (req, res) => {
 
 // Inicializar banco de dados e iniciar servidor
 initDb(() => {
+  // Cron Job para Visão Geral Diária às 19:00 (Fuso horário do Brasil)
+  cron.schedule('0 19 * * *', () => {
+    console.log('[cron] Disparando notificação de visão geral diária (19h)...');
+    enviarNotificacaoVisao19h();
+  }, { timezone: 'America/Sao_Paulo' });
+
   if (require.main === module) {
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);

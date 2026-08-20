@@ -3,7 +3,7 @@ const router = express.Router();
 const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
@@ -159,21 +159,25 @@ router.post('/registros-fa', (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
-      // Envio de e-mail silencioso se for Fechamento e o acumulado for >= 1000
-      if (r.tipoOperacao === 'Fechamento' && r.valorEnvelope) {
-        db.get(
-          `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada'`,
-          [r.loja],
-          (sumErr, row) => {
-            if (!sumErr && row && row.total >= 1000) {
-              enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
-              enviarNotificacaoPush(
-                `🚨 ${r.loja}-FaçaAmigos`,
-                `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
-              );
+      if (r.tipoOperacao === 'Abertura') {
+        enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'FaçaAmigos');
+      } else if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'FaçaAmigos');
+        if (r.valorEnvelope) {
+          db.get(
+            `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada'`,
+            [r.loja],
+            (sumErr, row) => {
+              if (!sumErr && row && row.total >= 1000) {
+                enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+                enviarNotificacaoPush(
+                  `🚨 ${r.loja}-FaçaAmigos`,
+                  `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+                );
+              }
             }
-          }
-        );
+          );
+        }
       }
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
@@ -268,21 +272,25 @@ router.post('/registros', (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
-      // Envio de e-mail silencioso se for Fechamento e o acumulado for >= 1000
-      if (r.tipoOperacao === 'Fechamento' && r.valorEnvelope) {
-        db.get(
-          `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
-          [r.loja],
-          (sumErr, row) => {
-            if (!sumErr && row && row.total >= 1000) {
-              enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
-              enviarNotificacaoPush(
-                `🚨 ${r.loja}-Cacau Show`,
-                `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
-              );
+      if (r.tipoOperacao === 'Abertura') {
+        enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show');
+      } else if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show');
+        if (r.valorEnvelope) {
+          db.get(
+            `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
+            [r.loja],
+            (sumErr, row) => {
+              if (!sumErr && row && row.total >= 1000) {
+                enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+                enviarNotificacaoPush(
+                  `🚨 ${r.loja}-Cacau Show`,
+                  `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+                );
+              }
             }
-          }
-        );
+          );
+        }
       }
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
