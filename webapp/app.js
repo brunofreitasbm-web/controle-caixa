@@ -7560,6 +7560,115 @@ function loadInventoryForCurrentStore() {
 }
 
 // ==========================================================================
+// FEEDBACK MOBILE DE BIPAGEM (NF-e e Inventário) — casca compacta only
+// --------------------------------------------------------------------------
+// A câmera e a lógica de leitura já eram reais (Html5Qrcode + resolverCodigoBipado,
+// ver onNfScanSuccess/onInventarioScanSuccess); o que faltava era uma resposta
+// visual pensada pra tela pequena — no desktop, a confirmação é a própria
+// linha da tabela, que a página rola até e foca; em 375px essa tabela some
+// (ver .density-compact .table-wrap em style.css) e a colaboradora perderia
+// o feedback de "bipei, contou?" a cada leitura. Este bloco fecha esse vão:
+// um cartão "+1" que aparece por leitura, uma lista dos últimos bipes, e um
+// flash na moldura da câmera (mesma animação do design publicado).
+// Zero fetch novo — cada leitura já estava indo pro servidor via
+// saveNfQuantity/dbBridge.saveInventoryItem; isto só lê o mesmo resultado.
+// ==========================================================================
+const BIPE_RECENTES_MAX = 5;
+let nfBipesRecentes = [];
+let invBipesRecentes = [];
+let ultimoBipeNf = null;  // { code, nfNum } — alvo do botão Desfazer
+let ultimoBipeInv = null; // { code }         — alvo do botão Desfazer
+
+// Reinicia a animação mesmo em bipes consecutivos rápidos (remover e
+// reaplicar a classe no mesmo frame não reinicia keyframes já em curso —
+// forçar um reflow com offsetWidth entre as duas chamadas resolve isso).
+function flashScanner(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.classList.remove("scan-flash");
+  void el.offsetWidth;
+  el.classList.add("scan-flash");
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => el.classList.remove("scan-flash"), 600);
+
+  const badge = document.getElementById(containerId + "-check");
+  if (!badge) return;
+  badge.classList.remove("hidden");
+  clearTimeout(badge._hideTimer);
+  badge._hideTimer = setTimeout(() => badge.classList.add("hidden"), 550);
+}
+
+// `prefixo` é "nf" ou "inv" — decide em quais elementos (#nf-bipe-card,
+// #inv-bipe-card, ...) a leitura aparece. Os elementos só existem dentro do
+// painel mobile de cada aba; se a aba nem foi montada ainda, os `if` abaixo
+// fazem a função virar no-op em vez de lançar erro.
+function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
+  const card = document.getElementById(prefixo + "-bipe-card");
+  if (!card) return;
+  card.classList.remove("hidden");
+  card.innerHTML = `
+    <div class="bipe-feedback-topo">
+      <span class="bipe-feedback-qtd">+1</span>
+      <div class="bipe-feedback-body">
+        <span class="bipe-feedback-nome">${nome}</span>
+        <span class="bipe-feedback-ean">EAN ${ean || "—"}</span>
+        <span class="bipe-feedback-contado">Contado: ${qtd}</span>
+      </div>
+    </div>
+    <button type="button" class="btn-secondary bipe-btn-desfazer">Desfazer</button>
+  `;
+  card.querySelector(".bipe-btn-desfazer").onclick = () => {
+    if (prefixo === "nf") desfazerUltimoBipeNf();
+    else desfazerUltimoBipeInv();
+  };
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+function atualizarListaBipeRecentes(prefixo) {
+  const lista = document.getElementById(prefixo + "-bipe-lista");
+  if (!lista) return;
+  const recentes = prefixo === "nf" ? nfBipesRecentes : invBipesRecentes;
+  lista.innerHTML = recentes.map(r => `
+    <div class="bipe-item-recente">
+      <span class="bipe-item-qtd">${r.qtd}</span>
+      <span class="bipe-item-nome">${r.nome}</span>
+    </div>
+  `).join("");
+}
+
+function desfazerUltimoBipeNf() {
+  if (!ultimoBipeNf) return;
+  const { code, nfNum } = ultimoBipeNf;
+  const nf = importedNfs[nfNum];
+  const p = nf && nf.products.find(prod => prod.code === code);
+  if (!p) return;
+  const atual = p.countedQty === "" ? 0 : Number(p.countedQty);
+  saveNfQuantity(code, Math.max(0, atual - 1).toString(), nfNum);
+  nfBipesRecentes.shift();
+  ultimoBipeNf = null;
+  document.getElementById("nf-bipe-card")?.classList.add("hidden");
+  atualizarListaBipeRecentes("nf");
+  showToast("Última leitura desfeita.", "info");
+}
+
+function desfazerUltimoBipeInv() {
+  if (!ultimoBipeInv) return;
+  const { code } = ultimoBipeInv;
+  const p = products.find(prod => prod.code === code);
+  if (!p) return;
+  const atual = p.countedQty === "" ? 0 : Number(p.countedQty);
+  p.countedQty = Math.max(0, atual - 1).toString();
+  dbBridge.saveInventoryItem(currentStore, p);
+  renderTable();
+  invBipesRecentes.shift();
+  ultimoBipeInv = null;
+  document.getElementById("inv-bipe-card")?.classList.add("hidden");
+  atualizarListaBipeRecentes("inv");
+  showToast("Última leitura desfeita.", "info");
+}
+
+// ==========================================================================
 // SCANNER DO INVENTÁRIO DE ESTOQUE
 // Usa a mesma regra de prioridade do resolverCodigoBipado:
 //   1º) CodBarra (EAN lido da câmera)
@@ -7664,14 +7773,24 @@ function onInventarioScanSuccess(decodedText) {
     triggerInventoryStartedNotification();
     renderTable();
 
-    setTimeout(() => {
-      const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`);
-      if (rowInput) {
-        rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        rowInput.focus();
-        rowInput.select();
-      }
-    }, 100);
+    flashScanner("scanner-container");
+    ultimoBipeInv = { code: p.code };
+    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty });
+    invBipesRecentes = invBipesRecentes.slice(0, BIPE_RECENTES_MAX);
+    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty });
+
+    // A linha da tabela não existe pra rolar até ela na casca compacta — a
+    // tabela some em favor do cartão de feedback acima (ver style.css).
+    if (document.documentElement.dataset.density !== "compact") {
+      setTimeout(() => {
+        const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`);
+        if (rowInput) {
+          rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          rowInput.focus();
+          rowInput.select();
+        }
+      }, 100);
+    }
 
     const metodoLabel = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
     showToast(`✅ ${p.description}${metodoLabel} — Qtd: ${p.countedQty}`, 'sucesso');
@@ -8736,17 +8855,29 @@ function renderNfDashboard() {
 
 function updateNfStats() {
   let faltasCount = 0;
+  let totalItens = 0;
+  let itensCompletos = 0;
   activeNfNumbers.forEach(numNF => {
     const currentNf = importedNfs[numNF];
     if (currentNf && currentNf.products) {
       currentNf.products.forEach(p => {
         const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
         if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+        totalItens++;
+        if (counted >= p.nfQty) itensCompletos++;
       });
     }
   });
   const el = document.getElementById('nf-faltas-count');
   if (el) el.textContent = faltasCount;
+
+  // Mesmos números, versão resumida pro painel de bipagem mobile (ver
+  // renderBipeFeedback) — só existem na casca compacta, por isso os
+  // elementos podem não estar na página; os `if (el)` cobrem isso.
+  const elConferidos = document.getElementById('nf-mobile-conferidos');
+  if (elConferidos) elConferidos.textContent = `${itensCompletos}/${totalItens}`;
+  const elFaltasMobile = document.getElementById('nf-mobile-faltas');
+  if (elFaltasMobile) elFaltasMobile.textContent = faltasCount;
 }
 
 function toggleNfScanner() {
@@ -8994,16 +9125,26 @@ function onNfScanSuccess(decodedText) {
     const newQty = currentQty + 1;
     saveNfQuantity(p.code, newQty.toString(), matchedNfNumber);
 
-    // Focar no campo de quantidade inventariada do produto bipado
-    setTimeout(() => {
-      const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
-                       || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
-      if (rowInput) {
-        rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        rowInput.focus();
-        rowInput.select();
-      }
-    }, 100);
+    flashScanner("nf-scanner-container");
+    ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
+    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty });
+    nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
+    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty });
+
+    // Focar no campo de quantidade inventariada do produto bipado — só faz
+    // sentido no desktop, onde a tabela continua visível. Na casca compacta
+    // ela some (ver style.css) em favor do cartão de feedback acima.
+    if (document.documentElement.dataset.density !== "compact") {
+      setTimeout(() => {
+        const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                         || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
+        if (rowInput) {
+          rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          rowInput.focus();
+          rowInput.select();
+        }
+      }, 100);
+    }
   } else {
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     playBeep('error');

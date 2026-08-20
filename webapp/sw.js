@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v67'; // v67: cartões mobile para Envelopes Aguardando Retirada (Owner)
+const CACHE_NAME = 'ponto-pwa-v68'; // v68: feedback mobile de bipagem (NF-e e Inventário) com flash/check
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

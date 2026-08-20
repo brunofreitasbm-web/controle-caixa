@@ -160,7 +160,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=32">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -1971,11 +1971,32 @@
             </div>
             <div id="nf-scanner-container" class="hidden w-full max-w-md mx-auto bg-surface-4 rounded-xl overflow-hidden border border-subtle relative">
               <div id="nf-reader" class="w-full"></div>
+              <span id="nf-scanner-container-check" class="scan-check-badge hidden"><i class="fa-solid fa-check"></i></span>
             </div>
           </div>
 
-          <!-- Tabela de Produtos NF -->
-          <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle">
+          <!-- Feedback de bipagem — casca compacta only (ver .bipe-mobile-panel
+               em style.css). A tabela abaixo some em telas pequenas; isto é o
+               que substitui o "rolar até a linha e focar" do desktop. -->
+          <div class="bipe-mobile-panel">
+            <div class="bipe-stats-row">
+              <div class="bipe-stat">
+                <span class="bipe-stat-valor" id="nf-mobile-conferidos">0/0</span>
+                <span class="bipe-stat-label">Conferidos</span>
+              </div>
+              <div class="bipe-stat bipe-stat-alerta">
+                <span class="bipe-stat-valor" id="nf-mobile-faltas">0</span>
+                <span class="bipe-stat-label">Faltas</span>
+              </div>
+            </div>
+            <div id="nf-bipe-card" class="bipe-feedback-card hidden"></div>
+            <div id="nf-bipe-lista" class="bipe-lista-recentes"></div>
+          </div>
+
+          <!-- Tabela de Produtos NF — some na casca compacta (ver
+               .density-compact #nf-tabela-produtos-wrap em style.css); o
+               painel de bipagem acima é quem dá a confirmação no mobile. -->
+          <div id="nf-tabela-produtos-wrap" class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle">
             <div class="p-3 bg-surface-2 border-b border-subtle flex justify-between items-center">
               <input type="text" id="nf-search-input" placeholder="Filtrar produtos da nota..." class="bg-surface-1 border border-subtle text-ink text-xs rounded-lg px-3 py-1.5 w-64 focus:outline-none">
               <span class="text-xs text-ink-muted font-mono">Faltas: <strong id="nf-faltas-count" class="text-warning">0</strong></span>
@@ -2129,6 +2150,14 @@
           <!-- Área do scanner (oculta até ativar) -->
           <div id="scanner-container" class="hidden w-full max-w-md mx-auto bg-surface-4 rounded-xl overflow-hidden border border-subtle relative">
             <div id="reader" class="w-full"></div>
+            <span id="scanner-container-check" class="scan-check-badge hidden"><i class="fa-solid fa-check"></i></span>
+          </div>
+
+          <!-- Feedback de bipagem — casca compacta only. Ver comentário
+               equivalente na aba Conferência de NF-e. -->
+          <div class="bipe-mobile-panel">
+            <div id="inv-bipe-card" class="bipe-feedback-card hidden"></div>
+            <div id="inv-bipe-lista" class="bipe-lista-recentes"></div>
           </div>
         </div>
 
@@ -2231,7 +2260,8 @@
           </div>
         </div>
 
-        <div class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
+        <!-- Some na casca compacta — mesma razão da tabela de NF-e acima. -->
+        <div id="inv-tabela-produtos-wrap" class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle bg-surface-2">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
@@ -3566,6 +3596,6 @@
 <script src="modules/auditoria.js?v=1"></script>
 <script src="modules/meta-hora-hora.js?v=1"></script>
 <script src="modules/colaboradores.js?v=1"></script>
-<script src="app.js?v=57"></script>
+<script src="app.js?v=58"></script>
 </body>
 </html>

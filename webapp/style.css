@@ -5615,3 +5615,189 @@ button:disabled:not(.fa-section *) {
   text-align: right;
   max-width: 90px;
 }
+
+/* ==========================================================================
+   CASCA COMPACTA — Feedback de bipagem (NF-e e Inventário)
+   --------------------------------------------------------------------------
+   Animações copiadas do design mobile publicado (flashRing/checkPop): a
+   moldura da câmera acende em verde-oliva e esmaece pro laranja de marca,
+   com um selo de check pulsando por cima, a cada leitura confirmada.
+   ========================================================================== */
+@keyframes flashRing {
+  0% { border-color: var(--tone-success-line); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone-success-line) 35%, transparent); }
+  100% { border-color: var(--edge-subtle); box-shadow: none; }
+}
+@keyframes checkPop {
+  0% { transform: scale(.5); opacity: 0; }
+  40% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.scan-flash {
+  animation: flashRing .6s ease-out;
+}
+
+.scan-check-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--tone-success-line);
+  color: var(--surface-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  animation: checkPop .34s ease-out;
+  z-index: 2;
+}
+
+/* O painel inteiro (contadores + cartão + lista) só existe na casca
+   compacta: no desktop a tabela de produtos continua visível e é ela quem
+   dá a confirmação, rolando até a linha bipada. */
+.bipe-mobile-panel { display: none; }
+
+.density-compact .bipe-mobile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.bipe-stats-row {
+  display: flex;
+  gap: 8px;
+}
+
+.bipe-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1px solid var(--edge-subtle);
+}
+
+.bipe-stat-valor {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--ink-strong);
+}
+
+.bipe-stat-alerta .bipe-stat-valor { color: var(--tone-warning-ink); }
+
+.bipe-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.bipe-feedback-card {
+  border-radius: var(--radius);
+  background: var(--tone-success-soft);
+  border: 1.5px solid var(--tone-success-line);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bipe-feedback-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bipe-feedback-qtd {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--tone-success-ink);
+  flex: none;
+}
+
+.bipe-feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bipe-feedback-nome {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--tone-success-ink);
+  line-height: 1.25;
+}
+
+.bipe-feedback-ean {
+  font-size: 11px;
+  color: var(--tone-success-ink);
+  opacity: .8;
+  font-variant-numeric: tabular-nums;
+}
+
+.bipe-feedback-contado {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tone-success-ink);
+}
+
+.bipe-feedback-card .bipe-btn-desfazer {
+  border-color: var(--tone-success-line);
+}
+
+.bipe-lista-recentes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bipe-item-recente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+
+.bipe-item-qtd {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bipe-item-nome {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tabelas de produto de NF-e/Inventário: 6+ colunas fixas, mesma classe de
+   overflow que já quebrava em "Envelopes Aguardando Retirada" (Owner). Sem
+   equivalente em cartão ainda — a revisão item a item de uma nota/inventário
+   inteiro continua sendo tarefa de desktop; o mobile ganhou a bipagem rápida
+   com feedback (.bipe-mobile-panel, acima), não a edição linha a linha. */
+.density-compact #nf-tabela-produtos-wrap,
+.density-compact #inv-tabela-produtos-wrap {
+  display: none;
+}
