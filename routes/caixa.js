@@ -3,7 +3,7 @@ const router = express.Router();
 const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoFechamentoCaixa } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
@@ -176,6 +176,11 @@ router.post('/registros-fa', (req, res) => {
         );
       }
 
+      // Aviso de fechamento de caixa (Líder de Operações + Owner)
+      if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamentoCaixa(r.loja, 'fa', r);
+      }
+
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
       publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
@@ -283,6 +288,11 @@ router.post('/registros', (req, res) => {
             }
           }
         );
+      }
+
+      // Aviso de fechamento de caixa (Líder de Operações + Owner)
+      if (r.tipoOperacao === 'Fechamento') {
+        enviarNotificacaoFechamentoCaixa(r.loja, 'cacau', r);
       }
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
