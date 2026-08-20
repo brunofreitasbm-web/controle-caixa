@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v64'; // v64: app.js dividido em módulos (auditoria, meta-hora-hora, colaboradores)
+const CACHE_NAME = 'ponto-pwa-v66'; // v66: telas Hoje e Avisos (operador) + sino universal
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

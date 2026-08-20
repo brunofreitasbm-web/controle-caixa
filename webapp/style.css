@@ -1,66 +1,99 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&display=swap');
 
 /* ==========================================================================
-   DESIGN SYSTEM — TOKENS SEMÂNTICOS (tema claro único)
+   DESIGN SYSTEM — TOKENS SEMÂNTICOS (tema claro único, paleta Organic)
    --------------------------------------------------------------------------
-   Fonte de verdade da paleta do app. Regras:
-     · toda superfície é clara (branco, off-white ou cinza muito claro);
+   Fonte de verdade da paleta do app. A paleta vem do design publicado
+   "Hub Operações Mobile" (design system Organic): fundo bege, cartões em
+   tom terroso e acento marrom-alaranjado. Os NOMES dos tokens não mudaram —
+   só os valores —, então as ~200 regras de componente que os consomem
+   seguiram funcionando sem reescrita.
+
+   Regras mantidas do sistema anterior:
+     · toda superfície é clara (bege, off-white ou areia);
      · todo texto é escuro, com contraste >= 7:1 (WCAG AAA) sobre a superfície
        em que assenta — as razões medidas estão anotadas em cada token;
      · cor de acento nunca vira preenchimento sólido com texto branco: entra
        como tint claro (--tone-*-soft) + borda/ícone (--tone-*-line) + rótulo
        escuro (--tone-*-ink).
-   O módulo Faça Amigos tem paleta própria (ver bloco FAÇAAMIGOS) e está
-   deliberadamente fora deste sistema.
+
+   Uma diferença de forma em relação ao sistema azul anterior: aqui
+   --surface-2 é MAIS CLARO que --surface-1, e não mais escuro. É de
+   propósito, e é o que o design faz: a página é bege (#F5EAD8), o cartão
+   assenta em areia (#EBDDC5) e o campo de entrada volta ao quase-branco
+   (#F9F4ED). A elevação é lida pelo contraste com o vizinho, não por uma
+   rampa monotônica.
+
+   O módulo Faça Amigos tem paleta própria (ver bloco FAÇAAMIGOS) e continua
+   deliberadamente fora deste sistema — é outra marca.
    ========================================================================== */
 :root {
-  /* --- Superfícies (claras, elevação cresce de canvas para dentro) -------- */
-  --surface-canvas:   #F4F6FA; /* fundo da página                            */
-  --surface-1:        #FFFFFF; /* cards, modais, topbar, sidebar             */
-  --surface-2:        #F7F9FC; /* painéis de aba, inputs, cabeçalho de tabela*/
-  --surface-3:        #EDF1F7; /* blocos embutidos, chips, trilhas           */
-  --surface-4:        #E1E8F2; /* trilhos de progresso, letterbox de vídeo   */
-  --surface-header:   #EAF0FA; /* banner de cabeçalho de seção               */
-  --surface-hover:    #F1F5FB;
-  --surface-selected: #E3EDFB;
-  --scrim:            rgba(11, 18, 32, 0.55); /* véu de modal/câmera         */
+  /* --- Tipografia --------------------------------------------------------
+     Caprasimo é uma display de peso único (400). Onde ela entra, o peso é
+     fixado em 400 na própria regra: pedir 700 faria o navegador sintetizar
+     um negrito borrado sobre uma face que já é pesada por desenho.        */
+  --font-display: 'Caprasimo', 'Figtree', system-ui, sans-serif;
+  --font-body:    'Figtree', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 
-  /* --- Tinta (contraste medido sobre --surface-1 / --surface-3) ---------- */
-  --ink-strong: #0B1220; /* 18,7:1 / 16,5:1 — títulos, números-chave         */
-  --ink:        #17212F; /* 16,2:1 / 14,3:1 — corpo, células, rótulos        */
-  --ink-muted:  #3A4759; /*  9,4:1 /  8,4:1 — legendas, hints, secundário    */
-  --ink-faint:  #4C5870; /*  7,2:1 /  6,4:1 — placeholder e desabilitado †   */
-  --ink-accent: #123A75; /* 11,1:1 /  9,8:1 — links e ênfase de marca        */
-  /* † --ink-faint só cumpre AAA sobre --surface-1 e --surface-2. É usado
-       exclusivamente em ::placeholder e [disabled], que a WCAG 1.4.3 trata
-       como texto incidental. Nenhum texto de conteúdo deve usá-lo.          */
+  /* --- Superfícies -------------------------------------------------------- */
+  --surface-canvas:   #F5EAD8; /* fundo da página                            */
+  --surface-1:        #EBDDC5; /* cards, modais, topbar, sidebar             */
+  --surface-2:        #F9F4ED; /* painéis de aba, inputs, cabeçalho de tabela*/
+  --surface-3:        #EEE7DB; /* blocos embutidos, chips, trilhas           */
+  --surface-4:        #DCD3C4; /* trilhos de progresso, letterbox de vídeo   */
+  --surface-header:   #FFE1D0; /* banner de cabeçalho de seção               */
+  --surface-hover:    #E1D3BA;
+  --surface-selected: #FFE1D0;
+  --scrim:            rgba(46, 43, 37, 0.55); /* véu de modal/câmera         */
 
-  /* --- Bordas ------------------------------------------------------------ */
-  --edge-subtle:  #E3E9F2; /* divisórias decorativas                         */
-  --edge-default: #D3DBE8; /* bordas de card e tabela                        */
-  --edge-strong:  #78869E; /* 3,7:1 — contorno de controle interativo        */
-  --edge-accent:  #2563EB;
-  --edge-focus:   #1D4ED8;
+  /* --- Tinta (contraste medido sobre --surface-1 / --surface-canvas) ----- */
+  --ink-strong: #201E1D; /* 12,4:1 / 13,9:1 — títulos, números-chave         */
+  --ink:        #2E2B25; /* 10,5:1 / 11,9:1 — corpo, células, rótulos        */
+  --ink-muted:  #474238; /*  7,5:1 /  8,4:1 — legendas, hints, secundário    */
+  --ink-faint:  #645C50; /*  4,9:1 /  5,5:1 — placeholder e desabilitado †   */
+  --ink-accent: #643312; /*  7,7:1 /  8,7:1 — links e ênfase de marca        */
+  /* † --ink-faint não cumpre AAA sobre --surface-1. É usado exclusivamente
+       em ::placeholder e [disabled], que a WCAG 1.4.3 trata como texto
+       incidental. Nenhum texto de conteúdo deve usá-lo.                    */
 
-  /* --- Tríades de status: tint / tinta escura / linha de acento ---------- */
-  --tone-success-soft: #ECFDF5; --tone-success-ink: #0B5138; --tone-success-line: #047857; /* 8,9:1 */
-  --tone-danger-soft:  #FEF2F2; --tone-danger-ink:  #8C1220; --tone-danger-line:  #DC2626; /* 9,2:1 */
-  --tone-warning-soft: #FFF7ED; --tone-warning-ink: #7C2D12; --tone-warning-line: #C2410C; /* 8,8:1 */
-  --tone-info-soft:    #EFF6FF; --tone-info-ink:    #123A75; --tone-info-line:    #2563EB; /* 10,2:1 */
-  --tone-accent-soft:  #EEF3FC; --tone-accent-ink:  #123A75; --tone-accent-line:  #2563EB; /* 10,4:1 */
+  /* --- Bordas ------------------------------------------------------------
+     --edge-strong, --edge-accent e --edge-focus contornam controle
+     interativo: as três medem >= 3:1 contra --surface-1, o mínimo da WCAG
+     1.4.11 para elemento não textual.                                      */
+  --edge-subtle:  #E1D3BA; /* divisórias decorativas                         */
+  --edge-default: #DCD3C4; /* bordas de card e tabela                        */
+  --edge-strong:  #82796A; /* 3,2:1 — contorno de controle interativo        */
+  --edge-accent:  #B2622D; /* 3,4:1                                          */
+  --edge-focus:   #8C491A; /* 5,1:1                                          */
+
+  /* --- Tríades de status: tint / tinta escura / linha de acento ----------
+     success e accent saem das rampas do Organic (verde-oliva e marrom).
+     danger, warning e info foram afinados à mão: as três precisam continuar
+     distinguíveis do acento da marca, que já é laranja-terroso.            */
+  --tone-success-soft: #E1EECC; --tone-success-ink: #272E1B; --tone-success-line: #728157; /* 11,6:1 */
+  --tone-danger-soft:  #FBE6E2; --tone-danger-ink:  #7A1D12; --tone-danger-line:  #B3271A; /*  8,7:1 */
+  --tone-warning-soft: #FBECC9; --tone-warning-ink: #5C3F06; --tone-warning-line: #9C6F0F; /*  8,3:1 */
+  --tone-info-soft:    #E4ECF1; --tone-info-ink:    #17414F; --tone-info-line:    #3D6C80; /*  9,2:1 */
+  --tone-accent-soft:  #FFE1D0; --tone-accent-ink:  #643312; --tone-accent-line:  #B2622D; /*  8,4:1 */
 
   /* --- Hover das superfícies tonalizadas --------------------------------- */
-  --tone-success-hover: #DCFCE7;
-  --tone-danger-hover:  #FEE2E2;
-  --tone-warning-hover: #FFEDD5;
-  --tone-info-hover:    #DBEAFE;
-  --tone-accent-hover:  #E3EDFB;
+  --tone-success-hover: #CCDBB2;
+  --tone-danger-hover:  #F6D5CF;
+  --tone-warning-hover: #F5E0AE;
+  --tone-info-hover:    #D5E1E9;
+  --tone-accent-hover:  #FFC6A5;
 
-  /* --- Forma e movimento ------------------------------------------------- */
-  --radius: 12px;
-  --shadow-sm: 0 1px 2px rgba(11, 18, 32, 0.05);
-  --shadow-md: 0 1px 3px rgba(11, 18, 32, 0.07), 0 1px 2px rgba(11, 18, 32, 0.04);
-  --shadow-lg: 0 8px 24px rgba(11, 18, 32, 0.09);
+  /* --- Forma e movimento -------------------------------------------------
+     O design arredonda muito mais que o sistema anterior (cartões em 28–32px,
+     controles em pílula). 18px é o meio-termo que o app inteiro suporta:
+     tabela densa e chip pequeno ainda leem bem, e as peças que o design quer
+     redondas (bottom-nav, FAB, cartão) pedem o raio maior na própria regra. */
+  --radius:    18px;
+  --radius-sm: 10px;
+  --radius-lg: 30px;
+  --shadow-sm: 0 1px 2px rgba(46, 43, 37, 0.08);
+  --shadow-md: 0 3px 10px rgba(46, 43, 37, 0.10);
+  --shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.16);
   --transition: all 0.25s ease;
 
   /* --- Aliases de compatibilidade -----------------------------------------
@@ -88,10 +121,13 @@
   --blue:        var(--tone-info-line);
   --blue-light:  var(--tone-info-soft);
 
-  /* --- Barra lateral (agora clara) --------------------------------------- */
-  --sidebar-bg:                 var(--surface-1);
+  /* --- Barra lateral ------------------------------------------------------
+     A lateral e a topbar ficam no tom mais claro (--surface-2), não no tom
+     de cartão: elas emolduram a página bege, e usar o areia dos cartões
+     faria a moldura competir com o conteúdo.                              */
+  --sidebar-bg:                 var(--surface-2);
   --sidebar-border:             var(--edge-subtle);
-  --sidebar-group-bg:           var(--surface-2);
+  --sidebar-group-bg:           var(--surface-3);
   --sidebar-group-header-color: var(--ink-muted);
   --sidebar-text:               var(--ink);
   --sidebar-text-muted:         var(--ink-muted);
@@ -100,7 +136,7 @@
   --sidebar-active-bg:          var(--surface-selected);
   --sidebar-active-text:        var(--ink-strong);
   --sidebar-active-rail:        var(--edge-accent);
-  --topbar-bg:                  var(--surface-1);
+  --topbar-bg:                  var(--surface-2);
   --topbar-border:              var(--edge-subtle);
 }
 
@@ -183,8 +219,11 @@
 /* Estojos de gradiente claros (o card-resumo de Configurações ainda os usa).
    !important porque tailwind-compiled.css carrega depois e sobrescreveria as
    custom properties --tw-gradient-* com a mesma especificidade. */
-.from-cream { --tw-gradient-from: #F4F6FA var(--tw-gradient-from-position) !important; --tw-gradient-to: #F4F6FA00 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-.to-paper   { --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important; }
+/* Os valores ficam literais, e não em var(): `--tw-gradient-from` é lida pelo
+   tailwind-compiled.css, que precisa da cor com o sufixo de opacidade
+   (`#F5EAD800`) colado — uma custom property não pode ser concatenada assim. */
+.from-cream { --tw-gradient-from: #F5EAD8 var(--tw-gradient-from-position) !important; --tw-gradient-to: #F5EAD800 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-paper   { --tw-gradient-to: #EBDDC5 var(--tw-gradient-to-position) !important; }
 
 /* Preenchimento das barras de progresso (Meta Hora a Hora e perfil DISC):
    classes aplicadas por JS e ausentes do build estático do Tailwind. */
@@ -223,7 +262,7 @@
 }
 
 .section-header h2 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--ink-strong); /* 16,3:1 sobre --surface-header */
@@ -276,7 +315,7 @@
 }
 
 body {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-body);
   background: var(--cream);
   color: var(--ink);
   line-height: 1.5;
@@ -344,7 +383,7 @@ html.sidebar-mobile-open body {
   left: 0;
   z-index: 1000;
   border-right: 1px solid var(--sidebar-border);
-  box-shadow: 4px 0 18px rgba(11, 18, 32, 0.05);
+  box-shadow: 4px 0 18px rgba(46, 43, 37, 0.05);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -415,7 +454,7 @@ html.sidebar-mobile-open body {
 }
 
 .brand h1 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -497,7 +536,7 @@ html.sidebar-mobile-open body {
   border: none;
   background: transparent;
   color: var(--sidebar-group-header-color);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -574,7 +613,7 @@ html.sidebar-mobile-open body {
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   font-weight: 600;
   text-align: left;
@@ -693,7 +732,7 @@ html.sidebar-mobile-open body {
 }
 
 .topbar-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--ink-strong);
@@ -806,7 +845,7 @@ html.sidebar-mobile-open body {
   color: var(--ink-muted);
   padding: 6px 14px;
   border-radius: 999px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
@@ -907,7 +946,7 @@ main {
 }
 
 .card h2 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   color: var(--wine);
   font-size: 1.6rem;
   margin-bottom: 24px;
@@ -979,7 +1018,7 @@ input:focus, select:focus {
   color: var(--ink);
   cursor: pointer;
   font-weight: 700;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   border-radius: 10px;
   transition: var(--transition);
@@ -1047,7 +1086,7 @@ input:focus, select:focus {
 .btn-primary {
   padding: 14px 28px;
   border-radius: 14px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-weight: 800;
   font-size: 0.88rem;
   letter-spacing: 0.5px;
@@ -1103,7 +1142,7 @@ input:focus, select:focus {
 }
 
 .dash-header h2 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   color: var(--wine);
   margin: 0;
   font-size: 1.8rem;
@@ -1112,7 +1151,7 @@ input:focus, select:focus {
 .dash-total {
   background: var(--gold-light) !important;
   color: var(--wine-dark) !important;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-weight: 800;
   padding: 8px 20px;
   border-radius: 999px;
@@ -1169,14 +1208,14 @@ input:focus, select:focus {
 }
 
 .loja-card h4 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.05rem;
   color: var(--muted);
   margin-bottom: 12px;
 }
 
 .loja-card .valor {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--wine);
@@ -1264,14 +1303,14 @@ input:focus, select:focus {
   height: 100%;
   border-radius: 999px;
   transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: inset 0 2px 4px rgba(11, 18, 32, 0.06);
+  box-shadow: inset 0 2px 4px rgba(46, 43, 37, 0.06);
 }
 
 .bar-value {
   text-align: right;
   font-weight: 700;
   color: var(--wine);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
 }
 
 /* ==========================================================================
@@ -1487,7 +1526,7 @@ tr.selected-row {
 }
 
 .modal h3 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   color: var(--wine);
   margin-bottom: 12px;
   font-size: 1.4rem;
@@ -2276,7 +2315,7 @@ button:focus-visible,
   color: var(--ink-muted);
   cursor: pointer;
   transition: color 0.18s ease, background-color 0.18s ease;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   padding: 0 4px;
 }
@@ -3207,13 +3246,13 @@ body.tema-fa .topbar {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  box-shadow: 0 4px 20px rgba(11, 18, 32, 0.35);
+  box-shadow: 0 4px 20px rgba(46, 43, 37, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .camera-universal-capture-btn:active {
   transform: scale(0.93);
-  box-shadow: 0 2px 8px rgba(11, 18, 32, 0.3);
+  box-shadow: 0 2px 8px rgba(46, 43, 37, 0.3);
 }
 
 
@@ -3334,7 +3373,7 @@ body.tema-fa .topbar {
 }
 .btn-primary::after {
   content: "";
-  background: rgba(11, 18, 32, 0.10);
+  background: rgba(46, 43, 37, 0.10);
   display: block;
   position: absolute;
   border-radius: 50%;
@@ -3483,7 +3522,7 @@ body.tema-fa .topbar {
 }
 
 .notifications-header h3 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--ink);
@@ -3996,10 +4035,37 @@ body.tema-fa .topbar {
    BLUEDOX DESIGN SYSTEM LAYOUT & DESIGN SYSTEM SPECIFIC ADDITIONS
    ========================================================================== */
 
-/* Global Typography & Legibility Override to Inter */
-body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .tab-btn {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+/* Tipografia global — duas famílias, uma decisão por papel.
+   -------------------------------------------------------------------------
+   Este bloco tem `!important` porque precisa vencer o tailwind-compiled.css
+   (congelado, carregado depois). Ele é o motivo de as regras
+   `font-family: var(--font-body)` espalhadas acima nunca terem efeito
+   próprio: sobrevivem como documentação do papel de cada peça, mas quem
+   decide é aqui.
+
+   Corpo, controle e rótulo ficam em Figtree. Título vai para Caprasimo —
+   com o peso fixado em 400, porque a face só existe nesse peso e qualquer
+   valor maior vira negrito sintético. */
+body, button, input, select, textarea, .tab-btn {
+  font-family: var(--font-body) !important;
   color: var(--ink);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.015em;
+  color: var(--ink-strong);
+}
+
+/* `.font-display` já existia como classe em várias telas (ex.: `<h2
+   class="font-display ...">` no cabeçalho do Dashboard) sem nenhuma regra
+   correspondente — nas headings isso não se notava, porque a regra acima já
+   cobre h1–h6; a classe existir sem efeito próprio é o que permite usá-la
+   também fora de uma heading (um <span> de número grande, por exemplo). */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
 }
 
 /* Herança de tinta: qualquer conteúdo fora do Faça Amigos herda a tinta
@@ -4377,7 +4443,7 @@ button:disabled:not(.fa-section *) {
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-  border-top: 0.5px solid rgba(11, 18, 32, 0.14);
+  border-top: 0.5px solid rgba(46, 43, 37, 0.14);
   box-shadow: none;
 }
 
@@ -4421,7 +4487,7 @@ button:disabled:not(.fa-section *) {
   background: rgba(255, 255, 255, 0.78);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 0.5px solid rgba(11, 18, 32, 0.14);
+  border-bottom: 0.5px solid rgba(46, 43, 37, 0.14);
   box-shadow: none;
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -4559,7 +4625,7 @@ button:disabled:not(.fa-section *) {
   height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
   background: var(--surface-1);
   border-top: none;
-  box-shadow: 0 -1px 3px rgba(11, 18, 32, 0.08);
+  box-shadow: 0 -1px 3px rgba(46, 43, 37, 0.08);
 }
 
 .idiom-android.density-compact .bottom-nav-btn {
@@ -4630,7 +4696,7 @@ button:disabled:not(.fa-section *) {
   border-radius: 50%;
   transform: scale(0);
   animation: rippleExpande 0.55s var(--motion-decel);
-  background-color: rgba(11, 18, 32, 0.12);
+  background-color: rgba(46, 43, 37, 0.12);
   pointer-events: none;
 }
 
@@ -5269,3 +5335,171 @@ button:disabled:not(.fa-section *) {
 .painel-ifood {
   display: none !important;
 }
+
+/* ==========================================================================
+   TIPOGRAFIA DISPLAY EM PEÇAS QUE NÃO SÃO CABEÇALHO
+   --------------------------------------------------------------------------
+   O bloco global acima já manda h1–h6 para a Caprasimo. Estes quatro não são
+   heading no markup, mas ocupam o mesmo papel visual — nome do produto e
+   números-chave —, e é o que o design publicado faz com eles.
+   font-weight: 400 porque a face só existe nesse peso (ver :root).
+   ========================================================================== */
+.topbar-title,
+.dash-total,
+.loja-card .valor,
+.stat-card .valor {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+}
+
+/* O !important de `.topbar-title { font-weight: 700 }`, lá em cima, é
+   anterior a este e perderia por ordem de documento — mas só se este também
+   for !important, que é o caso acima. */
+
+/* ==========================================================================
+   CASCA COMPACTA — CABEÇALHO DE PERFIL
+   --------------------------------------------------------------------------
+   No desktop o topo é uma barra de ferramentas: marca à esquerda, uma fila
+   de botões à direita. No celular o design publicado troca isso por um
+   cabeçalho de identidade — avatar, nome, escopo e o sino — porque é a única
+   superfície onde cabe dizer "estes números são da Marambaia".
+
+   A reordenação é feita com `display: contents` na .user-box, e não movendo
+   markup: os mesmos elementos servem as duas densidades, então o avatar não
+   pode existir em dois lugares do DOM. `contents` dissolve o contêiner e
+   promove os filhos a itens do flex do .topbar, onde `order` os coloca na
+   ordem do design (avatar → identidade → sino) sem duplicar nada.
+   ========================================================================== */
+.density-compact .topbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+}
+
+.density-compact .user-box {
+  display: contents;
+}
+
+.density-compact .topbar-left { order: 1; flex: none; gap: 4px; }
+.density-compact #topbar-user-profile { order: 2; flex: 1 1 auto; min-width: 0; }
+.density-compact #btn-instalar-pwa { order: 3; }
+.density-compact .notifications-wrapper { order: 4; flex: none; }
+
+/* A marca sai: o nome do app já está no ícone da tela inicial e na splash, e
+   o cabeçalho compacto tem 200px úteis para nome + escopo. */
+.density-compact .topbar-brand-mobile { display: none; }
+
+/* Duplicatas da gaveta. Todas continuam alcançáveis pelo hambúrguer/"Mais":
+   "Configurações" é aba na barra lateral e "Trocar Módulo" está em
+   .sidebar-actions. Mantê-las aqui espremeria o escopo até as reticências. */
+.density-compact #btn-global-configuracoes,
+.density-compact #owner-module-switch,
+.density-compact #btn-topbar-trocar-modulo {
+  display: none !important;
+}
+
+/* Instalar o PWA importa justamente aqui, então o botão fica — só perde o
+   rótulo. font-size: 0 no botão apaga o nó de texto solto (não há elemento
+   para esconder); o ícone recupera o seu tamanho. */
+.density-compact #btn-instalar-pwa {
+  font-size: 0;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+}
+.density-compact #btn-instalar-pwa i { font-size: 15px; }
+
+/* Os três !important vencem o `style=` inline do #topbar-user-profile, que
+   desenha o separador vertical do desktop. */
+.density-compact #topbar-user-profile {
+  border-left: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  gap: 11px !important;
+}
+
+.density-compact #topbar-user-avatar {
+  width: 38px !important;
+  height: 38px !important;
+  font-size: 14px !important;
+  background: var(--tone-accent-soft) !important;
+  color: var(--tone-accent-ink) !important;
+  border-color: var(--edge-accent) !important;
+  flex: none;
+}
+
+.topbar-user-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* No desktop o escopo já está na barra lateral; mostrá-lo aqui seria a mesma
+   frase duas vezes na mesma tela. */
+.topbar-user-scope { display: none; }
+
+.density-compact .topbar-user-ident { flex: 1 1 auto; }
+
+.density-compact #topbar-user-name {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: var(--ink-strong) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.density-compact .topbar-user-scope {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* O sino é o destino de "Avisos" do design. Ele já existe e já traz o
+   contador; na casca compacta só cresce para o alvo de toque mínimo. */
+.density-compact .notifications-wrapper .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-default);
+  background: var(--surface-1);
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — BARRA INFERIOR NA PALETA NOVA
+   --------------------------------------------------------------------------
+   A estrutura (posição, alturas por idioma, pílula indicadora do M3) é a que
+   já estava publicada. Muda só o acabamento, para bater com o design: a
+   barra assenta no tom mais claro, não no areia dos cartões, e a pílula é
+   redonda de verdade em vez de 16dp.
+   ========================================================================== */
+.density-compact .bottom-nav {
+  background: var(--surface-2);
+  border-top: 1px solid var(--edge-subtle);
+}
+
+.idiom-android.density-compact .bottom-nav {
+  background: var(--surface-2);
+}
+
+.idiom-android.density-compact .bottom-nav-btn .nav-icon::before {
+  border-radius: 999px;
+}
+
+.density-compact .bottom-nav-btn .nav-rotulo {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Cinco destinos entram em 390px, mas sem folga para padding lateral: o
+   rótulo precisa da largura inteira do botão para não truncar "Inventário". */
+.density-compact .bottom-nav-btn { padding: 0 2px; }

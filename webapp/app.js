@@ -171,41 +171,61 @@ let USERS = [
 ];
 
 const TABS_POR_ROLE = {
-  consultora: ["registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "configuracoes"],
-  consultora_fa: ["faca-amigos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "configuracoes"],
+  // "hoje" só para consultora: é o resumo de UMA loja (a dela), não faz
+  // sentido para quem acompanha várias (Líder de Operações usa "meta-hora-hora"
+  // com o seletor de loja; ver QUICK_MENU_POR_ROLE mais abaixo).
+  consultora: ["hoje", "registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
+  consultora_fa: ["faca-amigos", "avisos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "avisos", "configuracoes"],
 };
 
 // Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
 // curado por perfil — diferente de TABS_POR_ROLE, que continua controlando a
 // sidebar completa. `faSubtab`, quando presente, pula direto para a sub-aba
 // certa dentro de "faca-amigos" (mesmo padrão dos botões tab-btn-fa-*).
+//
+// A ORDEM importa duas vezes. Na grade da sidebar ela é só leitura; na barra
+// inferior ela decide o que cabe, porque só os primeiros itens viram destino
+// fixo e o resto vai para "Mais". Por isso cada lista começa pelo destino que
+// o perfil abre primeiro no dia — a mesma ordem do design mobile publicado:
+// operador entra na meta do dia, líder no hora a hora, owner no painel.
+//
+// `curto` é o rótulo da barra inferior. A grade da sidebar continua com
+// `label` inteiro: lá há largura para "Metas Hora a Hora", aqui não — em
+// 390px de tela um destino tem ~78px e o rótulo longo virava reticências,
+// que não distinguem "Conferência NF-e" de "Conferência de estoque".
 const QUICK_MENU_POR_ROLE = {
   consultora: [
-    { tab: "registro", icon: "fa-file-signature", label: "Registrar Caixa" },
-    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto" },
-    { tab: "meta-hora-hora", icon: "fa-bullseye", label: "Metas Hora a Hora" },
-    { tab: "conferencia-nfe", icon: "fa-truck", label: "Conferência NF-e" },
-    { tab: "inventario-estoque", icon: "fa-clipboard-list", label: "Inventário" },
+    { tab: "hoje", icon: "fa-bullseye", label: "Hoje", curto: "Hoje" },
+    { tab: "registro", icon: "fa-box-open", label: "Registrar Caixa", curto: "Caixa" },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", label: "Conferência NF-e", curto: "NF-e" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
   consultora_dashboard: [
-    { tab: "registro", icon: "fa-file-signature", label: "Registrar Caixa" },
-    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto" },
-    { tab: "meta-hora-hora", icon: "fa-bullseye", label: "Metas Hora a Hora" },
-    { tab: "conferencia-nfe", icon: "fa-truck", label: "Conferência NF-e" },
-    { tab: "inventario-estoque", icon: "fa-clipboard-list", label: "Inventário" },
-    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard" },
-    { tab: "historico", icon: "fa-receipt", label: "Histórico" },
-    { tab: "importacoes", icon: "fa-file-import", label: "Importações" },
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
+    { tab: "importar-meta", icon: "fa-bullseye", label: "Metas do Dia", curto: "Metas" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard", curto: "Painel" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
+    { tab: "registro", icon: "fa-box-open", label: "Registrar Caixa", curto: "Caixa" },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", label: "Conferência NF-e", curto: "NF-e" },
+    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto", curto: "Ponto" },
+    { tab: "historico", icon: "fa-receipt", label: "Histórico", curto: "Histórico" },
+    { tab: "importacoes", icon: "fa-file-import", label: "Importações", curto: "Importar" },
   ],
   consultora_fa: [
-    { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope" },
-    { tab: "faca-amigos", faSubtab: "fa-meta", icon: "fa-bullseye", label: "Meta & Bonificação" },
+    { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope", curto: "Envelope" },
+    { tab: "faca-amigos", faSubtab: "fa-meta", icon: "fa-bullseye", label: "Meta & Bonificação", curto: "Meta" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
   owner: [
-    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS" },
-    { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA" },
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS", curto: "Painel" },
+    { tab: "historico", icon: "fa-box-open", label: "Envelopes", curto: "Envelopes" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
 };
 
@@ -1470,6 +1490,41 @@ document.getElementById("btn-trocar-usuario").addEventListener("click", () => {
   atualizarNotificacoes();
 });
 
+// Iniciais do avatar: duas letras, como no design mobile publicado.
+// "Ana Júlia" -> AJ, "Alexandra" -> AL, "Bruno" -> BR. Uma letra só ficava
+// ambígua num time onde três pessoas começam com A.
+function iniciaisDoUsuario(nome) {
+  if (!nome) return "U";
+  const partes = String(nome).trim().split(/\s+/).filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return partes[0].slice(0, 2).toUpperCase();
+}
+
+// Linha de escopo do cabeçalho: de qual recorte de dados é a tela.
+// Quem opera uma loja vê a loja; quem acompanha várias vê a contagem, porque
+// listar quatro nomes não cabe numa linha de 200px e a contagem é a
+// informação que muda a leitura ("isto é o consolidado, não a minha loja").
+function escopoDoUsuario() {
+  if (!currentUser) return "";
+  const labels = typeof UNIDADE_LABEL_TEXTO !== "undefined" ? UNIDADE_LABEL_TEXTO : {};
+  const bruto = currentUser.unidade || "";
+
+  if (currentUser.role === "consultora_dashboard") return "Operação · todas as unidades";
+  if (bruto === "all" || bruto === "") {
+    return currentUser.role === "owner" ? "Todas as unidades" : "Sem unidade definida";
+  }
+
+  const unidades = String(bruto).split(",").map(u => u.trim()).filter(Boolean);
+  if (unidades.length === 1) {
+    // "9175 - Marambaia" -> "Marambaia · 9175": o nome vem primeiro porque é
+    // o que a consultora usa para falar da loja; o código fica de conferência.
+    const label = labels[unidades[0]] || unidades[0];
+    const m = /^(\S+)\s*-\s*(.+)$/.exec(label);
+    return m ? `${m[2]} · ${m[1]}` : label;
+  }
+  return `${unidades.length} unidades`;
+}
+
 function entrarNoApp() {
   loginOverlay.classList.add("hidden");
   document.getElementById("session-overlay").classList.add("hidden");
@@ -1478,13 +1533,20 @@ function entrarNoApp() {
   if (currentUser) {
     const avatarEl = document.getElementById("topbar-user-avatar");
     const nameEl = document.getElementById("topbar-user-name");
-    if (avatarEl) {
-      avatarEl.textContent = currentUser.nome ? currentUser.nome.charAt(0).toUpperCase() : "U";
-    }
-    if (nameEl) {
-      nameEl.textContent = currentUser.nome.split(" ")[0] || "Usuário";
-    }
+    const scopeEl = document.getElementById("topbar-user-scope");
+    if (avatarEl) avatarEl.textContent = iniciaisDoUsuario(currentUser.nome);
+    if (nameEl) nameEl.textContent = currentUser.nome.split(" ")[0] || "Usuário";
+    // A linha de escopo só aparece na casca compacta (ver style.css): no
+    // celular o cabeçalho é a única peça que diz de qual loja são os números
+    // da tela — no desktop isso já está na barra lateral.
+    if (scopeEl) scopeEl.textContent = escopoDoUsuario();
   }
+
+  // Badge do sino: antes só disparava dentro do Dashboard (Owner), que o
+  // operador nunca abre. Agora que o sino/Avisos serve todo mundo, precisa
+  // de um número certo desde o primeiro segundo logado, não só depois de
+  // visitar uma aba específica.
+  atualizarNotificacoes();
 
   inscreverPushNotificacoes();
 
@@ -1664,13 +1726,13 @@ function iniciarModuloBase(moduloOpcional) {
     } else if (moduloOpcional === "faca-amigos") {
       // Sem "controle-ponto" aqui: Registro de Ponto do FaçaAmigos é feito por
       // outro sistema, o módulo de Ponto deste app é exclusivo do Cacau Show.
-      tabsPermitidas = ["faca-amigos", "aniversarios", "configuracoes"];
+      tabsPermitidas = ["faca-amigos", "aniversarios", "avisos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "rh-modulo") {
-      tabsPermitidas = ["rh-modulo", "colaboradores", "configuracoes"];
+      tabsPermitidas = ["rh-modulo", "colaboradores", "avisos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     } else if (moduloOpcional === "controle-ponto") {
-      tabsPermitidas = ["controle-ponto", "configuracoes"];
+      tabsPermitidas = ["controle-ponto", "avisos", "configuracoes"];
       document.getElementById("btn-trocar-modulo").classList.remove("hidden");
     }
   } else {
@@ -2040,7 +2102,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "hoje", "avisos"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2105,6 +2167,10 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
+  // "hoje" lê os mesmos dados de "meta-hora-hora" (ver atualizarPainelHoje,
+  // chamado de dentro de carregarMetaHoraHora) — reaproveita o mesmo init.
+  if (tabName === "hoje") inicializarMetaHoraHora();
+  if (tabName === "avisos") renderAvisos();
   if (tabName === "aniversarios") renderAniversarios();
   // Fecha a sidebar mobile ao selecionar uma aba
   fecharSidebarMobile();
@@ -2537,20 +2603,26 @@ function renderMenuRapido() {
     });
   }
 
-  // A barra inferior recebe no máximo 4 destinos + "Mais"; a grade da barra
+  // A barra inferior recebe no máximo 5 destinos + "Mais"; a grade da barra
   // lateral continua com a lista inteira. O perfil consultora_dashboard tem 9
   // atalhos, e nove destinos numa barra de 390px dão ~43px cada — abaixo do
   // mínimo de toque das duas plataformas (44pt na HIG, 48dp no Material) e
   // muito além do limite de destinos que ambas recomendam. "Mais" abre a
   // gaveta, que já contém todos os itens.
-  const NAV_MAX = 4;
+  //
+  // 5, e não os 4 de antes, porque é o que o design mobile publicado usa para
+  // o operador (Hoje · Caixa · NF-e · Inventário · Ponto) e o que as duas
+  // plataformas ainda admitem: 5 destinos em 390px dão 78px cada, folgado
+  // sobre os 44pt da HIG e os 48dp do Material. 6 já não daria.
+  const NAV_MAX = 5;
   const bottomNav = document.getElementById("bottom-nav");
   if (bottomNav) {
     bottomNav.innerHTML = "";
     const cabem = itens.length > NAV_MAX ? itens.slice(0, NAV_MAX) : itens;
     cabem.forEach(item => {
       const btn = criarBotao(item, "bottom-nav-btn");
-      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span><span class="nav-rotulo">${item.label}</span>`;
+      btn.setAttribute("aria-label", item.label);
+      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span><span class="nav-rotulo">${item.curto || item.label}</span>`;
       bottomNav.appendChild(btn);
     });
     if (itens.length > NAV_MAX) {
@@ -4848,34 +4920,11 @@ async function salvarRegraFaBonificacao() {
 
 
 // --- Notificações System ---
-function obterNotificacoesPendentes() {
-  if (!currentUser || currentUser.role !== "owner") return [];
-
-  // Obter pendências de Cacau Show
-  const cshow = (registros || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
-    .map(r => ({
-      id: r.id,
-      loja: r.loja,
-      valor: Number(r.valorEnvelope) || 0,
-      data: r.dataOperacao,
-      consultor: r.consultor,
-      origem: "Cacau Show"
-    }));
-
-  // Obter pendências de Faça Amigos
-  const famigos = (registrosFA || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
-    .map(r => ({
-      id: r.id,
-      loja: r.loja,
-      valor: Number(r.valorEnvelope) || 0,
-      data: r.dataOperacao,
-      consultor: r.consultor,
-      origem: "Faça Amigos"
-    }));
-
-  // Combinamos ambas e ordenamos pela data da operação (mais recente primeiro)
-  return [...cshow, ...famigos].sort((a, b) => new Date(b.data) - new Date(a.data));
-}
+// obterNotificacoesPendentes() (owner-only, envelopes de todas as unidades)
+// foi substituída por obterAvisosPendentes() — mesma lógica, generalizada
+// por perfil, mais adiante no arquivo, perto de renderAvisos(). Uma função
+// só, pra badge do sino e a aba "Avisos" nunca discordarem sobre o que está
+// pendente.
 
 function atualizarNotificacoes() {
   const btnNotif = document.getElementById("btn-notificacoes");
@@ -4885,7 +4934,11 @@ function atualizarNotificacoes() {
 
   if (!btnNotif || !badgeNotif) return;
 
-  if (!currentUser || currentUser.role !== "owner") {
+  // O sino era exclusivo do Owner (só ele via envelope aguardando retirada
+  // de todas as unidades). Agora que existe a aba "Avisos" para todo mundo
+  // — cada perfil com o próprio recorte, ver obterAvisosPendentes() — o
+  // sino também é universal; só o conteúdo pendente muda por perfil.
+  if (!currentUser) {
     btnNotif.classList.add("hidden");
     if (dropdown) dropdown.classList.add("hidden");
     return;
@@ -4893,7 +4946,7 @@ function atualizarNotificacoes() {
 
   btnNotif.classList.remove("hidden");
 
-  const pendentes = obterNotificacoesPendentes();
+  const pendentes = obterAvisosPendentes();
   
   // Obter IDs já lidos de localStorage
   let lidas = [];
@@ -4982,7 +5035,7 @@ function marcarComoLida(id) {
 }
 
 function marcarTodasComoLidas() {
-  const pendentes = obterNotificacoesPendentes();
+  const pendentes = obterAvisosPendentes();
   let lidas = [];
   try {
     lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
@@ -5004,10 +5057,16 @@ function inicializarNotificacoesListeners() {
   const dropdown = document.getElementById("notifications-dropdown");
   const btnMarcarLidas = document.getElementById("btn-marcar-todas-lidas");
 
-  if (btnNotif && dropdown) {
+  // O sino agora abre a aba "Avisos" (página cheia, com o mesmo texto que a
+  // Avisos tem) em vez do dropdown: em 390px de tela um menu suspenso não
+  // tem onde crescer. O dropdown em si (markup + população da lista) fica
+  // como está, só não é mais alcançável por clique — não vale a pena
+  // remover o HTML/JS dele agora e arriscar quebrar algo que não está sendo
+  // testado nesta leva.
+  if (btnNotif) {
     btnNotif.onclick = (e) => {
       e.stopPropagation();
-      dropdown.classList.toggle("hidden");
+      ativarTab("avisos");
     };
   }
 
@@ -5015,6 +5074,14 @@ function inicializarNotificacoesListeners() {
     btnMarcarLidas.onclick = (e) => {
       e.stopPropagation();
       marcarTodasComoLidas();
+    };
+  }
+
+  const btnAvisosMarcarLidas = document.getElementById("btn-avisos-marcar-lidas");
+  if (btnAvisosMarcarLidas) {
+    btnAvisosMarcarLidas.onclick = () => {
+      marcarTodasComoLidas();
+      renderAvisos();
     };
   }
 
@@ -12461,7 +12528,25 @@ function processarMetasXLSX(file, codigoLoja, infoEl) {
 
 function inicializarMetaHoraHora() {
   const selector = document.getElementById("meta-operacao-selector");
-  if (selector) {
+
+  // consultora só tem uma loja — a dela, currentUser.unidade — e não vê o
+  // seletor na tela "Hoje". Usar currentStore aqui (contexto do seletor de
+  // Inventário/NF-e, uma tela totalmente à parte) faria "Hoje" mostrar a
+  // meta de qualquer loja que por acaso esteja selecionada lá, não a da
+  // própria colaboradora. Líder/Owner continuam pelo seletor, porque
+  // acompanham várias lojas e o currentUser.unidade delas é "all".
+  const lojaPropria = currentUser && currentUser.role === "consultora" && currentUser.unidade
+    ? getLojaNomePorCodigo(currentUser.unidade)
+    : null;
+
+  if (lojaPropria) {
+    metaOperacaoAtiva = lojaPropria;
+    if (selector) {
+      selector.value = metaOperacaoAtiva;
+      aplicarCorOperacaoSelect(selector);
+      selector.onchange = null; // consultora não troca de loja aqui
+    }
+  } else if (selector) {
     metaOperacaoAtiva = getLojaNomePorCodigo(currentStore);
     selector.value = metaOperacaoAtiva;
     aplicarCorOperacaoSelect(selector);
@@ -13608,6 +13693,7 @@ async function carregarMetaHoraHora() {
     if (avisoEl) avisoEl.classList.remove("hidden");
     if (conteudoEl) conteudoEl.classList.add("hidden");
     prepararMetaManual(hoje);
+    atualizarPainelHoje(null);
     return;
   }
   if (avisoEl) avisoEl.classList.add("hidden");
@@ -13716,6 +13802,13 @@ async function carregarMetaHoraHora() {
   checkpoints.forEach(slotMin => {
     acumuladoMeta += calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
     metaAcumuladaPorSlot[slotMin] = acumuladoMeta;
+  });
+
+  // Tela "Hoje" (mobile, operador): mesma leitura dos números acima, sem
+  // fetch próprio — ver o comentário no topo de atualizarPainelHoje.
+  atualizarPainelHoje({
+    loja: metaOperacaoAtiva, metaDiaria, totalHoje, esperadoAteAgora,
+    checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot
   });
 
   // Progresso do dia
@@ -13871,6 +13964,275 @@ async function carregarMetaHoraHora() {
     });
   }
 }
+
+// ==========================================================================
+// TELA "HOJE" (mobile, operador) — resumo do dia de uma loja só
+// --------------------------------------------------------------------------
+// Sem fetch próprio: carregarMetaHoraHora() já busca meta do dia + vendas
+// confirmadas para alimentar a tabela detalhada (Líder/Owner); estas três
+// funções só leem os mesmos números pra desenhar o anel, o check-in do
+// intervalo aberto e as pendências. Um único carregamento, duas superfícies
+// — evita "Hoje" e "Meta Hora a Hora" mostrarem totais diferentes por terem
+// buscado em momentos ligeiramente distintos.
+// ==========================================================================
+function atualizarPainelHoje(ctx) {
+  const semMetaEl = document.getElementById("hoje-sem-meta");
+  const conteudoEl = document.getElementById("hoje-conteudo");
+  // Nenhum dos dois existe fora da aba "Hoje" — não vale gastar o resto da
+  // função quando quem chamou foi a tabela de Meta Hora a Hora sozinha.
+  if (!semMetaEl && !conteudoEl) return;
+
+  const lojaEl = document.getElementById("hoje-loja-nome");
+  if (lojaEl && metaOperacaoAtiva) lojaEl.textContent = metaOperacaoAtiva;
+
+  if (!ctx) {
+    if (semMetaEl) semMetaEl.classList.remove("hidden");
+    if (conteudoEl) conteudoEl.classList.add("hidden");
+    return;
+  }
+  if (semMetaEl) semMetaEl.classList.add("hidden");
+  if (conteudoEl) conteudoEl.classList.remove("hidden");
+
+  const { loja, metaDiaria, totalHoje, esperadoAteAgora, checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot } = ctx;
+  const pctNum = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
+
+  // Anel: SVG de raio 84 (mesmo do design mobile publicado) — circunferência
+  // 2·π·84 ≈ 527.8. offset 0 = anel cheio, offset = circunferência = vazio.
+  const CIRC = 527.8;
+  const ring = document.getElementById("hoje-ring-fill");
+  if (ring) ring.style.strokeDashoffset = String(CIRC * (1 - pctNum / 100));
+
+  const pctEl = document.getElementById("hoje-ring-pct");
+  if (pctEl) pctEl.textContent = `${Math.round(pctNum)}%`;
+  const vendidoEl = document.getElementById("hoje-vendido");
+  if (vendidoEl) vendidoEl.textContent = formatBRL(totalHoje);
+  const metaEl = document.getElementById("hoje-meta");
+  if (metaEl) metaEl.textContent = `de ${formatBRL(metaDiaria)}`;
+
+  const ritmoEl = document.getElementById("hoje-ritmo");
+  if (ritmoEl) {
+    const noRitmo = totalHoje >= esperadoAteAgora;
+    ritmoEl.textContent = pctNum >= 100 ? "Meta batida" : noRitmo ? "No ritmo" : "Abaixo do ritmo";
+  }
+
+  atualizarCheckinHoje({ checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot });
+  atualizarPendenciasHoje(loja);
+}
+
+// Card de check-in: acha o intervalo mais relevante pro momento (o que está
+// com a janela aberta agora; senão, o próximo a abrir; senão, o último do
+// dia, já fechado) e desenha um dos três estados — confirmado, aguardando
+// horário, ou aberto para digitar.
+function atualizarCheckinHoje(ctx) {
+  const card = document.getElementById("hoje-checkin-card");
+  if (!card) return;
+
+  const { checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot } = ctx;
+  if (!checkpoints || checkpoints.length === 0) { card.innerHTML = ""; return; }
+
+  let alvo = checkpoints.find(slotMin =>
+    agoraMin >= slotMin - META_JANELA_ABERTURA_ANTES_MIN && agoraMin <= slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN
+  );
+  if (!alvo) alvo = checkpoints.find(slotMin => agoraMin < slotMin - META_JANELA_ABERTURA_ANTES_MIN);
+  if (!alvo) alvo = checkpoints[checkpoints.length - 1];
+
+  const slotStr = horaStrPorMinutos(alvo);
+  const inicioStr = horaStrPorMinutos(alvo - 60);
+  const venda = vendasPorSlot[slotStr];
+  const dentroDaJanela = agoraMin >= alvo - META_JANELA_ABERTURA_ANTES_MIN && agoraMin <= alvo + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+
+  if (venda) {
+    card.innerHTML = `
+      <div class="glass-card rounded-2xl border border-success bg-success-soft p-4 flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-success text-xl"></i>
+        <div class="flex flex-col gap-1">
+          <span class="font-bold text-sm text-ink-strong">Check-in das ${slotStr} registrado</span>
+          <span class="text-xs text-ink-muted">Total do dia: ${formatBRL(venda.valor)}</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (!dentroDaJanela) {
+    const perdido = agoraMin > alvo + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+    card.innerHTML = `
+      <div class="glass-card rounded-2xl border border-subtle p-4 flex items-center gap-3">
+        <i class="fa-regular fa-clock text-ink-muted text-xl"></i>
+        <div class="flex flex-col gap-1">
+          <span class="font-bold text-sm text-ink">${perdido ? "Intervalo das " + slotStr + " perdido" : "Próximo check-in às " + slotStr}</span>
+          <span class="text-xs text-ink-muted">${perdido ? "A janela de confirmação já fechou" : `Janela abre ${META_JANELA_ABERTURA_ANTES_MIN}min antes`}</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const meta = metaAcumuladaPorSlot ? metaAcumuladaPorSlot[alvo] : 0;
+  card.innerHTML = `
+    <div class="glass-card rounded-2xl p-4 flex flex-col gap-3" style="border: 1.5px solid var(--edge-accent);">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-col gap-1">
+          <span class="font-display" style="font-size: 18px;">Check-in das ${slotStr}</span>
+          <span class="text-xs text-ink-muted">Intervalo ${inicioStr}–${slotStr} · meta acumulada ${formatBRL(meta || 0)}</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-accent-soft border border-accent text-accent uppercase tracking-widest">Aberto</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-ink-muted" style="flex: none;">Vendi</span>
+        <input type="number" id="hoje-checkin-valor" step="0.01" min="0" placeholder="Total acumulado do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="bg-surface-2 border border-subtle text-ink rounded-xl px-3 py-2.5 text-base font-bold flex-1 focus:outline-none focus:border-accent">
+      </div>
+      <button type="button" id="hoje-checkin-confirmar" class="btn-primary" style="min-height: 48px; font-weight: 700;">Confirmar venda da hora</button>
+    </div>`;
+
+  const btn = document.getElementById("hoje-checkin-confirmar");
+  if (btn) {
+    btn.onclick = () => {
+      const input = document.getElementById("hoje-checkin-valor");
+      const valorDigitado = (input && input.value ? input.value : "").replace(",", ".");
+      const valor = parseFloat(valorDigitado);
+      if (Number.isNaN(valor) || valor < 0) {
+        showToast("Informe um valor válido para o intervalo.", "erro");
+        return;
+      }
+      confirmarIntervaloMeta(slotStr, valor);
+    };
+  }
+}
+
+// Pendências do dia: navegação real para as três telas que mais geram
+// atraso operacional se esquecidas, sem inventar contadores que a tela
+// ainda não tem como calcular com segurança (NF-e e Inventário mostram
+// texto fixo; só o Fechamento de caixa é checado de verdade, porque
+// `registros` já está carregado no cliente e dá pra saber com certeza se
+// hoje foi enviado ou não).
+function atualizarPendenciasHoje(loja) {
+  const box = document.getElementById("hoje-pendencias");
+  if (!box) return;
+
+  const hojeIso = new Date().toISOString();
+  const fechamentoFeito = (registros || []).some(r =>
+    r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, hojeIso)
+  );
+
+  const itens = [
+    fechamentoFeito ? null : {
+      tab: "registro", icon: "fa-box-open", bg: "var(--tone-warning-soft)", fg: "var(--tone-warning-ink)",
+      titulo: "Fechamento de caixa não enviado", sub: `Registre o fechamento de hoje em ${loja}`
+    },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", bg: "var(--tone-info-soft)", fg: "var(--tone-info-ink)",
+      titulo: "Conferência de NF-e", sub: "Confira os produtos recebidos contra a nota" },
+    { tab: "inventario-estoque", icon: "fa-barcode", bg: "var(--tone-success-soft)", fg: "var(--tone-success-ink)",
+      titulo: "Inventário", sub: "Contagem de estoque desta loja" }
+  ].filter(Boolean);
+
+  box.innerHTML = itens.map(item => `
+    <button type="button" data-hoje-ir="${item.tab}" class="glass-card rounded-2xl border border-subtle p-4 flex items-center gap-3 text-left" style="cursor: pointer;">
+      <span style="width: 40px; height: 40px; border-radius: 999px; background: ${item.bg}; display: flex; align-items: center; justify-content: center; flex: none;">
+        <i class="fa-solid ${item.icon}" style="color: ${item.fg}; font-size: 15px;"></i>
+      </span>
+      <span class="flex flex-col gap-1" style="min-width: 0;">
+        <span class="font-bold text-sm text-ink-strong">${item.titulo}</span>
+        <span class="text-xs text-ink-muted">${item.sub}</span>
+      </span>
+      <i class="fa-solid fa-chevron-right" style="color: var(--ink-faint); font-size: 12px; margin-left: auto; flex: none;"></i>
+    </button>
+  `).join("");
+
+  box.querySelectorAll("[data-hoje-ir]").forEach(btn => {
+    btn.addEventListener("click", () => ativarTab(btn.dataset.hojeIr));
+  });
+}
+
+// ==========================================================================
+// TELA "AVISOS" — central de pendências, uma página por perfil
+// --------------------------------------------------------------------------
+// Substitui o antigo dropdown do sino (que só existia para o Owner e só
+// mostrava envelopes) por uma aba cheia, alcançável por todos os perfis:
+//   · Owner/Líder de Operações veem envelopes aguardando retirada de TODAS
+//     as unidades — o mesmo público que já recebia e-mail/push desse aviso
+//     (ver getDestinatariosNotificacao, que agrupa os dois papéis).
+//   · Operador (consultora/consultora_fa) vê só os envelopes da própria
+//     loja — o recorte que interessa a quem opera uma unidade só.
+// O estado de "lido" continua em localStorage (notificacoes_lidas), como
+// antes: é por dispositivo, não por conta, mas é o que já existia e migrar
+// pra um estado no servidor é fora do escopo desta tela.
+// ==========================================================================
+function obterAvisosPendentes() {
+  if (!currentUser) return [];
+
+  const todos = [
+    ...(registros || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+      .map(r => ({ id: r.id, loja: r.loja, valor: Number(r.valorEnvelope) || 0, data: r.dataOperacao, consultor: r.consultor, origem: "Cacau Show" })),
+    ...(registrosFA || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+      .map(r => ({ id: r.id, loja: r.loja, valor: Number(r.valorEnvelope) || 0, data: r.dataOperacao, consultor: r.consultor, origem: "Faça Amigos" }))
+  ];
+
+  const vePerfilCompleto = currentUser.role === "owner" || currentUser.role === "consultora_dashboard";
+  const filtrados = vePerfilCompleto
+    ? todos
+    // Operador: só a própria loja — currentUser.unidade é o código (ex.
+    // "9175"), r.loja é o nome ("Marambaia"); getLojaNomePorCodigo converte.
+    : todos.filter(p => p.loja === getLojaNomePorCodigo(currentUser.unidade) || p.consultor === currentUser.nome);
+
+  return filtrados.sort((a, b) => new Date(b.data) - new Date(a.data));
+}
+
+function renderAvisos() {
+  const lista = document.getElementById("avisos-lista");
+  if (!lista) return;
+
+  atualizarNotificacoes(); // sincroniza o badge do sino com o que a página mostra
+  const pendentes = obterAvisosPendentes();
+  let lidas = [];
+  try { lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || []; } catch (e) { lidas = []; }
+
+  if (pendentes.length === 0) {
+    lista.innerHTML = `
+      <div class="glass-card rounded-2xl border border-subtle p-8 flex flex-col items-center gap-2 text-center">
+        <i class="fa-regular fa-bell-slash text-ink-faint text-2xl"></i>
+        <span class="text-sm font-bold text-ink">Nenhuma pendência agora</span>
+        <span class="text-xs text-ink-muted">Avisos de envelopes aguardando retirada aparecem aqui.</span>
+      </div>`;
+    return;
+  }
+
+  // Monta com createElement + closures, não innerHTML+dataset: o id do
+  // registro é numérico, e ida-e-volta por atributo HTML (dataset) o
+  // transformaria em string — `lidas.includes(id)` pararia de bater e um
+  // aviso marcado como lido voltaria a aparecer como novo a cada render.
+  lista.innerHTML = "";
+  pendentes.forEach(p => {
+    const naoLida = !lidas.includes(p.id);
+    let dataFormatada = p.data;
+    try { dataFormatada = new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); } catch (e) {}
+    const origemFg = p.origem === "Cacau Show" ? "var(--tone-accent-ink)" : "#c0396b";
+    const origemBg = p.origem === "Cacau Show" ? "var(--tone-accent-soft)" : "#ffe3ee";
+
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "glass-card rounded-2xl p-4 flex items-start gap-3 text-left";
+    item.style.cursor = "pointer";
+    item.style.border = `1.5px solid ${naoLida ? "var(--edge-accent)" : "var(--edge-subtle)"}`;
+    item.style.background = naoLida ? "var(--surface-1)" : "var(--surface-2)";
+    item.innerHTML = `
+      <span style="width: 38px; height: 38px; border-radius: 999px; background: var(--tone-warning-soft); display: flex; align-items: center; justify-content: center; flex: none;">
+        <i class="fa-solid fa-box-open" style="color: var(--tone-warning-ink); font-size: 15px;"></i>
+      </span>
+      <span class="flex flex-col gap-1" style="min-width: 0; flex: 1;">
+        <span class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest" style="background: ${origemBg}; color: ${origemFg};">${p.origem}</span>
+          <span class="text-[11px] text-ink-faint">${dataFormatada}</span>
+        </span>
+        <span class="font-bold text-sm text-ink-strong">${p.loja}</span>
+        <span class="text-xs text-ink-muted">${formatBRL(p.valor)} · registrado por ${p.consultor}</span>
+      </span>`;
+    item.addEventListener("click", () => {
+      if (naoLida) marcarComoLida(p.id);
+      renderAvisos();
+    });
+    lista.appendChild(item);
+  });
+}
+
 
 // Relatório de Ponto por Operação (Líder de Operações/Owner): agrega os
 // registros de todas as colaboradoras, agrupados por colaboradora + dia.

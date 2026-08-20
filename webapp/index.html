@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#F4F6FA">
+<meta name="theme-color" content="#F5EAD8">
 <meta name="description" content="HuB Operações - Cacau Show (Módulos Financeiro e Logístico) e FaçaAmigos">
 <meta name="apple-mobile-web-app-title" content="HuB Operações">
 <title>HuB Operações</title>
@@ -160,7 +160,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=3">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=30">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -388,6 +388,24 @@
 
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
 
+      <!-- ===================== ITENS AVULSOS (fora dos módulos) =====================
+           "Hoje" e "Avisos" ficam FORA de group-controle-caixa/group-faca-amigos
+           de propósito: aqueles dois grupos são escondidos inteiros quando o
+           Owner troca de módulo (ver JS, "moduloOpcional"), e Avisos precisa
+           continuar alcançável nos dois. A visibilidade de cada botão aqui
+           ainda é decidida do mesmo jeito que qualquer outro tab-btn — por
+           tabsPermitidas, calculado a partir de TABS_POR_ROLE. -->
+      <div class="sidebar-group-content" style="margin-bottom: 8px;">
+        <button class="tab-btn hidden" id="tab-btn-hoje" data-tab="hoje" role="tab" aria-selected="false" aria-controls="tab-hoje" data-tip="Meta do dia, check-in da hora e pendências — resumo rápido pra quem opera uma loja só">
+          <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
+          <span class="tab-text">Hoje</span>
+        </button>
+        <button class="tab-btn hidden" id="tab-btn-avisos" data-tab="avisos" role="tab" aria-selected="false" aria-controls="tab-avisos" data-tip="Central de pendências: envelopes aguardando retirada e outros avisos do seu perfil">
+          <span class="tab-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="tab-text">Avisos</span>
+        </button>
+      </div>
+
       <!-- ===================== SEÇÃO: OPERAÇÕES =====================
            Cacau Show e FaçaAmigos são módulos independentes entre si:
            cada um vive no seu próprio accordion aqui dentro, com suas
@@ -575,7 +593,13 @@
             <div id="topbar-user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--tone-accent-soft); border: 1.5px solid var(--edge-accent); color: var(--tone-accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-sm);">U</div>
             <span id="sync-badge" class="sync-badge hidden" title="Ações pendentes de sincronização" role="button" tabindex="0" aria-label="Ações pendentes de sincronização com o servidor"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span id="sync-badge-count">0</span></span>
           </div>
-          <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
+          <!-- Nome + escopo. O escopo ("Marambaia · 9175") só é exibido na
+               casca compacta: no desktop a mesma informação já está na barra
+               lateral, e repeti-la no topo seria ruído. Ver style.css. -->
+          <span class="topbar-user-ident">
+            <span id="topbar-user-name" style="font-size: 13px; font-weight: 600; color: var(--ink);">Usuário</span>
+            <span id="topbar-user-scope" class="topbar-user-scope"></span>
+          </span>
         </div>
       </div>
     </header>
@@ -713,6 +737,83 @@
         </div>
         <p id="aviso-status" class="aviso-status hidden"><i class="fa-solid fa-circle-check"></i> Mensagem gerada — não esqueça de enviar ao grupo!</p>
       </div>
+    </section>
+
+    <!-- ===================== TAB: HOJE (resumo do dia — operador, mobile-first) =====================
+         Fonte de dados: o MESMO carregamento de carregarMetaHoraHora() (app.js)
+         que já alimenta a tabela detalhada de Meta Hora a Hora — aqui é só
+         outra leitura dos mesmos números, via atualizarPainelHoje(). Não existe
+         um segundo fetch: evita a tela "Hoje" e a tabela "Meta Hora a Hora"
+         discordarem uma da outra sobre o total do dia. -->
+    <section id="tab-hoje" class="tab-panel hidden" role="tabpanel">
+      <div class="section-header mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-ink-muted"></i> Hoje
+          </h2>
+          <p class="text-xs text-ink-strong mt-1">Sua meta do dia, o check-in da hora e o que falta fechar em <span id="hoje-loja-nome">sua loja</span>.</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Sem meta cadastrada para hoje: mesma condição de meta-sem-dados-aviso -->
+        <div id="hoje-sem-meta" class="hidden glass-card p-6 rounded-2xl border border-warning bg-warning-soft text-center">
+          <i class="fa-solid fa-triangle-exclamation text-warning text-2xl mb-2 block"></i>
+          <p class="text-sm font-bold text-warning">Meta de hoje ainda não chegou</p>
+          <p class="text-xs text-ink-muted mt-1">Fale com o líder de operação — a planilha de metas diárias ainda não tem o valor de hoje para esta loja.</p>
+        </div>
+
+        <div id="hoje-conteudo" class="hidden space-y-4">
+
+          <!-- Anel de progresso da meta -->
+          <div class="rounded-2xl p-5" style="background: var(--ink-strong); color: var(--surface-canvas); box-shadow: var(--shadow-lg);">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[10px] font-extrabold uppercase tracking-widest" style="color: var(--tone-accent-soft);">Meta de hoje</span>
+              <span id="hoje-ritmo" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest" style="background: rgba(245,234,216,.14); color: var(--tone-accent-soft);">—</span>
+            </div>
+            <div style="position: relative; width: 176px; height: 176px; margin: 8px auto 4px;">
+              <svg width="176" height="176" viewBox="0 0 196 196" style="transform: rotate(-90deg);">
+                <circle cx="98" cy="98" r="84" fill="none" stroke="rgba(245,234,216,.16)" stroke-width="16"></circle>
+                <circle id="hoje-ring-fill" cx="98" cy="98" r="84" fill="none" stroke="var(--tone-accent-line)" stroke-width="16" stroke-linecap="round" stroke-dasharray="527.8" stroke-dashoffset="527.8" style="transition: stroke-dashoffset .6s ease;"></circle>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                <span id="hoje-ring-pct" class="font-display" style="font-size: 34px; line-height: 1; color: var(--tone-accent-soft);">0%</span>
+                <span id="hoje-vendido" style="font-size: 16px; font-weight: 700;">R$ 0,00</span>
+                <span id="hoje-meta" class="text-xs" style="color: var(--tone-accent-soft);">de R$ 0,00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Check-in do intervalo atual (gerado em atualizarCheckinHoje) -->
+          <div id="hoje-checkin-card"></div>
+
+          <!-- Pendências do dia (geradas em atualizarPendenciasHoje) -->
+          <div class="flex flex-col gap-2">
+            <div class="font-display" style="font-size: 15px; padding: 0 2px;">Pendências do dia</div>
+            <div id="hoje-pendencias" class="flex flex-col gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: AVISOS (central de pendências por perfil) =====================
+         Owner/Líder veem envelopes aguardando retirada de todas as unidades
+         (mesma fonte que já alimentava o sino, ver obterAvisosPendentes());
+         operador vê só os envelopes da própria loja. Substitui o dropdown do
+         sino na casca compacta — em 390px um menu suspenso não tem espaço
+         pra mostrar o texto da pendência, uma página cheia tem. -->
+    <section id="tab-avisos" class="tab-panel hidden" role="tabpanel">
+      <div class="section-header mb-6">
+        <div>
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-bell text-ink-muted"></i> Avisos
+          </h2>
+          <p class="text-xs text-ink-strong mt-1">Pendências que precisam da sua atenção.</p>
+        </div>
+        <button type="button" id="btn-avisos-marcar-lidas" class="btn-secondary text-xs">Marcar todas como lidas</button>
+      </div>
+
+      <div id="avisos-lista" class="flex flex-col gap-2"></div>
     </section>
 
     <!-- ===================== TAB: DASHBOARD ===================== -->
@@ -3460,6 +3561,6 @@
 <script src="modules/auditoria.js?v=1"></script>
 <script src="modules/meta-hora-hora.js?v=1"></script>
 <script src="modules/colaboradores.js?v=1"></script>
-<script src="app.js?v=54"></script>
+<script src="app.js?v=56"></script>
 </body>
 </html>
