@@ -230,7 +230,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
-    { tab: "nfe-owner", icon: "fa-receipt", label: "Conferência NFE", curto: "NFE" },
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
 };
