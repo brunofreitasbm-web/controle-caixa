@@ -7605,7 +7605,10 @@ function flashScanner(containerId) {
 // #inv-bipe-card, ...) a leitura aparece. Os elementos só existem dentro do
 // painel mobile de cada aba; se a aba nem foi montada ainda, os `if` abaixo
 // fazem a função virar no-op em vez de lançar erro.
-function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
+// `code`/`nfNum` alimentam o stepper +/- e o input de quantidade do cartão —
+// sem eles não dá pra saber qual produto (e, no caso de NF-e, qual nota)
+// ajustar quando o usuário mexe no stepper.
+function renderBipeFeedback(prefixo, { nome, ean, qtd, code, nfNum }) {
   const card = document.getElementById(prefixo + "-bipe-card");
   if (!card) return;
   card.classList.remove("hidden");
@@ -7615,7 +7618,14 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
       <div class="bipe-feedback-body">
         <span class="bipe-feedback-nome">${nome}</span>
         <span class="bipe-feedback-ean">EAN ${ean || "—"}</span>
-        <span class="bipe-feedback-contado">Contado: ${qtd}</span>
+      </div>
+    </div>
+    <div class="bipe-feedback-stepper">
+      <span class="bipe-feedback-stepper-label">Contado</span>
+      <div class="bipe-stepper-controls">
+        <button type="button" class="bipe-stepper-btn" data-delta="-1" aria-label="Diminuir quantidade contada">−</button>
+        <input type="number" class="bipe-stepper-input" value="${qtd}" min="0" inputmode="numeric" aria-label="Quantidade contada">
+        <button type="button" class="bipe-stepper-btn" data-delta="1" aria-label="Aumentar quantidade contada">+</button>
       </div>
     </div>
     <button type="button" class="btn-secondary bipe-btn-desfazer">Desfazer</button>
@@ -7624,6 +7634,42 @@ function renderBipeFeedback(prefixo, { nome, ean, qtd }) {
     if (prefixo === "nf") desfazerUltimoBipeNf();
     else desfazerUltimoBipeInv();
   };
+
+  const input = card.querySelector(".bipe-stepper-input");
+  const aplicarQtd = (novoValor) => {
+    const valorFinal = Math.max(0, Math.round(Number(novoValor) || 0));
+    input.value = valorFinal;
+    ajustarQtdBipe(prefixo, code, valorFinal, nfNum);
+  };
+  card.querySelectorAll(".bipe-stepper-btn").forEach(btn => {
+    btn.onclick = () => aplicarQtd(Number(input.value || 0) + Number(btn.dataset.delta));
+  });
+  input.onchange = () => aplicarQtd(input.value);
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+// Ajusta a quantidade contada direto pelo stepper/input do cartão de
+// feedback do bipe — sem precisar abrir a tabela ou os cartões da lista.
+// Reusa o MESMO caminho de gravação que cada contexto já tinha (dbBridge.
+// saveInventoryItem no Inventário, saveNfQuantity na NF-e), pra não duplicar
+// a lógica de save/notificação/debounce que cada um carrega consigo.
+function ajustarQtdBipe(prefixo, code, novoValor, nfNum) {
+  if (!code) return;
+  const valorStr = novoValor.toString();
+
+  if (prefixo === "nf") {
+    saveNfQuantity(code, valorStr, nfNum);
+    if (nfBipesRecentes[0] && nfBipesRecentes[0].code === code) nfBipesRecentes[0].qtd = valorStr;
+  } else {
+    const p = products.find(prod => prod.code === code);
+    if (!p) return;
+    p.countedQty = valorStr;
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+    if (invBipesRecentes[0] && invBipesRecentes[0].code === code) invBipesRecentes[0].qtd = valorStr;
+  }
 
   atualizarListaBipeRecentes(prefixo);
 }
@@ -7778,9 +7824,9 @@ function onInventarioScanSuccess(decodedText) {
 
     flashScanner("scanner-container");
     ultimoBipeInv = { code: p.code };
-    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty });
+    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty, code: p.code });
     invBipesRecentes = invBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty });
+    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty, code: p.code });
 
     // A linha da tabela não existe pra rolar até ela na casca compacta — a
     // tabela some em favor do cartão de feedback acima (ver style.css).
@@ -9130,9 +9176,9 @@ function onNfScanSuccess(decodedText) {
 
     flashScanner("nf-scanner-container");
     ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
-    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty });
+    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty, code: p.code });
     nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty });
+    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
     // Focar no campo de quantidade inventariada do produto bipado — só faz
     // sentido no desktop, onde a tabela continua visível. Na casca compacta

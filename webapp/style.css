@@ -5744,14 +5744,71 @@ button:disabled:not(.fa-section *) {
   font-variant-numeric: tabular-nums;
 }
 
-.bipe-feedback-contado {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--tone-success-ink);
-}
-
 .bipe-feedback-card .bipe-btn-desfazer {
   border-color: var(--tone-success-line);
+}
+
+/* Stepper de quantidade dentro do cartão de feedback do bipe — permite
+   corrigir a quantidade contada (+/- ou digitando um valor) sem sair da tela
+   de bipagem. Mesma paleta verde do cartão (.bipe-feedback-card). */
+.bipe-feedback-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bipe-feedback-stepper-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--tone-success-ink);
+  opacity: .85;
+}
+
+.bipe-stepper-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bipe-stepper-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 999px;
+  border: 1.5px solid var(--tone-success-line);
+  background: var(--surface-canvas);
+  color: var(--tone-success-ink);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bipe-stepper-btn:active {
+  background: var(--tone-success-soft);
+}
+
+.bipe-stepper-input {
+  width: 56px;
+  text-align: center;
+  background: var(--surface-canvas);
+  border: 1.5px solid var(--tone-success-line);
+  border-radius: 10px;
+  padding: 6px 0;
+  color: var(--tone-success-ink);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.bipe-stepper-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tone-success-line) 35%, transparent);
 }
 
 .bipe-lista-recentes {
