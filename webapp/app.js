@@ -3836,6 +3836,7 @@ function renderFaHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -3911,7 +3912,7 @@ document.getElementById("fa-busca-hist").addEventListener("input", () => {
 
 // FA: Exportar CSV
 document.getElementById("fa-btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registrosFA.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -3919,6 +3920,7 @@ document.getElementById("fa-btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
@@ -5741,6 +5743,7 @@ function renderHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -5901,7 +5904,7 @@ function renderMensal() {
 
 // --- Exportar CSV ---
 document.getElementById("btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registros.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -5909,6 +5912,7 @@ document.getElementById("btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
