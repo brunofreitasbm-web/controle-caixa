@@ -14083,15 +14083,21 @@ async function carregarMetaHoraHora() {
     checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot
   });
 
-  // Progresso do dia
+  // Progresso do dia — anel (mesmo raio/circunferência do anel "Hoje" em
+  // atualizarPainelHoje: CIRC = 2·π·84 ≈ 527.8). A cor do arco segue o
+  // ritmo — verde quando bate/supera o esperado até agora, laranja quando
+  // está atrás — mesma regra que antes decidia a cor da barra linear.
   const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
-  const bar = document.getElementById("meta-progresso-bar");
-  if (bar) {
-    bar.style.width = `${pct}%`;
-    bar.className = totalHoje >= esperadoAteAgora
-      ? "bg-success-soft h-4 rounded-full transition-all duration-500"
-      : "bg-warning-soft h-4 rounded-full transition-all duration-500";
+  const CIRC_META = 527.8;
+  const ring = document.getElementById("meta-progresso-ring");
+  if (ring) {
+    ring.style.strokeDashoffset = String(CIRC_META * (1 - pct / 100));
+    ring.style.stroke = totalHoje >= esperadoAteAgora
+      ? "var(--tone-success-line)"
+      : "var(--tone-warning-line)";
   }
+  const ringPct = document.getElementById("meta-progresso-ring-pct");
+  if (ringPct) ringPct.textContent = `${Math.round(pct)}%`;
   const label = document.getElementById("meta-progresso-label");
   if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
 

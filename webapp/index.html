@@ -2819,8 +2819,18 @@
               </button>
               <button type="button" id="btn-meta-editar-cancelar" class="px-4 py-2 bg-surface-3 hover:bg-surface-hover text-ink font-bold text-xs rounded-xl transition">Cancelar</button>
             </div>
-            <div class="w-full bg-surface-1 rounded-full h-4 overflow-hidden border border-subtle">
-              <div id="meta-progresso-bar" class="bg-accent-soft h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+            <!-- Anel de progresso — mesmo padrão SVG do card "Meta de hoje" na
+                 aba Hoje (ver #hoje-ring-fill): raio 84, circunferência 527,8,
+                 SVG rotacionado -90° pro arco nascer no topo. A cor do arco
+                 segue o ritmo (ver atualização em carregarMetaHoraHora). -->
+            <div style="position: relative; width: 160px; height: 160px; margin: 4px auto 10px;">
+              <svg width="160" height="160" viewBox="0 0 196 196" style="transform: rotate(-90deg);">
+                <circle cx="98" cy="98" r="84" fill="none" stroke="var(--surface-4)" stroke-width="16"></circle>
+                <circle id="meta-progresso-ring" cx="98" cy="98" r="84" fill="none" stroke="var(--tone-accent-line)" stroke-width="16" stroke-linecap="round" stroke-dasharray="527.8" stroke-dashoffset="527.8" style="transition: stroke-dashoffset .6s ease, stroke .3s ease;"></circle>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">
+                <span id="meta-progresso-ring-pct" class="font-display" style="font-size: 30px; line-height: 1; color: var(--ink-strong);">0%</span>
+              </div>
             </div>
             <p id="meta-mensagem-motivacional" class="mt-3 text-sm font-bold text-center"></p>
             <p id="meta-streak-label" class="hidden mt-3 text-xs font-bold text-center text-warning"></p>
