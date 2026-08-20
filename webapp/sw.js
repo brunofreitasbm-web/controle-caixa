@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v68'; // v68: feedback mobile de bipagem (NF-e e Inventário) com flash/check
+const CACHE_NAME = 'ponto-pwa-v69'; // v69: nova identidade visual (logo IB) — ícones, favicon e tela de login
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

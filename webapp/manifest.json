@@ -5,7 +5,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#443D5D",
+  "background_color": "#533927",
   "theme_color": "#F5EAD8",
   "orientation": "portrait",
   "icons": [
@@ -40,7 +40,12 @@
       "short_name": "Bater Ponto",
       "description": "Registrar entrada, intervalo ou saída",
       "url": "/#controle-ponto",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
