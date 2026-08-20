@@ -230,7 +230,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
-    { tab: "nfe-owner", icon: "fa-receipt", label: "Conferência NFE", curto: "NFE" },
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
 };
@@ -3426,6 +3426,7 @@ function mostrarGeradorMensagem(registro) {
   linkBtn.onclick = async () => await marcarGerado();
 
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
@@ -3589,6 +3590,7 @@ async function mostrarFaGeradorMensagem(registro) {
 
   linkBtn.onclick = async () => await marcarFaGerado();
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS RENDER FUNCTIONS ====================
@@ -3836,6 +3838,7 @@ function renderFaHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -3911,7 +3914,7 @@ document.getElementById("fa-busca-hist").addEventListener("input", () => {
 
 // FA: Exportar CSV
 document.getElementById("fa-btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registrosFA.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -3919,6 +3922,7 @@ document.getElementById("fa-btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
@@ -5741,6 +5745,7 @@ function renderHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -5901,7 +5906,7 @@ function renderMensal() {
 
 // --- Exportar CSV ---
 document.getElementById("btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registros.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -5909,6 +5914,7 @@ document.getElementById("btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
