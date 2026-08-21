@@ -337,33 +337,26 @@ function enviarNotificacaoRetiradaSolicitada(loja, valorTotal, quantidade, solic
   enviarNotificacaoPushInterno(title, body, null, 'retirada_solicitada');
 }
 
-// Fechamento de caixa: avisa Líder de Operações e Owner a cada fechamento
-// registrado (Cacau Show ou Faça Amigos), independente do valor do envelope —
-// diferente do alerta de acúmulo (função `enviarEmailNotificacao` acima), que
-// só dispara ao atingir o limite de R$ 1.000 pendentes de retirada.
-function enviarNotificacaoFechamentoCaixa(loja, marca, dados) {
-  notificacoesEventosAtivas((ativas) => {
-    if (!ativas) return;
-
-    const consultor = (dados && dados.consultor) || 'Colaboradora';
-    const fundoCaixa = Number(dados && dados.fundoCaixa) || 0;
-    const valorFaturado = Number(dados && dados.valorFaturado) || 0;
-    const lojaSafe = escapeHtml(loja);
-    const marcaLabel = marca === 'fa' ? ' (Faça Amigos)' : '';
-
-    const title = `🔒 Fechamento de Caixa - Loja ${loja}${marcaLabel}`;
-    const body = `${consultor} registrou o fechamento de caixa na loja ${loja}${marcaLabel}. Fundo de caixa: R$ ${fundoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Valor faturado: R$ ${valorFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
-
-    enviarNotificacaoPushInterno(title, body, null, 'fechamento_caixa');
-    obterEmailsDestinatarios('fechamento_caixa', (targetEmails) => {
-      const bodyHtml = `<p><strong>${escapeHtml(consultor)}</strong> registrou o fechamento de caixa na loja <strong>${lojaSafe}${marcaLabel}</strong>.</p>
-<ul>
-  <li><strong>Fundo de caixa:</strong> R$ ${fundoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Valor faturado:</strong> R$ ${valorFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-</ul>`;
-      enviarEmailGenerico(targetEmails, title, body, bodyHtml);
-    });
-  });
+// Busca o % de meta do dia já batido pela loja (Meta Hora a Hora), pra
+// anexar na notificação de fechamento. Reusa `apurarRitmo` — o mesmo cálculo
+// que já alimenta o lembrete Copiloto IA — em vez de duplicar as queries em
+// `metas_vendas`/`metas_diarias_lojas`. `require` tardio (dentro da função,
+// não no topo do arquivo) porque services/ia-copiloto.js já importa
+// OPERACOES_CONFIG_META/checkpointsDoDiaMeta DESTE arquivo: um require no
+// topo aqui criaria um ciclo e faria ia-copiloto.js receber esses dois ainda
+// undefined.
+async function buscarAtingimentoMetaDoDia(loja, data) {
+  if (!loja || !data) return null;
+  try {
+    const { apurarRitmo } = require('../services/ia-copiloto');
+    const horaSlot = minutosParaHoraStrMeta(agoraBrasilMeta().minutosDoDia);
+    const ritmo = await apurarRitmo({ loja, data, horaSlot });
+    if (!ritmo || !ritmo.temMeta) return null;
+    return { pct: Math.round(ritmo.atingimento * 100), vendido: ritmo.vendido, meta: ritmo.meta };
+  } catch (e) {
+    console.warn(`Não foi possível calcular o % de meta do dia (loja ${loja}) para a notificação de fechamento:`, e.message);
+    return null;
+  }
 }
 
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
@@ -487,13 +480,23 @@ function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau
 }
 
 function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show') {
-  notificacoesEventosAtivas((ativas) => {
+  notificacoesEventosAtivas(async (ativas) => {
     if (!ativas) return;
     const fatFmt = Number(valorFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const envFmt = Number(valorEnvelope || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const sessoesText = sessoesCount !== undefined && sessoesCount !== null ? ` | Sessões/Vendas: ${sessoesCount}` : '';
+
+    // Faça Amigos não usa Meta Hora a Hora (o modelo de bonificação dele é
+    // outro, não R$/dia) — só busca o % pra Cacau Show.
+    const meta = sistema === 'Cacau Show'
+      ? await buscarAtingimentoMetaDoDia(loja, agoraBrasilMeta().data)
+      : null;
+    const metaText = meta
+      ? ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+      : '';
+
     const title = `🔒 Fechamento de Caixa - ${loja}`;
-    const body = `${consultor || 'Operador'} encerrou o caixa em ${loja}. Faturado: R$ ${fatFmt} | Envelope: R$ ${envFmt}${sessoesText}`;
+    const body = `${consultor || 'Operador'} encerrou o caixa em ${loja}. Faturado: R$ ${fatFmt} | Envelope: R$ ${envFmt}${sessoesText}${metaText}`;
     enviarNotificacaoPushInterno(title, body, null, 'fechamento_unidade');
   });
 }
