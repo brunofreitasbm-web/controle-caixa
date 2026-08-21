@@ -575,6 +575,7 @@ module.exports = {
   enviarNotificacaoRetiradaSolicitada,
   enviarNotificacaoAbertura,
   enviarNotificacaoFechamento,
+  enviarNotificacaoFechamentoCaixa,
   enviarNotificacaoNfePendente,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
