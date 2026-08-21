@@ -25,7 +25,7 @@ async function carregarColaboradores() {
           const userDb = USERS.find(u => u.nome === currentUser.nome);
           if (userDb && userDb.role !== currentUser.role) {
             currentUser.role = userDb.role;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             console.log(`Permissão de ${currentUser.nome} atualizada para ${currentUser.role}`);
             // Recarrega permissões na interface
             if (typeof iniciarModuloBase === "function") {
@@ -34,7 +34,7 @@ async function carregarColaboradores() {
           }
           if (userDb) {
             currentUser.hasBiometricEnrolled = userDb.hasBiometricEnrolled;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
           }
         }
       }

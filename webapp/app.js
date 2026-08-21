@@ -10443,7 +10443,7 @@ function abrirCadastroBiometria() {
     onCapture: async (result) => {
       if (result.status === "ENROLLED") {
         currentUser.hasBiometricEnrolled = true;
-        localStorage.setItem("session_user", JSON.stringify(currentUser));
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
         await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
         atualizarBotaoCadastroBiometria();
       } else if (result.status === "REJECTED_RETRYABLE") {
@@ -11984,7 +11984,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
 
             // Oculta o banner de biometria pendente, desativa o botão de captura e atualiza a aba de config
@@ -12066,7 +12066,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
             
             // Oculta o banner de biometria pendente
@@ -12111,7 +12111,7 @@ async function atualizarStatusBiometriaPonto() {
     const data = await res.json();
     if (data && data.embedding) {
       currentUser.hasBiometricEnrolled = true;
-      localStorage.setItem("session_user", JSON.stringify(currentUser));
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
       alertBanner.classList.add("hidden");
     } else {
       alertBanner.classList.remove("hidden");
