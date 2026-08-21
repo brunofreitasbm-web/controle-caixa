@@ -10443,7 +10443,7 @@ function abrirCadastroBiometria() {
     onCapture: async (result) => {
       if (result.status === "ENROLLED") {
         currentUser.hasBiometricEnrolled = true;
-        localStorage.setItem("session_user", JSON.stringify(currentUser));
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
         await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
         atualizarBotaoCadastroBiometria();
       } else if (result.status === "REJECTED_RETRYABLE") {
@@ -11984,7 +11984,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
 
             // Oculta o banner de biometria pendente, desativa o botão de captura e atualiza a aba de config
@@ -12066,7 +12066,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
             
             // Oculta o banner de biometria pendente
@@ -12111,7 +12111,7 @@ async function atualizarStatusBiometriaPonto() {
     const data = await res.json();
     if (data && data.embedding) {
       currentUser.hasBiometricEnrolled = true;
-      localStorage.setItem("session_user", JSON.stringify(currentUser));
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
       alertBanner.classList.add("hidden");
     } else {
       alertBanner.classList.remove("hidden");
@@ -13940,6 +13940,27 @@ async function confirmarIntervaloMeta(horaSlot, valor) {
   }
 }
 
+// Salva uma linha de meta diária, com uma segunda tentativa antes de desistir
+// — em rede móvel uma única falha passageira não pode virar "Erro ao salvar
+// a meta" pro Líder de Operações, que só tem essa tela pra corrigir a meta
+// de cada loja no dia.
+async function salvarMetaLojaComRetry(loja, data, valor) {
+  const payload = JSON.stringify({ loja, linhas: [{ data, valor, origem: "manual" }] });
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      if (tentativa === 1) console.error("Erro ao salvar meta diária:", err);
+    }
+  }
+  return false;
+}
+
 // Quando não há meta importada para o dia, o Líder de Operações (ou owner)
 // pode digitar a meta manualmente — as colaboradoras não veem esse campo.
 function prepararMetaManual(data) {
@@ -13961,21 +13982,12 @@ function prepararMetaManual(data) {
       showToast("Informe um valor de meta válido.", "erro");
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loja: metaOperacaoAtiva,
-          linhas: [{ data, valor, origem: "manual" }]
-        })
-      });
-      if (!res.ok) throw new Error("Falha ao salvar meta");
+    const salvo = await salvarMetaLojaComRetry(metaOperacaoAtiva, data, valor);
+    if (salvo) {
       input.value = "";
       showToast("Meta de hoje definida!", "sucesso");
       carregarMetaHoraHora();
-    } catch (err) {
-      console.error("Erro ao salvar meta manual:", err);
+    } else {
       showToast("Erro ao salvar a meta. Tente novamente.", "erro");
     }
   };
@@ -14009,21 +14021,12 @@ function prepararEdicaoMeta(loja, data, valorAtual) {
       showToast("Informe um valor de meta válido.", "erro");
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loja,
-          linhas: [{ data, valor, origem: "manual" }]
-        })
-      });
-      if (!res.ok) throw new Error("Falha ao salvar meta");
+    const salvo = await salvarMetaLojaComRetry(loja, data, valor);
+    if (salvo) {
       showToast("Meta de hoje atualizada!", "sucesso");
       box.classList.add("hidden");
       carregarMetaHoraHora();
-    } catch (err) {
-      console.error("Erro ao editar meta:", err);
+    } else {
       showToast("Erro ao salvar a meta. Tente novamente.", "erro");
     }
   };
