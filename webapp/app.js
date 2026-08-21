@@ -683,26 +683,38 @@ async function checkApiConnection() {
     ? [API_BASE, "http://localhost:5000/api", "http://127.0.0.1:5000/api"]
     : [API_BASE];
 
-  for (const ep of endpoints) {
+  // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
+  // servidor está de pé. Os dados de config de verdade são carregados
+  // uma vez em inicializarDados(), via /config.
+  const tentarPing = async (ep, timeoutMs) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
-      // servidor está de pé. Os dados de config de verdade são carregados
-      // uma vez em inicializarDados(), via /config.
       const res = await fetch(`${ep}/ping`, { method: "GET", signal: controller.signal });
+      return !!(res && res.ok);
+    } finally {
       clearTimeout(timeoutId);
+    }
+  };
 
-      if (res && res.ok) {
-        if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
-        API_BASE = ep;
-        API_ONLINE = true;
-        offlineBanner.style.display = "none";
-        offlineBanner.classList.remove("server-down");
-        return true;
+  for (const ep of endpoints) {
+    // Timeout generoso (8s) com uma segunda tentativa antes de desistir do
+    // endpoint: em rede móvel a latência é maior e uma única falha passageira
+    // não pode derrubar o status "online" e disparar o alerta de servidor
+    // indisponível bem na hora em que a colaboradora está fazendo a abertura.
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        if (await tentarPing(ep, 8000)) {
+          if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
+          API_BASE = ep;
+          API_ONLINE = true;
+          offlineBanner.style.display = "none";
+          offlineBanner.classList.remove("server-down");
+          return true;
+        }
+      } catch (e) {
+        // Tentar de novo (ou o próximo endpoint)
       }
-    } catch (e) {
-      // Tentar próximo endpoint
     }
   }
 
