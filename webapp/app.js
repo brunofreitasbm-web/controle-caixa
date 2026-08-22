@@ -230,7 +230,7 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
-    { tab: "nfe-owner", icon: "fa-receipt", label: "Conferência NFE", curto: "NFE" },
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
 };
@@ -683,26 +683,38 @@ async function checkApiConnection() {
     ? [API_BASE, "http://localhost:5000/api", "http://127.0.0.1:5000/api"]
     : [API_BASE];
 
-  for (const ep of endpoints) {
+  // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
+  // servidor está de pé. Os dados de config de verdade são carregados
+  // uma vez em inicializarDados(), via /config.
+  const tentarPing = async (ep, timeoutMs) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
-      // servidor está de pé. Os dados de config de verdade são carregados
-      // uma vez em inicializarDados(), via /config.
       const res = await fetch(`${ep}/ping`, { method: "GET", signal: controller.signal });
+      return !!(res && res.ok);
+    } finally {
       clearTimeout(timeoutId);
+    }
+  };
 
-      if (res && res.ok) {
-        if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
-        API_BASE = ep;
-        API_ONLINE = true;
-        offlineBanner.style.display = "none";
-        offlineBanner.classList.remove("server-down");
-        return true;
+  for (const ep of endpoints) {
+    // Timeout generoso (8s) com uma segunda tentativa antes de desistir do
+    // endpoint: em rede móvel a latência é maior e uma única falha passageira
+    // não pode derrubar o status "online" e disparar o alerta de servidor
+    // indisponível bem na hora em que a colaboradora está fazendo a abertura.
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        if (await tentarPing(ep, 8000)) {
+          if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
+          API_BASE = ep;
+          API_ONLINE = true;
+          offlineBanner.style.display = "none";
+          offlineBanner.classList.remove("server-down");
+          return true;
+        }
+      } catch (e) {
+        // Tentar de novo (ou o próximo endpoint)
       }
-    } catch (e) {
-      // Tentar próximo endpoint
     }
   }
 
@@ -3426,6 +3438,7 @@ function mostrarGeradorMensagem(registro) {
   linkBtn.onclick = async () => await marcarGerado();
 
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
@@ -3589,6 +3602,7 @@ async function mostrarFaGeradorMensagem(registro) {
 
   linkBtn.onclick = async () => await marcarFaGerado();
   banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ==================== FAÇAAMIGOS RENDER FUNCTIONS ====================
@@ -3836,6 +3850,7 @@ function renderFaHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -3911,7 +3926,7 @@ document.getElementById("fa-busca-hist").addEventListener("input", () => {
 
 // FA: Exportar CSV
 document.getElementById("fa-btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registrosFA.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -3919,6 +3934,7 @@ document.getElementById("fa-btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
@@ -5741,6 +5757,7 @@ function renderHistorico() {
       <td>${r.consultor}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
       <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
@@ -5901,7 +5918,7 @@ function renderMensal() {
 
 // --- Exportar CSV ---
 document.getElementById("btn-exportar").addEventListener("click", () => {
-  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
+  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
   const linhas = registros.map(r => [
     formatDataHora(r.dataOperacao),
     r.loja,
@@ -5909,6 +5926,7 @@ document.getElementById("btn-exportar").addEventListener("click", () => {
     r.tipoOperacao,
     r.fundoCaixa,
     r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
     r.status,
     r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
     r.retiradoPor ?? "",
@@ -7326,6 +7344,11 @@ function inicializarInsercaoManualInventario() {
 
   // Leitor físico de código de barras: funciona como teclado, digitando o
   // código e enviando Enter ao final. Basta focar o campo e capturar o Enter.
+  // Com o leitor ativo, o Enter é hands-free: usa a MESMA resolução e as
+  // mesmas regras de bipe da câmera (onInventarioScanSuccess/resolverCodigoBipado
+  // → CodBarra → CSV → CodProduto, beep, vibração, cartão de feedback), em vez
+  // de exigir validade/quantidade preenchidas a cada leitura como no botão
+  // "Adicionar" manual — que continua disponível pra digitação sem leitor.
   let leitorFisicoAtivo = false;
 
   if (btnLeitorFisico) {
@@ -7346,10 +7369,15 @@ function inicializarInsercaoManualInventario() {
     if (e.key !== "Enter") return;
     e.preventDefault();
     if (!leitorFisicoAtivo) return;
-    btnAdicionar.click();
-    if (leitorFisicoAtivo) {
-      setTimeout(() => inputCodigo.focus(), 0);
-    }
+
+    const cleanCode = inputCodigo.value.trim();
+    if (!cleanCode) return;
+
+    onInventarioScanSuccess(cleanCode);
+
+    inputCodigo.value = "";
+    inputDescricao.value = "";
+    setTimeout(() => inputCodigo.focus(), 0);
   });
 
   // Evento de digitação no campo código/EAN para buscar descrição
@@ -10415,7 +10443,7 @@ function abrirCadastroBiometria() {
     onCapture: async (result) => {
       if (result.status === "ENROLLED") {
         currentUser.hasBiometricEnrolled = true;
-        localStorage.setItem("session_user", JSON.stringify(currentUser));
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
         await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
         atualizarBotaoCadastroBiometria();
       } else if (result.status === "REJECTED_RETRYABLE") {
@@ -11956,7 +11984,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
 
             // Oculta o banner de biometria pendente, desativa o botão de captura e atualiza a aba de config
@@ -12038,7 +12066,7 @@ function inicializarAbaPonto() {
         onCapture: async (result) => {
           if (result.status === "ENROLLED") {
             currentUser.hasBiometricEnrolled = true;
-            localStorage.setItem("session_user", JSON.stringify(currentUser));
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
             
             // Oculta o banner de biometria pendente
@@ -12083,7 +12111,7 @@ async function atualizarStatusBiometriaPonto() {
     const data = await res.json();
     if (data && data.embedding) {
       currentUser.hasBiometricEnrolled = true;
-      localStorage.setItem("session_user", JSON.stringify(currentUser));
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
       alertBanner.classList.add("hidden");
     } else {
       alertBanner.classList.remove("hidden");
@@ -13912,6 +13940,27 @@ async function confirmarIntervaloMeta(horaSlot, valor) {
   }
 }
 
+// Salva uma linha de meta diária, com uma segunda tentativa antes de desistir
+// — em rede móvel uma única falha passageira não pode virar "Erro ao salvar
+// a meta" pro Líder de Operações, que só tem essa tela pra corrigir a meta
+// de cada loja no dia.
+async function salvarMetaLojaComRetry(loja, data, valor) {
+  const payload = JSON.stringify({ loja, linhas: [{ data, valor, origem: "manual" }] });
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      if (tentativa === 1) console.error("Erro ao salvar meta diária:", err);
+    }
+  }
+  return false;
+}
+
 // Quando não há meta importada para o dia, o Líder de Operações (ou owner)
 // pode digitar a meta manualmente — as colaboradoras não veem esse campo.
 function prepararMetaManual(data) {
@@ -13933,21 +13982,12 @@ function prepararMetaManual(data) {
       showToast("Informe um valor de meta válido.", "erro");
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loja: metaOperacaoAtiva,
-          linhas: [{ data, valor, origem: "manual" }]
-        })
-      });
-      if (!res.ok) throw new Error("Falha ao salvar meta");
+    const salvo = await salvarMetaLojaComRetry(metaOperacaoAtiva, data, valor);
+    if (salvo) {
       input.value = "";
       showToast("Meta de hoje definida!", "sucesso");
       carregarMetaHoraHora();
-    } catch (err) {
-      console.error("Erro ao salvar meta manual:", err);
+    } else {
       showToast("Erro ao salvar a meta. Tente novamente.", "erro");
     }
   };
@@ -13981,21 +14021,12 @@ function prepararEdicaoMeta(loja, data, valorAtual) {
       showToast("Informe um valor de meta válido.", "erro");
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loja,
-          linhas: [{ data, valor, origem: "manual" }]
-        })
-      });
-      if (!res.ok) throw new Error("Falha ao salvar meta");
+    const salvo = await salvarMetaLojaComRetry(loja, data, valor);
+    if (salvo) {
       showToast("Meta de hoje atualizada!", "sucesso");
       box.classList.add("hidden");
       carregarMetaHoraHora();
-    } catch (err) {
-      console.error("Erro ao editar meta:", err);
+    } else {
       showToast("Erro ao salvar a meta. Tente novamente.", "erro");
     }
   };
