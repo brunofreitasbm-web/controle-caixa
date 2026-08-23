@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v69'; // v69: nova identidade visual (logo IB) — ícones, favicon e tela de login
+const CACHE_NAME = 'ponto-pwa-v70'; // v70: remove precache do bluedox.html/css/js (dashboard mock órfão, removido do projeto)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -11,9 +11,6 @@ const ASSETS_TO_CACHE = [
   '/realtime.js',
   '/camera-universal.js',
   '/mensagens-aniversario.js',
-  '/bluedox.html',
-  '/bluedox.css',
-  '/bluedox.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',
