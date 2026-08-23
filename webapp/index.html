@@ -456,6 +456,10 @@
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventários</span>
           </button>
+          <button class="tab-btn hidden" id="tab-btn-faturamento-nfe" data-tab="faturamento-nfe" role="tab" aria-selected="false" aria-controls="tab-faturamento-nfe" data-tip="Loja, produtos, valores, vencimento e campanha de cada NF-e importada (Exclusivo Owner)">
+            <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar" style="color: #10b981;"></i></span>
+            <span class="tab-text">Faturamento NFE (Owner)</span>
+          </button>
         </div>
       </div>
 
@@ -3024,6 +3028,60 @@
               <!-- Preenchido via JS -->
             </tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABA: FATURAMENTO NFE (EXCLUSIVO OWNER) =====================
+         Leitura amigável do que já é extraído automaticamente de cada XML de
+         NF-e importado (aba Importações): loja, produtos, quantidade, valor,
+         vencimento e campanha (marcador PDI_CLI). Layout mobile-first (cards
+         empilhados, produtos recolhidos por padrão) porque é a tela que abre
+         direto quando o Owner toca na notificação push de "produto novo". -->
+    <section id="tab-faturamento-nfe" class="tab-panel hidden space-y-4" role="tabpanel" aria-labelledby="tab-btn-faturamento-nfe">
+      <div class="section-header mb-2">
+        <div>
+          <h2 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <i class="fa-solid fa-file-invoice-dollar text-emerald-500"></i> Faturamento NFE
+          </h2>
+          <p class="text-xs text-ink-strong mt-1">Loja, produtos, quantidade, valor, vencimento e campanha de cada Nota Fiscal importada — atualizado automaticamente a cada upload de XML.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-surface-2 border border-subtle text-ink uppercase tracking-widest">Exclusivo Owner</span>
+        </div>
+      </div>
+
+      <!-- Cards de resumo -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="card p-4 rounded-2xl border border-subtle bg-surface-2 shadow-sm">
+          <div class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Total Faturado (filtro atual)</div>
+          <div class="text-lg font-extrabold text-ink mt-1" id="faturamento-nfe-stat-total">R$ 0,00</div>
+        </div>
+        <div class="card p-4 rounded-2xl border border-subtle bg-surface-2 shadow-sm">
+          <div class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">NF-e no filtro</div>
+          <div class="text-lg font-extrabold text-ink mt-1" id="faturamento-nfe-stat-qtd">0</div>
+        </div>
+      </div>
+
+      <!-- Filtros: loja + busca (produto, nº NF-e ou campanha) -->
+      <div class="glass-card p-3 rounded-2xl bg-surface-2 border border-subtle flex flex-col sm:flex-row gap-2">
+        <select id="faturamento-nfe-filtro-loja" class="w-full sm:w-48 bg-surface-1 text-ink-strong border border-subtle rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-accent">
+          <option value="">Todas as lojas</option>
+          <option value="9175">🟣 Marambaia</option>
+          <option value="4304">🔵 Icoaraci</option>
+          <option value="9201">🟢 Mário Covas</option>
+        </select>
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted text-xs"></i>
+          <input type="search" id="faturamento-nfe-busca" placeholder="Buscar por produto, nº da NF-e ou campanha" class="w-full bg-surface-1 border border-subtle rounded-xl py-2 pl-8 pr-3 text-ink placeholder:text-ink-muted text-xs focus:outline-none focus:border-accent transition">
+        </div>
+      </div>
+
+      <!-- Lista de NF-es (1 card por nota, empilhados — layout mobile-first) -->
+      <div class="space-y-4" id="faturamento-nfe-lista">
+        <div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
+          <i class="fa-solid fa-file-invoice-dollar text-4xl mb-3 block text-ink-strong"></i>
+          Nenhuma NF-e importada ainda.
         </div>
       </div>
     </section>
