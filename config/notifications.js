@@ -359,6 +359,58 @@ async function buscarAtingimentoMetaDoDia(loja, data) {
   }
 }
 
+// Unidades do FaçaAmigos que usam a metodologia de conversão (bônus Ouro/
+// Diamante) — mesma lista de webapp/app.js. O Parque Circuito (carrinhos)
+// usa locações, não conversão, e fica de fora da notificação de fechamento.
+const UNIDADES_FA_CONVERSAO = ['ParqueShopping', 'Grão Pará'];
+
+const REGRA_FA_BONIFICACAO_PADRAO = { ouroPercentMin: 0.5, diamantePercentMin: 0.6 };
+
+function buscarRegraFaBonificacao(competencia) {
+  const SELECT = `SELECT ouropercentmin AS "ouroPercentMin", diamantepercentmin AS "diamantePercentMin" FROM fa_bonificacao_regras`;
+  return new Promise((resolve) => {
+    db.get(`${SELECT} WHERE competencia = ?`, [competencia], (err, row) => {
+      if (!err && row) return resolve(row);
+      db.get(`${SELECT} WHERE competencia < ? ORDER BY competencia DESC LIMIT 1`, [competencia], (err2, row2) => {
+        resolve((!err2 && row2) || REGRA_FA_BONIFICACAO_PADRAO);
+      });
+    });
+  });
+}
+
+// Busca a conversão do dia (% (1h+2h)/total de atendimentos) pra anexar na
+// notificação de fechamento do FaçaAmigos, com o nível Ouro/Diamante batido —
+// mesma fórmula de webapp/app.js (linhaVendasConversaoFA/statusMetaConversaoDia).
+async function buscarConversaoFaDoDia(consultor, loja, data) {
+  if (!consultor || !loja || !UNIDADES_FA_CONVERSAO.includes(loja)) return null;
+  try {
+    const lancamento = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT vendas30, vendas1h, vendas2h FROM fa_bonificacao_diaria WHERE usuario = ? AND unidade = ? AND data = ?',
+        [consultor, loja, data],
+        (err, row) => err ? reject(err) : resolve(row)
+      );
+    });
+    if (!lancamento) return null;
+    const v30 = Number(lancamento.vendas30 || 0);
+    const v1h = Number(lancamento.vendas1h || 0);
+    const v2h = Number(lancamento.vendas2h || 0);
+    const total = v30 + v1h + v2h;
+    if (total <= 0) return null;
+
+    const pct = ((v1h + v2h) / total) * 100;
+    const regra = await buscarRegraFaBonificacao(data.slice(0, 7));
+    const fracao = pct / 100;
+    const nivel = fracao >= Number(regra.diamantePercentMin ?? 0.6) ? '💎 Diamante'
+      : fracao >= Number(regra.ouroPercentMin ?? 0.5) ? '🟠 Ouro'
+      : '🔴 Baixo';
+    return { pct, nivel };
+  } catch (e) {
+    console.warn(`Não foi possível calcular a conversão do dia (FA, loja ${loja}) para a notificação de fechamento:`, e.message);
+    return null;
+  }
+}
+
 function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null) {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) {
@@ -487,13 +539,17 @@ function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, s
     const sessoesText = sessoesCount !== undefined && sessoesCount !== null ? ` | Sessões/Vendas: ${sessoesCount}` : '';
 
     // Faça Amigos não usa Meta Hora a Hora (o modelo de bonificação dele é
-    // outro, não R$/dia) — só busca o % pra Cacau Show.
-    const meta = sistema === 'Cacau Show'
-      ? await buscarAtingimentoMetaDoDia(loja, agoraBrasilMeta().data)
-      : null;
-    const metaText = meta
-      ? ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
-      : '';
+    // outro, não R$/dia) — busca o % de conversão Ouro/Diamante nesse caso.
+    let metaText = '';
+    if (sistema === 'Cacau Show') {
+      const meta = await buscarAtingimentoMetaDoDia(loja, agoraBrasilMeta().data);
+      metaText = meta
+        ? ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+        : '';
+    } else {
+      const conversao = await buscarConversaoFaDoDia(consultor, loja, agoraBrasilMeta().data);
+      metaText = conversao ? ` | Conversão do dia: ${conversao.pct.toFixed(1)}% (${conversao.nivel})` : '';
+    }
 
     const title = `🔒 Fechamento de Caixa - ${loja}`;
     const body = `${consultor || 'Operador'} encerrou o caixa em ${loja}. Faturado: R$ ${fatFmt} | Envelope: R$ ${envFmt}${sessoesText}${metaText}`;
