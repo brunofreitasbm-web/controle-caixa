@@ -3,6 +3,13 @@ const webPush = require('web-push');
 
 const isPostgres = !!process.env.DATABASE_URL;
 
+// Fundação multi-tenant (Fase 1 do plano de SaaS): id estável da organização
+// que hoje é a única existente — a operação real do dono (Cacau Show +
+// Faça Amigos). Todo dado pré-existente é migrado para este id no boot;
+// uma segunda organização real só passa a existir quando alguém a cadastrar
+// em `organizations`. Ver routes/auth.js e routes/middleware/resolveTenantSession.js.
+const TENANT_ZERO_ID = 'org-matriz-belem';
+
 const camelCaseMap = {
   tipooperacao: 'tipoOperacao',
   dataoperacao: 'dataOperacao',
@@ -82,7 +89,20 @@ const camelCaseMap = {
   numeronfe: 'numeroNfe',
   chaveacesso: 'chaveAcesso',
   dataemissao: 'dataEmissao',
-  conferidopor: 'conferidoPor'
+  conferidopor: 'conferidoPor',
+  // Fundação multi-tenant (Fase 1): colunas/tabelas novas de organizations,
+  // tenant_negocios, unidades, tenant_modules e sessions. No Postgres, todo
+  // identificador sem aspas vira minúsculo — aqui devolve pro shape camelCase
+  // que o resto do app já espera.
+  organizationid: 'organizationId',
+  nomeexibicao: 'nomeExibicao',
+  negociochave: 'negocioChave',
+  codigoexterno: 'codigoExterno',
+  whatsappgrupourl: 'whatsappGrupoUrl',
+  coremoji: 'corEmoji',
+  modulochave: 'moduloChave',
+  colaboradornome: 'colaboradorNome',
+  expiraem: 'expiraEm'
 };
 
 function normalizeRow(row) {
@@ -206,6 +226,30 @@ function dbRunAsync(sql, params = []) {
       if (err) reject(err); else resolve();
     });
   });
+}
+
+// Reconstrói uma tabela para trocar sua PK/UNIQUE por uma versão com escopo
+// de organização — SQLite não tem ALTER TABLE ... DROP CONSTRAINT/MODIFY
+// COLUMN, então o caminho (também válido no Postgres) é: criar uma tabela
+// nova com o schema final, copiar os dados, derrubar a antiga e renomear.
+// Mesmo padrão já usado neste arquivo para a migração de pos_visita_indicadores.
+// Seguro para rodar em toda inicialização (idempotente): se a tabela final já
+// tem os dados, a cópia só os re-escreve sem mudar nada.
+async function rebuildTableWithOrgScope(table, createSqlNewShape, colunas) {
+  const tmp = `${table}__tmp_org`;
+  let createTmpSql = createSqlNewShape.replace(
+    new RegExp(`CREATE TABLE IF NOT EXISTS ${table}\\b`),
+    `CREATE TABLE IF NOT EXISTS ${tmp}`
+  );
+  if (isPostgres && createTmpSql.includes('AUTOINCREMENT')) {
+    createTmpSql = createTmpSql.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY');
+  }
+  const cols = colunas.join(', ');
+  await dbRunAsync(`DROP TABLE IF EXISTS ${tmp}`);
+  await dbRunAsync(createTmpSql);
+  await dbRunAsync(`INSERT INTO ${tmp} (${cols}) SELECT ${cols} FROM ${table}`);
+  await dbRunAsync(`DROP TABLE ${table}`);
+  await dbRunAsync(`ALTER TABLE ${tmp} RENAME TO ${table}`);
 }
 
 function initDb(onSuccess) {
@@ -669,6 +713,73 @@ function initDb(onSuccess) {
           concluidoEm TEXT,
           notas TEXT
         )`,
+        // ------------------------------------------------------------------
+        // Fundação multi-tenant (Fase 1 do plano de SaaS). Ver TENANT_ZERO_ID
+        // no topo deste arquivo e routes/middleware/resolveTenantSession.js.
+        // A operação atual (dono) é migrada para a organização "tenant zero"
+        // logo abaixo, no bloco de seed/backfill; nenhuma tabela de negócio
+        // existente muda de nome ou perde dado nesta fase.
+        // ------------------------------------------------------------------
+        `CREATE TABLE IF NOT EXISTS organizations (
+          id TEXT PRIMARY KEY,
+          slug TEXT NOT NULL UNIQUE,
+          nome TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'ativo',
+          plano TEXT,
+          criadoEm TEXT
+        )`,
+        // Substitui o array hardcoded NEGOCIOS_VALIDOS (routes/auditoria-docs.js):
+        // cada organização cadastra 1..N negócios (um franqueado comum terá só 1).
+        `CREATE TABLE IF NOT EXISTS tenant_negocios (
+          id TEXT PRIMARY KEY,
+          organizationId TEXT NOT NULL,
+          chave TEXT NOT NULL,
+          nomeExibicao TEXT,
+          tipo TEXT,
+          ativo INTEGER DEFAULT 1,
+          criadoEm TEXT,
+          UNIQUE(organizationId, chave)
+        )`,
+        // Substitui as constantes hardcoded LOJAS/LOJAS_FA/OPERACOES_INFO/
+        // OPERACOES_ALIASES/WHATSAPP_GRUPOS(_FA)/LOJAS_GEOLOC de webapp/app.js.
+        `CREATE TABLE IF NOT EXISTS unidades (
+          id TEXT PRIMARY KEY,
+          organizationId TEXT NOT NULL,
+          negocioChave TEXT NOT NULL,
+          nome TEXT NOT NULL,
+          codigoExterno TEXT,
+          lat REAL,
+          lng REAL,
+          abertura TEXT,
+          fechamento TEXT,
+          whatsappGrupoUrl TEXT,
+          corEmoji TEXT,
+          ativo INTEGER DEFAULT 1,
+          criadoEm TEXT,
+          UNIQUE(organizationId, negocioChave, nome)
+        )`,
+        // Feature flags por tenant (Fase 3 do plano usa isto para ligar/desligar
+        // módulo por tenant; a tabela já nasce aqui para não precisar de outra
+        // migração quando essa fase chegar).
+        `CREATE TABLE IF NOT EXISTS tenant_modules (
+          id TEXT PRIMARY KEY,
+          organizationId TEXT NOT NULL,
+          moduloChave TEXT NOT NULL,
+          habilitado INTEGER DEFAULT 1,
+          criadoEm TEXT,
+          UNIQUE(organizationId, moduloChave)
+        )`,
+        // Sessão emitida por POST /auth/verify após PIN correto. Substitui o
+        // padrão atual de "cliente manda o nome, servidor confia" — ver
+        // routes/auth.js e routes/middleware/resolveTenantSession.js.
+        `CREATE TABLE IF NOT EXISTS sessions (
+          token TEXT PRIMARY KEY,
+          organizationId TEXT NOT NULL,
+          colaboradorNome TEXT NOT NULL,
+          role TEXT NOT NULL,
+          criadoEm TEXT,
+          expiraEm TEXT
+        )`,
       ];
 
       let promise = Promise.resolve();
@@ -925,6 +1036,167 @@ function initDb(onSuccess) {
         });
       });
 
+      // ------------------------------------------------------------------
+      // Fundação multi-tenant (Fase 1): toda tabela de negócio ganha uma
+      // coluna organizationId. Segue o mesmo padrão idempotente das ALTERs
+      // acima — o callback ignora erro de "coluna já existe" de propósito,
+      // então rodar isto de novo em todo boot é seguro e barato.
+      //
+      // colaboradores/pins/fluxo_caixa_referencia_loja precisam, além da
+      // coluna, de PK/UNIQUE reconstruída (Seção J do plano): hoje
+      // `colaboradores.nome` e `pins.usuario` são únicos GLOBALMENTE — uma
+      // segunda organização não conseguiria cadastrar ninguém com nome
+      // coincidente com a operação atual. Essas 3 tabelas são pequenas
+      // (dezenas de linhas), então reconstruir a cada boot é barato.
+      // ------------------------------------------------------------------
+      const TABELAS_ORG_SCOPE = [
+        'configuracoes', 'pins', 'registros', 'registros_fa', 'logs_auditoria',
+        'push_subscriptions', 'colaboradores', 'nfs', 'boletos', 'ponto_registros',
+        'ponto_ajustes', 'ponto_biometria', 'biometria_tentativas', 'metas_vendas',
+        'fa_bonificacao_diaria', 'nfe_conferencia', 'fa_bonificacao_regras',
+        'metas_diarias_lojas', 'fa_regras_locacoes', 'metas', 'vendas_horarias',
+        'inventario_itens', 'pos_visita_registros', 'pos_visita_indicadores',
+        'aniversarios_registros', 'ia_cache', 'solicitacoes_retirada',
+        'documentos_auditoria', 'fluxo_caixa_mensal', 'fluxo_caixa_campanha',
+        'fluxo_caixa_referencia_loja', 'fluxo_caixa_indice_sazonal',
+        'fluxo_caixa_observacao_diaria', 'fluxo_caixa_checklist'
+      ];
+      TABELAS_ORG_SCOPE.forEach(tabela => {
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run(`ALTER TABLE ${tabela} ADD COLUMN organizationId TEXT`, [], () => resolve());
+          });
+        });
+      });
+
+      // Seed da organização "tenant zero" (a operação atual do dono) +
+      // negócios/unidades hoje hardcoded em webapp/app.js e
+      // services/fluxo-caixa-dados.js. ON CONFLICT DO NOTHING: só grava na
+      // primeira vez; depois disso é editável por quem administrar tenants.
+      promise = promise.then(() => {
+        const agora = new Date().toISOString();
+        return dbRunAsync(
+          `INSERT INTO organizations (id, slug, nome, status, plano, criadoEm)
+           VALUES (?, ?, ?, 'ativo', 'interno', ?)
+           ON CONFLICT(id) DO NOTHING`,
+          [TENANT_ZERO_ID, 'matriz-belem', 'Operação Matriz (Bruno)', agora]
+        );
+      });
+
+      promise = promise.then(() => {
+        const agora = new Date().toISOString();
+        const negocios = [
+          { id: 'tn-cacau-show', chave: 'cacau-show', nomeExibicao: 'Cacau Show', tipo: 'varejo-franquia' },
+          { id: 'tn-faca-amigos', chave: 'faca-amigos', nomeExibicao: 'Faça Amigos', tipo: 'entretenimento' }
+        ];
+        return Promise.all(negocios.map(n => dbRunAsync(
+          `INSERT INTO tenant_negocios (id, organizationId, chave, nomeExibicao, tipo, ativo, criadoEm)
+           VALUES (?, ?, ?, ?, ?, 1, ?)
+           ON CONFLICT(organizationId, chave) DO NOTHING`,
+          [n.id, TENANT_ZERO_ID, n.chave, n.nomeExibicao, n.tipo, agora]
+        )));
+      });
+
+      promise = promise.then(() => {
+        const agora = new Date().toISOString();
+        // codigoExterno das 3 lojas Cacau Show: mesmos códigos usados hoje em
+        // services/fluxo-caixa-dados.js (CODIGO_PARA_LOJA) e na tabela `boletos`.
+        const unidades = [
+          { id: 'un-marambaia', negocioChave: 'cacau-show', nome: 'Marambaia', codigoExterno: '9175' },
+          { id: 'un-icoaraci', negocioChave: 'cacau-show', nome: 'Icoaraci', codigoExterno: '4304' },
+          { id: 'un-mario-covas', negocioChave: 'cacau-show', nome: 'Mário Covas', codigoExterno: '9201' },
+          { id: 'un-venda-direta', negocioChave: 'cacau-show', nome: 'Venda Direta', codigoExterno: null },
+          { id: 'un-grao-para', negocioChave: 'faca-amigos', nome: 'Grão Pará', codigoExterno: null },
+          { id: 'un-parqueshopping', negocioChave: 'faca-amigos', nome: 'ParqueShopping', codigoExterno: null },
+          { id: 'un-parque-circuito', negocioChave: 'faca-amigos', nome: 'Parque Circuito', codigoExterno: null }
+        ];
+        return Promise.all(unidades.map(u => dbRunAsync(
+          `INSERT INTO unidades (id, organizationId, negocioChave, nome, codigoExterno, ativo, criadoEm)
+           VALUES (?, ?, ?, ?, ?, 1, ?)
+           ON CONFLICT(organizationId, negocioChave, nome) DO NOTHING`,
+          [u.id, TENANT_ZERO_ID, u.negocioChave, u.nome, u.codigoExterno, agora]
+        )));
+      });
+
+      promise = promise.then(() => {
+        const agora = new Date().toISOString();
+        const modulos = [
+          'cacau-show', 'faca-amigos', 'nfe', 'inventario', 'ponto',
+          'metas-xlsx', 'ia', 'fa-bonificacao', 'rh-modulo'
+        ];
+        return Promise.all(modulos.map(m => dbRunAsync(
+          `INSERT INTO tenant_modules (id, organizationId, moduloChave, habilitado, criadoEm)
+           VALUES (?, ?, ?, 1, ?)
+           ON CONFLICT(organizationId, moduloChave) DO NOTHING`,
+          [`tm-${m}`, TENANT_ZERO_ID, m, agora]
+        )));
+      });
+
+      // Backfill: toda linha pré-existente (sem organizationId) pertence à
+      // operação atual do dono. Critério de aceite da Fase 1: depois disto,
+      // COUNT(*) WHERE organizationId IS NULL = 0 em cada uma destas tabelas.
+      TABELAS_ORG_SCOPE.forEach(tabela => {
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run(`UPDATE ${tabela} SET organizationId = ? WHERE organizationId IS NULL`, [TENANT_ZERO_ID], (err) => {
+              if (err) console.error(`Erro no backfill de organizationId em ${tabela}:`, err.message);
+              resolve();
+            });
+          });
+        });
+      });
+
+      // Reconstrução de PK/UNIQUE das 3 tabelas de identidade/referência que
+      // hoje são únicas globalmente — precisam ser únicas POR organização
+      // antes que uma segunda organização real possa existir sem colidir
+      // com a de hoje.
+      promise = promise.then(() => rebuildTableWithOrgScope(
+        'colaboradores',
+        `CREATE TABLE IF NOT EXISTS colaboradores (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT NOT NULL,
+          role TEXT NOT NULL,
+          criadoEm TEXT,
+          hasBiometricEnrolled INTEGER DEFAULT 0,
+          unidade TEXT,
+          cpf TEXT,
+          dataNascimento TEXT,
+          telefone TEXT,
+          dataAdmissao TEXT,
+          organizationId TEXT NOT NULL DEFAULT '${TENANT_ZERO_ID}',
+          UNIQUE(organizationId, nome)
+        )`,
+        ['id', 'nome', 'role', 'criadoEm', 'hasBiometricEnrolled', 'unidade', 'cpf', 'dataNascimento', 'telefone', 'dataAdmissao', 'organizationId']
+      ).catch(err => console.error('Erro ao reconstruir colaboradores com escopo de organização:', err.message)));
+
+      promise = promise.then(() => rebuildTableWithOrgScope(
+        'pins',
+        `CREATE TABLE IF NOT EXISTS pins (
+          usuario TEXT NOT NULL,
+          pin TEXT,
+          organizationId TEXT NOT NULL DEFAULT '${TENANT_ZERO_ID}',
+          PRIMARY KEY (organizationId, usuario)
+        )`,
+        ['usuario', 'pin', 'organizationId']
+      ).catch(err => console.error('Erro ao reconstruir pins com escopo de organização:', err.message)));
+
+      promise = promise.then(() => rebuildTableWithOrgScope(
+        'fluxo_caixa_referencia_loja',
+        `CREATE TABLE IF NOT EXISTS fluxo_caixa_referencia_loja (
+          loja TEXT NOT NULL,
+          faturamentoMes DOUBLE PRECISION,
+          despesaFixaMes DOUBLE PRECISION,
+          pontoEquilibrioMes DOUBLE PRECISION,
+          pontoEquilibrioDia DOUBLE PRECISION,
+          resultado10Meses DOUBLE PRECISION,
+          aliquotaImposto DOUBLE PRECISION DEFAULT 0.082,
+          atualizadoEm TEXT,
+          organizationId TEXT NOT NULL DEFAULT '${TENANT_ZERO_ID}',
+          PRIMARY KEY (organizationId, loja)
+        )`,
+        ['loja', 'faturamentoMes', 'despesaFixaMes', 'pontoEquilibrioMes', 'pontoEquilibrioDia', 'resultado10Meses', 'aliquotaImposto', 'atualizadoEm', 'organizationId']
+      ).catch(err => console.error('Erro ao reconstruir fluxo_caixa_referencia_loja com escopo de organização:', err.message)));
+
       // Índices para as consultas mais usadas do sistema (filtro, busca e
       // ordenação). Até aqui só existiam índices de PK/UNIQUE — qualquer
       // WHERE/ORDER BY fora dessas colunas forçava varredura completa da
@@ -1032,8 +1304,8 @@ function initDb(onSuccess) {
             let inserts = defaultUsers.map(u => {
               return new Promise(res => {
                 db.run(
-                  'INSERT INTO colaboradores (nome, role, criadoEm) VALUES (?, ?, ?) ON CONFLICT(nome) DO NOTHING',
-                  [u.nome, u.role, agora],
+                  'INSERT INTO colaboradores (nome, role, criadoEm, organizationId) VALUES (?, ?, ?, ?) ON CONFLICT(organizationId, nome) DO NOTHING',
+                  [u.nome, u.role, agora, TENANT_ZERO_ID],
                   () => res()
                 );
               });
@@ -1057,10 +1329,10 @@ function initDb(onSuccess) {
         return Promise.all(referenciaSeed.map(r => new Promise(resolve => {
           db.run(
             `INSERT INTO fluxo_caixa_referencia_loja
-              (loja, faturamentoMes, despesaFixaMes, pontoEquilibrioMes, pontoEquilibrioDia, resultado10Meses, aliquotaImposto, atualizadoEm)
-             VALUES (?, ?, ?, ?, ?, ?, 0.082, ?)
-             ON CONFLICT(loja) DO NOTHING`,
-            [r.loja, r.faturamentoMes, r.despesaFixaMes, r.pontoEquilibrioMes, r.pontoEquilibrioDia, r.resultado10Meses, agora],
+              (loja, faturamentoMes, despesaFixaMes, pontoEquilibrioMes, pontoEquilibrioDia, resultado10Meses, aliquotaImposto, atualizadoEm, organizationId)
+             VALUES (?, ?, ?, ?, ?, ?, 0.082, ?, ?)
+             ON CONFLICT(organizationId, loja) DO NOTHING`,
+            [r.loja, r.faturamentoMes, r.despesaFixaMes, r.pontoEquilibrioMes, r.pontoEquilibrioDia, r.resultado10Meses, agora, TENANT_ZERO_ID],
             () => resolve()
           );
         })));
@@ -1207,5 +1479,6 @@ module.exports = {
   dbAllAsync,
   dbGetAsync,
   dbRunAsync,
-  initDb
+  initDb,
+  TENANT_ZERO_ID
 };

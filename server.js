@@ -26,6 +26,7 @@ const {
   enviarNotificacaoVisao19h
 } = require('./config/notifications');
 
+const resolveTenantSession = require('./routes/middleware/resolveTenantSession');
 const authRoutes = require('./routes/auth');
 const caixaRoutes = require('./routes/caixa');
 const financeiroRoutes = require('./routes/financeiro');
@@ -47,8 +48,32 @@ const nfeRoutes = require('./routes/nfe');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// CORS_ALLOWED_ORIGINS (opcional, lista separada por vírgula): sem essa
+// variável, mantém o comportamento de sempre (cors() sem restrição), para
+// não quebrar quem hoje depende de cross-origin (ex.: abrir webapp/index.html
+// como arquivo local, Origin "null"). Definir a variável liga a allowlist —
+// pré-requisito de segurança antes de expor a API a um domínio de um
+// segundo tenant.
+const corsOrigensPermitidas = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || corsOrigensPermitidas.length === 0 || corsOrigensPermitidas.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Origem não permitida por CORS.'));
+  }
+}));
 app.use(express.json({ limit: '15mb' }));
+
+// Resolve req.tenant (organização) a partir do token de sessão, quando
+// presente — ver routes/middleware/resolveTenantSession.js. Fica antes de
+// TODAS as rotas /api para que qualquer rota já rewireada para tenant possa
+// simplesmente ler req.tenant.organizationId.
+app.use('/api', resolveTenantSession);
 
 // Auditoria de performance: não havia nenhuma instrumentação de tempo de
 // resposta antes disso — só dava pra inferir custo olhando o lado do banco

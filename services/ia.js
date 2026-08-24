@@ -14,7 +14,7 @@
 //      provedor. Quem monta o prompt é responsável por isso; ver anonimizar().
 // ==========================================================================
 
-const { dbGetAsync, dbRunAsync } = require('../config/database');
+const { dbGetAsync, dbRunAsync, TENANT_ZERO_ID } = require('../config/database');
 
 const PROVEDOR = (process.env.IA_PROVIDER || 'gemini').toLowerCase();
 
@@ -322,12 +322,27 @@ async function gerarJSON(prompt, opcoes = {}) {
 // caros e mudam pouco dentro da janela — gerar uma vez e reusar preserva a
 // cota gratuita. A chave deve incluir tudo que muda o resultado (data, loja,
 // usuário), senão dois contextos diferentes compartilham a mesma resposta.
+//
+// organizationId (opcional): escopa a chave física gravada em ia_cache por
+// organização. `ia_cache.chave` era uma PK global sem nenhum escopo — com
+// uma segunda organização real, duas chamadas iguais ("briefing:2026-08-24")
+// de organizações diferentes colidiriam e uma leria o conteúdo gerado pra
+// outra. Falta ainda tornar os chamadores (routes/ia.js, os cron dispatchers
+// de server.js) cientes de qual organização estão servindo — hoje só existe
+// a organização zero, então o default abaixo preserva o comportamento atual
+// byte a byte; passar {organizationId} é o único passo que falta por
+// chamador para isolar de verdade.
 // --------------------------------------------------------------------------
-async function comCache(chave, ttlSegundos, produtor) {
+function chaveEscopada(chave, organizationId) {
+  return `${organizationId || TENANT_ZERO_ID}:${chave}`;
+}
+
+async function comCache(chave, ttlSegundos, produtor, opcoes = {}) {
+  const chaveFisica = chaveEscopada(chave, opcoes.organizationId);
   const agora = Date.now();
 
   try {
-    const linha = await dbGetAsync('SELECT valor, expiraem FROM ia_cache WHERE chave = ?', [chave]);
+    const linha = await dbGetAsync('SELECT valor, expiraem FROM ia_cache WHERE chave = ?', [chaveFisica]);
     if (linha && linha.valor) {
       const expiraEm = Number(linha.expiraem ?? linha.expiraEm);
       if (Number.isFinite(expiraEm) && expiraEm > agora) {
@@ -347,7 +362,7 @@ async function comCache(chave, ttlSegundos, produtor) {
     await dbRunAsync(
       `INSERT INTO ia_cache (chave, valor, criadoEm, expiraEm) VALUES (?, ?, ?, ?)
        ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm`,
-      [chave, JSON.stringify(resultado), new Date().toISOString(), expiraEm]
+      [chaveFisica, JSON.stringify(resultado), new Date().toISOString(), expiraEm]
     );
   } catch (err) {
     console.warn('[IA] Falha ao gravar cache:', err.message);
@@ -369,10 +384,11 @@ async function comCache(chave, ttlSegundos, produtor) {
 // pingador externo rodando a cada alguns minutos.
 // Ver server.js (rota /api/cron/ia-tick) e docs/IA.md.
 // --------------------------------------------------------------------------
-async function marcarSeNovo(chave, ttlSegundos) {
+async function marcarSeNovo(chave, ttlSegundos, opcoes = {}) {
+  const chaveFisica = chaveEscopada(chave, opcoes.organizationId);
   const agora = Date.now();
   try {
-    const existente = await dbGetAsync('SELECT expiraem FROM ia_cache WHERE chave = ?', [chave]);
+    const existente = await dbGetAsync('SELECT expiraem FROM ia_cache WHERE chave = ?', [chaveFisica]);
     if (existente) {
       const expiraEm = Number(existente.expiraem ?? existente.expiraEm);
       if (Number.isFinite(expiraEm) && expiraEm > agora) return false; // já marcado e ainda válido
@@ -380,7 +396,7 @@ async function marcarSeNovo(chave, ttlSegundos) {
     await dbRunAsync(
       `INSERT INTO ia_cache (chave, valor, criadoEm, expiraEm) VALUES (?, ?, ?, ?)
        ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm`,
-      [chave, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000]
+      [chaveFisica, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000]
     );
     return true;
   } catch (err) {

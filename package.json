@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch-path=server.js server.js",
-    "test": "node --test tests/hostile-qa.test.js"
+    "test": "node --test tests/hostile-qa.test.js tests/tenant-isolation.test.js"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.0.0",
