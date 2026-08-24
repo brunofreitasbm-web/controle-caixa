@@ -28,6 +28,7 @@ const {
 
 const resolveTenantSession = require('./routes/middleware/resolveTenantSession');
 const authRoutes = require('./routes/auth');
+const tenantRoutes = require('./routes/tenant');
 const caixaRoutes = require('./routes/caixa');
 const financeiroRoutes = require('./routes/financeiro');
 const pontoRoutes = require('./routes/ponto');
@@ -101,6 +102,7 @@ app.use('/api', realtimeRoutes);
 app.use('/api', inventarioRoutes);
 app.use('/api', iaRoutes);
 app.use('/api', authRoutes);
+app.use('/api/tenant', tenantRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', retiradasRoutes);
 app.use('/api', financeiroRoutes);

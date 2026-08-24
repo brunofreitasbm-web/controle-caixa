@@ -777,6 +777,7 @@ function initDb(onSuccess) {
           organizationId TEXT NOT NULL,
           colaboradorNome TEXT NOT NULL,
           role TEXT NOT NULL,
+          capacidades TEXT,
           criadoEm TEXT,
           expiraEm TEXT
         )`,
@@ -1197,6 +1198,15 @@ function initDb(onSuccess) {
         ['loja', 'faturamentoMes', 'despesaFixaMes', 'pontoEquilibrioMes', 'pontoEquilibrioDia', 'resultado10Meses', 'aliquotaImposto', 'atualizadoEm', 'organizationId']
       ).catch(err => console.error('Erro ao reconstruir fluxo_caixa_referencia_loja com escopo de organização:', err.message)));
 
+      // Coluna criada aqui (idempotente); o backfill de valores roda mais
+      // abaixo, DEPOIS do seed dos colaboradores padrão — a tabela ainda
+      // está vazia neste ponto da cadeia numa instalação nova.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN capacidades TEXT', [], () => resolve());
+        });
+      });
+
       // Índices para as consultas mais usadas do sistema (filtro, busca e
       // ordenação). Até aqui só existiam índices de PK/UNIQUE — qualquer
       // WHERE/ORDER BY fora dessas colunas forçava varredura completa da
@@ -1313,6 +1323,44 @@ function initDb(onSuccess) {
             Promise.all(inserts).then(() => resolve());
           });
         });
+      });
+
+      // ------------------------------------------------------------------
+      // Fase 2 do plano de arquitetura: capacidades por colaborador, em vez
+      // de checagem por NOME PRÓPRIO hardcoded no código (RETIRADA_PERMITIDA,
+      // RESUMO_USUARIOS, "usuario !== 'Bruno'" em routes/caixa.js). JSON em
+      // vez de tabela relacional porque hoje são poucas capacidades fixas —
+      // vira tabela própria se algum dia precisar de granularidade por tenant.
+      //
+      // Backfill preserva EXATAMENTE a matriz de permissão hardcoded de hoje
+      // (não é uma decisão nova de produto, é a mesma regra existente
+      // migrando de "nome no código" para "dado no banco"):
+      //   retirar_envelope   — quem hoje está em RETIRADA_PERMITIDA (app.js)
+      //   excluir_registro   — quem hoje passa em "usuario !== 'Bruno'" nas
+      //                        rotas DELETE de registros (routes/caixa.js)
+      //   ver_resumo_diario  — quem hoje está em RESUMO_USUARIOS (app.js)
+      // Faça Amigos fica de fora de propósito (módulo em descontinuação para
+      // o SaaS) — nomesPermitidosRegrasBonificacaoFa continua hardcoded.
+      // WHERE capacidades IS NULL: só define no primeiro boot depois da
+      // migração — se o Owner reconfigurar pela UI (Fase 3), o boot seguinte
+      // não pode sobrescrever a escolha dele.
+      // ------------------------------------------------------------------
+      promise = promise.then(() => {
+        const capacidadesPorNome = {
+          'Bruno': ['retirar_envelope', 'excluir_registro', 'ver_resumo_diario'],
+          'Isabella': ['retirar_envelope', 'ver_resumo_diario'],
+          'Alexandra': ['retirar_envelope', 'ver_resumo_diario']
+        };
+        return Promise.all(Object.entries(capacidadesPorNome).map(([nome, capacidades]) => new Promise(resolve => {
+          db.run(
+            `UPDATE colaboradores SET capacidades = ? WHERE nome = ? AND organizationId = ? AND (capacidades IS NULL OR capacidades = '')`,
+            [JSON.stringify(capacidades), nome, TENANT_ZERO_ID],
+            (err) => {
+              if (err) console.error(`Erro no backfill de capacidades para ${nome}:`, err.message);
+              resolve();
+            }
+          );
+        })));
       });
 
       // Seed dos números de referência do Fluxo de Caixa (contexto_cacau_show.md,

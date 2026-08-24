@@ -1,11 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
-const { db, normalizeRow } = require('../config/database');
+const { db, dbGetAsync, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
 const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 const { organizationIdDe } = require('./middleware/tenantContext');
+
+// Fase 2 do plano de arquitetura: substitui o "usuario !== 'Bruno'" hardcoded
+// que existia aqui por uma capacidade lida do banco (colaboradores.capacidades,
+// ver config/database.js). Com sessão real (req.tenant.viaSessao), a
+// capacidade já veio no token; sem sessão (frontend anterior à Fase 2 ainda
+// em uso), confere no banco pelo usuario da query — nunca confia só no nome.
+async function podeExcluirRegistro(req) {
+  if (req.tenant && req.tenant.viaSessao) {
+    return (req.tenant.capacidades || []).includes('excluir_registro');
+  }
+  const usuario = req.query.usuario;
+  if (!usuario) return false;
+  try {
+    const row = await dbGetAsync(
+      'SELECT capacidades FROM colaboradores WHERE organizationId = ? AND nome = ?',
+      [organizationIdDe(req), usuario]
+    );
+    if (!row) return false;
+    return JSON.parse(row.capacidades || '[]').includes('excluir_registro');
+  } catch (e) {
+    return false;
+  }
+}
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
 // com limit de 15mb). Ela nunca vai no evento de tempo real — o cliente que
@@ -350,13 +373,13 @@ router.put('/registros/:id', (req, res) => {
 });
 
 // Excluir registro
-router.delete('/registros/:id', (req, res) => {
+router.delete('/registros/:id', async (req, res) => {
   const { id } = req.params;
   const { usuario } = req.query;
   const organizationId = organizationIdDe(req);
 
-  if (usuario !== 'Bruno') {
-    return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros.' });
+  if (!(await podeExcluirRegistro(req))) {
+    return res.status(403).json({ error: 'Permissão negada. Este usuário não tem a capacidade de excluir registros.' });
   }
 
   const agora = new Date().toISOString();

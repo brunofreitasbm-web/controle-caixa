@@ -26,6 +26,7 @@ const resolveTenantSession = require('../routes/middleware/resolveTenantSession'
 const authRoutes = require('../routes/auth');
 const caixaRoutes = require('../routes/caixa');
 const retiradasRoutes = require('../routes/retiradas');
+const tenantRoutes = require('../routes/tenant');
 const { comCache } = require('../services/ia');
 const { addClient, publish } = require('../config/realtime');
 
@@ -69,7 +70,7 @@ before(async () => {
   ]);
   await dbRunAsync('DELETE FROM colaboradores WHERE nome IN (?, ?)', ['SoDoTenantZero', 'SoDoTenantDemo']);
   await dbRunAsync('DELETE FROM solicitacoes_retirada WHERE id = ?', ['sol-zero-1']);
-  await dbRunAsync('DELETE FROM registros WHERE id IN (?, ?)', ['reg-zero-1', 'reg-demo-1']);
+  await dbRunAsync('DELETE FROM registros WHERE id IN (?, ?, ?, ?)', ['reg-zero-1', 'reg-demo-1', 'reg-zero-2', 'reg-zero-3']);
   await dbRunAsync('DELETE FROM registros_fa WHERE id IN (?, ?)', ['reg-zero-1', 'reg-demo-1']);
 
   const app = express();
@@ -78,6 +79,7 @@ before(async () => {
   app.use('/api', authRoutes);
   app.use('/api', caixaRoutes);
   app.use('/api', retiradasRoutes);
+  app.use('/api/tenant', tenantRoutes);
 
   server = http.createServer(app);
   await new Promise(resolve => {
@@ -270,4 +272,45 @@ test('isolamento: autorizar retirada com token da outra organização não encon
   });
   assert.equal(autorizacaoCorreta.status, 200, JSON.stringify(autorizacaoCorreta.body));
   assert.equal(autorizacaoCorreta.body.success, true);
+});
+
+test('bootstrap: só devolve unidades do negócio cacau-show, nunca Faça Amigos', async () => {
+  const res = await request('/tenant/bootstrap');
+  assert.equal(res.status, 200);
+  const nomes = res.body.unidades.map(u => u.nome);
+  assert.ok(nomes.includes('Marambaia'), 'bootstrap não devolveu as unidades reais do Cacau Show');
+  assert.ok(
+    !nomes.some(n => ['Grão Pará', 'ParqueShopping', 'Parque Circuito'].includes(n)),
+    'bootstrap vazou unidade do Faça Amigos — deveria ficar de fora (módulo em descontinuação para o SaaS)'
+  );
+  assert.equal(res.body.organizationId, TENANT_ZERO_ID);
+  assert.ok(res.body.colaboradoresLogin.some(c => c.nome === 'Bruno'), 'bootstrap não devolveu a lista de colaboradores para o seletor de login');
+});
+
+test('capacidade: excluir registro de caixa é decidido por capacidades no banco, não por nome hardcoded', async () => {
+  const criarRegistro = (id) => request('/registros', {
+    method: 'POST',
+    body: JSON.stringify({ id, consultor: 'X', loja: 'Marambaia', tipoOperacao: 'Abertura', dataOperacao: '2026-01-03', fundoCaixa: 50, criadoEm: new Date().toISOString() })
+  });
+
+  // Sem sessão (fluxo atual do frontend, antes da Fase 2 do cliente): a
+  // capacidade ainda é conferida no banco pelo usuario da query — não é
+  // mais um simples "usuario !== 'Bruno'" no código.
+  await criarRegistro('reg-zero-2');
+  const exclusaoComCapacidade = await request('/registros/reg-zero-2?usuario=Bruno', { method: 'DELETE' });
+  assert.equal(exclusaoComCapacidade.status, 200, 'Bruno tem excluir_registro e deveria conseguir excluir');
+
+  await criarRegistro('reg-zero-3');
+  const exclusaoSemCapacidade = await request('/registros/reg-zero-3?usuario=Alexandra', { method: 'DELETE' });
+  assert.equal(exclusaoSemCapacidade.status, 403, 'Alexandra não tem excluir_registro e não deveria conseguir excluir');
+
+  // Com sessão real, a capacidade vem do TOKEN (identidade autenticada), não
+  // do parâmetro usuario da query — spoofar ?usuario=Bruno estando logado
+  // como outra pessoa não deve funcionar.
+  const tokenZero = await login(TENANT_ZERO_ID); // TesteIsolamento, sem excluir_registro
+  const tentativaSpoof = await request('/registros/reg-zero-2?usuario=Bruno', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${tokenZero}` }
+  });
+  assert.equal(tentativaSpoof.status, 403, 'VAZAMENTO: com sessão real, ?usuario=Bruno na query conseguiu contornar a capacidade da própria sessão');
 });

@@ -16,7 +16,7 @@ async function resolveTenantSession(req, res, next) {
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : null;
 
   if (!token) {
-    req.tenant = { organizationId: TENANT_ZERO_ID, colaboradorNome: null, role: null, viaSessao: false };
+    req.tenant = { organizationId: TENANT_ZERO_ID, colaboradorNome: null, role: null, capacidades: [], viaSessao: false };
     return next();
   }
 
@@ -24,13 +24,16 @@ async function resolveTenantSession(req, res, next) {
     const row = normalizeRow(await dbGetAsync('SELECT * FROM sessions WHERE token = ?', [token]));
     const expirada = row && row.expiraEm && new Date(row.expiraEm).getTime() < Date.now();
     if (!row || expirada) {
-      req.tenant = { organizationId: TENANT_ZERO_ID, colaboradorNome: null, role: null, viaSessao: false };
+      req.tenant = { organizationId: TENANT_ZERO_ID, colaboradorNome: null, role: null, capacidades: [], viaSessao: false };
       return next();
     }
+    let capacidades = [];
+    try { capacidades = JSON.parse(row.capacidades || '[]'); } catch (e) { capacidades = []; }
     req.tenant = {
       organizationId: row.organizationId,
       colaboradorNome: row.colaboradorNome,
       role: row.role,
+      capacidades,
       viaSessao: true
     };
     next();

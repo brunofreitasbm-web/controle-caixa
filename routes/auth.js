@@ -18,17 +18,19 @@ function organizationIdDaRequisicao(req) {
 }
 
 function emitirSessao(organizationId, usuario, cb) {
-  db.get('SELECT role FROM colaboradores WHERE organizationId = ? AND nome = ?', [organizationId, usuario], (err, row) => {
+  db.get('SELECT role, capacidades FROM colaboradores WHERE organizationId = ? AND nome = ?', [organizationId, usuario], (err, row) => {
     if (err || !row) return cb(null);
     const token = crypto.randomUUID();
     const agora = new Date();
     const expiraEm = new Date(agora.getTime() + SESSAO_TTL_MS).toISOString();
+    let capacidades = [];
+    try { capacidades = JSON.parse(row.capacidades || '[]'); } catch (e) { capacidades = []; }
     db.run(
-      'INSERT INTO sessions (token, organizationId, colaboradorNome, role, criadoEm, expiraEm) VALUES (?, ?, ?, ?, ?, ?)',
-      [token, organizationId, usuario, row.role, agora.toISOString(), expiraEm],
+      'INSERT INTO sessions (token, organizationId, colaboradorNome, role, capacidades, criadoEm, expiraEm) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [token, organizationId, usuario, row.role, JSON.stringify(capacidades), agora.toISOString(), expiraEm],
       (err2) => {
         if (err2) return cb(null);
-        cb({ token, role: row.role, organizationId, expiraEm });
+        cb({ token, role: row.role, organizationId, expiraEm, capacidades });
       }
     );
   });
@@ -169,7 +171,7 @@ router.post('/auth/verify', async (req, res) => {
         res.json({
           valid: true,
           hasPin: true,
-          ...(sessao ? { token: sessao.token, role: sessao.role, organizationId: sessao.organizationId, expiraEm: sessao.expiraEm } : {})
+          ...(sessao ? { token: sessao.token, role: sessao.role, organizationId: sessao.organizationId, expiraEm: sessao.expiraEm, capacidades: sessao.capacidades } : {})
         });
       });
     };
