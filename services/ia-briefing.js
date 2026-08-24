@@ -7,7 +7,7 @@
 // o resumo executivo — a apuração é toda em JS.
 // ==========================================================================
 
-const { dbAllAsync } = require('../config/database');
+const { dbAllAsync, dbGetAsync, TENANT_ZERO_ID } = require('../config/database');
 const { gerarJSON, comCache, iaHabilitada, IAIndisponivelError } = require('./ia');
 // CODIGO_PARA_LOJA/vencimentoParaISO/etc. vivem em fluxo-caixa-dados.js (o
 // módulo Fluxo de Caixa também precisa dos dois) — reexportados aqui para
@@ -118,7 +118,14 @@ async function apurar(dataRef) {
   };
 }
 
-const SISTEMA_BRIEFING = `Você é o analista de operações de uma rede com 3 lojas Cacau Show (Marambaia, Icoaraci, Mário Covas) em Belém/PA e o playground FaçaAmigos.
+// Fase 4 do plano de arquitetura SaaS: a persona/voz do briefing é
+// configurável por organização (configuracoes.iaSistemaBriefing, ver
+// routes/tenant.js). O texto abaixo é o default de fábrica — usado por
+// qualquer organização que nunca personalizou, e é EXATAMENTE o texto que
+// já existia hardcoded aqui (a operação do dono não muda de comportamento).
+// Um tenant novo, sem Faça Amigos, deve trocar essa persona pela própria
+// (número de lojas, cidade) na tela de Configurações.
+const SISTEMA_BRIEFING_PADRAO = `Você é o analista de operações de uma rede com 3 lojas Cacau Show (Marambaia, Icoaraci, Mário Covas) em Belém/PA e o playground FaçaAmigos.
 Escreve o briefing matinal para o Owner e o Líder de Operação.
 
 Tom: objetivo e executivo. Quem lê tem 60 segundos e precisa saber o que fazer hoje.
@@ -130,6 +137,18 @@ Regras inegociáveis:
 - Toda recomendação precisa ser acionável hoje e citar um número.
 - Não use nomes de campos técnicos, chaves de banco nem termos em inglês.
 - Se algo estiver bom, diga em uma linha e siga — o briefing existe para o que precisa de ação.`;
+
+async function obterSistemaBriefing(organizationId) {
+  try {
+    const row = await dbGetAsync(
+      'SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?',
+      [organizationId || TENANT_ZERO_ID, 'iaSistemaBriefing']
+    );
+    return (row && row.valor) ? row.valor : SISTEMA_BRIEFING_PADRAO;
+  } catch (err) {
+    return SISTEMA_BRIEFING_PADRAO;
+  }
+}
 
 const FORMATO_BRIEFING = {
   manchete: 'a frase mais importante do dia, com número',
@@ -176,7 +195,8 @@ function briefingFallback(d) {
   };
 }
 
-async function gerarBriefing({ dataRef = null, forcar = false } = {}) {
+async function gerarBriefing({ dataRef = null, forcar = false, organizationId = null } = {}) {
+  const orgId = organizationId || TENANT_ZERO_ID;
   const data = dataRef || hojeBrasil();
   const dados = await apurar(data);
 
@@ -231,10 +251,11 @@ ${linhasFa}
 Liste de 2 a 4 alertas e exatamente 3 prioridades para hoje.`;
 
     const r = await gerarJSON(prompt, {
-      sistema: SISTEMA_BRIEFING,
+      sistema: await obterSistemaBriefing(orgId),
       formato: FORMATO_BRIEFING,
       temperatura: 0.4,
-      maxTokens: 2000
+      maxTokens: 2000,
+      organizationId: orgId
     });
     return { ...r, _fonte: 'ia' };
   };
@@ -244,7 +265,7 @@ Liste de 2 a 4 alertas e exatamente 3 prioridades para hoje.`;
     // mudarem — `forcar` regenera sob demanda pelo botão da tela.
     const briefing = forcar
       ? await produtor()
-      : await comCache(`briefing:${data}`, 12 * 3600, produtor);
+      : await comCache(`briefing:${data}`, 12 * 3600, produtor, { organizationId: orgId });
     return { dados, briefing };
   } catch (err) {
     if (err instanceof IAIndisponivelError) {
