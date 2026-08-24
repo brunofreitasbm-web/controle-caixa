@@ -13,6 +13,8 @@
  * Postgres via DATABASE_URL) ou um Redis pub/sub.
  */
 
+const { TENANT_ZERO_ID } = require('./database');
+
 const HEARTBEAT_MS = 25000;   // proxies costumam derrubar conexão ociosa por volta de 60s
 const MAX_BUFFER = 200;       // eventos guardados para reenviar após reconexão (Last-Event-ID)
 
@@ -53,11 +55,20 @@ function iniciarHeartbeat() {
 }
 
 /**
- * Registra uma conexão SSE. `meta` = { usuario, clientId, loja }.
+ * Registra uma conexão SSE. `meta` = { usuario, clientId, loja, organizationId }.
  * Retorna o objeto do cliente (usado para remover no close).
+ *
+ * organizationId default TENANT_ZERO_ID: enquanto routes/realtime.js não
+ * receber o token de sessão de todo cliente (Fase 2), toda conexão é tratada
+ * como da organização zero — o mesmo comportamento de hoje, sem quebra.
  */
 function addClient(res, meta = {}) {
-  const client = { res, ...meta, conectadoEm: new Date().toISOString() };
+  const client = {
+    res,
+    ...meta,
+    organizationId: meta.organizationId || TENANT_ZERO_ID,
+    conectadoEm: new Date().toISOString()
+  };
   clients.add(client);
   iniciarHeartbeat();
   return client;
@@ -74,7 +85,7 @@ function removeClient(client) {
 function replay(client, lastEventId) {
   const desde = Number(lastEventId);
   if (!desde || Number.isNaN(desde)) return 0;
-  const perdidos = buffer.filter(ev => ev.id > desde);
+  const perdidos = buffer.filter(ev => ev.id > desde && ev.organizationId === client.organizationId);
   for (const ev of perdidos) {
     escrever(client, formatFrame(ev));
   }
@@ -89,15 +100,21 @@ function replay(client, lastEventId) {
  *                         fotoEnvelope (base64) nem blobs grandes: o evento
  *                         carrega só o que mudou e o cliente busca o resto se
  *                         precisar.
- * @param {object} opts    { origem: clientId de quem originou, usuario }
+ * @param {object} opts    { origem: clientId de quem originou, usuario,
+ *                           organizationId: só entrega a clientes da mesma
+ *                           organização — default TENANT_ZERO_ID enquanto as
+ *                           rotas que chamam publish() não passam o valor
+ *                           real (ver services/ia.js para o mesmo padrão) }
  */
 function publish(tipo, payload, opts = {}) {
+  const organizationId = opts.organizationId || TENANT_ZERO_ID;
   const evento = {
     id: nextEventId++,
     tipo,
     payload,
     origem: opts.origem || null,
     usuario: opts.usuario || null,
+    organizationId,
     em: new Date().toISOString()
   };
 
@@ -108,6 +125,7 @@ function publish(tipo, payload, opts = {}) {
 
   const frame = formatFrame(evento);
   for (const client of clients) {
+    if (client.organizationId !== organizationId) continue;
     escrever(client, frame);
   }
   return evento;

@@ -6,6 +6,24 @@
 let API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
+
+// Fase 2 do plano de arquitetura SaaS: todo fetch para a API leva o token de
+// sessão (currentUser.token, obtido no login) no header Authorization, se
+// existir — sem isso o servidor usa a organização padrão (ver
+// resolveTenantSession no backend), que hoje é a única que existe. Um
+// wrapper aqui evita editar os ~100 call sites de fetch(`${API_BASE}/...`)
+// espalhados neste arquivo.
+(function instalarAuthFetchWrapper() {
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = function(url, options = {}) {
+    const urlStr = typeof url === "string" ? url : (url && url.url) || "";
+    if (urlStr.startsWith(API_BASE) && typeof currentUser !== "undefined" && currentUser && currentUser.token) {
+      options = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${currentUser.token}` } };
+    }
+    return fetchOriginal(url, options);
+  };
+})();
+
 const STORAGE_KEY = "cacaushow_controle_caixa_v1";
 const USER_KEY = "cacaushow_current_user";
 const PIN_KEY = "cacaushow_pins_v1";
@@ -628,6 +646,18 @@ function registrarLimparErroAoDigitar() {
 // Só essas pessoas podem confirmar a retirada física do dinheiro.
 // Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
 const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
+
+// Fase 2 do plano de arquitetura SaaS: prefere a capacidade vinda do login
+// (colaboradores.capacidades no banco, ver config/database.js); os arrays
+// hardcoded acima/abaixo (RETIRADA_PERMITIDA, RESUMO_USUARIOS) viram só o
+// fallback para quando currentUser ainda não tem capacidades (sessão antiga
+// no localStorage, ou app usado sem o token — ver instalarAuthFetchWrapper).
+function usuarioTemCapacidade(capacidade, nomesFallback) {
+  if (currentUser && Array.isArray(currentUser.capacidades)) {
+    return currentUser.capacidades.includes(capacidade);
+  }
+  return !!(currentUser && nomesFallback.includes(currentUser.nome));
+}
 // Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
 // PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
 // que abre um modal de autorização sozinho na tela dos owners.
@@ -1372,6 +1402,58 @@ function renderLoginUserGrid() {
 }
 renderLoginUserGrid();
 
+// ==========================================================================
+// BOOTSTRAP DE TENANT (Fase 2 do plano de arquitetura SaaS)
+// ==========================================================================
+// Substitui os dados hoje hardcoded acima (USERS, LOJAS, OPERACOES_INFO,
+// OPERACOES_ALIASES, WHATSAPP_GRUPOS, LOJAS_GEOLOC, OPERACOES_CONFIG) pelo
+// que vem de GET /tenant/bootstrap, escopado por organização no servidor.
+// Só cobre o negócio "cacau-show" — Faça Amigos fica de fora de propósito
+// (módulo em descontinuação para o SaaS) e continua servido pelos valores
+// hardcoded de sempre, sem passar por aqui.
+//
+// Falha de rede/servidor aqui NUNCA impede o login: os valores hardcoded já
+// aplicados continuam valendo como estão, exatamente como antes desta
+// mudança — este bloco só sobrescreve o que conseguir buscar.
+window.__tenantModulos = {};
+
+function aplicarBootstrapTenant(dados) {
+  if (!dados) return;
+
+  if (Array.isArray(dados.colaboradoresLogin) && dados.colaboradoresLogin.length) {
+    USERS = dados.colaboradoresLogin.map(c => ({ nome: c.nome, role: c.role }));
+    renderLoginUserGrid();
+  }
+
+  if (Array.isArray(dados.unidades)) {
+    dados.unidades.forEach(u => {
+      if (!u || !u.nome) return;
+      if (!LOJAS.includes(u.nome)) LOJAS.push(u.nome);
+      if (!OPERACOES_INFO[u.nome]) OPERACOES_INFO[u.nome] = { emoji: "📍", cor: "#9ca3af" };
+      if (u.whatsappGrupoUrl) WHATSAPP_GRUPOS[u.nome] = u.whatsappGrupoUrl;
+      if (u.lat && u.lng) LOJAS_GEOLOC[u.nome] = { lat: u.lat, lng: u.lng };
+      if (u.abertura && u.fechamento) OPERACOES_CONFIG[u.nome] = { abertura: u.abertura, fechamento: u.fechamento };
+      if (u.codigoExterno) OPERACOES_ALIASES[u.codigoExterno] = u.nome;
+    });
+  }
+
+  window.__tenantModulos = dados.modulos || {};
+  if (typeof aplicarVisibilidadeModulosTenant === "function") aplicarVisibilidadeModulosTenant();
+}
+
+async function carregarBootstrapTenant() {
+  try {
+    const res = await fetch(`${API_BASE}/tenant/bootstrap`);
+    if (!res.ok) return;
+    aplicarBootstrapTenant(await res.json());
+  } catch (e) {
+    // Sem tenant/bootstrap disponível, o app segue 100% funcional com os
+    // valores hardcoded de sempre — não é um requisito para usar o sistema.
+    console.warn("[Tenant] bootstrap indisponível, usando valores locais:", e.message);
+  }
+}
+carregarBootstrapTenant();
+
 function selecionarUsuarioLogin(nome) {
   loginUsuarioSelecionado = nome;
   loginMsg.classList.add("hidden");
@@ -1446,6 +1528,11 @@ loginEntrarBtn.addEventListener("click", async () => {
   if (!nome) { mostrarErroLogin("Selecione seu nome."); return; }
   const user = USERS.find(u => u.nome === nome);
   const pinDigitado = loginPinInput.value.trim();
+  // Preenchido pela resposta de POST /auth/verify quando o PIN é validado
+  // (Fase 2): token de sessão + capacidades do colaborador. Continua
+  // funcionando sem eles (ex.: app offline, fallback local) — currentUser
+  // só ganha os campos extra quando o servidor os devolve.
+  let sessaoObtida = null;
 
   // Se o campo de confirmação NÃO está escondido, o usuário está criando seu PIN
   const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
@@ -1480,6 +1567,9 @@ loginEntrarBtn.addEventListener("click", async () => {
           mostrarErroLogin("PIN incorreto.");
           return;
         }
+        if (result.token) {
+          sessaoObtida = { token: result.token, capacidades: result.capacidades || [] };
+        }
       } catch (e) {
         if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
           mostrarErroLogin("PIN incorreto.");
@@ -1494,7 +1584,7 @@ loginEntrarBtn.addEventListener("click", async () => {
     }
   }
 
-  currentUser = user;
+  currentUser = sessaoObtida ? { ...user, token: sessaoObtida.token, capacidades: sessaoObtida.capacidades } : user;
   localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
   localStorage.setItem("ultimo_usuario_login", user.nome);
   resetLoginForm();
@@ -1709,6 +1799,316 @@ function ajustarCardsModulos() {
   const btnTopbarTrocarModulo = document.getElementById("btn-topbar-trocar-modulo");
   if (ownerSwitch) ownerSwitch.classList.toggle("hidden", role !== "owner");
   if (btnTopbarTrocarModulo) btnTopbarTrocarModulo.classList.toggle("hidden", role === "owner");
+}
+
+// Fase 3 do plano de arquitetura SaaS: feature flags por organização
+// (tenant_modules no banco, ver routes/tenant.js e a tela de Configurações).
+// Roda POR CIMA do filtro de tabsPermitidas por role feito em
+// iniciarModuloBase — só ESCONDE abas cujo módulo está explicitamente
+// desligado (habilitado === false); um módulo ausente do mapa (bootstrap
+// não rodou, ou a chave nem existe ainda) nunca esconde nada, então isto
+// nunca reduz o que já funciona hoje para a organização atual.
+const TAB_PARA_MODULO_TENANT = {
+  "faca-amigos": "faca-amigos",
+  "aniversarios": "faca-amigos",
+  "pos-visita": "faca-amigos",
+  "conferencia-nfe": "nfe",
+  "faturamento-nfe": "nfe",
+  "inventario-estoque": "inventario",
+  "controle-ponto": "ponto",
+  "importar-meta": "metas-xlsx",
+  "rh-modulo": "rh-modulo"
+};
+
+function aplicarVisibilidadeModulosTenant() {
+  const modulos = window.__tenantModulos || {};
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    const moduloChave = TAB_PARA_MODULO_TENANT[btn.dataset.tab];
+    if (moduloChave && modulos[moduloChave] === false) {
+      btn.classList.add("hidden");
+    }
+  });
+  ["group-controle-caixa", "group-faca-amigos", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    if (!temTabVisivel) group.classList.add("hidden");
+  });
+  atualizarCardModulosTenant();
+  atualizarCardUnidadesTenant();
+}
+
+// --------------------------------------------------------------------------
+// Card "Módulos ativos" em Configurações (Fase 3): toggle de feature flag por
+// organização, ligado a PUT /api/tenant/modules/:chave (owner-only no
+// servidor — o botão só aparece pra quem tem role owner aqui, mas a
+// autorização de verdade é sempre a do backend). Só lista módulos que a
+// organização já tem cadastrados em tenant_modules (ver bootstrap); nenhum
+// módulo do Faça Amigos entra nesta lista de propósito — ver TAB_PARA_MODULO_TENANT.
+// --------------------------------------------------------------------------
+const MODULOS_TOGGLE_LABELS = {
+  "faca-amigos": "Faça Amigos",
+  "nfe": "Conferência/Faturamento de NF-e",
+  "inventario": "Inventário de Estoque",
+  "ponto": "Controle de Ponto",
+  "metas-xlsx": "Importação de Metas (XLSX)",
+  "rh-modulo": "Módulo RH"
+};
+
+function criarCardModulosTenant() {
+  const grid = document.getElementById("config-grid");
+  if (!grid || document.getElementById("config-card-modulos-tenant")) return;
+
+  const card = document.createElement("div");
+  card.id = "config-card-modulos-tenant";
+  card.className = "card p-6 rounded-2xl border border-border md:col-span-2 hidden";
+  card.dataset.configBusca = "modulos funcionalidades feature flags saas plano organizacao";
+  card.innerHTML = `
+    <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-modulos-tenant">
+      <h3 class="text-base font-bold flex items-center gap-2">
+        <i class="fa-solid fa-toggle-on text-accent"></i> Módulos ativos
+      </h3>
+      <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+    </button>
+    <div id="config-corpo-modulos-tenant" class="config-corpo hidden mt-3">
+      <p class="text-xs text-muted mb-4">Liga/desliga funcionalidades para esta organização. Desligar um módulo esconde as abas dele na barra lateral para todo mundo.</p>
+      <div id="config-modulos-lista" class="space-y-2"></div>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const toggle = card.querySelector(".config-toggle");
+  toggle.addEventListener("click", () => {
+    const corpo = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!corpo) return;
+    const abrindo = corpo.classList.contains("hidden");
+    corpo.classList.toggle("hidden", !abrindo);
+    toggle.setAttribute("aria-expanded", String(abrindo));
+    const icone = toggle.querySelector(".config-toggle-icon");
+    if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+  });
+}
+
+function atualizarCardModulosTenant() {
+  const card = document.getElementById("config-card-modulos-tenant");
+  if (!card) return;
+  const isOwner = !!(currentUser && currentUser.role === "owner");
+  card.classList.toggle("hidden", !isOwner);
+  if (!isOwner) return;
+
+  const lista = document.getElementById("config-modulos-lista");
+  if (!lista) return;
+  const modulos = window.__tenantModulos || {};
+
+  lista.innerHTML = "";
+  Object.keys(MODULOS_TOGGLE_LABELS).forEach(chave => {
+    if (!(chave in modulos)) return; // organização não tem este módulo cadastrado ainda
+    const habilitado = modulos[chave] !== false;
+    const linha = document.createElement("label");
+    linha.className = "flex items-center justify-between gap-3 py-2 border-b border-border text-sm";
+    linha.innerHTML = `
+      <span>${MODULOS_TOGGLE_LABELS[chave]}</span>
+      <input type="checkbox" class="config-modulo-checkbox" data-modulo="${chave}" ${habilitado ? "checked" : ""}>
+    `;
+    lista.appendChild(linha);
+  });
+
+  lista.querySelectorAll(".config-modulo-checkbox").forEach(input => {
+    input.addEventListener("change", async () => {
+      const chave = input.dataset.modulo;
+      const habilitado = input.checked;
+      input.disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/modules/${encodeURIComponent(chave)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ habilitado, actorUsuario: currentUser.nome })
+        });
+        if (!res.ok) throw new Error("Falha ao salvar");
+        window.__tenantModulos[chave] = habilitado;
+        aplicarVisibilidadeModulosTenant();
+        showToast(`${MODULOS_TOGGLE_LABELS[chave]} ${habilitado ? "ativado" : "desativado"}.`, "sucesso");
+      } catch (e) {
+        input.checked = !habilitado;
+        showToast("Não foi possível salvar. Tente novamente.", "erro");
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+}
+
+// --------------------------------------------------------------------------
+// Card "Unidades (lojas)" em Configurações (owner-only): CRUD completo sobre
+// a tabela `unidades` (routes/tenant.js) — nome, negócio, código externo e
+// ativo/inativo. Substitui a edição manual do objeto LOJAS hardcoded em
+// webapp/app.js por um cadastro de verdade, sem precisar de deploy.
+// --------------------------------------------------------------------------
+function criarCardUnidadesTenant() {
+  const grid = document.getElementById("config-grid");
+  if (!grid || document.getElementById("config-card-unidades-tenant")) return;
+
+  const card = document.createElement("div");
+  card.id = "config-card-unidades-tenant";
+  card.className = "card p-6 rounded-2xl border border-border md:col-span-2 hidden";
+  card.dataset.configBusca = "unidades lojas cadastro gestao saas negocio";
+  card.innerHTML = `
+    <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-unidades-tenant">
+      <h3 class="text-base font-bold flex items-center gap-2">
+        <i class="fa-solid fa-store text-accent"></i> Unidades (lojas)
+      </h3>
+      <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+    </button>
+    <div id="config-corpo-unidades-tenant" class="config-corpo hidden mt-3">
+      <p class="text-xs text-muted mb-4">Cadastro das unidades desta organização. Excluir marca a unidade como inativa — o histórico de registros que já citam o nome dela continua intacto.</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-border uppercase tracking-wider font-bold">
+              <th class="py-2 px-2">Nome</th>
+              <th class="py-2 px-2">Negócio</th>
+              <th class="py-2 px-2">Código externo</th>
+              <th class="py-2 px-2">Ativa</th>
+              <th class="py-2 px-2"></th>
+            </tr>
+          </thead>
+          <tbody id="config-unidades-tbody" class="divide-y divide-border"></tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-end gap-2 mt-4 pt-4 border-t border-border">
+        <div>
+          <label class="block text-xs text-muted mb-1">Nome</label>
+          <input type="text" id="config-unidade-novo-nome" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="Ex.: Nazaré">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Negócio</label>
+          <input type="text" id="config-unidade-novo-negocio" class="w-28 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="cacau-show">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Código externo</label>
+          <input type="text" id="config-unidade-novo-codigo" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="opcional">
+        </div>
+        <button type="button" id="config-unidade-btn-adicionar" class="btn-secondary" style="padding: 7px 14px; font-size: 12px;">
+          <i class="fa-solid fa-plus"></i> Adicionar unidade
+        </button>
+      </div>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const toggle = card.querySelector(".config-toggle");
+  toggle.addEventListener("click", () => {
+    const corpo = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!corpo) return;
+    const abrindo = corpo.classList.contains("hidden");
+    corpo.classList.toggle("hidden", !abrindo);
+    toggle.setAttribute("aria-expanded", String(abrindo));
+    const icone = toggle.querySelector(".config-toggle-icon");
+    if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+  });
+
+  document.getElementById("config-unidade-btn-adicionar").addEventListener("click", async () => {
+    const nome = document.getElementById("config-unidade-novo-nome").value.trim();
+    const negocioChave = document.getElementById("config-unidade-novo-negocio").value.trim() || "cacau-show";
+    const codigoExterno = document.getElementById("config-unidade-novo-codigo").value.trim();
+    if (!nome) { showToast("Informe o nome da unidade.", "erro"); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/tenant/unidades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioChave, nome, codigoExterno: codigoExterno || null, actorUsuario: currentUser.nome })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Falha ao criar unidade");
+
+      document.getElementById("config-unidade-novo-nome").value = "";
+      document.getElementById("config-unidade-novo-negocio").value = "";
+      document.getElementById("config-unidade-novo-codigo").value = "";
+      showToast(`Unidade "${nome}" criada.`, "sucesso");
+      await atualizarCardUnidadesTenant();
+    } catch (e) {
+      showToast(e.message || "Não foi possível criar a unidade.", "erro");
+    }
+  });
+}
+
+async function atualizarCardUnidadesTenant() {
+  const card = document.getElementById("config-card-unidades-tenant");
+  if (!card) return;
+  const isOwner = !!(currentUser && currentUser.role === "owner");
+  card.classList.toggle("hidden", !isOwner);
+  if (!isOwner) return;
+
+  const tbody = document.getElementById("config-unidades-tbody");
+  if (!tbody) return;
+
+  let unidades = [];
+  try {
+    const res = await fetch(`${API_BASE}/tenant/unidades?actorUsuario=${encodeURIComponent(currentUser.nome)}`);
+    if (res.ok) unidades = await res.json();
+  } catch (e) {
+    console.warn("[Unidades] Falha ao carregar lista:", e.message);
+    return;
+  }
+
+  tbody.innerHTML = "";
+  unidades.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="py-2 px-2 font-bold">${u.nome}</td>
+      <td class="py-2 px-2">${u.negocioChave}</td>
+      <td class="py-2 px-2">${u.codigoExterno || "—"}</td>
+      <td class="py-2 px-2">
+        <input type="checkbox" class="config-unidade-ativo" data-id="${u.id}" ${u.ativo ? "checked" : ""}>
+      </td>
+      <td class="py-2 px-2">
+        <button type="button" class="btn-secondary config-unidade-excluir" data-id="${u.id}" data-nome="${u.nome}" style="padding: 4px 8px; font-size: 11px;">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".config-unidade-ativo").forEach(input => {
+    input.addEventListener("change", async () => {
+      const id = input.dataset.id;
+      const ativo = input.checked;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ativo, actorUsuario: currentUser.nome })
+        });
+        if (!res.ok) throw new Error("Falha ao salvar");
+        showToast(`Unidade ${ativo ? "ativada" : "desativada"}.`, "sucesso");
+      } catch (e) {
+        input.checked = !ativo;
+        showToast("Não foi possível salvar. Tente novamente.", "erro");
+      }
+    });
+  });
+
+  tbody.querySelectorAll(".config-unidade-excluir").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const nome = btn.dataset.nome;
+      const confirmado = await showConfirm(
+        `Remover a unidade "${nome}"? Ela some da operação do dia a dia, mas o histórico de registros continua intacto.`,
+        { icon: "🗑️", title: "Remover unidade", confirmText: "Remover", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (!confirmado) return;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}?actorUsuario=${encodeURIComponent(currentUser.nome)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Falha ao remover");
+        showToast(`Unidade "${nome}" removida.`, "sucesso");
+        await atualizarCardUnidadesTenant();
+      } catch (e) {
+        showToast("Não foi possível remover a unidade.", "erro");
+      }
+    });
+  });
 }
 
 function iniciarModuloBase(moduloOpcional) {
@@ -1936,6 +2336,7 @@ function iniciarModuloBase(moduloOpcional) {
   renderHistorico();
   resetSessionTimer();
   mostrarResumoMatinal();
+  aplicarVisibilidadeModulosTenant();
 }
 
 /**
@@ -5249,7 +5650,7 @@ function renderDashboard() {
   const tbody = document.querySelector("#tabela-pendentes tbody");
   tbody.innerHTML = "";
 
-  const podeRetirar = RETIRADA_PERMITIDA.includes(currentUser.nome);
+  const podeRetirar = usuarioTemCapacidade('retirar_envelope', RETIRADA_PERMITIDA);
 
   // Limpar IDs selecionados que não estão mais na lista de filtrados
   const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
@@ -5438,7 +5839,7 @@ const modalRetirada = document.getElementById("modal-retirada");
 const autorizacaoWrap = document.getElementById("autorizacao-wrap");
 
 function abrirModalRetirada(target) {
-  if (!currentUser || !RETIRADA_PERMITIDA.includes(currentUser.nome)) {
+  if (!currentUser || !usuarioTemCapacidade('retirar_envelope', RETIRADA_PERMITIDA)) {
     showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
     return;
   }
@@ -5761,7 +6162,7 @@ function renderHistorico() {
     retirado: "Retirado",
   };
 
-  const isBruno = currentUser && currentUser.nome === "Bruno";
+  const isBruno = usuarioTemCapacidade('excluir_registro', ['Bruno']);
 
   paginada.forEach(r => {
     const tr = document.createElement("tr");
@@ -6076,7 +6477,7 @@ const RESUMO_KEY = "cacaushow_ultimo_resumo";
 const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
 
 function mostrarResumoMatinal() {
-  if (!currentUser || !RESUMO_USUARIOS.includes(currentUser.nome)) return;
+  if (!currentUser || !usuarioTemCapacidade('ver_resumo_diario', RESUMO_USUARIOS)) return;
 
   // Mostrar no máximo 1x por dia por usuário
   const hoje = new Date().toISOString().slice(0, 10);
@@ -10550,6 +10951,14 @@ async function oferecerCadastroBiometriaColaborador(nomeColaborador) {
 
 // Configurações: Ouvir eventos após o carregamento da página
 document.addEventListener("DOMContentLoaded", () => {
+  // Card "Módulos ativos" (Fase 3 do plano de arquitetura SaaS) — criado uma
+  // vez aqui para que a wiring genérica de ".config-toggle" logo abaixo
+  // alcance o botão dele também; o conteúdo (lista de módulos) é preenchido
+  // depois, quando currentUser/bootstrap estiverem prontos (ver
+  // atualizarCardModulosTenant, chamada de dentro de aplicarVisibilidadeModulosTenant).
+  criarCardModulosTenant();
+  criarCardUnidadesTenant();
+
   // Alteração do Timeout
   const timeoutSelect = document.getElementById("config-timeout-select");
   if (timeoutSelect) {
