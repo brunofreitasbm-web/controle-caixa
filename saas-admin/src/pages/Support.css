@@ -1,0 +1,52 @@
+.support-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .support-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ticket-item {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.ticket-item:last-child {
+  border-bottom: none;
+}
+
+.ticket-item:hover {
+  background-color: var(--bg-subtle);
+}
+
+.priority-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.priority-high {
+  background-color: var(--accent-danger-bg);
+  color: var(--accent-danger-text);
+}
+
+.priority-medium {
+  background-color: var(--accent-warning-bg);
+  color: var(--accent-warning-text);
+}
+
+.priority-low {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+}
