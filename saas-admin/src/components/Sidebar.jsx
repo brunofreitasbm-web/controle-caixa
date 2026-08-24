@@ -6,7 +6,8 @@ import {
   Award,
   Settings,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
@@ -41,6 +42,13 @@ export function Sidebar() {
           <Award />
           <span>Plano</span>
         </NavLink>
+
+        {session?.isPlatformAdmin && (
+          <NavLink to="/organizacoes" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Building2 />
+            <span>Organizações</span>
+          </NavLink>
+        )}
 
         <div className="nav-section-label">Sistema</div>
         <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

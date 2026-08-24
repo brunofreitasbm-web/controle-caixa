@@ -27,6 +27,7 @@ const authRoutes = require('../routes/auth');
 const caixaRoutes = require('../routes/caixa');
 const retiradasRoutes = require('../routes/retiradas');
 const tenantRoutes = require('../routes/tenant');
+const platformRoutes = require('../routes/platform');
 const { comCache } = require('../services/ia');
 const { addClient, publish } = require('../config/realtime');
 
@@ -80,6 +81,7 @@ before(async () => {
   app.use('/api', caixaRoutes);
   app.use('/api', retiradasRoutes);
   app.use('/api/tenant', tenantRoutes);
+  app.use('/api/platform', platformRoutes);
 
   server = http.createServer(app);
   await new Promise(resolve => {
@@ -367,4 +369,52 @@ test('isolamento: persona de IA (iaSistemaBriefing) é por organização', async
   );
 
   await dbRunAsync(`DELETE FROM configuracoes WHERE chave = 'iaSistemaBriefing' AND organizationId = ?`, [TENANT_ZERO_ID]);
+});
+
+test('painel de plataforma: só o admin da plataforma (owner do tenant zero) acessa', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+  const tokenDemo = await login(ORG_DEMO_ID);
+
+  const semToken = await request('/platform/organizations');
+  assert.equal(semToken.status, 401, 'sem sessão nenhuma deveria ser 401, não um default silencioso');
+
+  const outraOrg = await request('/platform/organizations', { headers: { Authorization: `Bearer ${tokenDemo}` } });
+  assert.equal(outraOrg.status, 403, 'owner de uma organização comum não deveria administrar a plataforma inteira');
+
+  const comoPlataforma = await request('/platform/organizations', { headers: { Authorization: `Bearer ${tokenZero}` } });
+  assert.equal(comoPlataforma.status, 200);
+  assert.ok(comoPlataforma.body.some(o => o.id === TENANT_ZERO_ID));
+  assert.ok(comoPlataforma.body.some(o => o.id === ORG_DEMO_ID), 'a lista de organizações deveria incluir a org demo criada neste teste');
+});
+
+test('painel de plataforma: criar organização resolve o problema do "primeiro login" sozinha', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+
+  const criacao = await request('/platform/organizations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({
+      slug: 'cliente-teste-isolamento',
+      nome: 'Cliente Teste Isolamento',
+      primeiroOwnerNome: 'PrimeiroOwner',
+      primeiroOwnerPin: '7777'
+    })
+  });
+  assert.equal(criacao.status, 201, JSON.stringify(criacao.body));
+  assert.equal(criacao.body.primeiroOwnerCriado, true);
+
+  const loginNovaOrg = await request('/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ usuario: 'PrimeiroOwner', pin: '7777', organizationId: criacao.body.id })
+  });
+  assert.equal(loginNovaOrg.status, 200);
+  assert.equal(loginNovaOrg.body.valid, true, 'o primeiro owner criado pela plataforma precisa conseguir logar de cara');
+  assert.equal(loginNovaOrg.body.organizationId, criacao.body.id);
+
+  const semSessao = await request('/platform/organizations', { headers: { Authorization: `Bearer ${loginNovaOrg.body.token}` } });
+  assert.equal(semSessao.status, 403, 'o primeiro owner de um cliente novo não deveria virar admin da plataforma');
+
+  await dbRunAsync('DELETE FROM colaboradores WHERE organizationId = ?', [criacao.body.id]);
+  await dbRunAsync('DELETE FROM pins WHERE organizationId = ?', [criacao.body.id]);
+  await dbRunAsync('DELETE FROM organizations WHERE id = ?', [criacao.body.id]);
 });

@@ -36,4 +36,10 @@ export const api = {
   iaConfig: () => request('/api/tenant/ia-config'),
   salvarIaConfig: (chave, valor) => request('/api/tenant/ia-config', { method: 'PUT', body: JSON.stringify({ chave, valor }) }),
   alternarModulo: (chave, habilitado) => request(`/api/tenant/modules/${chave}`, { method: 'PUT', body: JSON.stringify({ habilitado }) }),
+
+  // Painel da plataforma (routes/platform.js) — só o admin da plataforma
+  // (owner do tenant zero) consegue chamar isto; o backend rejeita o resto.
+  organizacoes: () => request('/api/platform/organizations'),
+  criarOrganizacao: (dados) => request('/api/platform/organizations', { method: 'POST', body: JSON.stringify(dados) }),
+  atualizarOrganizacao: (id, dados) => request(`/api/platform/organizations/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
 };

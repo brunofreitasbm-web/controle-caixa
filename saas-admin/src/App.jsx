@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Unidades } from './pages/Unidades';
 import { Plano } from './pages/Plano';
 import { Settings } from './pages/Settings';
+import { Organizacoes } from './pages/Organizacoes';
 
 function Shell() {
   return (
@@ -20,6 +21,7 @@ function Shell() {
           <Route path="/unidades" element={<Unidades />} />
           <Route path="/plano" element={<Plano />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/organizacoes" element={<Organizacoes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

@@ -50,12 +50,26 @@ router.get('/bootstrap', async (req, res) => {
     const modulosMap = {};
     modulos.map(normalizeRow).forEach(m => { modulosMap[m.moduloChave] = !!m.habilitado; });
 
+    // Ecoa o que já está no token de sessão (se houver) — permite ao
+    // frontend restaurar role/capacidades/isPlatformAdmin depois de um F5
+    // sem precisar logar de novo, já que ele só guarda o token no
+    // localStorage (ver saas-admin/src/context/AuthContext.jsx).
+    const sessao = (req.tenant && req.tenant.viaSessao)
+      ? {
+          usuario: req.tenant.colaboradorNome,
+          role: req.tenant.role,
+          capacidades: req.tenant.capacidades,
+          isPlatformAdmin: organizationId === TENANT_ZERO_ID && req.tenant.role === 'owner'
+        }
+      : null;
+
     res.json({
       organizationId,
       organizacao: org ? { nome: org.nome, slug: org.slug } : null,
       unidades: unidades.map(normalizeRow),
       modulos: modulosMap,
-      colaboradoresLogin: colaboradores.map(normalizeRow)
+      colaboradoresLogin: colaboradores.map(normalizeRow),
+      sessao
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

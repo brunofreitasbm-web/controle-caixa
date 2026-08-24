@@ -30,7 +30,11 @@ function emitirSessao(organizationId, usuario, cb) {
       [token, organizationId, usuario, row.role, JSON.stringify(capacidades), agora.toISOString(), expiraEm],
       (err2) => {
         if (err2) return cb(null);
-        cb({ token, role: row.role, organizationId, expiraEm, capacidades });
+        // Frontend (saas-admin) usa isto pra decidir se mostra o painel de
+        // gestão de organizações (routes/platform.js) — sem precisar
+        // hardcodear o id do tenant zero no cliente.
+        const isPlatformAdmin = organizationId === TENANT_ZERO_ID && row.role === 'owner';
+        cb({ token, role: row.role, organizationId, expiraEm, capacidades, isPlatformAdmin });
       }
     );
   });
@@ -173,7 +177,7 @@ router.post('/auth/verify', async (req, res) => {
         res.json({
           valid: true,
           hasPin: true,
-          ...(sessao ? { token: sessao.token, role: sessao.role, organizationId: sessao.organizationId, expiraEm: sessao.expiraEm, capacidades: sessao.capacidades } : {})
+          ...(sessao ? { token: sessao.token, role: sessao.role, organizationId: sessao.organizationId, expiraEm: sessao.expiraEm, capacidades: sessao.capacidades, isPlatformAdmin: sessao.isPlatformAdmin } : {})
         });
       });
     };

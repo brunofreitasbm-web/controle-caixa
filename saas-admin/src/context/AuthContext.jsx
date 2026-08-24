@@ -23,8 +23,16 @@ export function AuthProvider({ children }) {
         return;
       }
       try {
-        await carregarBootstrap();
-        setSession({ token, restaurada: true });
+        const dados = await carregarBootstrap();
+        setSession({
+          token,
+          restaurada: true,
+          usuario: dados.sessao?.usuario,
+          organizationId: dados.organizationId,
+          role: dados.sessao?.role,
+          capacidades: dados.sessao?.capacidades || [],
+          isPlatformAdmin: !!dados.sessao?.isPlatformAdmin
+        });
       } catch (e) {
         setToken(null);
       } finally {
@@ -49,7 +57,7 @@ export function AuthProvider({ children }) {
       throw new Error(msg);
     }
     setToken(resp.token);
-    setSession({ token: resp.token, usuario, role: resp.role, organizationId: resp.organizationId, capacidades: resp.capacidades || [] });
+    setSession({ token: resp.token, usuario, role: resp.role, organizationId: resp.organizationId, capacidades: resp.capacidades || [], isPlatformAdmin: !!resp.isPlatformAdmin });
     await carregarBootstrap();
   }, [carregarBootstrap]);
 
