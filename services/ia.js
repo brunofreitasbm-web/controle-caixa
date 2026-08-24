@@ -196,10 +196,28 @@ function enfileirar(tarefa) {
 }
 
 // --------------------------------------------------------------------------
+// Medição de uso por organização (Fase 4 — base para cobrança/alerta de
+// quota por tenant; a chave/quota do provedor continua compartilhada da
+// plataforma). Falha ao registrar nunca derruba a chamada de IA em si.
+// --------------------------------------------------------------------------
+async function registrarUsoIA(organizationId) {
+  try {
+    const hoje = new Date().toISOString().slice(0, 10);
+    await dbRunAsync(
+      `INSERT INTO ia_uso (organizationId, data, chamadas) VALUES (?, ?, 1)
+       ON CONFLICT(organizationId, data) DO UPDATE SET chamadas = chamadas + 1`,
+      [organizationId || TENANT_ZERO_ID, hoje]
+    );
+  } catch (err) {
+    console.warn('[IA] Falha ao registrar uso:', err.message);
+  }
+}
+
+// --------------------------------------------------------------------------
 // Chamada de baixo nível, com retry exponencial. 429 (cota) e 5xx são
 // retentáveis; 4xx de payload/credencial não são — retentar só queimaria cota.
 // --------------------------------------------------------------------------
-async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura }) {
+async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura, organizationId }) {
   const a = adaptador();
   if (!a.chave()) throw new IAIndisponivelError(`chave de API não configurada para "${PROVEDOR}"`);
 
@@ -250,6 +268,7 @@ async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura })
 
       const conteudo = a.extrair(dados);
       if (!conteudo) throw new IAIndisponivelError('resposta vazia do provedor');
+      await registrarUsoIA(organizationId);
       return conteudo;
 
     } catch (err) {
@@ -273,9 +292,10 @@ async function gerarTexto(prompt, opcoes = {}) {
   const {
     sistema = null,
     maxTokens = 1024,
-    temperatura = 0.7
+    temperatura = 0.7,
+    organizationId = null
   } = opcoes;
-  return enfileirar(() => chamarProvedor(prompt, { sistema, json: false, maxTokens, temperatura }));
+  return enfileirar(() => chamarProvedor(prompt, { sistema, json: false, maxTokens, temperatura, organizationId }));
 }
 
 // --------------------------------------------------------------------------
@@ -288,7 +308,8 @@ async function gerarJSON(prompt, opcoes = {}) {
     sistema = null,
     maxTokens = 2048,
     temperatura = 0.3,
-    formato = null
+    formato = null,
+    organizationId = null
   } = opcoes;
 
   const promptFinal = formato
@@ -296,7 +317,7 @@ async function gerarJSON(prompt, opcoes = {}) {
     : prompt;
 
   const bruto = await enfileirar(() =>
-    chamarProvedor(promptFinal, { sistema, json: true, maxTokens, temperatura })
+    chamarProvedor(promptFinal, { sistema, json: true, maxTokens, temperatura, organizationId })
   );
 
   try {

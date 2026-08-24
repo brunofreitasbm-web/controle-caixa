@@ -781,6 +781,31 @@ function initDb(onSuccess) {
           criadoEm TEXT,
           expiraEm TEXT
         )`,
+        // Fase 4: medição de uso de IA por organização. A chave/quota do
+        // provedor (IA_PROVIDER/GEMINI_API_KEY etc, ver services/ia.js)
+        // continua compartilhada da plataforma — esta tabela só CONTA quem
+        // usa quanto, base para uma futura cobrança por uso ou alerta de
+        // quota por tenant. Uma linha por (organização, dia).
+        `CREATE TABLE IF NOT EXISTS ia_uso (
+          organizationId TEXT NOT NULL,
+          data TEXT NOT NULL,
+          chamadas INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (organizationId, data)
+        )`,
+        // Catálogo de preços do aluguel do SaaS por faixa de QUANTIDADE DE
+        // UNIDADES ativas — é da PLATAFORMA (o dono definindo quanto cobra),
+        // não por organização, por isso é a única tabela nova desta fase
+        // sem organizationId. unidadesMax NULL = "esta faixa em diante, sem
+        // teto" (a faixa mais alta cadastrada). Ver routes/tenant.js
+        // (GET /tenant/plano) para o cálculo de qual faixa se aplica.
+        `CREATE TABLE IF NOT EXISTS planos_precificacao (
+          id TEXT PRIMARY KEY,
+          unidadesMin INTEGER NOT NULL,
+          unidadesMax INTEGER,
+          valorMensal DOUBLE PRECISION NOT NULL,
+          nome TEXT,
+          criadoEm TEXT
+        )`,
       ];
 
       let promise = Promise.resolve();
@@ -1198,12 +1223,38 @@ function initDb(onSuccess) {
         ['loja', 'faturamentoMes', 'despesaFixaMes', 'pontoEquilibrioMes', 'pontoEquilibrioDia', 'resultado10Meses', 'aliquotaImposto', 'atualizadoEm', 'organizationId']
       ).catch(err => console.error('Erro ao reconstruir fluxo_caixa_referencia_loja com escopo de organização:', err.message)));
 
+      // Fase 4 do plano de arquitetura SaaS: configuracoes era uma KV GLOBAL
+      // (chave TEXT PRIMARY KEY) — WhatsApp, geofencing, brand voice de IA,
+      // tudo isso é dado por organização, não da plataforma inteira. Vira
+      // composta (organizationId, chave); a exceção é 'vapid_keys' (par de
+      // chaves do Web Push, identifica o SERVIDOR ao serviço de push, não o
+      // tenant) — fica sob TENANT_ZERO_ID por conveniência, sem sentido real
+      // de "pertencer" a essa organização (ver initDb mais abaixo).
+      promise = promise.then(() => rebuildTableWithOrgScope(
+        'configuracoes',
+        `CREATE TABLE IF NOT EXISTS configuracoes (
+          chave TEXT NOT NULL,
+          valor TEXT,
+          organizationId TEXT NOT NULL DEFAULT '${TENANT_ZERO_ID}',
+          PRIMARY KEY (organizationId, chave)
+        )`,
+        ['chave', 'valor', 'organizationId']
+      ).catch(err => console.error('Erro ao reconstruir configuracoes com escopo de organização:', err.message)));
+
       // Coluna criada aqui (idempotente); o backfill de valores roda mais
       // abaixo, DEPOIS do seed dos colaboradores padrão — a tabela ainda
       // está vazia neste ponto da cadeia numa instalação nova.
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE colaboradores ADD COLUMN capacidades TEXT', [], () => resolve());
+        });
+      });
+
+      // Fase 4: substitui o EMAIL_MAP hardcoded de routes/auth.js (3 Gmails
+      // pessoais direto no código) por um campo editável do colaborador.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN email TEXT', [], () => resolve());
         });
       });
 
@@ -1363,6 +1414,27 @@ function initDb(onSuccess) {
         })));
       });
 
+      // Backfill do e-mail — mesmo mapa que existia hardcoded em
+      // routes/auth.js (EMAIL_MAP), agora como dado editável em Configurações
+      // > Colaboradores em vez de exigir deploy pra trocar um e-mail.
+      promise = promise.then(() => {
+        const emailPorNome = {
+          'Bruno': 'brunofreitasbm@gmail.com',
+          'Isabella': 'isabella.vgoncalves@gmail.com',
+          'Alexandra': 'alexandracabral733@gmail.com'
+        };
+        return Promise.all(Object.entries(emailPorNome).map(([nome, email]) => new Promise(resolve => {
+          db.run(
+            `UPDATE colaboradores SET email = ? WHERE nome = ? AND organizationId = ? AND (email IS NULL OR email = '')`,
+            [email, nome, TENANT_ZERO_ID],
+            (err) => {
+              if (err) console.error(`Erro no backfill de email para ${nome}:`, err.message);
+              resolve();
+            }
+          );
+        })));
+      });
+
       // Seed dos números de referência do Fluxo de Caixa (contexto_cacau_show.md,
       // base set/2025-jun/2026). ON CONFLICT DO NOTHING: só grava se a loja
       // ainda não tiver linha — depois do primeiro boot o Owner edita pela
@@ -1453,14 +1525,20 @@ function initDb(onSuccess) {
       promise.then(() => {
         console.log('Banco de dados inicializado com sucesso.');
         
-        // Inicializar VAPID keys para Web Push
-        db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err3, row) => {
+        // Inicializar VAPID keys para Web Push. Chave de plataforma (identifica
+        // o SERVIDOR ao serviço de push, não uma organização) — vive sob
+        // TENANT_ZERO_ID só por conveniência de schema, ver comentário em
+        // initQueries acima.
+        db.get('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, 'vapid_keys'], (err3, row) => {
           let vapidKeys;
           if (!err3 && row && row.valor) {
             vapidKeys = JSON.parse(row.valor);
           } else {
             vapidKeys = webPush.generateVAPIDKeys();
-            db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
+            db.run(
+              'INSERT INTO configuracoes (chave, valor, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, chave) DO UPDATE SET valor = ?',
+              ['vapid_keys', JSON.stringify(vapidKeys), TENANT_ZERO_ID, JSON.stringify(vapidKeys)]
+            );
           }
           webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
           global.vapidPublicKey = vapidKeys.publicKey;

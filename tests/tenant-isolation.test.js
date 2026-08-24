@@ -314,3 +314,57 @@ test('capacidade: excluir registro de caixa é decidido por capacidades no banco
   });
   assert.equal(tentativaSpoof.status, 403, 'VAZAMENTO: com sessão real, ?usuario=Bruno na query conseguiu contornar a capacidade da própria sessão');
 });
+
+test('isolamento: CRUD de unidades é owner-only e escopado por organização', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+  const tokenDemo = await login(ORG_DEMO_ID);
+
+  const criacao = await request('/tenant/unidades', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({ negocioChave: 'cacau-show', nome: 'Unidade Teste Isolamento' })
+  });
+  assert.equal(criacao.status, 201, JSON.stringify(criacao.body));
+  const idCriado = criacao.body.id;
+
+  const listaDemo = await request('/tenant/unidades', { headers: { Authorization: `Bearer ${tokenDemo}` } });
+  assert.ok(
+    !listaDemo.body.some(u => u.id === idCriado),
+    'VAZAMENTO: org demo vê uma unidade criada pela org zero'
+  );
+
+  const editarCross = await request(`/tenant/unidades/${idCriado}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tokenDemo}` },
+    body: JSON.stringify({ nome: 'Sequestrada pela org demo' })
+  });
+  assert.equal(editarCross.status, 200); // UPDATE roda mas o WHERE organizationId não casa nenhuma linha
+
+  const listaZero = await request('/tenant/unidades', { headers: { Authorization: `Bearer ${tokenZero}` } });
+  const unidadeAposTentativa = listaZero.body.find(u => u.id === idCriado);
+  assert.equal(
+    unidadeAposTentativa.nome, 'Unidade Teste Isolamento',
+    'VAZAMENTO GRAVE: token da org demo conseguiu editar unidade da org zero'
+  );
+
+  await dbRunAsync('DELETE FROM unidades WHERE id = ?', [idCriado]);
+});
+
+test('isolamento: persona de IA (iaSistemaBriefing) é por organização', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+  const tokenDemo = await login(ORG_DEMO_ID);
+
+  await request('/tenant/ia-config', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({ chave: 'iaSistemaBriefing', valor: 'Persona exclusiva da org zero' })
+  });
+
+  const configDemo = await request('/tenant/ia-config', { headers: { Authorization: `Bearer ${tokenDemo}` } });
+  assert.notEqual(
+    configDemo.body.iaSistemaBriefing, 'Persona exclusiva da org zero',
+    'VAZAMENTO: org demo herdou a persona de IA configurada pela org zero'
+  );
+
+  await dbRunAsync(`DELETE FROM configuracoes WHERE chave = 'iaSistemaBriefing' AND organizationId = ?`, [TENANT_ZERO_ID]);
+});

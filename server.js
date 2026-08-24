@@ -9,7 +9,7 @@ const fs = require('fs');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 
-const { initDb, dbAllAsync, dbGetAsync, dbRunAsync } = require('./config/database');
+const { initDb, dbAllAsync, dbGetAsync, dbRunAsync, TENANT_ZERO_ID } = require('./config/database');
 const {
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
@@ -154,7 +154,10 @@ async function enviarBackupMensalSilencioso() {
   const agora = new Date();
   const referencia = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
 
-  const jaEnviado = await dbGetAsync('SELECT valor FROM configuracoes WHERE chave = ?', ['ultimoBackupMensalEnviado']);
+  // Backup é da instância inteira (todas as tabelas, ver BACKUP_TABELAS),
+  // não de uma organização — TENANT_ZERO_ID aqui é só onde a linha de
+  // controle mora fisicamente no schema (mesmo padrão de 'vapid_keys').
+  const jaEnviado = await dbGetAsync('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, 'ultimoBackupMensalEnviado']);
   if (jaEnviado && jaEnviado.valor === referencia) {
     return { enviado: false, motivo: 'ja_enviado_este_mes', referencia };
   }
@@ -186,8 +189,8 @@ async function enviarBackupMensalSilencioso() {
   });
 
   await dbRunAsync(
-    "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?",
-    ['ultimoBackupMensalEnviado', referencia, referencia]
+    "INSERT INTO configuracoes (chave, valor, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, chave) DO UPDATE SET valor = ?",
+    ['ultimoBackupMensalEnviado', referencia, TENANT_ZERO_ID, referencia]
   );
 
   console.log(`[Backup Mensal] Enviado com sucesso para ${BACKUP_EMAIL_DESTINO} (referência ${referencia}).`);

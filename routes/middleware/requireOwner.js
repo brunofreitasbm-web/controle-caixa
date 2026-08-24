@@ -1,12 +1,20 @@
 const { db, TENANT_ZERO_ID } = require('../../config/database');
 
-// Primeira checagem de papel feita no servidor (as demais rotas confiam
-// apenas no que o cliente envia). Ainda confia no nome de usuário enviado
-// pelo cliente — o token de sessão (resolveTenantSession) é opcional
-// enquanto o frontend não migrou para a Fase 2 — mas o papel em si é
-// sempre lido do banco, nunca aceito como alegação do cliente, e agora
-// escopado pela organização resolvida em req.tenant (default: tenant zero).
+// Primeira checagem de papel feita no servidor. Com sessão real
+// (req.tenant.viaSessao, ver resolveTenantSession), o papel já veio do
+// banco no momento do login e está no token — usa direto, sem exigir
+// actorUsuario no corpo (essencial pra rotas GET, que não têm corpo).
+// Sem sessão (frontend anterior à Fase 2, ou chamada legada), cai no
+// comportamento de sempre: exige actorUsuario e relê o papel no banco a
+// cada chamada — nunca aceita o papel como alegação do cliente.
 function requireOwner(req, res, next) {
+  if (req.tenant && req.tenant.viaSessao) {
+    if (req.tenant.role !== 'owner') {
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores (owner).' });
+    }
+    return next();
+  }
+
   const actor = ((req.body && req.body.actorUsuario) || (req.query && req.query.actorUsuario) || '').trim();
   if (!actor) {
     return res.status(400).json({ error: 'actorUsuario é obrigatório.' });

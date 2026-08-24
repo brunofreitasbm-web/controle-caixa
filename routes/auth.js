@@ -52,7 +52,8 @@ router.get('/logs', (req, res) => {
 
 // 1. Obter todas as configurações
 router.get('/config', (req, res) => {
-  db.all('SELECT * FROM configuracoes', [], (err, rows) => {
+  const organizationId = organizationIdDaRequisicao(req);
+  db.all('SELECT * FROM configuracoes WHERE organizationId = ?', [organizationId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const config = {};
     rows.forEach(r => config[r.chave] = r.valor);
@@ -63,9 +64,10 @@ router.get('/config', (req, res) => {
 // Salvar configuração
 router.post('/config', (req, res) => {
   const { chave, valor } = req.body;
+  const organizationId = organizationIdDaRequisicao(req);
   db.run(
-    'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
-    [chave, valor, valor],
+    'INSERT INTO configuracoes (chave, valor, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, chave) DO UPDATE SET valor = ?',
+    [chave, valor, organizationId, valor],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true });
@@ -237,7 +239,7 @@ router.get('/colaboradores', (req, res) => {
 });
 
 router.post('/colaboradores', (req, res) => {
-  const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao } = req.body;
+  const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, email } = req.body;
   const organizationId = organizationIdDaRequisicao(req);
   if (!nome || !role) {
     return res.status(400).json({ error: 'Nome e Perfil (role) são obrigatórios.' });
@@ -246,16 +248,17 @@ router.post('/colaboradores', (req, res) => {
   const criadoEm = new Date().toISOString();
 
   db.run(
-    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, criadoEm, organizationId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, email, criadoEm, organizationId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(organizationId, nome) DO UPDATE SET
        role = excluded.role,
        unidade = excluded.unidade,
        cpf = excluded.cpf,
        dataNascimento = excluded.dataNascimento,
        telefone = excluded.telefone,
-       dataAdmissao = excluded.dataAdmissao`,
-    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm, organizationId],
+       dataAdmissao = excluded.dataAdmissao,
+       email = COALESCE(excluded.email, colaboradores.email)`,
+    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, email || null, criadoEm, organizationId],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, nome: nomeTrim, role });
@@ -314,6 +317,7 @@ router.delete('/colaboradores/:nome', (req, res) => {
 // Notificação para a Gestão (Push + Email)
 router.post('/notificar-gestao', (req, res) => {
   const { destinatarios, assunto, mensagem } = req.body;
+  const organizationId = organizationIdDaRequisicao(req);
   if (!destinatarios || !Array.isArray(destinatarios)) {
     return res.status(400).json({ error: 'Lista de destinatários é obrigatória.' });
   }
@@ -325,7 +329,7 @@ router.post('/notificar-gestao', (req, res) => {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  
+
   // A chave mestra de notificações de eventos precisa estar ativada em Configurações
   notificacoesEventosAtivas((ativas) => {
    if (!ativas) {
@@ -334,17 +338,20 @@ router.post('/notificar-gestao', (req, res) => {
    }
 
    if (host && user && pass) {
-    const EMAIL_MAP = {
-      'bruno': 'brunofreitasbm@gmail.com',
-      'isabella': 'isabella.vgoncalves@gmail.com',
-      'alexandra': 'alexandracabral733@gmail.com'
-    };
-
-    const targetEmails = destinatarios
-      .map(d => EMAIL_MAP[d.trim().toLowerCase()])
-      .filter(Boolean);
-
-    if (targetEmails.length > 0) {
+    // Fase 4: e-mail vem do cadastro do colaborador (colaboradores.email),
+    // não mais de um EMAIL_MAP hardcoded no código — editável em
+    // Configurações > Colaboradores, sem precisar de deploy pra trocar.
+    const placeholders = destinatarios.map(() => '?').join(',');
+    db.all(
+      `SELECT email FROM colaboradores WHERE organizationId = ? AND LOWER(nome) IN (${placeholders}) AND email IS NOT NULL AND email <> ''`,
+      [organizationId, ...destinatarios.map(d => String(d).trim().toLowerCase())],
+      (errEmails, rows) => {
+        if (errEmails) {
+          console.error('Erro ao buscar e-mails dos destinatários:', errEmails.message);
+          return;
+        }
+        const targetEmails = (rows || []).map(r => r.email).filter(Boolean);
+        if (targetEmails.length > 0) {
       const nodemailer = require('nodemailer');
       const transporter = nodemailer.createTransport({
         host,
@@ -368,7 +375,9 @@ router.post('/notificar-gestao', (req, res) => {
           console.log('E-mail de notificação de gestão enviado com sucesso:', info.response);
         }
       });
-    }
+        }
+      }
+    );
    }
   });
 
