@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { publish } = require('../config/realtime');
 const requireOwner = require('./middleware/requireOwner');
+const { enviarNotificacaoNfeFaturamentoNovosProdutos } = require('../config/notifications');
 
 /**
  * Localiza a linha da NF-e correspondente à loja. A chave usada pelo client é
@@ -98,20 +99,45 @@ router.post('/nfs', (req, res) => {
       return res.status(409).json({ success: false, error: 'duplicated', message: 'Esta NF-e já foi importada anteriormente.' });
     }
 
-    const criadoEm = new Date().toISOString();
-    db.run(
-      'INSERT INTO nfs (numero, info, products, criadoEm) VALUES (?, ?, ?, ?)',
-      [numero, JSON.stringify(info || {}), JSON.stringify(products || []), criadoEm],
-      function(err2) {
-        if (err2) return res.status(500).json({ error: err2.message });
-        publish('nf.importada', {
-          numero,
-          loja: info && info.targetStore ? String(info.targetStore).trim() : '',
-          totalProdutos: (products || []).length
-        }, { origem: req.query.clientId || (req.body && req.body.clientId), usuario: req.query.usuario });
-        res.status(201).json({ success: true, numero });
+    // Tela de Faturamento NFE (Owner): compara os códigos desta NF-e contra
+    // TODOS os já vistos em qualquer NF-e anterior (qualquer loja) para saber
+    // quais produtos são inéditos e merecem o push "produto novo" — feito
+    // antes do INSERT, senão a própria nota que está entrando contaminaria a
+    // comparação.
+    db.all('SELECT products FROM nfs', [], (errConhecidos, rowsConhecidos) => {
+      const codigosConhecidos = new Set();
+      if (!errConhecidos && rowsConhecidos) {
+        rowsConhecidos.forEach(row => {
+          try {
+            (JSON.parse(row.products || '[]') || []).forEach(p => {
+              if (p && p.code) codigosConhecidos.add(String(p.code).trim());
+            });
+          } catch (e) {}
+        });
       }
-    );
+      const produtosNovos = (products || []).filter(p => p && p.code && !codigosConhecidos.has(String(p.code).trim()));
+
+      const criadoEm = new Date().toISOString();
+      db.run(
+        'INSERT INTO nfs (numero, info, products, criadoEm) VALUES (?, ?, ?, ?)',
+        [numero, JSON.stringify(info || {}), JSON.stringify(products || []), criadoEm],
+        function(err2) {
+          if (err2) return res.status(500).json({ error: err2.message });
+          const loja = info && info.targetStore ? String(info.targetStore).trim() : '';
+          publish('nf.importada', {
+            numero,
+            loja,
+            totalProdutos: (products || []).length
+          }, { origem: req.query.clientId || (req.body && req.body.clientId), usuario: req.query.usuario });
+
+          if (produtosNovos.length > 0) {
+            enviarNotificacaoNfeFaturamentoNovosProdutos(loja, numero, produtosNovos);
+          }
+
+          res.status(201).json({ success: true, numero });
+        }
+      );
+    });
   });
 });
 
