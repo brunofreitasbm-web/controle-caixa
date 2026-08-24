@@ -1835,6 +1835,7 @@ function aplicarVisibilidadeModulosTenant() {
     if (!temTabVisivel) group.classList.add("hidden");
   });
   atualizarCardModulosTenant();
+  atualizarCardUnidadesTenant();
 }
 
 // --------------------------------------------------------------------------
@@ -1932,6 +1933,179 @@ function atualizarCardModulosTenant() {
         showToast("Não foi possível salvar. Tente novamente.", "erro");
       } finally {
         input.disabled = false;
+      }
+    });
+  });
+}
+
+// --------------------------------------------------------------------------
+// Card "Unidades (lojas)" em Configurações (owner-only): CRUD completo sobre
+// a tabela `unidades` (routes/tenant.js) — nome, negócio, código externo e
+// ativo/inativo. Substitui a edição manual do objeto LOJAS hardcoded em
+// webapp/app.js por um cadastro de verdade, sem precisar de deploy.
+// --------------------------------------------------------------------------
+function criarCardUnidadesTenant() {
+  const grid = document.getElementById("config-grid");
+  if (!grid || document.getElementById("config-card-unidades-tenant")) return;
+
+  const card = document.createElement("div");
+  card.id = "config-card-unidades-tenant";
+  card.className = "card p-6 rounded-2xl border border-border md:col-span-2 hidden";
+  card.dataset.configBusca = "unidades lojas cadastro gestao saas negocio";
+  card.innerHTML = `
+    <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-unidades-tenant">
+      <h3 class="text-base font-bold flex items-center gap-2">
+        <i class="fa-solid fa-store text-accent"></i> Unidades (lojas)
+      </h3>
+      <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+    </button>
+    <div id="config-corpo-unidades-tenant" class="config-corpo hidden mt-3">
+      <p class="text-xs text-muted mb-4">Cadastro das unidades desta organização. Excluir marca a unidade como inativa — o histórico de registros que já citam o nome dela continua intacto.</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-border uppercase tracking-wider font-bold">
+              <th class="py-2 px-2">Nome</th>
+              <th class="py-2 px-2">Negócio</th>
+              <th class="py-2 px-2">Código externo</th>
+              <th class="py-2 px-2">Ativa</th>
+              <th class="py-2 px-2"></th>
+            </tr>
+          </thead>
+          <tbody id="config-unidades-tbody" class="divide-y divide-border"></tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-end gap-2 mt-4 pt-4 border-t border-border">
+        <div>
+          <label class="block text-xs text-muted mb-1">Nome</label>
+          <input type="text" id="config-unidade-novo-nome" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="Ex.: Nazaré">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Negócio</label>
+          <input type="text" id="config-unidade-novo-negocio" class="w-28 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="cacau-show">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Código externo</label>
+          <input type="text" id="config-unidade-novo-codigo" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="opcional">
+        </div>
+        <button type="button" id="config-unidade-btn-adicionar" class="btn-secondary" style="padding: 7px 14px; font-size: 12px;">
+          <i class="fa-solid fa-plus"></i> Adicionar unidade
+        </button>
+      </div>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const toggle = card.querySelector(".config-toggle");
+  toggle.addEventListener("click", () => {
+    const corpo = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!corpo) return;
+    const abrindo = corpo.classList.contains("hidden");
+    corpo.classList.toggle("hidden", !abrindo);
+    toggle.setAttribute("aria-expanded", String(abrindo));
+    const icone = toggle.querySelector(".config-toggle-icon");
+    if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+  });
+
+  document.getElementById("config-unidade-btn-adicionar").addEventListener("click", async () => {
+    const nome = document.getElementById("config-unidade-novo-nome").value.trim();
+    const negocioChave = document.getElementById("config-unidade-novo-negocio").value.trim() || "cacau-show";
+    const codigoExterno = document.getElementById("config-unidade-novo-codigo").value.trim();
+    if (!nome) { showToast("Informe o nome da unidade.", "erro"); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/tenant/unidades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioChave, nome, codigoExterno: codigoExterno || null, actorUsuario: currentUser.nome })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Falha ao criar unidade");
+
+      document.getElementById("config-unidade-novo-nome").value = "";
+      document.getElementById("config-unidade-novo-negocio").value = "";
+      document.getElementById("config-unidade-novo-codigo").value = "";
+      showToast(`Unidade "${nome}" criada.`, "sucesso");
+      await atualizarCardUnidadesTenant();
+    } catch (e) {
+      showToast(e.message || "Não foi possível criar a unidade.", "erro");
+    }
+  });
+}
+
+async function atualizarCardUnidadesTenant() {
+  const card = document.getElementById("config-card-unidades-tenant");
+  if (!card) return;
+  const isOwner = !!(currentUser && currentUser.role === "owner");
+  card.classList.toggle("hidden", !isOwner);
+  if (!isOwner) return;
+
+  const tbody = document.getElementById("config-unidades-tbody");
+  if (!tbody) return;
+
+  let unidades = [];
+  try {
+    const res = await fetch(`${API_BASE}/tenant/unidades?actorUsuario=${encodeURIComponent(currentUser.nome)}`);
+    if (res.ok) unidades = await res.json();
+  } catch (e) {
+    console.warn("[Unidades] Falha ao carregar lista:", e.message);
+    return;
+  }
+
+  tbody.innerHTML = "";
+  unidades.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="py-2 px-2 font-bold">${u.nome}</td>
+      <td class="py-2 px-2">${u.negocioChave}</td>
+      <td class="py-2 px-2">${u.codigoExterno || "—"}</td>
+      <td class="py-2 px-2">
+        <input type="checkbox" class="config-unidade-ativo" data-id="${u.id}" ${u.ativo ? "checked" : ""}>
+      </td>
+      <td class="py-2 px-2">
+        <button type="button" class="btn-secondary config-unidade-excluir" data-id="${u.id}" data-nome="${u.nome}" style="padding: 4px 8px; font-size: 11px;">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".config-unidade-ativo").forEach(input => {
+    input.addEventListener("change", async () => {
+      const id = input.dataset.id;
+      const ativo = input.checked;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ativo, actorUsuario: currentUser.nome })
+        });
+        if (!res.ok) throw new Error("Falha ao salvar");
+        showToast(`Unidade ${ativo ? "ativada" : "desativada"}.`, "sucesso");
+      } catch (e) {
+        input.checked = !ativo;
+        showToast("Não foi possível salvar. Tente novamente.", "erro");
+      }
+    });
+  });
+
+  tbody.querySelectorAll(".config-unidade-excluir").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const nome = btn.dataset.nome;
+      const confirmado = await showConfirm(
+        `Remover a unidade "${nome}"? Ela some da operação do dia a dia, mas o histórico de registros continua intacto.`,
+        { icon: "🗑️", title: "Remover unidade", confirmText: "Remover", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (!confirmado) return;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}?actorUsuario=${encodeURIComponent(currentUser.nome)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Falha ao remover");
+        showToast(`Unidade "${nome}" removida.`, "sucesso");
+        await atualizarCardUnidadesTenant();
+      } catch (e) {
+        showToast("Não foi possível remover a unidade.", "erro");
       }
     });
   });
@@ -10783,6 +10957,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // depois, quando currentUser/bootstrap estiverem prontos (ver
   // atualizarCardModulosTenant, chamada de dentro de aplicarVisibilidadeModulosTenant).
   criarCardModulosTenant();
+  criarCardUnidadesTenant();
 
   // Alteração do Timeout
   const timeoutSelect = document.getElementById("config-timeout-select");
