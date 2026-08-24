@@ -5,6 +5,7 @@ const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
 const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento } = require('../config/notifications');
 const { publish } = require('../config/realtime');
+const { organizationIdDe } = require('./middleware/tenantContext');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
 // com limit de 15mb). Ela nunca vai no evento de tempo real — o cliente que
@@ -97,7 +98,8 @@ const COLUNAS_REGISTRO_SEM_FOTO = `
 
 // 3. Obter todos os registros
 router.get('/registros', (req, res) => {
-  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
+  const organizationId = organizationIdDe(req);
+  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros WHERE deletadoEm IS NULL AND organizationId = ? ORDER BY dataOperacao DESC`, [organizationId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const normalized = (rows || []).map(normalizeRow);
     const result = normalized.map(r => ({
@@ -112,7 +114,8 @@ router.get('/registros', (req, res) => {
 // Os eventos de tempo real não carregam a foto (base64 pesado); quem receber um
 // registro novo pelo canal busca a imagem aqui, só daquele registro.
 router.get('/registros/:id/foto', (req, res) => {
-  db.get('SELECT fotoEnvelope FROM registros WHERE id = ?', [req.params.id], (err, row) => {
+  const organizationId = organizationIdDe(req);
+  db.get('SELECT fotoEnvelope FROM registros WHERE id = ? AND organizationId = ?', [req.params.id, organizationId], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
     res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
@@ -120,7 +123,8 @@ router.get('/registros/:id/foto', (req, res) => {
 });
 
 router.get('/registros-fa/:id/foto', (req, res) => {
-  db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ?', [req.params.id], (err, row) => {
+  const organizationId = organizationIdDe(req);
+  db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ? AND organizationId = ?', [req.params.id, organizationId], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
     res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
@@ -129,7 +133,8 @@ router.get('/registros-fa/:id/foto', (req, res) => {
 
 // FA-1. Obter todos os registros FaçaAmigos
 router.get('/registros-fa', (req, res) => {
-  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
+  const organizationId = organizationIdDe(req);
+  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros_fa WHERE deletadoEm IS NULL AND organizationId = ? ORDER BY dataOperacao DESC`, [organizationId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const normalized = (rows || []).map(normalizeRow);
     const result = normalized.map(r => ({
@@ -143,18 +148,19 @@ router.get('/registros-fa', (req, res) => {
 // FA-2. Inserir registro FaçaAmigos
 router.post('/registros-fa', (req, res) => {
   const r = req.body;
+  const organizationId = organizationIdDe(req);
   db.run(
     `INSERT INTO registros_fa (
       id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
       valorFaturado, sangria, sangriaMotivo,
       observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
-      autorizadoPor, mensagemGerada, criadoEm
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      autorizadoPor, mensagemGerada, criadoEm, organizationId
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
       r.valorFaturado, r.sangria, r.sangriaMotivo || null,
       r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
-      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
+      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm, organizationId
     ],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
@@ -165,8 +171,8 @@ router.post('/registros-fa', (req, res) => {
         enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'FaçaAmigos');
         if (r.valorEnvelope) {
           db.get(
-            `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada'`,
-            [r.loja],
+            `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada' AND organizationId = ?`,
+            [r.loja, organizationId],
             (sumErr, row) => {
               if (!sumErr && row && row.total >= 1000) {
                 enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
@@ -182,7 +188,7 @@ router.post('/registros-fa', (req, res) => {
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
-      publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
+      publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog, organizationId });
 
       res.json({ success: true, id: r.id });
     }
@@ -200,6 +206,7 @@ const COLUNAS_PERMITIDAS = new Set([
 router.put('/registros-fa/:id', (req, res) => {
   const { id } = req.params;
   const r = req.body;
+  const organizationId = organizationIdDe(req);
 
   const fields = [];
   const values = [];
@@ -218,16 +225,16 @@ router.put('/registros-fa/:id', (req, res) => {
     return res.status(400).json({ error: 'Nenhum campo para atualizar' });
   }
 
-  values.push(id);
+  values.push(id, organizationId);
 
-  const sql = `UPDATE registros_fa SET ${fields.join(', ')} WHERE id = ?`;
+  const sql = `UPDATE registros_fa SET ${fields.join(', ')} WHERE id = ? AND organizationId = ?`;
 
   db.run(sql, values, function(err) {
     if (err) return res.status(500).json({ error: err.message });
 
     const usuarioLog = req.query.usuario || 'Desconhecido';
     registrarLog(id, 'UPDATE_FA', `[FaçaAmigos] Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
-    publish('registroFa.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
+    publish('registroFa.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog, organizationId });
 
     res.json({ success: true });
   });
@@ -237,17 +244,18 @@ router.put('/registros-fa/:id', (req, res) => {
 router.delete('/registros-fa/:id', (req, res) => {
   const { id } = req.params;
   const { usuario } = req.query;
+  const organizationId = organizationIdDe(req);
 
   if (usuario !== 'Bruno') {
     return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros do FaçaAmigos.' });
   }
 
   const agora = new Date().toISOString();
-  db.run('UPDATE registros_fa SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
+  db.run('UPDATE registros_fa SET deletadoEm = ? WHERE id = ? AND organizationId = ?', [agora, id, organizationId], function(err) {
     if (err) return res.status(500).json({ error: err.message });
 
     registrarLog(id, 'DELETE_FA', `[FaçaAmigos] Registro removido logicamente.`, usuario);
-    publish('registroFa.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
+    publish('registroFa.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario, organizationId });
 
     res.json({ success: true });
   });
@@ -256,30 +264,31 @@ router.delete('/registros-fa/:id', (req, res) => {
 // Inserir registro
 router.post('/registros', (req, res) => {
   const r = req.body;
+  const organizationId = organizationIdDe(req);
   db.run(
     `INSERT INTO registros (
       id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
       valorFaturado, sangria, sangriaMotivo,
       observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
-      autorizadoPor, mensagemGerada, criadoEm
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      autorizadoPor, mensagemGerada, criadoEm, organizationId
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
       r.valorFaturado, r.sangria, r.sangriaMotivo || null,
       r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
-      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
+      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm, organizationId
     ],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      
+
       if (r.tipoOperacao === 'Abertura') {
         enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show');
       } else if (r.tipoOperacao === 'Fechamento') {
         enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show');
         if (r.valorEnvelope) {
           db.get(
-            `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
-            [r.loja],
+            `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada' AND organizationId = ?`,
+            [r.loja, organizationId],
             (sumErr, row) => {
               if (!sumErr && row && row.total >= 1000) {
                 enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
@@ -295,7 +304,7 @@ router.post('/registros', (req, res) => {
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE', `Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
-      publish('registro.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
+      publish('registro.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog, organizationId });
 
       res.json({ success: true, id: r.id });
     }
@@ -306,10 +315,11 @@ router.post('/registros', (req, res) => {
 router.put('/registros/:id', (req, res) => {
   const { id } = req.params;
   const r = req.body;
-  
+  const organizationId = organizationIdDe(req);
+
   const fields = [];
   const values = [];
-  
+
   Object.keys(r).forEach(key => {
     if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
     fields.push(`${key} = ?`);
@@ -319,21 +329,21 @@ router.put('/registros/:id', (req, res) => {
       values.push(r[key]);
     }
   });
-  
+
   if (fields.length === 0) {
     return res.status(400).json({ error: 'Nenhum campo para atualizar' });
   }
-  
-  values.push(id);
-  
-  const sql = `UPDATE registros SET ${fields.join(', ')} WHERE id = ?`;
-  
+
+  values.push(id, organizationId);
+
+  const sql = `UPDATE registros SET ${fields.join(', ')} WHERE id = ? AND organizationId = ?`;
+
   db.run(sql, values, function(err) {
     if (err) return res.status(500).json({ error: err.message });
-    
+
     const usuarioLog = req.query.usuario || 'Desconhecido';
     registrarLog(id, 'UPDATE', `Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
-    publish('registro.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
+    publish('registro.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog, organizationId });
 
     res.json({ success: true });
   });
@@ -343,17 +353,18 @@ router.put('/registros/:id', (req, res) => {
 router.delete('/registros/:id', (req, res) => {
   const { id } = req.params;
   const { usuario } = req.query;
-  
+  const organizationId = organizationIdDe(req);
+
   if (usuario !== 'Bruno') {
     return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros.' });
   }
 
   const agora = new Date().toISOString();
-  db.run('UPDATE registros SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
+  db.run('UPDATE registros SET deletadoEm = ? WHERE id = ? AND organizationId = ?', [agora, id, organizationId], function(err) {
     if (err) return res.status(500).json({ error: err.message });
-    
+
     registrarLog(id, 'DELETE', `Registro removido logicamente.`, usuario);
-    publish('registro.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
+    publish('registro.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario, organizationId });
 
     res.json({ success: true });
   });

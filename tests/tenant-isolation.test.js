@@ -24,6 +24,8 @@ process.env.DATABASE_URL = '';
 const { initDb, db, dbRunAsync, TENANT_ZERO_ID } = require('../config/database');
 const resolveTenantSession = require('../routes/middleware/resolveTenantSession');
 const authRoutes = require('../routes/auth');
+const caixaRoutes = require('../routes/caixa');
+const retiradasRoutes = require('../routes/retiradas');
 const { comCache } = require('../services/ia');
 const { addClient, publish } = require('../config/realtime');
 
@@ -58,17 +60,24 @@ before(async () => {
   }
 
   // Roda em cima do mesmo database.db usado por tests/hostile-qa.test.js e
-  // por uso manual local — limpa só as chaves de cache que este arquivo usa,
-  // para o teste de cache não herdar um HIT válido de uma rodada anterior.
+  // por uso manual local — limpa as chaves/ids fixos que este arquivo usa,
+  // para uma segunda rodada (sem apagar o banco) não colidir com PK/UNIQUE
+  // de uma rodada anterior nem herdar um HIT de cache indevido.
   await dbRunAsync('DELETE FROM ia_cache WHERE chave IN (?, ?)', [
     `${TENANT_ZERO_ID}:briefing:hoje`,
     `${ORG_DEMO_ID}:briefing:hoje`
   ]);
+  await dbRunAsync('DELETE FROM colaboradores WHERE nome IN (?, ?)', ['SoDoTenantZero', 'SoDoTenantDemo']);
+  await dbRunAsync('DELETE FROM solicitacoes_retirada WHERE id = ?', ['sol-zero-1']);
+  await dbRunAsync('DELETE FROM registros WHERE id IN (?, ?)', ['reg-zero-1', 'reg-demo-1']);
+  await dbRunAsync('DELETE FROM registros_fa WHERE id IN (?, ?)', ['reg-zero-1', 'reg-demo-1']);
 
   const app = express();
   app.use(express.json());
   app.use('/api', resolveTenantSession);
   app.use('/api', authRoutes);
+  app.use('/api', caixaRoutes);
+  app.use('/api', retiradasRoutes);
 
   server = http.createServer(app);
   await new Promise(resolve => {
@@ -188,4 +197,77 @@ test('isolamento: broadcast SSE não entrega evento de uma organização para cl
 
   assert.equal(eventosZero.length, 1, 'cliente da org zero deveria ter recebido o evento da própria org');
   assert.equal(eventosDemo.length, 0, 'VAZAMENTO: cliente da org demo recebeu evento da org zero');
+});
+
+test('isolamento: registros de caixa (Cacau Show) não vazam entre organizações', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+  const tokenDemo = await login(ORG_DEMO_ID);
+
+  const regZero = { id: 'reg-zero-1', consultor: 'X', loja: 'Marambaia', tipoOperacao: 'Abertura', dataOperacao: '2026-01-01', fundoCaixa: 100, criadoEm: new Date().toISOString() };
+  const regDemo = { id: 'reg-demo-1', consultor: 'Y', loja: 'Marambaia', tipoOperacao: 'Abertura', dataOperacao: '2026-01-01', fundoCaixa: 200, criadoEm: new Date().toISOString() };
+
+  await request('/registros', { method: 'POST', headers: { Authorization: `Bearer ${tokenZero}` }, body: JSON.stringify(regZero) });
+  await request('/registros', { method: 'POST', headers: { Authorization: `Bearer ${tokenDemo}` }, body: JSON.stringify(regDemo) });
+
+  const listaZero = await request('/registros', { headers: { Authorization: `Bearer ${tokenZero}` } });
+  const idsZero = listaZero.body.map(r => r.id);
+  assert.ok(idsZero.includes('reg-zero-1'), 'tenant zero não vê o próprio registro de caixa');
+  assert.ok(!idsZero.includes('reg-demo-1'), 'VAZAMENTO: tenant zero vê registro de caixa da org demo');
+
+  const listaDemo = await request('/registros', { headers: { Authorization: `Bearer ${tokenDemo}` } });
+  const idsDemo = listaDemo.body.map(r => r.id);
+  assert.ok(idsDemo.includes('reg-demo-1'), 'org demo não vê o próprio registro de caixa');
+  assert.ok(!idsDemo.includes('reg-zero-1'), 'VAZAMENTO: org demo vê registro de caixa do tenant zero');
+
+  // Tentativa direta: usar o token da org demo pra alterar um registro cujo
+  // id pertence à org zero (id adivinhado/conhecido) não pode ter efeito.
+  await request('/registros/reg-zero-1', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tokenDemo}` },
+    body: JSON.stringify({ observacoes: 'tentativa de escrita cross-tenant' })
+  });
+  const registroZeroAposTentativa = (await request('/registros', { headers: { Authorization: `Bearer ${tokenZero}` } }))
+    .body.find(r => r.id === 'reg-zero-1');
+  assert.notEqual(
+    registroZeroAposTentativa.observacoes, 'tentativa de escrita cross-tenant',
+    'VAZAMENTO GRAVE: token da org demo conseguiu alterar registro de caixa da org zero'
+  );
+});
+
+test('isolamento: autorizar retirada com token da outra organização não encontra nem move dinheiro', async () => {
+  const tokenZero = await login(TENANT_ZERO_ID);
+  const tokenDemo = await login(ORG_DEMO_ID);
+
+  // reg-zero-1 foi criado no teste anterior, na org zero.
+  const criacao = await request('/solicitacoes-retirada', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({
+      id: 'sol-zero-1', tipo: 'cacau', registroIds: ['reg-zero-1'], loja: 'Marambaia',
+      valorTotal: 100, responsavel: 'Fulano', dataRetirada: '2026-01-02', actorUsuario: 'TesteIsolamento'
+    })
+  });
+  assert.equal(criacao.status, 200);
+
+  // Token da org demo (também "owner" lá, passa em requireOwner) tentando
+  // autorizar uma solicitação que só existe na org zero.
+  const tentativaCross = await request('/solicitacoes-retirada/sol-zero-1/autorizar', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenDemo}` },
+    body: JSON.stringify({ actorUsuario: 'TesteIsolamento', pin: '9999' })
+  });
+  assert.equal(tentativaCross.status, 404, 'VAZAMENTO GRAVE: token de outra organização encontrou/autorizou uma retirada que não é dela');
+
+  const registroAindaAguardando = (await request('/registros', { headers: { Authorization: `Bearer ${tokenZero}` } }))
+    .body.find(r => r.id === 'reg-zero-1');
+  assert.notEqual(registroAindaAguardando.status, 'retirado', 'VAZAMENTO GRAVE: autorização cross-tenant moveu o registro para retirado');
+
+  // Com o token certo (mesma organização), a autorização funciona normalmente.
+  const autorizacaoCorreta = await request('/solicitacoes-retirada/sol-zero-1/autorizar', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({ actorUsuario: 'TesteIsolamento', pin: '9999' })
+  });
+  assert.equal(autorizacaoCorreta.status, 200, JSON.stringify(autorizacaoCorreta.body));
+  assert.equal(autorizacaoCorreta.body.success, true);
 });
