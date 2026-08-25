@@ -10525,24 +10525,6 @@ function inicializarPainelConfiguracoes() {
   if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
 
   atualizarBotaoCadastroBiometria();
-}
-
-function salvarConfigGrupo() {
-  const inputSub = document.getElementById("config-grupo-subtitulo");
-  const inputEmail = document.getElementById("config-grupo-email");
-
-  const subtitulo = inputSub ? inputSub.value.trim() : "";
-  const email = inputEmail ? inputEmail.value.trim() : "";
-
-  if (subtitulo) localStorage.setItem("hub_grupo_subtitulo", subtitulo);
-  if (email) localStorage.setItem("hub_grupo_email", email);
-
-  // Atualizar elementos visuais da UI com o novo subtítulo do grupo
-  const headerSubtitles = document.querySelectorAll(".header-grupo-subtitulo, .ponto-grupo-subtitulo");
-  headerSubtitles.forEach(el => el.textContent = subtitulo);
-
-  mostrarToast("Sucesso", "Configurações do Grupo salvas com sucesso!", "success");
-}
 
   // Mostrar aba do WhatsApp se for owner/administrador
   const cardWa = document.getElementById("config-card-whatsapp");
@@ -10664,6 +10646,23 @@ function salvarConfigGrupo() {
   }
 
   aplicarFiltroConfiguracoes();
+}
+
+function salvarConfigGrupo() {
+  const inputSub = document.getElementById("config-grupo-subtitulo");
+  const inputEmail = document.getElementById("config-grupo-email");
+
+  const subtitulo = inputSub ? inputSub.value.trim() : "";
+  const email = inputEmail ? inputEmail.value.trim() : "";
+
+  if (subtitulo) localStorage.setItem("hub_grupo_subtitulo", subtitulo);
+  if (email) localStorage.setItem("hub_grupo_email", email);
+
+  // Atualizar elementos visuais da UI com o novo subtítulo do grupo
+  const headerSubtitles = document.querySelectorAll(".header-grupo-subtitulo, .ponto-grupo-subtitulo");
+  headerSubtitles.forEach(el => el.textContent = subtitulo);
+
+  mostrarToast("Sucesso", "Configurações do Grupo salvas com sucesso!", "success");
 }
 
 // --------------------------------------------------------------------------
