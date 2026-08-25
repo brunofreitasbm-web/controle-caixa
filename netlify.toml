@@ -2,6 +2,11 @@
   publish = "public"
 
 [[redirects]]
+  from = "/"
+  to = "/webapp/index.html"
+  status = 200
+
+[[redirects]]
   from = "/webapp/*"
   to = "/webapp/:splat"
   status = 200

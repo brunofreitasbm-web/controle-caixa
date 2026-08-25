@@ -101,8 +101,8 @@ test('Landing Page - Validação de Integridade do HTML e Form Modal', async () 
   const fs = require('fs');
   const path = require('path');
 
-  const rootIndexPath = path.join(__dirname, '..', 'index.html');
-  assert.ok(fs.existsSync(rootIndexPath), 'Arquivo index.html da landing page deve existir');
+  const rootIndexPath = path.join(__dirname, '..', 'landing.html');
+  assert.ok(fs.existsSync(rootIndexPath), 'Arquivo landing.html da landing page deve existir');
 
   const htmlContent = fs.readFileSync(rootIndexPath, 'utf-8');
   assert.ok(htmlContent.includes('Hub de Operações'), 'Landing page deve conter o título oficial');
