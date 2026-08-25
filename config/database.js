@@ -102,7 +102,8 @@ const camelCaseMap = {
   coremoji: 'corEmoji',
   modulochave: 'moduloChave',
   colaboradornome: 'colaboradorNome',
-  expiraem: 'expiraEm'
+  expiraem: 'expiraEm',
+  pinhash: 'pinHash'
 };
 
 function normalizeRow(row) {
@@ -971,6 +972,21 @@ function initDb(onSuccess) {
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE colaboradores ADD COLUMN dataAdmissao TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN email TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN pinHash TEXT', [], () => resolve());
+        });
+      });
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN ativo INTEGER DEFAULT 1', [], () => resolve());
         });
       });
 

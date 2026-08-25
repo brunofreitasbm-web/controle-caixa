@@ -397,14 +397,21 @@ router.post('/login-email-pin', (req, res) => {
   db.get(
     'SELECT * FROM colaboradores WHERE LOWER(email) = ? AND ativo = 1',
     [emailClean],
-    async (err, colab) => {
+    async (err, colabRow) => {
       if (err) return res.status(500).json({ error: 'Erro no servidor.' });
-      if (!colab) {
+      if (!colabRow) {
         return res.status(401).json({ error: 'E-mail não cadastrado ou inativo.' });
       }
 
+      const colab = normalizeRow(colabRow);
+
       // Validar PIN de 4 dígitos usando bcrypt
-      const match = await bcrypt.compare(pinClean, colab.pinHash);
+      const pinToCompare = colab.pinHash || colab.pinhash || colab.pin;
+      if (!pinToCompare) {
+        return res.status(401).json({ error: 'PIN não cadastrado para esta conta.' });
+      }
+
+      const match = await bcrypt.compare(pinClean, pinToCompare);
       if (!match) {
         return res.status(401).json({ error: 'PIN incorreto. Verifique seu e-mail.' });
       }

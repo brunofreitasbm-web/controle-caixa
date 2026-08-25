@@ -367,6 +367,105 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
       window.Babel.transformScriptTags();
     }
+    setTimeout(function() {
+      // Injetar Modal de Trial de 7 Dias Grátis na Landing Page
+      const modalHtml = `
+        <div id="saasTrialModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center; padding:16px;">
+          <div style="background:#fffdf8; border:1px solid #e7dbc3; border-radius:20px; max-width:480px; width:100%; padding:32px; box-shadow:0 20px 40px rgba(0,0,0,0.2); font-family:sans-serif; position:relative;">
+            <button id="closeTrialModalBtn" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:24px; cursor:pointer; color:#8a6a3f;">&times;</button>
+            <div id="trialFormContainer">
+              <span style="display:inline-block; background:#f3ddc9; color:#7a3f1c; font-size:12px; font-weight:bold; padding:4px 12px; border-radius:999px; text-transform:uppercase;">7 Dias Grátis</span>
+              <h2 style="color:#201e1d; margin:12px 0 6px; font-size:22px;">Ativar Acesso Temporário</h2>
+              <p style="color:#666; font-size:14px; margin-bottom:20px;">Experimente todas as funcionalidades sem cartão de crédito.</p>
+              <form id="saasTrialForm">
+                <div style="margin-bottom:12px;">
+                  <label style="display:block; font-size:12px; color:#4a453e; font-weight:bold; margin-bottom:4px;">Seu Nome Completo</label>
+                  <input type="text" id="trialNome" required placeholder="Ex: Bruno Freitas" style="width:100%; padding:10px 14px; border:1px solid #d8c9a8; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:12px;">
+                  <label style="display:block; font-size:12px; color:#4a453e; font-weight:bold; margin-bottom:4px;">Seu E-mail da Operação</label>
+                  <input type="email" id="trialEmail" required placeholder="Ex: bruno@franquia.com" style="width:100%; padding:10px 14px; border:1px solid #d8c9a8; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:12px;">
+                  <label style="display:block; font-size:12px; color:#4a453e; font-weight:bold; margin-bottom:4px;">Nome da Loja / Franquia</label>
+                  <input type="text" id="trialNomeLoja" required placeholder="Ex: Cacau Show Shopping" style="width:100%; padding:10px 14px; border:1px solid #d8c9a8; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:16px;">
+                  <label style="display:block; font-size:12px; color:#4a453e; font-weight:bold; margin-bottom:4px;">Telefone / WhatsApp</label>
+                  <input type="text" id="trialTelefone" placeholder="(91) 99999-9999" style="width:100%; padding:10px 14px; border:1px solid #d8c9a8; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <button type="submit" id="trialSubmitBtn" style="width:100%; padding:14px; background:#c67139; color:#fff; font-weight:bold; border:none; border-radius:999px; font-size:16px; cursor:pointer; box-shadow:0 4px 12px rgba(198,113,57,0.3);">🚀 Liberar Meus 7 Dias Grátis</button>
+              </form>
+            </div>
+            <div id="trialSuccessContainer" style="display:none; text-align:center;">
+              <span style="font-size:48px;">🎉</span>
+              <h2 style="color:#201e1d; margin:12px 0 6px;">Conta Ativada com Sucesso!</h2>
+              <p style="color:#666; font-size:14px;">Enviamos um e-mail com suas credenciais. Seu PIN temporário de acesso é:</p>
+              <div id="trialPinBox" style="background:#f7f0e2; border:1px dashed #c67139; padding:14px; border-radius:12px; font-size:28px; font-weight:bold; color:#7a3f1c; letter-spacing:4px; margin:16px 0;">----</div>
+              <a href="/webapp.html" style="display:inline-block; width:100%; padding:14px; background:#c67139; color:#fff; font-weight:bold; text-decoration:none; border-radius:999px; font-size:16px; box-sizing:border-box;">🚀 Entrar no HubOperações</a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const modal = document.getElementById('saasTrialModal');
+      const closeBtn = document.getElementById('closeTrialModalBtn');
+      const form = document.getElementById('saasTrialForm');
+
+      function openModal() { if (modal) modal.style.display = 'flex'; }
+      function closeModal() { if (modal) modal.style.display = 'none'; }
+
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+      // Interceptar cliques em botões de planos ou testes grátis
+      document.body.addEventListener('click', function(e) {
+        const btn = e.target.closest('a, button');
+        if (!btn) return;
+        const text = (btn.textContent || '').toLowerCase();
+        const href = (btn.getAttribute('href') || '');
+        if (text.includes('grátis') || text.includes('gratis') || text.includes('assinar') || text.includes('plano') || href.includes('checkout') || href.includes('trial')) {
+          e.preventDefault();
+          openModal();
+        }
+      });
+
+      if (form) {
+        form.addEventListener('submit', async function(ev) {
+          ev.preventDefault();
+          const submitBtn = document.getElementById('trialSubmitBtn');
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Processando...'; }
+
+          const payload = {
+            nome: document.getElementById('trialNome').value,
+            email: document.getElementById('trialEmail').value,
+            nomeLoja: document.getElementById('trialNomeLoja').value,
+            telefone: document.getElementById('trialTelefone').value
+          };
+
+          try {
+            const res = await fetch('/api/saas/trial-signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.ok) {
+              document.getElementById('trialFormContainer').style.display = 'none';
+              document.getElementById('trialPinBox').textContent = data.pinSimulado || '----';
+              document.getElementById('trialSuccessContainer').style.display = 'block';
+            } else {
+              alert(data.error || 'Erro ao processar cadastro.');
+              if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '🚀 Liberar Meus 7 Dias Grátis'; }
+            }
+          } catch (err) {
+            alert('Erro de conexão com o servidor.');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '🚀 Liberar Meus 7 Dias Grátis'; }
+          }
+        });
+      }
+    }, 1000);
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
     console.error('Bundle unpack error:', err);

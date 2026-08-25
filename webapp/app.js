@@ -17,8 +17,9 @@ let API_BASE = window.location.protocol === "file:"
   const fetchOriginal = window.fetch.bind(window);
   window.fetch = function(url, options = {}) {
     const urlStr = typeof url === "string" ? url : (url && url.url) || "";
-    if (urlStr.startsWith(API_BASE) && typeof currentUser !== "undefined" && currentUser && currentUser.token) {
-      options = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${currentUser.token}` } };
+    const token = (typeof currentUser !== "undefined" && currentUser && currentUser.token) || localStorage.getItem('hub_session_token');
+    if (urlStr.includes('/api') && token) {
+      options = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } };
     }
     return fetchOriginal(url, options);
   };

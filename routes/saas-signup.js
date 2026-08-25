@@ -105,12 +105,13 @@ router.post('/trial-signup', async (req, res) => {
     // 1. Gerar Organization ID único
     const slug = nomeNegocio.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30);
     const orgId = `org_${slug}_${Date.now().toString().slice(-4)}`;
+    const agora = new Date().toISOString();
 
     // Criar organização no banco
     try {
       await dbRunAsync(
-        "INSERT INTO organizations (id, name, slug, status, created_at) VALUES (?, ?, ?, 'active', CURRENT_TIMESTAMP)",
-        [orgId, nomeNegocio, slug]
+        "INSERT INTO organizations (id, slug, nome, status, criadoEm) VALUES (?, ?, ?, 'ativo', ?) ON CONFLICT(id) DO NOTHING",
+        [orgId, slug, nomeNegocio, agora]
       );
     } catch (e) {
       console.warn('[SaaS Trial] Aviso ao criar org:', e.message);
@@ -119,17 +120,21 @@ router.post('/trial-signup', async (req, res) => {
     // 2. Gerar PIN aleatório de 4 dígitos (ex: 4829)
     const pinDigits = Math.floor(1000 + Math.random() * 9000).toString();
     const pinHash = await bcrypt.hash(pinDigits, 10);
-    const colabId = `colab_${Date.now()}`;
 
     // Criar Colaborador Owner
     try {
       await dbRunAsync(
-        `INSERT INTO colaboradores (id, nome, role, pinHash, ativo, email, organizationId) 
-         VALUES (?, ?, 'owner', ?, 1, ?, ?)`,
-        [colabId, nomeClean, pinHash, emailClean, orgId]
+        `INSERT INTO colaboradores (nome, role, pinHash, ativo, email, organizationId) 
+         VALUES (?, 'owner', ?, 1, ?, ?)`,
+        [nomeClean, pinHash, emailClean, orgId]
+      );
+      await dbRunAsync(
+        `INSERT INTO pins (usuario, pin, organizationId) VALUES (?, ?, ?)
+         ON CONFLICT(organizationId, usuario) DO UPDATE SET pin = ?`,
+        [nomeClean, pinHash, orgId, pinHash]
       );
     } catch (e) {
-      console.warn('[SaaS Trial] Aviso ao inserir colaborador:', e.message);
+      console.warn('[SaaS Trial] Aviso ao inserir colaborador/pin:', e.message);
     }
 
     const loginLink = `${APP_URL}/webapp.html`;
@@ -203,11 +208,12 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
 
     const slug = nomeNegocio.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30);
     const orgId = `org_${slug}_${Date.now().toString().slice(-4)}`;
+    const agoraStripe = new Date().toISOString();
 
     try {
       await dbRunAsync(
-        "INSERT INTO organizations (id, name, slug, status, created_at) VALUES (?, ?, ?, 'active', CURRENT_TIMESTAMP)",
-        [orgId, nomeNegocio, slug]
+        "INSERT INTO organizations (id, slug, nome, status, criadoEm) VALUES (?, ?, ?, 'ativo', ?) ON CONFLICT(id) DO NOTHING",
+        [orgId, slug, nomeNegocio, agoraStripe]
       );
     } catch (e) {
       console.warn('[SaaS Stripe] Aviso ao criar org:', e.message);
@@ -215,16 +221,20 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
 
     const pinDigits = Math.floor(1000 + Math.random() * 9000).toString();
     const pinHash = await bcrypt.hash(pinDigits, 10);
-    const colabId = `colab_${Date.now()}`;
 
     try {
       await dbRunAsync(
-        `INSERT INTO colaboradores (id, nome, role, pinHash, ativo, email, organizationId) 
-         VALUES (?, ?, 'owner', ?, 1, ?, ?)`,
-        [colabId, nomeClean, pinHash, emailClean, orgId]
+        `INSERT INTO colaboradores (nome, role, pinHash, ativo, email, organizationId) 
+         VALUES (?, 'owner', ?, 1, ?, ?)`,
+        [nomeClean, pinHash, emailClean, orgId]
+      );
+      await dbRunAsync(
+        `INSERT INTO pins (usuario, pin, organizationId) VALUES (?, ?, ?)
+         ON CONFLICT(organizationId, usuario) DO UPDATE SET pin = ?`,
+        [nomeClean, pinHash, orgId, pinHash]
       );
     } catch (e) {
-      console.warn('[SaaS Stripe] Aviso ao inserir colaborador:', e.message);
+      console.warn('[SaaS Stripe] Aviso ao inserir colaborador/pin:', e.message);
     }
 
     const loginLink = `${APP_URL}/webapp.html`;
