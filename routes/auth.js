@@ -457,11 +457,27 @@ router.post('/recuperar-pin', (req, res) => {
 
           // Disparar e-mail com o novo PIN
           const { enviarEmailGenerico } = require('../config/notifications');
-          const assunto = '🔑 Seu Novo PIN de Acesso — Hub de Operações';
-          const texto = `Olá ${colab.nome}!\n\nSeu novo PIN de acesso é: ${novoPin}\n\nAcesse o app e utilize este PIN de 4 dígitos para fazer login.`;
+          const APP_URL = process.env.APP_URL || 'https://hub-de-operacoes.netlify.app';
+          const loginLink = `${APP_URL}/webapp.html`;
+          const assunto = '🔑 Seu Novo PIN de Acesso — HubOperações';
+          const texto = `Olá ${colab.nome}!\n\nSeu novo PIN de acesso é: ${novoPin}\n\nAcesse em: ${loginLink}`;
+          const htmlBody = `
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; font-family:Arial, sans-serif; margin:0 auto; padding:24px;">
+              <tbody>
+                <tr><td><h2 style="color:#7a3f1c; font-family:'Trebuchet MS', sans-serif;">🔑 Seu Novo PIN de Acesso</h2></td></tr>
+                <tr><td style="color:#4a453e; font-size:15px; line-height:22px;">Olá, <strong>${colab.nome}</strong>! Foi gerado um novo PIN de 4 dígitos para o seu acesso ao HubOperações:</td></tr>
+                <tr><td style="padding:16px 0;">
+                  <span style="display:inline-block; background-color:#f7f0e2; border:1px solid #d8c9a8; border-radius:10px; padding:12px 20px; font-family:monospace; font-size:24px; font-weight:bold; color:#7a3f1c; letter-spacing:4px;">${novoPin}</span>
+                </td></tr>
+                <tr><td align="center" style="padding:20px 0 10px;">
+                  <a href="${loginLink}" target="_blank" style="display:inline-block; padding:14px 36px; background-color:#c67139; color:#ffffff; font-weight:bold; font-size:15px; text-decoration:none; border-radius:999px;">🚀 Entrar no HubOperações</a>
+                </td></tr>
+              </tbody>
+            </table>
+          `;
 
           try {
-            await enviarEmailGenerico([emailClean], assunto, texto);
+            await enviarEmailGenerico([emailClean], assunto, texto, htmlBody);
           } catch (e) {
             console.warn('[Recuperar PIN] Erro ao enviar e-mail:', e.message);
           }
