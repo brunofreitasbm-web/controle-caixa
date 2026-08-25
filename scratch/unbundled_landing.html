@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="37852b10-e437-47dc-812e-6b1fd6c0b9e8"></script>
+</head>
+<body>
+
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hub de Operações — Sistema de gestão para franquias de chocolate</title>
+  <meta name="description" content="Software de otimização de operação de franquias, com bipagem cega para conferência de NF-e, inventário mensal obrigatório, controle de ponto e concentrador de informações DISC para formar equipes de vendas.">
+
+  <style>/* Modernist — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
+/* vietnamese */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("12005f33-a7bf-411e-a5dc-12fc273af908") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("502a5fd9-a1e6-4de3-87c3-3d4771db42e6") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("af75da1e-1a9d-4c39-a410-9db3c246662c") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("12005f33-a7bf-411e-a5dc-12fc273af908") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("502a5fd9-a1e6-4de3-87c3-3d4771db42e6") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("af75da1e-1a9d-4c39-a410-9db3c246662c") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("12005f33-a7bf-411e-a5dc-12fc273af908") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("502a5fd9-a1e6-4de3-87c3-3d4771db42e6") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("af75da1e-1a9d-4c39-a410-9db3c246662c") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+:root {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #ec3013;
+  --color-accent-2: #e15b47;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+
+  /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
+     same step of any role matches the others in visual value. */
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  --color-accent-2-100: #fff2ef;
+  --color-accent-2-200: #ffe0da;
+  --color-accent-2-300: #ffc4b9;
+  --color-accent-2-400: #ff9784;
+  --color-accent-2-500: #ef6853;
+  --color-accent-2-600: #c94b39;
+  --color-accent-2-700: #9e3526;
+  --color-accent-2-800: #71261b;
+  --color-accent-2-900: #471d16;
+
+  --font-heading: "Archivo", system-ui, sans-serif;
+  --font-heading-weight: 800;
+  --font-body: "Archivo", system-ui, sans-serif;
+
+  --space-1: 4.0px;
+  --space-2: 8.0px;
+  --space-3: 12.0px;
+  --space-4: 16.0px;
+  --space-6: 24.0px;
+  --space-8: 32.0px;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+
+  /* Elevation — derived from the ground: soft ink-tinted shadows on a
+     light theme, a hairline edge + ambient darkness on a dark one. */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+
+.grayscale{filter:grayscale(1) contrast(1.08)}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Components — built with the tokens above. Plain CSS
+   on plain HTML: no JavaScript, no build step. Each class is documented in
+   readme.md and demonstrated in foundations/ and components/.
+   ══════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+}
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+h6 { font-size: 13px; }
+h6 { letter-spacing: 0.08em; text-transform: uppercase; }
+p { margin: 0 0 var(--space-3); }
+a { color: var(--color-accent); text-underline-offset: 3px; }
+img { display: block; max-width: 100%; }
+figure { margin: 0; }
+figcaption {
+  font-size: 11px; margin-top: var(--space-1);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* — rules — */
+.hr {
+  height: 2px; border: 0; margin: var(--space-4) 0;
+  background: var(--color-divider);
+}
+
+/* — buttons — */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text); /* matches the .input's 14px —
+     the pair sits side by side in sign-up rows */
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn svg { display: block; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); color: var(--color-bg); }
+.btn-primary:hover { background: var(--color-accent-600); }
+.btn-primary:active { background: var(--color-accent-700); }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; margin-top: var(--space-2); justify-content: flex-start; text-align: left; }
+
+/* — forms — */
+.field > label {
+  display: block; font-size: 12px; margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+textarea.input { min-height: 90px; resize: vertical; }
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.radio input, .seg-opt input {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+.radio .dot {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--color-divider);
+}
+.radio:hover .dot { border-color: var(--color-accent); }
+.radio input:checked + .dot {
+  border-color: var(--color-accent); background: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-bg);
+}
+.radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.seg {
+  display: inline-flex; overflow: hidden;
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.seg-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+}
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt:has(input:checked) { background: var(--color-accent); color: var(--color-bg); }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+/* — cards — */
+.card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+}
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+.card-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 17px; line-height: 1.2;
+}
+.card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+.card-meta {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+/* — tags — */
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+/* — navigation — */
+.nav {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+.nav-brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; margin-right: auto;
+}
+.nav a { color: inherit; text-decoration: none; font-size: 14px; }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
+
+/* — tables — */
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+  text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2); border-bottom: 2px solid var(--color-divider);
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+
+/* — dialog — */
+.dialog-backdrop {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+}
+.dialog {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-surface); box-shadow: var(--shadow-lg);
+}
+.dialog-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 20px;
+}
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+</style>
+  <script src="c15d4069-89bf-4714-b8f0-a1c1f34b1cf1"></script>
+  <style>
+    /* latin-ext */
+@font-face {
+  font-family: 'Caprasimo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fa05adb8-fb10-4d9a-acc4-73011e10680c") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Caprasimo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("8844cfa0-98cc-48aa-a706-ff0283869841") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("bf8e81fa-ad49-41cb-be74-7e1b8a45f1a0") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("aa9519c2-085c-4dbd-bc5f-8ccc7b146293") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("bd5e0780-69f4-4498-b7b0-6338197bcea9") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("cb53d2e3-4fd5-4a37-a71a-40b0d30cc3ac") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("bd5e0780-69f4-4498-b7b0-6338197bcea9") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("cb53d2e3-4fd5-4a37-a71a-40b0d30cc3ac") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("bd5e0780-69f4-4498-b7b0-6338197bcea9") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("cb53d2e3-4fd5-4a37-a71a-40b0d30cc3ac") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("bd5e0780-69f4-4498-b7b0-6338197bcea9") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("cb53d2e3-4fd5-4a37-a71a-40b0d30cc3ac") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("bd5e0780-69f4-4498-b7b0-6338197bcea9") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("cb53d2e3-4fd5-4a37-a71a-40b0d30cc3ac") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+    :root {
+      --color-bg: #F5EAD8;
+      --color-surface: #EBDDC5;
+      --color-text: #2E2B25;
+      --color-accent: #B2622D;
+      --color-accent-2: #B2622D;
+      --color-divider: #DCD3C4;
+      --color-neutral-100: #F9F4ED;
+      --color-neutral-200: #EEE7DB;
+      --color-neutral-300: #DCD3C4;
+      --color-neutral-800: #474238;
+      --color-accent-100: #F1E1D2;
+      --color-accent-2-100: #F1E1D2;
+      --color-accent-600: #9C551F;
+      --color-accent-700: #8C491A;
+      --color-accent-800: #6E3812;
+      --color-accent-2-800: #6E3812;
+      --radius-sm: 10px;
+      --radius-md: 18px;
+      --radius-lg: 30px;
+      --shadow-sm: 0 1px 2px rgba(46,43,37,0.08);
+      --shadow-md: 0 4px 14px rgba(46,43,37,0.08);
+      --shadow-lg: 0 14px 34px rgba(46,43,37,0.1);
+      --font-heading: 'Caprasimo', serif;
+      --font-heading-weight: 400;
+      --font-body: 'Figtree', sans-serif;
+      --heading-ink: #201E1D;
+      --body-ink: #2E2B25;
+      --caption-ink: #474238;
+      --link-ink: #643312;
+      --focus-ink: #8C491A;
+      --header-surface: #FFE1D0;
+      --tone-success-bg: #E1EECC; --tone-success-text: #272E1B; --tone-success-line: #728157;
+      --tone-danger-bg: #FBE6E2; --tone-danger-text: #7A1D12; --tone-danger-line: #B3271A;
+      --tone-warning-bg: #FBECC9; --tone-warning-text: #5C3F06; --tone-warning-line: #9C6F0F;
+      --tone-info-bg: #E4ECF1; --tone-info-text: #17414F; --tone-info-line: #3D6C80;
+    }
+    body { color: var(--body-ink); }
+    h1, h2, h3, h4, h5, h6 { color: var(--heading-ink); }
+    a { color: var(--link-ink); text-decoration: underline; }
+    a:hover { color: var(--color-accent); }
+    :focus-visible { outline: 2px solid var(--focus-ink); outline-offset: 2px; }
+    ::selection { background: var(--color-accent); color: var(--color-bg); }
+  </style>
+</helmet>
+
+<div style="background: var(--color-bg); color: var(--color-text); min-height: 100vh;">
+
+  <nav class="nav" style="position: sticky; top: 0; z-index: 40; background: var(--color-bg); border-bottom: 2px solid var(--color-divider);">
+    <span class="nav-brand">Hub de Operações</span>
+    <a href="#dores">O problema</a>
+    <a href="#funcionalidades">Funcionalidades</a>
+    <a href="#disc">DISC</a>
+    <a href="#precos">Preços</a>
+    <a href="#faq">Dúvidas</a>
+    <button type="button" class="btn btn-primary" sc-camel-on-click="{{ scrollToTrial }}">Testar grátis</button>
+  </nav>
+
+  <!-- HERO -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 72px clamp(20px,5vw,72px) 56px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 48px; align-items: center;">
+    <div>
+      <span class="tag tag-accent" style="margin-bottom: 24px; display: inline-block;">Feito só para franqueados de chocolate</span>
+      <h1 style="font-size: clamp(36px,4.5vw,60px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 24px;">Sua loja perde dinheiro toda vez que alguém confere a entrega no olho.</h1>
+      <p style="font-size: 18px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; margin: 0 0 32px;">O Hub de Operações bipa a nota fiscal pelo celular, acusa toda divergência na hora e atualiza sozinho seu estoque, validade, ponto e escala de equipe. Sem planilha. Sem caderno. Sem "vai que dá certo".</p>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;">
+        <button type="button" class="btn btn-primary" style="padding: 14px 28px; font-size: 15px;" sc-camel-on-click="{{ scrollToTrial }}">Testar grátis por 7 dias</button>
+        <a href="#simulador" class="btn btn-ghost" style="padding: 14px 28px; font-size: 15px;">Ver a bipagem funcionando</a>
+      </div>
+      <p style="font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin: 0;">Sem cartão de crédito · Acesso completo · Cancele quando quiser · 📱 100% otimizado para uso diário no celular</p>
+    </div>
+    <div class="card elev-lg" style="padding: 28px; border: 2px solid var(--color-text);">
+      <span class="card-kicker">Painel da loja — agora</span>
+      <h3 class="card-title" style="margin: 8px 0 20px; font-size: 22px;">Conferência da entrega de hoje</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); margin-bottom: 20px; border-radius: var(--radius-md); overflow: hidden;">
+        <div style="background: var(--color-bg); padding: 16px;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 60%, transparent);">Divergência</div>
+          <div style="font-size: 26px; font-weight: 800; font-family: var(--font-heading); color: var(--tone-success-line);">R$ 0,00</div>
+        </div>
+        <div style="background: var(--color-bg); padding: 16px;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 60%, transparent);">Itens bipados</div>
+          <div style="font-size: 26px; font-weight: 800; font-family: var(--font-heading);">312 / 312</div>
+        </div>
+      </div>
+      <div style="border-left: 3px solid var(--tone-warning-line); padding: 12px 16px; background: var(--tone-warning-bg); color: var(--tone-warning-text); font-size: 14px; line-height: 1.5;">
+        <strong>Validade:</strong> 2 lotes de trufa vencem em 5 dias. Mova para promoção antes de virar perda.
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- STAT ROW: niche positioning -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 48px clamp(20px,5vw,72px);">
+    <div style="display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: 32px; flex-wrap: wrap;">
+      <div>
+        <p style="font-family: var(--font-heading); font-weight: 800; font-size: clamp(30px,3vw,44px); color: var(--color-accent); margin: 0;">1.200</p>
+        <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 8px 0 0;">Franqueados no seu nicho</p>
+      </div>
+      <div>
+        <p style="font-family: var(--font-heading); font-weight: 800; font-size: clamp(30px,3vw,44px); color: var(--color-accent); margin: 0;">4.600</p>
+        <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 8px 0 0;">Lojas na rede</p>
+      </div>
+      <div>
+        <p style="font-family: var(--font-heading); font-weight: 800; font-size: clamp(30px,3vw,44px); color: var(--color-accent); margin: 0;">1</p>
+        <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 8px 0 0;">Sistema construído só para essa operação</p>
+      </div>
+      <div>
+        <p style="font-family: var(--font-heading); font-weight: 800; font-size: clamp(30px,3vw,44px); color: var(--color-accent); margin: 0;">7 dias</p>
+        <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 8px 0 0;">De teste grátis, sem cartão</p>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- DORES VS SOLUÇÃO -->
+  <section id="dores" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">O problema real</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 12px; max-width: 20ch;">Planilha e caderno não seguram uma operação de loja física</h2>
+    <p style="font-size: 16px; max-width: 60ch; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0 0 40px;">Todo mês que passa no "jeito antigo" é margem saindo pela porta dos fundos.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); border-radius: var(--radius-md); overflow: hidden;">
+      <div style="background: var(--color-bg); padding: 32px;">
+        <h3 style="font-size: 18px; margin: 0 0 20px; color: color-mix(in srgb, var(--color-text) 85%, transparent);">Do jeito antigo</h3>
+        <sc-for list="{{ dores }}" as="item" hint-placeholder-count="4">
+          <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px; padding-left: 20px; position: relative;">
+            <span style="position: absolute; left: 0; color: var(--tone-danger-line);">✕</span>{{ item }}
+          </p>
+        </sc-for>
+      </div>
+      <div style="background: var(--color-accent-100); padding: 32px;">
+        <h3 style="font-size: 18px; margin: 0 0 20px; color: var(--color-accent-700);">Com o Hub de Operações</h3>
+        <sc-for list="{{ solucoes }}" as="item" hint-placeholder-count="4">
+          <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px; padding-left: 20px; position: relative;">
+            <span style="position: absolute; left: 0; color: var(--tone-success-line);">✓</span>{{ item }}
+          </p>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- FUNCIONALIDADES -->
+  <section id="funcionalidades" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px) 32px;">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">O que o sistema faz</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 12px; max-width: 24ch;">Uma bipagem alimenta cinco controles ao mesmo tempo</h2>
+    <p style="font-size: 15px; color: color-mix(in srgb, var(--color-text) 65%, transparent); margin: 0 0 40px;">📱 Roda direto no navegador do celular usado na loja — sem instalar aplicativo, sem treinamento longo.</p>
+    <div style="display: grid; grid-template-columns: minmax(56px,100px) minmax(0,260px) minmax(0,1fr) minmax(180px,240px); gap: 28px clamp(20px,3vw,48px); align-items: center; padding: 28px 0; border-top: 2px solid var(--color-divider);">
+      <p style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin: 0; position: relative; align-self: start;"><span style="position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; background: var(--color-accent);"></span>01</p>
+      <h3 style="font-size: 22px; margin: 0; align-self: start;">Conferência por bipagem</h3>
+      <p style="font-size: 15.5px; line-height: 1.6; margin: 0; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; align-self: start;">Aponte o celular para o código de barras. O sistema concilia automaticamente com a nota fiscal e acusa qualquer falta ou sobra na hora — sem contar item por item na mão.</p>
+      <img src="b1028868-e141-4caf-97de-facfb399453b" alt="Print da tela de conferência por bipagem" style="width: 100%; aspect-ratio: 16/11; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05);">
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(56px,100px) minmax(0,260px) minmax(0,1fr) minmax(180px,240px); gap: 28px clamp(20px,3vw,48px); align-items: center; padding: 28px 0; border-top: 2px solid var(--color-divider);">
+      <p style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin: 0; position: relative; align-self: start;"><span style="position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; background: var(--color-accent);"></span>02</p>
+      <h3 style="font-size: 22px; margin: 0; align-self: start;">Inventário mensal obrigatório</h3>
+      <p style="font-size: 15.5px; line-height: 1.6; margin: 0; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; align-self: start;">A contagem mensal obrigatória sai pela bipagem: total de produtos, itens críticos, em alerta e no prazo, prontos para concluir e exportar.</p>
+      <img src="c8fcea82-8b6a-4414-b386-c0c818f504d6" alt="Print da tela de estoque em tempo real" style="width: 100%; aspect-ratio: 16/11; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05);">
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(56px,100px) minmax(0,260px) minmax(0,1fr) minmax(180px,240px); gap: 28px clamp(20px,3vw,48px); align-items: center; padding: 28px 0; border-top: 2px solid var(--color-divider);">
+      <p style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin: 0; position: relative; align-self: start;"><span style="position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; background: var(--color-accent);"></span>03</p>
+      <h3 style="font-size: 22px; margin: 0; align-self: start;">Controle de validade</h3>
+      <p style="font-size: 15.5px; line-height: 1.6; margin: 0; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; align-self: start;">Alertas automáticos antes do vencimento de cada lote, para você agir — promoção, troca ou devolução — antes de virar perda.</p>
+      <img src="c8fcea82-8b6a-4414-b386-c0c818f504d6" alt="Print da tela de controle de validade" style="width: 100%; aspect-ratio: 16/11; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05);">
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(56px,100px) minmax(0,260px) minmax(0,1fr) minmax(180px,240px); gap: 28px clamp(20px,3vw,48px); align-items: center; padding: 28px 0; border-top: 2px solid var(--color-divider);">
+      <p style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin: 0; position: relative; align-self: start;"><span style="position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; background: var(--color-accent);"></span>04</p>
+      <h3 style="font-size: 22px; margin: 0; align-self: start;">Controle de ponto</h3>
+      <p style="font-size: 15.5px; line-height: 1.6; margin: 0; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; align-self: start;">Entrada, intervalo e saída pelo celular, com GPS e biometria facial, seguindo a portaria do Ministério do Trabalho — folha pronta para enviar direto ao contador.</p>
+      <img src="e55aed11-a558-4bdf-8131-3a307691a176" alt="Print da tela de controle de ponto" style="width: 100%; aspect-ratio: 16/11; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05);">
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(56px,100px) minmax(0,260px) minmax(0,1fr) minmax(180px,240px); gap: 28px clamp(20px,3vw,48px); align-items: center; padding: 28px 0; border-top: 2px solid var(--color-divider);">
+      <p style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin: 0; position: relative; align-self: start;"><span style="position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; background: var(--color-accent);"></span>05</p>
+      <h3 style="font-size: 22px; margin: 0; align-self: start;">Gestão de equipe por DISC</h3>
+      <p style="font-size: 15.5px; line-height: 1.6; margin: 0; color: color-mix(in srgb, var(--color-text) 78%, transparent); max-width: 52ch; align-self: start;">Perfil comportamental de cada colaborador, usado para orientar a contratação e decidir quem fica na venda, no caixa ou na conferência.</p>
+      <img src="edb4d10d-77cc-4d67-ad7d-db1a4d39d472" alt="Print da tela de gestão de equipe por DISC" style="width: 100%; aspect-ratio: 16/11; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05);">
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- NOTIFICAÇÕES -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 56px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Comunicação automática</span>
+    <h2 style="font-size: clamp(26px,3vw,38px); margin: 0 0 32px; max-width: 26ch;">O sistema avisa. Você não precisa ficar cobrando.</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); border-radius: var(--radius-md); overflow: hidden;">
+      <sc-for list="{{ notificacoes }}" as="n" hint-placeholder-count="6">
+        <div style="background: var(--color-bg); padding: 20px; font-size: 14.5px; line-height: 1.5; display: flex; gap: 10px; align-items: flex-start;">
+          <span style="color: var(--color-accent); flex-shrink: 0;">●</span>{{ n }}
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- SIMULADOR -->
+  <section id="simulador" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Veja funcionando</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 40px; max-width: 22ch;">A bipagem e a meta hora a hora, ao vivo</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+      <div class="card elev-md" style="padding: 28px;">
+        <span class="card-kicker">Conferência de entrega</span>
+        <h3 class="card-title" style="margin: 8px 0 4px; font-size: 20px;">NF #4892 — Distribuidora de Chocolates</h3>
+        <p style="font-size: 13px; color: color-mix(in srgb, var(--color-text) 65%, transparent); margin: 0 0 20px;">Clique para simular a bipagem de um item da nota.</p>
+        <button type="button" class="btn btn-primary btn-block" style="margin-bottom: 20px;" sc-camel-on-click="{{ scanItem }}">Bipar próximo item</button>
+        <div style="border-top: 2px solid var(--color-divider); padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <sc-for list="{{ scannedItems }}" as="item" hint-placeholder-count="2">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-neutral-100);">
+              <div>
+                <strong style="font-size: 14px;">{{ item.name }}</strong><br>
+                <span style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 60%, transparent);">EAN {{ item.code }}</span>
+              </div>
+              <span class="tag" style="{{ item.tagStyle }}">{{ item.statusText }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="card elev-md" style="padding: 28px;">
+        <span class="card-kicker">Meta hora a hora</span>
+        <h3 class="card-title" style="margin: 8px 0 12px; font-size: 20px;">Meta do dia: R$ 3.000,00</h3>
+        <img src="616c3d50-1bdc-438a-95c7-5fb071d98c28" alt="Print da tela de meta hora a hora no celular" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; object-position: top; border: 2px solid var(--color-divider); border-radius: var(--radius-sm); filter: grayscale(1) contrast(1.05); margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
+          <span style="font-size: 13px; color: color-mix(in srgb, var(--color-text) 65%, transparent);">Acumulado hoje</span>
+          <span style="font-family: var(--font-heading); font-weight: 800; font-size: 24px;">{{ metaTotalDisplay }}</span>
+        </div>
+        <div style="height: 10px; background: var(--color-neutral-200); margin-bottom: 8px;">
+          <div style="height: 100%; background: var(--color-accent); width: {{ metaPercentWidth }};"></div>
+        </div>
+        <p style="font-size: 13px; margin: 0 0 24px; color: color-mix(in srgb, var(--color-text) 65%, transparent);">{{ metaPercentText }} da meta das 11h–12h</p>
+        <div class="field" style="margin-bottom: 12px;">
+          <label>Simular venda registrada agora</label>
+          <div style="display: flex; gap: 10px;">
+            <input class="input" type="number" placeholder="Valor em R$" value="{{ saleInput }}" sc-camel-on-change="{{ setSaleInput }}" style="flex: 1;">
+            <button type="button" class="btn btn-secondary" sc-camel-on-click="{{ registerSale }}">Registrar</button>
+          </div>
+        </div>
+        <div style="border-left: 3px solid {{ metaAlertLine }}; background: {{ metaAlertBg }}; color: {{ metaAlertColor }}; padding: 12px 16px; font-size: 14px;">{{ metaAlert }}</div>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- DISC -->
+  <section id="disc" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px); display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start;">
+    <div>
+      <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Gestão de equipe</span>
+      <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 20px; max-width: 20ch;">Pare de contratar gente errada para o cargo errado</h2>
+      <p style="font-size: 16px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">O Hub de Operações concentra as informações de DISC de cada colaborador e mostra onde ele rende mais: quem é Influente vai para a recepção, quem é Conforme vai para o fechamento de caixa e a conferência de notas.</p>
+    </div>
+    <div class="card elev-md" style="padding: 28px;">
+      <h3 class="card-title" style="font-size: 18px; margin: 0 0 16px;">Toque em um perfil</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); margin-bottom: 20px; border-radius: var(--radius-md); overflow: hidden;">
+        <sc-for list="{{ discProfiles }}" as="p" hint-placeholder-count="4">
+          <button type="button" sc-camel-on-click="{{ p.onSelect }}" style="{{ p.boxStyle }}">
+            <span style="font-family: var(--font-heading); font-weight: 800; font-size: 28px; display: block;">{{ p.letter }}</span>
+            <span style="font-size: 13px; font-weight: 600; display: block; margin-top: 4px;">{{ p.name }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="border-left: 3px solid var(--tone-info-line); background: var(--tone-info-bg); color: var(--tone-info-text); padding: 16px; font-size: 14px; line-height: 1.6;"><strong>{{ discResultLabel }}</strong> {{ discResultText }}</div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- SEGURANÇA -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Seus dados</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 40px; max-width: 22ch;">Dado de loja não some, e cartão não passa perto do nosso servidor</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); border-radius: var(--radius-md); overflow: hidden;">
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Conforme LGPD</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">Seus dados de vendas, equipe e clientes ficam sob seu controle, com acesso restrito por conta.</p>
+      </div>
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Backup diário automático</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">Histórico completo em nuvem. Nenhum operador consegue apagar o passado da loja.</p>
+      </div>
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Pagamento via Stripe</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0 0 12px;">Sua assinatura é processada pela Stripe. Não guardamos número de cartão em nenhum servidor nosso.</p>
+        <span class="tag tag-neutral">🔒 Pagamento seguro Stripe</span>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- INDEPENDÊNCIA DE SISTEMAS -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Como os dados entram no sistema</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 12px; max-width: 26ch;">O Hub de Operações não é ligado automaticamente aos sistemas da franqueadora</h2>
+    <p style="font-size: 16px; max-width: 66ch; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0 0 40px;">Não existe integração direta com a intranet da rede. É o franqueado ou o gerente da loja quem exporta os dados de lá e importa no Confere — isso preserva o uso da marca e dos sistemas próprios da franqueadora, sem qualquer vínculo automático.</p>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--color-divider); border: 2px solid var(--color-divider); border-radius: var(--radius-md); overflow: hidden;">
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Notas fiscais faturadas</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">Baixe o XML da NF-e na intranet da franqueadora e importe no Hub de Operações para liberar a conferência por bipagem.</p>
+      </div>
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Metas da loja</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">A meta definida pela franqueadora é cadastrada manualmente pelo franqueado ou gerente — o sistema não puxa esse número sozinho.</p>
+      </div>
+      <div style="background: var(--color-bg); padding: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 10px;">Perfis DISC</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0;">O levantamento comportamental é feito e mantido dentro do Hub de Operações, independente de qualquer sistema de RH da rede.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- PREÇOS -->
+  <section id="precos" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Investimento</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 12px;">Um preço por loja. Sem taxa de implantação.</h2>
+    <p style="font-size: 16px; color: color-mix(in srgb, var(--color-text) 78%, transparent); margin: 0 0 40px;">7 dias grátis em qualquer plano, sem pedir cartão.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card elev-sm" style="padding: 32px; border: 2px solid var(--color-divider);">
+        <span class="card-kicker">1 a 3 lojas</span>
+        <h3 class="card-title" style="font-size: 22px; margin: 12px 0 4px;">Essencial</h3>
+        <p style="margin: 0 0 24px;"><span style="font-family: var(--font-heading); font-weight: 800; font-size: 40px;">R$ 197</span><span style="font-size: 14px; color: color-mix(in srgb, var(--color-text) 65%, transparent);"> /loja/mês</span></p>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; font-size: 14px;">
+          <span>✓ Conferência por bipagem ilimitada</span>
+          <span>✓ Estoque e validade automáticos</span>
+          <span>✓ Ponto e escala de equipe</span>
+          <span>✓ Perfis DISC da equipe</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-block" sc-camel-on-click="{{ scrollToTrial }}">Testar grátis</button>
+      </div>
+      <div class="card elev-lg" style="padding: 32px; border: 2px solid var(--color-text); position: relative;">
+        <span class="tag tag-accent" style="position: absolute; top: -14px; left: 32px;">Mais escolhido</span>
+        <span class="card-kicker">4 lojas ou mais</span>
+        <h3 class="card-title" style="font-size: 22px; margin: 12px 0 4px;">Rede</h3>
+        <p style="margin: 0 0 24px;"><span style="font-family: var(--font-heading); font-weight: 800; font-size: 40px;">R$ 149</span><span style="font-size: 14px; color: color-mix(in srgb, var(--color-text) 65%, transparent);"> /loja/mês</span></p>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; font-size: 14px;">
+          <span>✓ Tudo do plano Essencial</span>
+          <span>✓ Painel consolidado multi-loja</span>
+          <span>✓ Comparativo de performance entre lojas</span>
+          <span>✓ Suporte prioritário</span>
+        </div>
+        <button type="button" class="btn btn-primary btn-block" sc-camel-on-click="{{ scrollToTrial }}">Testar grátis</button>
+      </div>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- ESCASSEZ -->
+  <section style="max-width: 1200px; margin: 0 auto; padding: 48px clamp(20px,5vw,72px);">
+    <div style="border: 2px solid var(--color-text); border-radius: var(--radius-md); padding: 32px; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap;">
+      <div>
+        <h3 style="font-size: 20px; margin: 0 0 8px;">Exclusividade por região</h3>
+        <p style="font-size: 15px; margin: 0; max-width: 56ch; color: color-mix(in srgb, var(--color-text) 78%, transparent);">Para manter suporte dedicado nesse nicho, limitamos o número de franqueados ativos por praça. Depois que sua região fecha, a próxima vaga entra em espera.</p>
+      </div>
+      <button type="button" class="btn btn-primary" style="white-space: nowrap;" sc-camel-on-click="{{ scrollToTrial }}">Reservar minha região</button>
+    </div>
+  </section>
+
+  <hr style="height: 2px; border: 0; background: var(--color-divider); margin: 0;">
+
+  <!-- FAQ -->
+  <section id="faq" style="max-width: 1200px; margin: 0 auto; padding: 64px clamp(20px,5vw,72px);">
+    <span class="tag tag-outline" style="margin-bottom: 16px; display: inline-block;">Dúvidas</span>
+    <h2 style="font-size: clamp(28px,3.2vw,42px); margin: 0 0 40px;">Perguntas frequentes</h2>
+    <sc-for list="{{ faqs }}" as="item" hint-placeholder-count="5">
+      <div style="border-top: 2px solid var(--color-divider); padding: 20px 0;">
+        <button type="button" sc-camel-on-click="{{ item.onToggle }}" style="all: unset; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; font-family: var(--font-heading); font-weight: 800; font-size: 16px;">
+          {{ item.q }}<span style="font-size: 18px; color: var(--color-accent);">{{ item.icon }}</span>
+        </button>
+        <sc-if value="{{ item.open }}">
+          <p style="font-size: 15px; line-height: 1.6; margin: 16px 0 0; max-width: 65ch; color: color-mix(in srgb, var(--color-text) 78%, transparent);">{{ item.a }}</p>
+        </sc-if>
+      </div>
+    </sc-for>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section id="trial" style="background: var(--color-accent); color: var(--color-bg);">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 72px clamp(20px,5vw,72px);">
+      <h2 style="font-size: clamp(30px,4vw,52px); margin: 0 0 16px; color: var(--color-bg);">Sua próxima entrega já pode chegar sem prejuízo.</h2>
+      <p style="font-size: 17px; max-width: 56ch; margin: 0 0 32px; opacity: 0.9;">Comece agora com 7 dias grátis. Sem cartão, sem contrato de fidelidade.</p>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; max-width: 520px;">
+        <input class="input" type="email" placeholder="seu@email.com" value="{{ emailInput }}" sc-camel-on-change="{{ setEmailInput }}" style="flex: 1; min-width: 220px; background: var(--color-bg);">
+        <button type="button" class="btn btn-ghost" style="color: var(--color-bg); border-color: var(--color-bg);" sc-camel-on-click="{{ submitTrial }}">Começar teste grátis</button>
+      </div>
+      <sc-if value="{{ trialSubmitted }}">
+        <p style="margin: 16px 0 0; font-size: 14px;">Recebemos seu e-mail. Confira sua caixa de entrada para ativar o acesso.</p>
+      </sc-if>
+    </div>
+  </section>
+
+  <footer style="max-width: 1200px; margin: 0 auto; padding: 32px clamp(20px,5vw,72px); font-size: 13px; color: color-mix(in srgb, var(--color-text) 65%, transparent);">
+    © 2026 Hub de Operações. Sistema de gestão para franqueados de chocolate. Pagamentos processados via Stripe.
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script="">
+const NOTIFICACOES = [
+  'Abertura de loja registrada',
+  'Fechamento de loja registrado',
+  'Conferência de entrega concluída ou com divergência',
+  'Pendências em aberto',
+  'Inventário mensal obrigatório concluído',
+  'Aviso automático de início de turno para consultoras',
+];
+
+const DORES = [
+  'Conferência de entrega no olho: sobra e falta que ninguém percebe até fechar o mês no vermelho.',
+  'Planilha ou caderno que qualquer pessoa edita, apaga ou perde.',
+  'Validade descoberta tarde demais, quando o produto já virou perda total.',
+  'Contratação de equipe no feeling, sem saber quem realmente vende melhor.',
+];
+const SOLUCOES = [
+  'Bipagem cega pelo celular: toda divergência aparece na tela, na hora da entrega.',
+  'Um banco de dados central que não se apaga e não depende de uma pessoa só.',
+  'Alerta de validade automático, com antecedência para agir.',
+  'Contratação orientada pelo perfil DISC de cada candidato, não em achismo.',
+];
+
+const SCAN_POOL = [
+  { name: 'Trufa Tradicional 30g', code: '78910001', ok: true },
+  { name: 'Tablete Castanha 100g', code: '78910002', ok: true },
+  { name: 'Caixa de Bombom 200g', code: '78910003', ok: false },
+  { name: 'Trufa Coco 30g', code: '78910004', ok: true },
+];
+
+const DISC_DATA = [
+  { letter: 'D', name: 'Dominância', label: 'Dominância (D):', text: 'foco em metas e fechamento direto. Ótimo para vendas corporativas e negociação de grandes pedidos.' },
+  { letter: 'I', name: 'Influência', label: 'Influência (I):', text: 'comunicador nato, cria conexão rápido. Ideal na recepção e no atendimento de balcão.' },
+  { letter: 'S', name: 'Estabilidade', label: 'Estabilidade (S):', text: 'paciente e organizado, sustenta o ritmo da loja. Bom em atendimento consultivo e suporte à equipe.' },
+  { letter: 'C', name: 'Conformidade', label: 'Conformidade (C):', text: 'atenção total a detalhes e regras. O perfil certo para conferência de notas e fechamento de caixa.' },
+];
+
+const FAQ_DATA = [
+  { q: 'O sistema puxa os dados direto da intranet da franqueadora?', a: 'Não. O Hub de Operações não tem integração automática com a franqueadora. O franqueado ou gerente exporta as notas fiscais, metas e demais dados da intranet da rede e importa manualmente no sistema, preservando o uso da marca e dos sistemas próprios da franqueadora.' },
+  { q: 'Preciso comprar um leitor de código de barras?', a: 'Não. A câmera do celular funciona como leitor. Basta abrir o aplicativo e apontar para o código de barras do produto.' },
+  { q: 'Os dados da loja podem ser apagados por um funcionário?', a: 'Não. O histórico fica em backup automático na nuvem e não pode ser excluído por operadores comuns — só a auditoria completa fica registrada.' },
+  { q: 'O DISC substitui uma avaliação de RH?', a: 'Não substitui, complementa. Ele indica onde cada perfil comportamental rende mais dentro da operação da loja, para orientar a escala do dia a dia.' },
+  { q: 'Funciona com mais de uma loja na mesma conta?', a: 'Sim. O plano Rede foi feito para isso: um painel único mostra estoque, ponto e vendas de todas as lojas.' },
+  { q: 'Como funciona a cobrança?', a: 'A assinatura é mensal, por loja, processada com segurança pela Stripe. Você pode cancelar quando quiser, sem multa.' },
+];
+
+class Component extends DCLogic {
+  state = {
+    scannedItems: [],
+    metaTotal: 1250,
+    hourValue: 450,
+    hourlyTarget: 500,
+    saleInput: '',
+    emailInput: '',
+    trialSubmitted: false,
+    discActive: 'D',
+    faqOpen: 0,
+  };
+
+  scrollToTrial = () => { document.getElementById('trial')?.scrollIntoView({ behavior: 'smooth' }); };
+
+  scanItem = () => {
+    const p = SCAN_POOL[Math.floor(Math.random() * SCAN_POOL.length)];
+    const qty = p.ok ? 'ok' : 'faltou';
+    const item = { name: p.name, code: p.code, tagStyle: p.ok ? 'background:var(--tone-success-bg); color:var(--tone-success-text);' : 'background:var(--tone-danger-bg); color:var(--tone-danger-text);', statusText: p.ok ? 'Confere' : 'Divergência' };
+    this.setState(s => ({ scannedItems: [item, ...s.scannedItems].slice(0, 4) }));
+  };
+
+  setSaleInput = (e) => this.setState({ saleInput: e.target.value });
+
+  registerSale = () => {
+    const val = parseFloat(this.state.saleInput);
+    if (!val || val <= 0) return;
+    this.setState(s => ({ metaTotal: s.metaTotal + val, hourValue: s.hourValue + val, saleInput: '' }));
+  };
+
+  setEmailInput = (e) => this.setState({ emailInput: e.target.value });
+  submitTrial = () => { if (this.state.emailInput) this.setState({ trialSubmitted: true }); };
+
+  toggleFaq = (i) => this.setState(s => ({ faqOpen: s.faqOpen === i ? -1 : i }));
+
+  renderVals() {
+    const s = this.state;
+    const pct = Math.min(100, Math.round((s.hourValue / s.hourlyTarget) * 100));
+    const remaining = s.hourlyTarget - s.hourValue;
+    const metaAlert = pct >= 100
+      ? '🎉 Meta da hora batida! Equipe motivada rumo ao próximo bloco.'
+      : `🔥 Faltam R$ ${remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para bater a meta das 11h–12h.`;
+    const metaAlertBg = pct >= 100 ? 'var(--tone-success-bg)' : 'var(--tone-warning-bg)';
+    const metaAlertColor = pct >= 100 ? 'var(--tone-success-text)' : 'var(--tone-warning-text)';
+    const metaAlertLine = pct >= 100 ? 'var(--tone-success-line)' : 'var(--tone-warning-line)';
+
+    return {
+      notificacoes: NOTIFICACOES,
+      dores: DORES,
+      solucoes: SOLUCOES,
+      scannedItems: s.scannedItems,
+      scanItem: this.scanItem,
+      metaTotalDisplay: `R$ ${s.metaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      metaPercentWidth: pct + '%',
+      metaPercentText: pct + '%',
+      metaAlert,
+      metaAlertBg,
+      metaAlertColor,
+      metaAlertLine,
+      saleInput: s.saleInput,
+      setSaleInput: this.setSaleInput,
+      registerSale: this.registerSale,
+      discProfiles: DISC_DATA.map(d => ({
+        letter: d.letter,
+        name: d.name,
+        onSelect: () => this.setState({ discActive: d.letter }),
+        boxStyle: `all:unset; cursor:pointer; text-align:center; padding:20px 8px; background:${s.discActive === d.letter ? 'var(--color-accent)' : 'var(--color-bg)'}; color:${s.discActive === d.letter ? 'var(--color-bg)' : 'var(--color-text)'};`,
+      })),
+      discResultLabel: DISC_DATA.find(d => d.letter === s.discActive).label,
+      discResultText: DISC_DATA.find(d => d.letter === s.discActive).text,
+      faqs: FAQ_DATA.map((f, i) => ({ q: f.q, a: f.a, open: s.faqOpen === i, icon: s.faqOpen === i ? '−' : '+', onToggle: () => this.toggleFaq(i) })),
+      emailInput: s.emailInput,
+      setEmailInput: this.setEmailInput,
+      submitTrial: this.submitTrial,
+      trialSubmitted: s.trialSubmitted,
+      scrollToTrial: this.scrollToTrial,
+    };
+  }
+}
+
+</script>
+
+
+</body></html>
