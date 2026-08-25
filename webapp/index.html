@@ -3105,6 +3105,41 @@
              pessoas), depois o que é do próprio usuário/dispositivo. -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="config-grid">
 
+          <!-- Card: Identificação do Grupo de Lojas & E-mail Corporativo -->
+          <div id="config-card-grupo" class="card p-6 rounded-2xl border border-border md:col-span-2" data-config-busca="grupo loja subtitulo email corporativo nome do grupo ponto">
+            <h3 class="text-base font-bold flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-building text-gold"></i> Identificação do Grupo de Lojas & E-mail Corporativo
+            </h3>
+            <p class="text-xs text-muted mb-4">Defina o subtítulo com o Nome do Grupo de Lojas que será exibido no topo do sistema, nos relatórios e nos comprovantes de Ponto Eletrônico.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="config-grupo-subtitulo" class="block text-xs font-bold text-ink mb-1">
+                  Subtítulo / Nome do Grupo de Lojas:
+                </label>
+                <input type="text" id="config-grupo-subtitulo" placeholder="Ex: Grupo Cacau Show Belém"
+                  class="w-full bg-paper border border-border rounded-xl p-2.5 text-xs text-ink focus:outline-none focus:border-gold transition"
+                  value="Grupo Cacau Show Belém">
+                <span class="text-[10px] text-muted">Aparece nos comprovantes e no cabeçalho das impressões do Ponto.</span>
+              </div>
+              <div>
+                <label for="config-grupo-email" class="block text-xs font-bold text-ink mb-1">
+                  E-mail Corporativo Principal:
+                </label>
+                <input type="email" id="config-grupo-email" placeholder="contato@grupocacaushow.com.br"
+                  class="w-full bg-paper border border-border rounded-xl p-2.5 text-xs text-ink focus:outline-none focus:border-gold transition"
+                  value="contato@grupocacaushow.com.br">
+                <span class="text-[10px] text-muted">Recebe resumos diários, relatórios de caixa e alertas de validade.</span>
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-4 pt-3 border-t border-border">
+              <button type="button" id="config-btn-save-grupo" class="btn-primary py-2 px-6 rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2" onclick="salvarConfigGrupo()">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Dados do Grupo
+              </button>
+            </div>
+          </div>
+
           <!-- Card: Localização, Horário e Cerca Virtual das Operações (Líder de Operações / Owner).
                O antigo card separado "Geofencing do Ponto" foi compactado para cá: o raio de
                tolerância só faz sentido junto das coordenadas que ele delimita. -->

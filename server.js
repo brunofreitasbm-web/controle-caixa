@@ -116,6 +116,7 @@ app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 app.use('/api/nfe', nfeRoutes);
+app.use('/api/saas', require('./routes/saas-signup'));
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)

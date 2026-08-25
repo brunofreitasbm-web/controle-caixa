@@ -10498,6 +10498,12 @@ function inicializarPainelConfiguracoes() {
 
   renderNotificationTable();
 
+  // Carregar dados do grupo de lojas (subtítulo e e-mail)
+  const inputGrupoSub = document.getElementById("config-grupo-subtitulo");
+  const inputGrupoEmail = document.getElementById("config-grupo-email");
+  if (inputGrupoSub) inputGrupoSub.value = localStorage.getItem("hub_grupo_subtitulo") || "Grupo Cacau Show Belém";
+  if (inputGrupoEmail) inputGrupoEmail.value = localStorage.getItem("hub_grupo_email") || "contato@grupocacaushow.com.br";
+
   // Atualizar informações do sobre
   const configUserInfo = document.getElementById("config-user-info");
   if (configUserInfo) {
@@ -10518,6 +10524,24 @@ function inicializarPainelConfiguracoes() {
   if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
 
   atualizarBotaoCadastroBiometria();
+}
+
+function salvarConfigGrupo() {
+  const inputSub = document.getElementById("config-grupo-subtitulo");
+  const inputEmail = document.getElementById("config-grupo-email");
+
+  const subtitulo = inputSub ? inputSub.value.trim() : "";
+  const email = inputEmail ? inputEmail.value.trim() : "";
+
+  if (subtitulo) localStorage.setItem("hub_grupo_subtitulo", subtitulo);
+  if (email) localStorage.setItem("hub_grupo_email", email);
+
+  // Atualizar elementos visuais da UI com o novo subtítulo do grupo
+  const headerSubtitles = document.querySelectorAll(".header-grupo-subtitulo, .ponto-grupo-subtitulo");
+  headerSubtitles.forEach(el => el.textContent = subtitulo);
+
+  mostrarToast("Sucesso", "Configurações do Grupo salvas com sucesso!", "success");
+}
 
   // Mostrar aba do WhatsApp se for owner/administrador
   const cardWa = document.getElementById("config-card-whatsapp");

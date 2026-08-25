@@ -384,4 +384,97 @@ router.post('/notificar-gestao', (req, res) => {
   res.json({ success: true });
 });
 
+// 6. Login via E-mail + PIN (4 dígitos)
+router.post('/login-email-pin', (req, res) => {
+  const { email, pin } = req.body;
+  if (!email || !pin) {
+    return res.status(400).json({ error: 'E-mail e PIN de 4 dígitos são obrigatórios.' });
+  }
+
+  const emailClean = email.trim().toLowerCase();
+  const pinClean = String(pin).trim();
+
+  db.get(
+    'SELECT * FROM colaboradores WHERE LOWER(email) = ? AND ativo = 1',
+    [emailClean],
+    async (err, colab) => {
+      if (err) return res.status(500).json({ error: 'Erro no servidor.' });
+      if (!colab) {
+        return res.status(401).json({ error: 'E-mail não cadastrado ou inativo.' });
+      }
+
+      // Validar PIN de 4 dígitos usando bcrypt
+      const match = await bcrypt.compare(pinClean, colab.pinHash);
+      if (!match) {
+        return res.status(401).json({ error: 'PIN incorreto. Verifique seu e-mail.' });
+      }
+
+      // Emitir sessão para o colaborador
+      const orgId = colab.organizationId || TENANT_ZERO_ID;
+      emitirSessao(orgId, colab.nome, (sessao) => {
+        if (!sessao) {
+          return res.status(500).json({ error: 'Erro ao emitir token de sessão.' });
+        }
+        res.json({
+          success: true,
+          token: sessao.token,
+          usuario: colab.nome,
+          role: colab.role,
+          organizationId: orgId,
+          expiraEm: sessao.expiraEm
+        });
+      });
+    }
+  );
+});
+
+// 7. Recuperação / Reenvio de PIN por E-mail
+router.post('/recuperar-pin', (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'E-mail é obrigatório.' });
+  }
+
+  const emailClean = email.trim().toLowerCase();
+
+  db.get(
+    'SELECT * FROM colaboradores WHERE LOWER(email) = ? AND ativo = 1',
+    [emailClean],
+    async (err, colab) => {
+      if (err || !colab) {
+        return res.status(404).json({ error: 'E-mail não encontrado no sistema.' });
+      }
+
+      // Gerar novo PIN de 4 dígitos
+      const novoPin = Math.floor(1000 + Math.random() * 9000).toString();
+      const novoPinHash = await bcrypt.hash(novoPin, 10);
+
+      db.run(
+        'UPDATE colaboradores SET pinHash = ? WHERE id = ?',
+        [novoPinHash, colab.id],
+        async (errUpdate) => {
+          if (errUpdate) return res.status(500).json({ error: 'Erro ao atualizar PIN.' });
+
+          // Disparar e-mail com o novo PIN
+          const { enviarEmailGenerico } = require('../config/notifications');
+          const assunto = '🔑 Seu Novo PIN de Acesso — Hub de Operações';
+          const texto = `Olá ${colab.nome}!\n\nSeu novo PIN de acesso é: ${novoPin}\n\nAcesse o app e utilize este PIN de 4 dígitos para fazer login.`;
+
+          try {
+            await enviarEmailGenerico([emailClean], assunto, texto);
+          } catch (e) {
+            console.warn('[Recuperar PIN] Erro ao enviar e-mail:', e.message);
+          }
+
+          res.json({
+            success: true,
+            mensagem: 'Novo PIN de 4 dígitos gerado e enviado para o seu e-mail!',
+            pinSimuladoDev: novoPin
+          });
+        }
+      );
+    }
+  );
+});
+
 module.exports = router;
