@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
-const saasSignupRouter = require('./routes/saas-signup');
-const { initDb } = require('./config/database');
+const saasSignupRouter = require('../routes/saas-signup');
+const { initDb } = require('../config/database');
 
 async function testApi() {
   console.log('Inicializando banco de dados...');
