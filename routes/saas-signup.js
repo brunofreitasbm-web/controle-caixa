@@ -8,9 +8,87 @@ const { enviarEmailGenerico } = require('../config/notifications');
 const APP_URL = process.env.APP_URL || 'https://hub-de-operacoes.netlify.app';
 
 /**
+ * Função utilitária para montar o template HTML oficial do HubOperações
+ */
+function buildEmailHtmlTemplate({ badgeText, titulo, mensagem, nomeNegocio, emailClean, pinDigits, buttonText, buttonUrl }) {
+  const loginUrl = buttonUrl || `${APP_URL}/webapp.html`;
+  return `
+    <table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden; font-family:Arial, Helvetica, sans-serif; margin:0 auto;">
+    <tbody><tr><td style="padding:0;">
+      <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Sua conta de acesso ao HubOperações foi gerada com sucesso.</div>
+
+      <!-- header -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px; mso-line-height-rule:exactly;">
+        <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">HubOperações</span>
+      </td></tr>
+      </tbody></table>
+
+      <!-- body -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td style="padding:36px 32px 8px;">
+        <span style="display:inline-block; background-color:#f3ddc9; color:#7a3f1c; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">${badgeText}</span>
+      </td></tr>
+      <tr><td style="padding:16px 32px 0;">
+        <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; mso-line-height-rule:exactly; line-height:30px;">${titulo}</span>
+      </td></tr>
+      <tr><td style="padding:14px 32px 0;">
+        <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; mso-line-height-rule:exactly; line-height:23px;">${mensagem}</span>
+      </td></tr>
+      </tbody></table>
+
+      <!-- credentials box -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td style="padding:24px 32px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+          <tbody><tr><td style="padding:20px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tbody><tr><td style="padding-bottom:8px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Organização / Loja</td></tr>
+              <tr><td style="padding-bottom:16px; font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#201e1d; font-weight:bold;">${nomeNegocio} (${emailClean})</td></tr>
+              <tr><td style="padding-bottom:8px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">PIN de Acesso (4 dígitos)</td></tr>
+              <tr><td style="padding-bottom:0;">
+                <span style="display:inline-block; background-color:#ffffff; border:1px solid #d8c9a8; border-radius:10px; padding:10px 18px; font-family:'Courier New', Courier, monospace; font-size:22px; letter-spacing:0.12em; color:#7a3f1c; font-weight:bold;">${pinDigits}</span>
+              </td></tr>
+            </tbody></table>
+          </td></tr>
+        </tbody></table>
+      </td></tr>
+      </tbody></table>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td style="padding:16px 32px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f;">
+        Guarde este PIN para realizar logins e validações operacionais na plataforma.
+      </td></tr>
+      </tbody></table>
+
+      <!-- button -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td align="center" style="padding:28px 32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr><td bgcolor="#c67139" style="border-radius:999px; mso-padding-alt:14px 36px;">
+            <a href="${loginUrl}" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">${buttonText || 'Acessar o HubOperações'}</a>
+          </td></tr>
+        </tbody></table>
+      </td></tr>
+      </tbody></table>
+
+      <!-- footer -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+        HubOperações — sistema de gestão para franquias de chocolate.<br>
+        Você recebe este e-mail por ser responsável cadastrado por uma loja no HubOperações.
+      </td></tr>
+      </tbody></table>
+
+    </td></tr>
+    </tbody></table>
+  `;
+}
+
+/**
  * POST /api/saas/trial-signup
  * Cadastra franqueado no teste grátis de 7 dias, cria a organização e colaborador owner,
- * gera um PIN temporário de 4 dígitos e envia o e-mail de boas-vindas com as credenciais.
+ * gera um PIN temporário de 4 dígitos e envia o e-mail oficial com as credenciais.
  */
 router.post('/trial-signup', async (req, res) => {
   try {
@@ -54,47 +132,21 @@ router.post('/trial-signup', async (req, res) => {
       console.warn('[SaaS Trial] Aviso ao inserir colaborador:', e.message);
     }
 
-    // Link oficial de acesso ao app
     const loginLink = `${APP_URL}/webapp.html`;
-
-    // 3. Montar E-mail em HTML de Boas-Vindas com o PIN e credenciais
     const assunto = `🚀 Seu Acesso de 7 Dias Grátis ao HubOperações está Liberado!`;
-    const textoPuro = `Olá ${nomeClean}!\n\nSeu teste grátis de 7 dias no HubOperações foi liberado com sucesso.\n\nSua Conta:\n- Organização: ${nomeNegocio}\n- E-mail: ${emailClean}\n- PIN de Acesso (4 dígitos): ${pinDigits}\n\nAcesse o sistema em: ${loginLink}\n\nQualquer dúvida, estamos à disposição!`;
+    const textoPuro = `Olá ${nomeClean}!\n\nSeu teste grátis de 7 dias no HubOperações foi liberado com sucesso.\n\nSua Conta:\n- Organização: ${nomeNegocio}\n- E-mail: ${emailClean}\n- PIN de Acesso (4 dígitos): ${pinDigits}\n\nAcesse em: ${loginLink}`;
 
-    const htmlBody = `
-      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0d0705; color: #f5f0eb; border-radius: 16px; overflow: hidden; border: 1px solid #c98a4b;">
-        <div style="background: linear-gradient(135deg, #c98a4b 0%, #7e4f25 100%); padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">HubOperações</h1>
-          <p style="color: #fbd6b0; margin-top: 8px; font-size: 14px;">Boas-vindas ao seu Teste Grátis de 7 Dias</p>
-        </div>
+    const htmlBody = buildEmailHtmlTemplate({
+      badgeText: 'Acesso ao Sistema · 7 Dias Grátis',
+      titulo: 'Seu acesso temporário foi liberado',
+      mensagem: `Olá, <strong>${nomeClean}</strong>. Sua conta de 7 dias grátis para a operação <strong>${nomeNegocio}</strong> foi criada com sucesso! Use as credenciais abaixo para acessar a plataforma.`,
+      nomeNegocio,
+      emailClean,
+      pinDigits,
+      buttonText: '🚀 Entrar no HubOperações',
+      buttonUrl: loginLink
+    });
 
-        <div style="padding: 30px; line-height: 1.6;">
-          <p style="font-size: 16px;">Olá <strong>${nomeClean}</strong>,</p>
-          <p style="color: #bba699;">Sua conta de 7 dias grátis para a operação <strong>${nomeNegocio}</strong> foi criada com sucesso! Você já pode acessar todas as funcionalidades do sistema.</p>
-
-          <div style="background-color: #180e0a; border: 1px solid rgba(199, 146, 62, 0.3); border-radius: 12px; padding: 20px; margin: 25px 0;">
-            <h3 style="color: #c98a4b; margin-top: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">🔑 Suas Credenciais de Acesso</h3>
-            <p style="margin: 8px 0; color: #f5f0eb;"><strong>E-mail:</strong> ${emailClean}</p>
-            <p style="margin: 8px 0; color: #f5f0eb;"><strong>PIN de 4 dígitos:</strong> <span style="font-size: 22px; font-weight: bold; color: #22c55e; letter-spacing: 4px; background: rgba(34, 197, 94, 0.1); padding: 4px 12px; border-radius: 6px;">${pinDigits}</span></p>
-            <p style="margin: 8px 0; color: #bba699; font-size: 13px;"><em>Guarde este PIN para realizar logins e validações no sistema.</em></p>
-          </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginLink}" style="background: linear-gradient(135deg, #c98a4b 0%, #7e4f25 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 50px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(201,138,75,0.4);">
-              🚀 Entrar no HubOperações
-            </a>
-          </div>
-
-          <hr style="border: 0; border-top: 1px solid rgba(199, 146, 62, 0.2); margin: 25px 0;">
-
-          <p style="font-size: 13px; color: #7c685c; margin-bottom: 0;">
-            💡 <strong>Precisa de ajuda?</strong> Se tiver qualquer dúvida durante o teste de 7 dias, entre em contato com o suporte.
-          </p>
-        </div>
-      </div>
-    `;
-
-    // Disparar o e-mail via Nodemailer / SMTP
     let emailStatus = 'enviado';
     try {
       await enviarEmailGenerico([emailClean], assunto, textoPuro, htmlBody);
@@ -120,7 +172,7 @@ router.post('/trial-signup', async (req, res) => {
 /**
  * POST /api/saas/confirmar-sessao-stripe
  * Recebe o session_id da URL do Stripe (/sucesso.html?session_id=...),
- * recupera os dados do cliente no Stripe, cadastra a conta e envia o e-mail.
+ * recupera os dados do cliente no Stripe, cadastra a conta e envia o e-mail usando o modelo oficial.
  */
 router.post('/confirmar-sessao-stripe', async (req, res) => {
   try {
@@ -128,7 +180,6 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
     let emailCustomer = emailInput;
     let nomeCustomer = nomeInput || 'Franqueado';
 
-    // Tentar consultar a sessão no Stripe API se a chave STRIPE_SECRET_KEY estiver configurada
     if (process.env.STRIPE_SECRET_KEY && session_id) {
       try {
         const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -150,11 +201,9 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
     const nomeClean = nomeCustomer.trim();
     const nomeNegocio = `Franquia de ${nomeClean.split(' ')[0]}`;
 
-    // Gerar Organization ID único
     const slug = nomeNegocio.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30);
     const orgId = `org_${slug}_${Date.now().toString().slice(-4)}`;
 
-    // Salvar organização
     try {
       await dbRunAsync(
         "INSERT INTO organizations (id, name, slug, status, created_at) VALUES (?, ?, ?, 'active', CURRENT_TIMESTAMP)",
@@ -164,7 +213,6 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
       console.warn('[SaaS Stripe] Aviso ao criar org:', e.message);
     }
 
-    // Gerar PIN de 4 dígitos
     const pinDigits = Math.floor(1000 + Math.random() * 9000).toString();
     const pinHash = await bcrypt.hash(pinDigits, 10);
     const colabId = `colab_${Date.now()}`;
@@ -179,41 +227,21 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
       console.warn('[SaaS Stripe] Aviso ao inserir colaborador:', e.message);
     }
 
-    // Link oficial de acesso ao app
     const loginLink = `${APP_URL}/webapp.html`;
-
-    // Montar E-mail de Boas-Vindas com o PIN
     const assunto = `🎉 Seu Acesso ao HubOperações foi Liberado! (Pagamento Confirmado)`;
-    const textoPuro = `Olá ${nomeClean}!\n\nSeu pagamento foi confirmado e sua conta no HubOperações está ativada com sucesso.\n\nSua Conta:\n- Organização: ${nomeNegocio}\n- E-mail: ${emailClean}\n- PIN de Acesso (4 dígitos): ${pinDigits}\n\nAcesse o sistema em: ${loginLink}`;
+    const textoPuro = `Olá ${nomeClean}!\n\nSeu pagamento foi confirmado e sua conta no HubOperações está ativada com sucesso.\n\nSua Conta:\n- Organização: ${nomeNegocio}\n- E-mail: ${emailClean}\n- PIN de Acesso (4 dígitos): ${pinDigits}\n\nAcesse em: ${loginLink}`;
 
-    const htmlBody = `
-      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0d0705; color: #f5f0eb; border-radius: 16px; overflow: hidden; border: 1px solid #c98a4b;">
-        <div style="background: linear-gradient(135deg, #c98a4b 0%, #7e4f25 100%); padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">HubOperações</h1>
-          <p style="color: #fbd6b0; margin-top: 8px; font-size: 14px;">Pagamento Confirmado — Acesso Liberado</p>
-        </div>
+    const htmlBody = buildEmailHtmlTemplate({
+      badgeText: 'Pagamento Confirmado · Acesso Liberado',
+      titulo: 'Sua assinatura foi ativada!',
+      mensagem: `Olá, <strong>${nomeClean}</strong>. Seu pagamento foi processado com sucesso e sua operação <strong>${nomeNegocio}</strong> já está com acesso total liberado.`,
+      nomeNegocio,
+      emailClean,
+      pinDigits,
+      buttonText: '🚀 Entrar no HubOperações',
+      buttonUrl: loginLink
+    });
 
-        <div style="padding: 30px; line-height: 1.6;">
-          <p style="font-size: 16px;">Olá <strong>${nomeClean}</strong>,</p>
-          <p style="color: #bba699;">Seu pagamento foi confirmado com sucesso e sua conta para a operação <strong>${nomeNegocio}</strong> já está pronta!</p>
-
-          <div style="background-color: #180e0a; border: 1px solid rgba(199, 146, 62, 0.3); border-radius: 12px; padding: 20px; margin: 25px 0;">
-            <h3 style="color: #c98a4b; margin-top: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">🔑 Suas Credenciais de Acesso</h3>
-            <p style="margin: 8px 0; color: #f5f0eb;"><strong>E-mail:</strong> ${emailClean}</p>
-            <p style="margin: 8px 0; color: #f5f0eb;"><strong>PIN de 4 dígitos:</strong> <span style="font-size: 22px; font-weight: bold; color: #22c55e; letter-spacing: 4px; background: rgba(34, 197, 94, 0.1); padding: 4px 12px; border-radius: 6px;">${pinDigits}</span></p>
-            <p style="margin: 8px 0; color: #bba699; font-size: 13px;"><em>Guarde este PIN para realizar logins no sistema.</em></p>
-          </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginLink}" style="background: linear-gradient(135deg, #c98a4b 0%, #7e4f25 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 50px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(201,138,75,0.4);">
-              🚀 Entrar no HubOperações
-            </a>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Disparar o e-mail via Nodemailer / SMTP
     try {
       await enviarEmailGenerico([emailClean], assunto, textoPuro, htmlBody);
     } catch (errEmail) {
