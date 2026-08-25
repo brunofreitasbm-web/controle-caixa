@@ -96,3 +96,17 @@ test('SaaS & Financeiro - Conciliação e Detecção de Divergência no Caixa', 
   assert.equal(resFalta.diferenca, -50.00);
   assert.equal(resFalta.status, 'falta');
 });
+
+test('Landing Page - Validação de Integridade do HTML e Form Modal', async () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  const rootIndexPath = path.join(__dirname, '..', 'index.html');
+  assert.ok(fs.existsSync(rootIndexPath), 'Arquivo index.html da landing page deve existir');
+
+  const htmlContent = fs.readFileSync(rootIndexPath, 'utf-8');
+  assert.ok(htmlContent.includes('Hub de Operações'), 'Landing page deve conter o título oficial');
+  assert.ok(htmlContent.includes('/api/saas/trial-signup'), 'Landing page deve ter conexão com a rota de cadastro trial');
+  assert.ok(htmlContent.includes('saasTrialModal'), 'Modal de cadastro de 7 dias grátis deve estar injetado no HTML');
+  assert.ok(htmlContent.includes('trialSubmitBtn'), 'Botão de submissão do formulário trial deve existir');
+});
