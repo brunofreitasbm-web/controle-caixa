@@ -708,14 +708,14 @@
 
         const data = await response.json();
         if (data.ok) {
-          alert(`🎉 PARABÉNS ${nome.toUpperCase()}!\n\nSeu teste grátis de 7 dias foi liberado com sucesso!\n\n🔑 Seu PIN de Acesso ao App: ${data.pinSimulado}\n📧 Enviamos uma cópia com seu link de login para o e-mail: ${email}`);
+          openSignupSuccessModal(data.pinSimulado || '1234', email, nome);
           event.target.reset();
         } else {
           alert(`Aviso: ${data.error || 'Não foi possível concluir o cadastro.'}`);
         }
       } catch (err) {
         console.error('Erro no cadastro trial:', err);
-        alert(`Conta de teste criada! Seu e-mail (${email}) foi registrado para o teste de 7 dias grátis.`);
+        openSignupSuccessModal('7890', email, nome);
         event.target.reset();
       } finally {
         if (submitBtn) {
@@ -724,7 +724,59 @@
         }
       }
     }
+
+    function openSignupSuccessModal(pin, email, nome) {
+      document.getElementById('signup-modal-pin-display').innerText = pin;
+      document.getElementById('signup-modal-email-display').innerHTML = `E-mail: <strong>${email}</strong>`;
+      const modal = document.getElementById('signup-success-modal');
+      if (modal) {
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeSignupSuccessModal() {
+      const modal = document.getElementById('signup-success-modal');
+      if (modal) {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    }
   </script>
+
+  <!-- Modal Flutuante de Confirmação de Cadastro (PIN + Login) -->
+  <div id="signup-success-modal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" onclick="closeSignupSuccessModal()"></div>
+    <div class="modal-container" style="max-width: 540px; padding: 2.5rem; text-align: center; background: var(--bg-card); border: 1px solid var(--primary);">
+      <button type="button" class="modal-close-btn" onclick="closeSignupSuccessModal()" aria-label="Fechar">✕</button>
+      
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+      <span class="modal-tag" style="background: rgba(34, 197, 94, 0.15); color: var(--success); border-color: rgba(34, 197, 94, 0.3);">Teste de 7 Dias Liberado!</span>
+      <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin: 0.8rem 0 0.5rem 0;">Seu Acesso está Pronto!</h2>
+      <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">Guarde seu PIN de acesso para entrar no aplicativo e realizar operações:</p>
+
+      <div style="background: rgba(201, 138, 75, 0.08); border: 2px dashed var(--primary); padding: 1.2rem; border-radius: 16px; margin-bottom: 1.5rem;">
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: bold; letter-spacing: 1px;">Seu PIN de Acesso (4 Dígitos)</span>
+        <div id="signup-modal-pin-display" style="font-size: 2.5rem; font-weight: 800; color: var(--success); letter-spacing: 6px; margin: 0.4rem 0;">4829</div>
+        <span id="signup-modal-email-display" style="font-size: 0.85rem; color: var(--text-secondary);">E-mail: <strong>cliente@email.com</strong></span>
+      </div>
+
+      <div style="background: rgba(243, 208, 130, 0.08); border-left: 3px solid #fcd34d; padding: 0.8rem 1rem; text-align: left; border-radius: 8px; font-size: 0.82rem; color: var(--text-primary); margin-bottom: 1.8rem;">
+        ⚠️ <strong>Atenção ao E-mail:</strong> Enviamos uma cópia com seu PIN e instruções para o seu e-mail. Se não encontrar na Caixa de Entrada em 2 minutos, <strong>verifique sua pasta de SPAM ou LIXO ELETRÔNICO</strong>.
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+        <a href="/webapp/index.html" class="btn btn-primary" style="padding: 1rem; font-size: 1.05rem; justify-content: center;">
+          🚀 Entrar no Hub de Operações Agora
+        </a>
+        <button type="button" class="btn btn-outline" onclick="closeSignupSuccessModal()" style="justify-content: center; font-size: 0.9rem;">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Flutuante Lightbox para Telas e Funcionalidades -->
   <div id="feature-modal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-title">
