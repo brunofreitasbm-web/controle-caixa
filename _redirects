@@ -1,0 +1,4 @@
+/webapp /webapp/index.html 200
+/webapp/* /webapp/:splat 200
+/app /webapp/index.html 200
+/login /webapp/index.html 200
