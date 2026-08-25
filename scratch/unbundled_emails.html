@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Hub de Operações — Templates de email</title>
+
+</head>
+<body style="margin:0; padding:0; background-color:#eee3cd; font-family:Arial, Helvetica, sans-serif;">
+
+<!-- ================================================================= -->
+<!-- Cada bloco abaixo é um email COMPLETO e independente.             -->
+<!-- Para enviar: copie só a <table class="email-shell"> daquele       -->
+<!-- modelo (com o span de preheader dentro dela) para um arquivo .html -->
+<!-- próprio — não envie este arquivo com os 6 juntos.                  -->
+<!-- ================================================================= -->
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eee3cd;">
+<tbody><tr><td align="center" style="padding:28px 12px 6px;">
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 1 de 6 — Geração de senha</div>
+</td></tr>
+<tr><td align="center" style="padding:6px 12px 32px;">
+
+<!-- =========== EMAIL 1: GERAÇÃO DE SENHA =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Sua senha temporária de acesso ao Hub de Operações foi gerada. Válida por 24 horas.</div>
+
+  <!-- header -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px; mso-line-height-rule:exactly;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <!-- body -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#f3ddc9; color:#7a3f1c; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Acesso ao sistema</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; mso-line-height-rule:exactly; line-height:30px;">Sua senha temporária foi gerada</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; mso-line-height-rule:exactly; line-height:23px;">Olá, [Nome do franqueado/gerente]. Uma nova senha de acesso à sua loja no Hub de Operações foi gerada em [data] às [hora]. Use os dados abaixo para entrar.</span>
+  </td></tr>
+  </tbody></table>
+
+  <!-- credentials box -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:20px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr><td style="padding-bottom:10px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Loja</td></tr>
+          <tr><td style="padding-bottom:16px; font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#201e1d; font-weight:bold;">[Nome da loja]</td></tr>
+          <tr><td style="padding-bottom:10px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Senha temporária</td></tr>
+          <tr><td style="padding-bottom:0;">
+            <span style="display:inline-block; background-color:#ffffff; border:1px solid #d8c9a8; border-radius:10px; padding:10px 16px; font-family:'Courier New', Courier, monospace; font-size:18px; letter-spacing:0.08em; color:#7a3f1c; font-weight:bold;">[SENHA-TEMP-1234]</span>
+          </td></tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  </td></tr><tr></tr>
+  </tbody></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:20px 32px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f;">
+    Essa senha expira em 24 horas e deve ser trocada no primeiro acesso.
+  </td></tr>
+  </tbody></table>
+
+  <!-- button -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 8px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px; mso-padding-alt:14px 36px;">
+        <a href="https://app.hubdeoperacoes.com.br/login" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Acessar o Hub</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  <tr><td align="center" style="padding:0 32px 32px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f;">
+    Não foi você quem solicitou? <a href="https://app.hubdeoperacoes.com.br/suporte" style="color:#7a3f1c; text-decoration:underline;">Avise o suporte</a>.
+  </td></tr>
+  </tbody></table>
+
+  <!-- footer -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 1 =========== -->
+
+
+
+
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 2 de 6 — Abertura de loja registrada</div>
+
+
+
+<!-- =========== EMAIL 2: ABERTURA DE LOJA =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Abertura registrada em [Nome da loja] às [hora] por [nome do colaborador].</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#e4e9da; color:#46512f; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Abertura registrada</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; line-height:30px;">A loja abriu no horário</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; line-height:23px;">A abertura de [Nome da loja] foi registrada pelo sistema. Confira os detalhes abaixo.</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:20px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:16px;">Loja<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">[Nome da loja]</span>
+            </td>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:16px;">Horário<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">[hh:mm — dd/mm]</span>
+            </td>
+          </tr>
+          <tr>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Responsável<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">[Nome do colaborador]</span>
+            </td>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Status<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#46512f; font-weight:bold; text-transform:none;">Dentro do horário</span>
+            </td>
+          </tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px;">
+        <a href="https://app.hubdeoperacoes.com.br/lojas" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Ver painel da loja</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 2 =========== -->
+
+
+
+
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 3 de 6 — Fechamento de loja registrado</div>
+
+
+
+<!-- =========== EMAIL 3: FECHAMENTO DE LOJA =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Fechamento registrado em [Nome da loja] às [hora]. Caixa e conferência concluídos.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#e4e9da; color:#46512f; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Fechamento registrado</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; line-height:30px;">A loja fechou o dia</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; line-height:23px;">O fechamento de [Nome da loja] foi registrado. Resumo do dia abaixo.</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:20px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:16px;">Loja<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">[Nome da loja]</span>
+            </td>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:16px;">Horário<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">[hh:mm — dd/mm]</span>
+            </td>
+          </tr>
+          <tr>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Vendas do dia<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#201e1d; font-weight:bold; text-transform:none;">R$ [valor]</span>
+            </td>
+            <td width="50%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">Caixa<br>
+              <span style="display:block; margin-top:6px; font-size:15px; color:#46512f; font-weight:bold; text-transform:none;">Conferido, sem diferença</span>
+            </td>
+          </tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px;">
+        <a href="https://app.hubdeoperacoes.com.br/lojas" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Ver resumo do dia</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 3 =========== -->
+
+
+
+
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 4 de 6 — Conferência de entrega com divergência</div>
+
+
+
+<!-- =========== EMAIL 4: CONFERÊNCIA DE ENTREGA (DIVERGÊNCIA) =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Divergência encontrada na NF [número] de [Nome da loja]. Confira os itens.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#f3ddc9; color:#7a3f1c; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Divergência na conferência</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; line-height:30px;">A bipagem encontrou uma diferença</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; line-height:23px;">A conferência da NF [número] em [Nome da loja] foi concluída com divergência entre o pedido e o que chegou. Veja os itens abaixo.</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:8px 24px 4px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.04em;">NF #[número] — [Distribuidora]</td></tr>
+      <tr><td style="padding:12px 24px 20px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+          <tbody><tr style="border-bottom:1px solid #e7dbc3;">
+            <td style="padding:8px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #e0d3b5;">Item</td>
+            <td align="center" style="padding:8px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #e0d3b5;">Pedido</td>
+            <td align="center" style="padding:8px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #e0d3b5;">Recebido</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d; border-bottom:1px solid #e0d3b5;">[Trufa sortida cx 12un]</td>
+            <td align="center" style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d; border-bottom:1px solid #e0d3b5;">40</td>
+            <td align="center" style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#7a3f1c; font-weight:bold; border-bottom:1px solid #e0d3b5;">36</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">[Barra ao leite 90g]</td>
+            <td align="center" style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">60</td>
+            <td align="center" style="padding:10px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">60</td>
+          </tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px;">
+        <a href="https://app.hubdeoperacoes.com.br/conferencias" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Ver conferência completa</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 4 =========== -->
+
+
+
+
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 5 de 6 — Pendências em aberto</div>
+
+
+
+<!-- =========== EMAIL 5: PENDÊNCIAS EM ABERTO =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">3 pendências em aberto em [Nome da loja]. Resolva antes do fechamento.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#f3ddc9; color:#7a3f1c; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Pendências em aberto</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; line-height:30px;">Existem [3] pendências na sua loja</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; line-height:23px;">Estes itens seguem em aberto em [Nome da loja] e precisam de atenção.</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:8px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr><td style="padding:12px 0; border-bottom:1px solid #e0d3b5; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">[Inventário mensal não concluído — vence em 2 dias]</td></tr>
+          <tr><td style="padding:12px 0; border-bottom:1px solid #e0d3b5; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">[Divergência da NF #4892 sem justificativa registrada]</td></tr>
+          <tr><td style="padding:12px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#201e1d;">[Ponto de 1 colaborador sem fechamento no dia anterior]</td></tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px;">
+        <a href="https://app.hubdeoperacoes.com.br/pendencias" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Resolver pendências</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 5 =========== -->
+
+
+
+
+  <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.06em; text-transform:uppercase; color:#8a6a3f;">Modelo 6 de 6 — Inventário mensal concluído</div>
+
+
+
+<!-- =========== EMAIL 6: INVENTÁRIO MENSAL CONCLUÍDO =========== -->
+<table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; overflow:hidden;">
+<tbody><tr><td style="padding:0;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fffdf8;">Inventário mensal de [Nome da loja] concluído. Veja o resumo.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td bgcolor="#c67139" style="padding:22px 32px;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:20px; font-weight:bold; color:#ffffff;">Hub de Operações</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:36px 32px 8px;">
+    <span style="display:inline-block; background-color:#e4e9da; color:#46512f; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:0.03em; text-transform:uppercase; padding:6px 14px; border-radius:999px;">Inventário concluído</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;">
+    <span style="font-family:'Trebuchet MS', Verdana, Arial, sans-serif; font-size:24px; font-weight:bold; color:#201e1d; line-height:30px;">O inventário mensal foi concluído</span>
+  </td></tr>
+  <tr><td style="padding:14px 32px 0;">
+    <span style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#4a453e; line-height:23px;">A contagem obrigatória de [mês/ano] em [Nome da loja] foi finalizada e exportada.</span>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="padding:24px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f0e2; border:1px solid #e7dbc3; border-radius:16px;">
+      <tbody><tr><td style="padding:20px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tbody><tr>
+            <td width="33%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em;">Total contado<br>
+              <span style="display:block; margin-top:6px; font-size:20px; color:#201e1d; font-weight:bold;">[312]</span>
+            </td>
+            <td width="33%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em;">Itens críticos<br>
+              <span style="display:block; margin-top:6px; font-size:20px; color:#7a3f1c; font-weight:bold;">[2]</span>
+            </td>
+            <td width="33%" valign="top" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; text-transform:uppercase; letter-spacing:0.03em;">No prazo<br>
+              <span style="display:block; margin-top:6px; font-size:20px; color:#46512f; font-weight:bold;">[298]</span>
+            </td>
+          </tr>
+        </tbody></table>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td align="center" style="padding:28px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr><td bgcolor="#c67139" style="border-radius:999px;">
+        <a href="https://app.hubdeoperacoes.com.br/inventario" target="_blank" style="display:block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:999px;">Ver relatório completo</a>
+      </td></tr>
+    </tbody></table>
+  </td></tr>
+  </tbody></table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tbody><tr><td style="border-top:1px solid #e7dbc3; padding:20px 32px; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#8a6a3f; line-height:18px;">
+    Hub de Operações — sistema de gestão para franquias de chocolate.<br>
+    Rua Exemplo, 123 — São Paulo, SP — Brasil<br>
+    Você recebe este email por ser responsável cadastrado por uma loja no Hub de Operações. <a href="#" style="color:#7a3f1c; text-decoration:underline;">Cancelar notificações</a>
+  </td></tr>
+  </tbody></table>
+
+</td></tr>
+</tbody></table>
+<!-- =========== FIM EMAIL 6 =========== -->
+
+
+
+
+
+</body></html>
