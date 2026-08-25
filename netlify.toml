@@ -1,5 +1,10 @@
 [build]
-  publish = "."
+  publish = "public"
+
+[[redirects]]
+  from = "/webapp/*"
+  to = "/webapp/:splat"
+  status = 200
 
 [[redirects]]
   from = "/app"

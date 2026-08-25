@@ -1,0 +1,5996 @@
+@import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&display=swap');
+
+/* ==========================================================================
+   DESIGN SYSTEM — TOKENS SEMÂNTICOS (tema claro único, paleta Organic)
+   --------------------------------------------------------------------------
+   Fonte de verdade da paleta do app. A paleta vem do design publicado
+   "Hub Operações Mobile" (design system Organic): fundo bege, cartões em
+   tom terroso e acento marrom-alaranjado. Os NOMES dos tokens não mudaram —
+   só os valores —, então as ~200 regras de componente que os consomem
+   seguiram funcionando sem reescrita.
+
+   Regras mantidas do sistema anterior:
+     · toda superfície é clara (bege, off-white ou areia);
+     · todo texto é escuro, com contraste >= 7:1 (WCAG AAA) sobre a superfície
+       em que assenta — as razões medidas estão anotadas em cada token;
+     · cor de acento nunca vira preenchimento sólido com texto branco: entra
+       como tint claro (--tone-*-soft) + borda/ícone (--tone-*-line) + rótulo
+       escuro (--tone-*-ink).
+
+   Uma diferença de forma em relação ao sistema azul anterior: aqui
+   --surface-2 é MAIS CLARO que --surface-1, e não mais escuro. É de
+   propósito, e é o que o design faz: a página é bege (#F5EAD8), o cartão
+   assenta em areia (#EBDDC5) e o campo de entrada volta ao quase-branco
+   (#F9F4ED). A elevação é lida pelo contraste com o vizinho, não por uma
+   rampa monotônica.
+
+   O módulo Faça Amigos tem paleta própria (ver bloco FAÇAAMIGOS) e continua
+   deliberadamente fora deste sistema — é outra marca.
+   ========================================================================== */
+:root {
+  /* --- Tipografia --------------------------------------------------------
+     Caprasimo é uma display de peso único (400). Onde ela entra, o peso é
+     fixado em 400 na própria regra: pedir 700 faria o navegador sintetizar
+     um negrito borrado sobre uma face que já é pesada por desenho.        */
+  --font-display: 'Caprasimo', 'Figtree', system-ui, sans-serif;
+  --font-body:    'Figtree', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+
+  /* --- Superfícies -------------------------------------------------------- */
+  --surface-canvas:   #F5EAD8; /* fundo da página                            */
+  --surface-1:        #EBDDC5; /* cards, modais, topbar, sidebar             */
+  --surface-2:        #F9F4ED; /* painéis de aba, inputs, cabeçalho de tabela*/
+  --surface-3:        #EEE7DB; /* blocos embutidos, chips, trilhas           */
+  --surface-4:        #DCD3C4; /* trilhos de progresso, letterbox de vídeo   */
+  --surface-header:   #FFE1D0; /* banner de cabeçalho de seção               */
+  --surface-hover:    #E1D3BA;
+  --surface-selected: #FFE1D0;
+  --scrim:            rgba(46, 43, 37, 0.55); /* véu de modal/câmera         */
+
+  /* --- Tinta (contraste medido sobre --surface-1 / --surface-canvas) ----- */
+  --ink-strong: #201E1D; /* 12,4:1 / 13,9:1 — títulos, números-chave         */
+  --ink:        #2E2B25; /* 10,5:1 / 11,9:1 — corpo, células, rótulos        */
+  --ink-muted:  #474238; /*  7,5:1 /  8,4:1 — legendas, hints, secundário    */
+  --ink-faint:  #645C50; /*  4,9:1 /  5,5:1 — placeholder e desabilitado †   */
+  --ink-accent: #643312; /*  7,7:1 /  8,7:1 — links e ênfase de marca        */
+  /* † --ink-faint não cumpre AAA sobre --surface-1. É usado exclusivamente
+       em ::placeholder e [disabled], que a WCAG 1.4.3 trata como texto
+       incidental. Nenhum texto de conteúdo deve usá-lo.                    */
+
+  /* --- Bordas ------------------------------------------------------------
+     --edge-strong, --edge-accent e --edge-focus contornam controle
+     interativo: as três medem >= 3:1 contra --surface-1, o mínimo da WCAG
+     1.4.11 para elemento não textual.                                      */
+  --edge-subtle:  #E1D3BA; /* divisórias decorativas                         */
+  --edge-default: #DCD3C4; /* bordas de card e tabela                        */
+  --edge-strong:  #82796A; /* 3,2:1 — contorno de controle interativo        */
+  --edge-accent:  #B2622D; /* 3,4:1                                          */
+  --edge-focus:   #8C491A; /* 5,1:1                                          */
+
+  /* --- Tríades de status: tint / tinta escura / linha de acento ----------
+     success e accent saem das rampas do Organic (verde-oliva e marrom).
+     danger, warning e info foram afinados à mão: as três precisam continuar
+     distinguíveis do acento da marca, que já é laranja-terroso.            */
+  --tone-success-soft: #E1EECC; --tone-success-ink: #272E1B; --tone-success-line: #728157; /* 11,6:1 */
+  --tone-danger-soft:  #FBE6E2; --tone-danger-ink:  #7A1D12; --tone-danger-line:  #B3271A; /*  8,7:1 */
+  --tone-warning-soft: #FBECC9; --tone-warning-ink: #5C3F06; --tone-warning-line: #9C6F0F; /*  8,3:1 */
+  --tone-info-soft:    #E4ECF1; --tone-info-ink:    #17414F; --tone-info-line:    #3D6C80; /*  9,2:1 */
+  --tone-accent-soft:  #FFE1D0; --tone-accent-ink:  #643312; --tone-accent-line:  #B2622D; /*  8,4:1 */
+
+  /* --- Hover das superfícies tonalizadas --------------------------------- */
+  --tone-success-hover: #CCDBB2;
+  --tone-danger-hover:  #F6D5CF;
+  --tone-warning-hover: #F5E0AE;
+  --tone-info-hover:    #D5E1E9;
+  --tone-accent-hover:  #FFC6A5;
+
+  /* --- Forma e movimento -------------------------------------------------
+     O design arredonda muito mais que o sistema anterior (cartões em 28–32px,
+     controles em pílula). 18px é o meio-termo que o app inteiro suporta:
+     tabela densa e chip pequeno ainda leem bem, e as peças que o design quer
+     redondas (bottom-nav, FAB, cartão) pedem o raio maior na própria regra. */
+  --radius:    18px;
+  --radius-sm: 10px;
+  --radius-lg: 30px;
+  --shadow-sm: 0 1px 2px rgba(46, 43, 37, 0.08);
+  --shadow-md: 0 3px 10px rgba(46, 43, 37, 0.10);
+  --shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.16);
+  --transition: all 0.25s ease;
+
+  /* --- Aliases de compatibilidade -----------------------------------------
+     ~200 regras de componente e o módulo Faça Amigos ainda consomem estes
+     nomes. Apontá-los para os tokens novos mantém uma paleta única em vez de
+     duas concorrentes, sem exigir a reescrita de cada regra.               */
+  --cream:      var(--surface-canvas);
+  --paper:      var(--surface-1);
+  --border:     var(--edge-default);
+  --muted:      var(--ink-muted);
+  --wine:       var(--ink-accent);
+  --wine-light: var(--edge-accent);
+  --wine-dark:  var(--ink-strong);
+  --gold:       var(--tone-success-line);
+  --gold-light: var(--tone-success-soft);
+  --gold-dark:  var(--tone-success-ink);
+  --gold-gradient: linear-gradient(135deg, var(--tone-accent-soft) 0%, var(--surface-selected) 100%);
+  --wine-gradient: linear-gradient(135deg, var(--surface-header) 0%, var(--surface-3) 100%);
+  --green:       var(--tone-success-line);
+  --green-light: var(--tone-success-soft);
+  --amber:       var(--tone-warning-line);
+  --amber-light: var(--tone-warning-soft);
+  --red:         var(--tone-danger-line);
+  --red-light:   var(--tone-danger-soft);
+  --blue:        var(--tone-info-line);
+  --blue-light:  var(--tone-info-soft);
+
+  /* --- Barra lateral ------------------------------------------------------
+     A lateral e a topbar ficam no tom mais claro (--surface-2), não no tom
+     de cartão: elas emolduram a página bege, e usar o areia dos cartões
+     faria a moldura competir com o conteúdo.                              */
+  --sidebar-bg:                 var(--surface-2);
+  --sidebar-border:             var(--edge-subtle);
+  --sidebar-group-bg:           var(--surface-3);
+  --sidebar-group-header-color: var(--ink-muted);
+  --sidebar-text:               var(--ink);
+  --sidebar-text-muted:         var(--ink-muted);
+  --sidebar-text-hover:         var(--ink-strong);
+  --sidebar-hover-bg:           var(--surface-hover);
+  --sidebar-active-bg:          var(--surface-selected);
+  --sidebar-active-text:        var(--ink-strong);
+  --sidebar-active-rail:        var(--edge-accent);
+  --topbar-bg:                  var(--surface-2);
+  --topbar-border:              var(--edge-subtle);
+}
+
+/* ==========================================================================
+   CAMADA DE UTILITÁRIOS SEMÂNTICOS
+   --------------------------------------------------------------------------
+   Substitui a antiga escala `brand-*` (bg-brand-950, text-brand-300, …), que
+   nomeava tons quase pretos e por isso ficou mentirosa num tema claro.
+   Nenhum destes nomes existe em tailwind-compiled.css — que é carregado
+   DEPOIS deste arquivo —, então nenhum precisa de `!important` para vencer a
+   ordem do documento. Essa era a origem da guerra de especificidade anterior.
+   ========================================================================== */
+
+/* --- Superfícies --------------------------------------------------------- */
+.bg-surface-1 { background-color: var(--surface-1); }
+.bg-surface-2 { background-color: var(--surface-2); }
+.bg-surface-3 { background-color: var(--surface-3); }
+.bg-surface-4 { background-color: var(--surface-4); }
+.bg-scrim     { background-color: var(--scrim); }
+.bg-cream     { background-color: var(--surface-canvas); }
+.bg-paper     { background-color: var(--surface-1); }
+
+.bg-success-soft { background-color: var(--tone-success-soft); }
+.bg-danger-soft  { background-color: var(--tone-danger-soft); }
+.bg-warning-soft { background-color: var(--tone-warning-soft); }
+.bg-info-soft    { background-color: var(--tone-info-soft); }
+.bg-accent-soft  { background-color: var(--tone-accent-soft); }
+
+/* --- Tinta --------------------------------------------------------------- */
+.text-ink-strong { color: var(--ink-strong); }
+.text-ink        { color: var(--ink); }
+.text-ink-muted  { color: var(--ink-muted); }
+.text-ink-faint  { color: var(--ink-faint); }
+.text-muted      { color: var(--ink-muted); }
+.text-accent     { color: var(--ink-accent); }
+.text-success    { color: var(--tone-success-ink); }
+.text-danger     { color: var(--tone-danger-ink); }
+.text-warning    { color: var(--tone-warning-ink); }
+.text-info       { color: var(--tone-info-ink); }
+
+/* --- Bordas -------------------------------------------------------------- */
+.border-subtle  { border-color: var(--edge-default); }
+.border-strong  { border-color: var(--edge-strong); }
+.border-accent  { border-color: var(--edge-accent); }
+.border-border  { border-color: var(--edge-default); }
+.border-success { border-color: var(--tone-success-line); }
+.border-danger  { border-color: var(--tone-danger-line); }
+.border-warning { border-color: var(--tone-warning-line); }
+.border-info    { border-color: var(--tone-info-line); }
+.divide-subtle > :not([hidden]) ~ :not([hidden]) { border-color: var(--edge-subtle); }
+.divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--edge-default); }
+
+/* --- Estados ------------------------------------------------------------- */
+.hover\:bg-surface-hover:hover { background-color: var(--surface-hover); }
+.hover\:bg-success-hover:hover { background-color: var(--tone-success-hover); }
+.hover\:bg-danger-hover:hover  { background-color: var(--tone-danger-hover); }
+.hover\:bg-warning-hover:hover { background-color: var(--tone-warning-hover); }
+.hover\:bg-info-hover:hover    { background-color: var(--tone-info-hover); }
+.hover\:bg-accent-hover:hover  { background-color: var(--tone-accent-hover); }
+.hover\:bg-cream:hover         { background-color: var(--surface-canvas); }
+.hover\:text-ink-strong:hover  { color: var(--ink-strong); }
+.hover\:border-accent:hover    { border-color: var(--edge-accent); }
+.focus\:border-accent:focus    { border-color: var(--edge-focus); }
+.active\:bg-info-soft:active   { background-color: var(--tone-info-hover); }
+.group:hover .group-hover\:bg-accent-soft { background-color: var(--tone-accent-soft); }
+
+/* Indicador de filtro selecionado (botões de farol do Inventário). Os botões
+   são sempre tonalizados, então o estado ativo precisa de um sinal próprio —
+   um anel de acento. Antes era um anel quase preto sobre botão vivo. */
+.filtro-ativo {
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--edge-accent);
+}
+
+.focus\:border-gold:focus { border-color: var(--edge-focus); }
+
+.ring-accent  { --tw-ring-color: var(--edge-accent); box-shadow: 0 0 0 2px var(--edge-accent); }
+.ring-success { --tw-ring-color: var(--tone-success-line); box-shadow: 0 0 0 2px var(--tone-success-line); }
+.focus\:ring-accent:focus-visible { outline: 3px solid var(--edge-focus); outline-offset: 2px; }
+
+/* Estojos de gradiente claros (o card-resumo de Configurações ainda os usa).
+   !important porque tailwind-compiled.css carrega depois e sobrescreveria as
+   custom properties --tw-gradient-* com a mesma especificidade. */
+/* Os valores ficam literais, e não em var(): `--tw-gradient-from` é lida pelo
+   tailwind-compiled.css, que precisa da cor com o sufixo de opacidade
+   (`#F5EAD800`) colado — uma custom property não pode ser concatenada assim. */
+.from-cream { --tw-gradient-from: #F5EAD8 var(--tw-gradient-from-position) !important; --tw-gradient-to: #F5EAD800 var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-paper   { --tw-gradient-to: #EBDDC5 var(--tw-gradient-to-position) !important; }
+
+/* Preenchimento das barras de progresso (Meta Hora a Hora e perfil DISC):
+   classes aplicadas por JS e ausentes do build estático do Tailwind. */
+.bg-amber-500   { background-color: var(--tone-warning-line) !important; }
+.bg-emerald-500 { background-color: var(--tone-success-line) !important; }
+
+/* ==========================================================================
+   COMPONENTES DE ESTRUTURA
+   ========================================================================== */
+
+/* Cabeçalho de seção — substitui a sopa de utilitários com gradiente escuro
+   que existia repetida em 16 telas, e o seletor cego
+   `.tab-panel > div:first-child`, que além de posicional atingia por engano
+   os wrappers transparentes de Boletos, Auditoria e Configurações — e o
+   banner do Faça Amigos. A faixa de acento à esquerda carrega o sinal de
+   "isto é um cabeçalho" que o gradiente escuro carregava antes. */
+.section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+  background: var(--surface-header);
+  border: 1px solid var(--edge-default);
+  box-shadow: inset 4px 0 0 var(--edge-accent), var(--shadow-md);
+}
+
+@media (min-width: 768px) {
+  .section-header {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.section-header h2 {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink-strong); /* 16,3:1 sobre --surface-header */
+}
+
+.section-header h2 i { color: var(--edge-accent); }
+.section-header p    { color: var(--ink-muted); } /* 7,5:1 */
+
+/* Chip de contexto no canto direito do cabeçalho. */
+.section-header .rounded-full {
+  background: var(--surface-1);
+  color: var(--ink-accent);
+  border-color: var(--edge-accent);
+}
+
+/* Identidade cromática por módulo: o RH mantinha o próprio tom índigo. */
+#tab-rh-modulo .section-header {
+  background: var(--tone-info-soft);
+  box-shadow: inset 4px 0 0 var(--tone-info-line), var(--shadow-md);
+}
+#tab-rh-modulo .section-header h2 i { color: var(--tone-info-line); }
+
+/* Banner de aviso (inventário mensal obrigatório). */
+.section-banner {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--edge-default);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+.section-banner-warn {
+  background: var(--tone-warning-soft);
+  border-color: var(--tone-warning-line);
+  box-shadow: inset 4px 0 0 var(--tone-warning-line), var(--shadow-md);
+}
+
+/* `.glass-card` só existia dentro dos remendos por aba, que este refactor
+   remove. Sem uma definição base, as ~53 ocorrências ficariam sem estilo. */
+.glass-card {
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--ink);
+  line-height: 1.5;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
+  width: 100%;
+  position: relative;
+  overflow-x: hidden;
+  background: var(--cream);
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh; /* Safari iOS: 100vh ignora a barra dinâmica */
+  margin-left: 270px;
+  transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   SIDEBAR LAYOUT
+   ========================================================================== */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Trava a rolagem da página por trás enquanto o drawer mobile está aberto
+   (sem isso, era possível arrastar o conteúdo atrás do overlay escuro). */
+html.sidebar-mobile-open,
+html.sidebar-mobile-open body {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.sidebar {
+  width: 270px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: 4px 0 18px rgba(46, 43, 37, 0.05);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-header {
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.sidebar-close-btn {
+  display: none;
+  background: var(--surface-2);
+  border: 1px solid var(--edge-strong);
+  color: var(--ink);
+  /* 44x44 é o alvo mínimo de toque recomendado (Apple HIG / Material) —
+     antes eram 34px, pequeno demais pra fechar o menu com o polegar. */
+  width: 44px;
+  height: 44px;
+  /* Sem isso, o header (brand + botão em space-between) espreme o botão
+     abaixo do width especificado quando o texto da marca não cabe. */
+  flex-shrink: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.sidebar-close-btn:hover {
+  background: var(--surface-3);
+  transform: scale(1.05);
+}
+
+.logo-dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: url('icons/icon-192.png?v=4') center/contain no-repeat;
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.logo-dot-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.logo-dot-lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin: 0 auto 12px auto;
+}
+
+.logo-dot:hover {
+  transform: scale(1.05) rotate(5deg);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand h1 {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  color: var(--ink-strong);
+}
+
+.brand .subtitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  /* Era texto recortado num gradiente claro — ilegível sobre a sidebar
+     branca, e invisível para auditoria de contraste porque a cor computada
+     fica transparente. Tinta chapada, com o acento vindo do tracking. */
+  color: var(--ink-accent);
+  display: inline-block;
+}
+
+/* SIDEBAR NAV & GROUPS (ACORDEÃO) */
+.sidebar-nav {
+  flex: 1;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--edge-default) transparent;
+  /* Rolagem com inércia no iOS + evita que o "estouro" no topo/fim da lista
+     do menu vaze pra rolagem da página por trás do drawer. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--edge-default);
+  border-radius: 4px;
+}
+
+.sidebar-group {
+  border-radius: 12px;
+  background: var(--sidebar-group-bg);
+  border: 1px solid var(--sidebar-border);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* .sidebar-nav é flex-column e cada grupo é um item dela. Com
+     overflow:hidden, a "automatic minimum size" do flex vira 0 — sem
+     flex-shrink:0 o item aceita ser espremido pelo algoritmo de flex-shrink
+     pra caber no espaço da nav, cortando os botões do grupo (parecia que o
+     conteúdo tinha sumido) em vez de deixar a nav rolar normalmente. */
+  flex-shrink: 0;
+}
+
+.sidebar-section-title {
+  margin: 4px 6px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Branco translúcido (pensado pro sidebar escuro de antes) ficava
+     invisível sobre o --surface-1 branco do design system claro — esse
+     seletor não existe no branch do design system (a reorganização deles
+     não tem cabeçalho de seção), por isso sobreviveu ao merge sem ser
+     re-corrigido junto com o resto da sidebar. */
+  color: var(--ink-muted);
+}
+
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-group-header-color);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-group-header:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-hover);
+}
+
+.sidebar-group-header .group-icon {
+  font-size: 1.1rem;
+}
+
+.sidebar-group-header .group-title {
+  flex: 1;
+  text-align: left;
+}
+
+.sidebar-group-header .group-chevron {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-group.collapsed .sidebar-group-header .group-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Cabeçalho que é atalho direto (grupo de item único, ex.: Insights IA):
+   abre a aba num clique, então não mostra chevron nem o conteúdo do grupo. */
+.sidebar-group-header.is-direct .group-arrow {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.sidebar-group-header.is-direct:hover .group-arrow,
+.sidebar-group-header.is-direct.active .group-arrow {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.sidebar-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px 8px;
+  /* Alto o bastante pra nunca cortar o grupo com mais itens (Cacau Show,
+     ~13 botões pro perfil Owner) — 500px cortava os últimos itens da lista.
+     Não afeta a velocidade da transição: o max-height é só o alvo da
+     animação, quem define a duração é a propriedade transition abaixo. */
+  max-height: 1600px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, padding 0.3s ease;
+}
+
+.sidebar-group.collapsed .sidebar-group-content {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+}
+
+.sidebar-nav .tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sidebar-text-muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.sidebar-nav .tab-btn .tab-icon {
+  font-size: 1.1rem;
+  width: 22px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidebar-nav .tab-btn .tab-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-nav .tab-btn:hover {
+  color: var(--sidebar-text-hover);
+  background: var(--sidebar-hover-bg);
+  transform: translateX(4px);
+}
+
+.sidebar-nav .tab-btn.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 700;
+  border-color: var(--edge-accent);
+  box-shadow: inset 4px 0 0 var(--sidebar-active-rail);
+}
+
+.sidebar-nav .tab-btn.active .tab-icon {
+  transform: scale(1.1);
+}
+
+.sidebar-nav .submenu-btn {
+  padding-left: 28px !important;
+  font-size: 0.8rem !important;
+  color: var(--ink-muted);
+}
+
+.sidebar-nav .submenu-btn .tab-icon {
+  font-size: 0.95rem !important;
+}
+
+
+/* SIDEBAR FOOTER */
+.sidebar-footer {
+  padding: 16px 14px;
+  /* env() com fallback: soma o inset só em telas que de fato têm gesture
+     bar/home indicator (iPhone com notch, Android com navegação por gesto);
+     nas demais fica igual a 16px. */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sidebar-actions .btn-mini-outline {
+  flex: 1;
+  text-align: center;
+  padding: 6px 10px;
+}
+
+/* ==========================================================================
+   TOPBAR (Header Compacto)
+   ========================================================================== */
+.topbar {
+  background: var(--topbar-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--topbar-border);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-brand-mobile {
+  display: none;
+}
+
+.topbar-title {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.hamburger-btn {
+  display: none;
+  background: var(--surface-2);
+  border: 1px solid var(--edge-strong);
+  border-radius: 10px;
+  /* 44x44: alvo mínimo de toque recomendado (era 40px). */
+  width: 44px;
+  height: 44px;
+  /* .topbar-left espreme o botão abaixo do width especificado quando o
+     topbar fica apertado (ex.: com o switch de módulo do Owner também
+     visível) — mesmo problema já corrigido no .sidebar-close-btn. */
+  flex-shrink: 0;
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  transition: var(--transition);
+}
+
+.hamburger-btn:hover {
+  background: var(--surface-3);
+}
+
+.hamburger-bar {
+  width: 18px;
+  height: 2px;
+  background-color: var(--ink);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* USER BOX */
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-badge {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-accent);
+}
+
+.icon-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--edge-default);
+  color: var(--ink);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+.icon-btn:hover {
+  background: var(--surface-3);
+  transform: translateY(-2px);
+}
+
+.btn-mini-outline {
+  background: var(--surface-1);
+  border: 1px solid var(--edge-strong);
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-mini-outline:hover {
+  border-color: var(--edge-accent);
+  background: var(--surface-hover);
+}
+
+/* Troca rápida de módulo (Owner): dois botões fixos na topbar (que já é
+   sticky no topo) para alternar Cacau Show <-> Faça Amigos num clique só,
+   sem passar pela tela cheia de seleção de módulo. Estado ativo segue a
+   mesma tríade tint/borda/tinta escura do resto do sistema — nunca
+   preenchimento sólido com rótulo branco. */
+.owner-module-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--edge-default);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.module-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.module-switch-btn:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+/* Cacau Show usa o acento neutro do sistema (o módulo não tem mais
+   identidade de cor própria — ver alias --wine/--gold no topo do arquivo). */
+.module-switch-btn[data-modulo="cacau-show"].active {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--tone-accent-line);
+}
+
+/* Faça Amigos: mesma dupla coral-tint/coral-ink (9,1:1 AAA) usada dentro do
+   módulo — repetida aqui em vez de referenciada porque esse botão vive na
+   topbar, fora de .fa-section/.fa-tab-panel (único escopo onde essas
+   variáveis existem). */
+.module-switch-btn[data-modulo="faca-amigos"].active {
+  background: #FFE9F1;
+  color: #8A0038;
+  border-color: var(--coral);
+}
+
+@media (max-width: 640px) {
+  .module-switch-btn span {
+    display: none;
+  }
+  .module-switch-btn {
+    padding: 8px 12px;
+  }
+}
+
+/* ==========================================================================
+   MAIN CONTENT & CARDS
+   ========================================================================== */
+main {
+  flex: 1;
+  padding: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tab-panel {
+  display: none;
+}
+.tab-panel.active {
+  display: block;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 32px;
+  margin-bottom: 24px;
+  transition: var(--transition);
+  position: relative;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--wine-gradient);
+  opacity: 0;
+  transition: var(--transition);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.card:hover::before {
+  opacity: 1;
+}
+
+.card h2 {
+  font-family: var(--font-body);
+  color: var(--wine);
+  font-size: 1.6rem;
+  margin-bottom: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+/* ==========================================================================
+   FORMS & INPUTS
+   ========================================================================== */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.3px;
+}
+
+.field .hint {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+input, select {
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  background: var(--paper);
+  color: var(--ink);
+  outline: none;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+input:focus, select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(189, 149, 75, 0.15);
+}
+
+.segmented {
+  display: flex;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cream);
+  padding: 2px;
+}
+
+.seg-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  border-radius: 10px;
+  transition: var(--transition);
+}
+
+.seg-btn.active {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  box-shadow: inset 0 -3px 0 var(--edge-accent);
+  font-weight: 700;
+}
+
+.photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.foto-preview-wrap {
+  position: relative;
+  width: 180px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.foto-preview-wrap img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.foto-preview-wrap .btn-mini {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  border: 1px solid var(--tone-danger-line);
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  backdrop-filter: blur(4px);
+}
+.foto-preview-wrap .btn-mini:hover {
+  background: var(--tone-danger-hover);
+  transform: scale(1.05);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+/* Forma e tipografia do botão primário. As cores ficam na regra única do
+   fim do arquivo, para que exista um só lugar onde a paleta de ação é
+   decidida — antes havia dois blocos .btn-primary com !important brigando
+   pela mesma propriedade, e vencia o que estivesse mais abaixo. */
+.btn-primary {
+  padding: 14px 28px;
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-transform: uppercase;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-secondary {
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--border);
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-secondary:hover {
+  border-color: var(--gold);
+  background: var(--cream);
+}
+
+.form-msg {
+  font-size: 0.9rem;
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   DASHBOARD CARDS & GRAPHS
+   ========================================================================== */
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dash-header h2 {
+  font-family: var(--font-body);
+  color: var(--wine);
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.dash-total {
+  background: var(--gold-light) !important;
+  color: var(--wine-dark) !important;
+  font-family: var(--font-body);
+  font-weight: 800;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gold);
+}
+
+.cards-lojas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.loja-card {
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  box-shadow: var(--shadow-md);
+  border-top: 5px solid var(--op-cor, var(--wine));
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.loja-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(189, 149, 75, 0.02), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: var(--transition);
+}
+.loja-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(189, 149, 75, 0.35);
+  border-top-color: var(--gold);
+}
+.loja-card:hover::before {
+  opacity: 1;
+}
+
+.loja-card.alerta {
+  border-top-color: var(--red);
+}
+.loja-card.alerta:hover {
+  border-top-color: var(--gold);
+}
+
+.loja-card h4 {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.loja-card .valor {
+  font-family: var(--font-body);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--wine);
+}
+
+.loja-card .meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.loja-card .badge-alerta {
+  display: inline-block;
+  margin-top: 12px;
+  background: var(--red-light);
+  color: var(--red);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ==========================================================================
+   IDENTIDADE VISUAL DAS OPERAÇÕES (emoji + cor fixos por loja)
+   ========================================================================== */
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--op-cor, #9ca3af) 14%, transparent);
+  color: var(--op-cor, inherit);
+  border: 1px solid color-mix(in srgb, var(--op-cor, #9ca3af) 45%, transparent);
+}
+
+.op-select {
+  border-left-width: 6px !important;
+  border-left-color: var(--op-select-cor, var(--border)) !important;
+  transition: border-color 0.2s ease;
+}
+
+/* ==========================================================================
+   CHARTS
+   ========================================================================== */
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 110px;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+}
+
+.bar-row > span {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bar-track {
+  background: var(--cream);
+  border-radius: 999px;
+  height: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, var(--gold), var(--wine));
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 2px 4px rgba(46, 43, 37, 0.06);
+}
+
+.bar-value {
+  text-align: right;
+  font-weight: 700;
+  color: var(--wine);
+  font-family: var(--font-body);
+}
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filters select,
+.filters input {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+th {
+  background: var(--cream);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--border);
+}
+
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: rgba(189, 149, 75, 0.05);
+}
+
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-block;
+}
+.status-aberto {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+.status-aguardando_retirada {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.status-retirado {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+/* Batch Action Bar */
+.batch-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+.batch-actions-bar span {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.btn-batch {
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+tr.selected-row {
+  background-color: var(--cream, rgba(245, 158, 11, 0.08)) !important;
+}
+
+.dias-badge {
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--cream);
+}
+.dias-badge.risco {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.thumb-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
+  border: 2px solid var(--border);
+  transition: var(--transition);
+}
+.thumb-btn:hover {
+  transform: scale(1.1);
+  border-color: var(--gold);
+  box-shadow: var(--shadow-sm);
+}
+
+.no-photo {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.btn-retirar {
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid var(--tone-success-line);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 6px rgba(29, 114, 58, 0.2);
+}
+.btn-retirar:hover {
+  background: var(--tone-success-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(29, 114, 58, 0.3);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(74, 18, 26, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.modal {
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 90%;
+  max-width: 460px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  animation: modalScale 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal h3 {
+  font-family: var(--font-body);
+  color: var(--wine);
+  margin-bottom: 12px;
+  font-size: 1.4rem;
+}
+
+.modal-sub {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-top: -6px;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.modal .field {
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-foto {
+  max-width: 600px;
+  text-align: center;
+}
+.modal-foto img {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+}
+
+/* LOGIN OVERLAY */
+.login-modal {
+  text-align: center;
+  max-width: 400px;
+  border-top: 6px solid var(--gold);
+}
+.login-modal.login-modal-wide {
+  max-width: 480px;
+}
+.logo-dot-lg {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+}
+
+/* Login: grade de cards de usuário (etapa 1) — compacta o suficiente para
+   caber na tela inteira sem precisar rolar para achar alguém. */
+.login-user-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 6px;
+  margin-top: 16px;
+  max-height: min(56vh, 420px);
+  overflow-y: auto;
+  padding: 2px;
+}
+@media (max-width: 480px) {
+  .login-user-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 340px) {
+  .login-user-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.login-user-card {
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+  font: inherit;
+}
+.login-user-card:hover,
+.login-user-card:focus-visible {
+  border-color: var(--gold);
+  background: var(--gold-light);
+  transform: translateY(-3px);
+  outline: none;
+}
+.login-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.login-user-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+/* Login: etapa 2 (PIN) */
+.login-back-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px 2px;
+}
+.login-back-btn:hover {
+  color: var(--wine);
+}
+.login-user-avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+  line-height: 1;
+  margin: 0 auto 14px;
+}
+
+.modal-actions-center {
+  justify-content: center;
+}
+
+/* ==========================================================================
+   SPECIAL BANNERS & OVERLAYS
+   ========================================================================== */
+.aviso-banner {
+  border-left: 5px solid var(--green);
+  background: var(--green-light);
+}
+
+.aviso-instrucao {
+  color: var(--ink);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  opacity: 0.8;
+}
+
+.aviso-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 14px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+  margin-bottom: 16px;
+  outline: none;
+}
+.aviso-textarea:focus {
+  border-color: var(--green);
+}
+
+.aviso-botoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-whatsapp {
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid #128C4A;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+  box-shadow: 0 4px 10px rgba(37, 211, 102, 0.2);
+}
+.btn-whatsapp:hover {
+  background: var(--tone-success-hover);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
+}
+
+/* Usava a cor de LINHA como tinta — a linha é para borda e ícone, não para
+   texto. Sobre o tint de perigo isso dava 3,7:1 em qualquer aba; a tinta da
+   mesma tríade dá 9,2:1. */
+.alerta-card {
+  border-left: 5px solid var(--tone-danger-line);
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  font-weight: 500;
+}
+
+/* Fundo sólido de perigo (não o tint suave de .bg-danger-soft) — usado só no
+   alerta "picante" de boleto vencido sem NF-e, pra destacar mais que uma
+   divergência comum. */
+.bg-danger-solid {
+  background: var(--tone-danger-line);
+  color: #fff;
+}
+
+/* OFFLINE STATUS PILL */
+.offline-banner {
+  background: var(--tone-warning-soft);
+  border-bottom: 2px solid var(--tone-warning-line);
+  color: var(--tone-warning-ink);
+  text-align: center;
+  padding: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS
+   ========================================================================== */
+@media (max-width: 768px) {
+  .user-box {
+    gap: 8px;
+  }
+  
+  main {
+    padding: 16px;
+  }
+  
+  .card {
+    padding: 20px;
+    border-radius: 12px;
+  }
+  
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary {
+    width: 100%;
+  }
+  
+  .cards-lojas {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .bar-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .bar-value {
+    text-align: left;
+  }
+  
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .filters select,
+  .filters input {
+    width: 100%;
+  }
+  
+  .modal {
+    padding: 24px;
+    width: 95%;
+  }
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .modal-actions button {
+    width: 100%;
+  }
+  
+  .aviso-botoes {
+    flex-direction: column;
+  }
+  .aviso-botoes a,
+  .aviso-botoes button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Splash de abertura — cor de fundo definida inline no HTML (mesma cor
+   predominante do ícone, ver manifest.json). Cobre a tela inteira até o
+   app decidir entrar direto (sessão salva) ou mostrar o login. */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+#boot-splash img {
+  width: 128px;
+  height: 128px;
+  border-radius: 28px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+#boot-splash.boot-splash-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* UTILITY CLASSES */
+.hidden {
+  display: none !important;
+}
+
+.btn-excluir {
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border: 1.5px solid var(--tone-danger-line);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 6px rgba(185, 44, 44, 0.2);
+}
+.btn-excluir:hover {
+  background: #902020;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(185, 44, 44, 0.3);
+}
+
+/* ==========================================================================
+   TOASTS & FEEDBACK
+   ========================================================================== */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--edge-default);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 280px;
+  pointer-events: auto;
+  border-left: 6px solid var(--tone-accent-line);
+  transform: translateX(120%);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+  opacity: 0;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast.sucesso { border-left-color: var(--tone-success-line); background: var(--tone-success-soft); color: var(--tone-success-ink); }
+.toast.erro    { border-left-color: var(--tone-danger-line);  background: var(--tone-danger-soft);  color: var(--tone-danger-ink); }
+.toast.info    { border-left-color: var(--tone-warning-line); background: var(--tone-warning-soft); color: var(--tone-warning-ink); }
+
+/* ==========================================================================
+   SPINNER & LOADING
+   ========================================================================== */
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  margin-left: -10px;
+  border: 3px solid var(--edge-default);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   SKIP LINK (Acessibilidade)
+   ========================================================================== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  border: 2px solid var(--edge-accent);
+  padding: 12px 24px;
+  border-radius: 0 0 12px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 10000;
+  transition: top 0.3s ease;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 0;
+  outline: none;
+}
+
+/* ==========================================================================
+   FOCUS RING (Acessibilidade — navegação por teclado)
+   ========================================================================== */
+*:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+.tab-btn:focus-visible,
+.seg-btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-mini-outline:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(189, 149, 75, 0.2);
+}
+
+/* ==========================================================================
+   CUSTOM CONFIRM MODAL
+   ========================================================================== */
+.modal-confirm {
+  text-align: center;
+  max-width: 420px;
+  border-top: 6px solid var(--gold);
+}
+
+.confirm-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  line-height: 1;
+  animation: confirmPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes confirmPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-confirm h3 {
+  margin-bottom: 4px;
+}
+
+.modal-confirm .modal-sub {
+  margin-bottom: 24px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.modal-confirm .btn-primary.btn-danger {
+  background: linear-gradient(135deg, var(--red), #902020);
+  box-shadow: 0 4px 15px rgba(185, 44, 44, 0.25);
+}
+.modal-confirm .btn-primary.btn-danger:hover {
+  box-shadow: 0 6px 20px rgba(185, 44, 44, 0.35);
+}
+
+.modal-confirm .btn-primary.btn-success {
+  background: linear-gradient(135deg, var(--green), #14552b);
+  box-shadow: 0 4px 15px rgba(29, 114, 58, 0.25);
+}
+.modal-confirm .btn-primary.btn-success:hover {
+  box-shadow: 0 6px 20px rgba(29, 114, 58, 0.35);
+}
+
+/* ==========================================================================
+   SESSION LOCK OVERLAY
+   ========================================================================== */
+.session-lock-icon {
+  font-size: 3.5rem;
+  text-align: center;
+  margin-bottom: 12px;
+  animation: lockBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes lockBounce {
+  0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
+  60% { transform: translateY(4px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   SKELETON LOADING PLACEHOLDERS
+   ========================================================================== */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    var(--cream) 40%,
+    var(--cream) 60%,
+    var(--border) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+  min-height: 20px;
+}
+
+.skeleton-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 90%; }
+
+.skeleton-title {
+  height: 24px;
+  width: 50%;
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+.skeleton-value {
+  height: 36px;
+  width: 60%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================================
+   COUNTER ANIMATION (Micro-interações para valores monetários)
+   ========================================================================== */
+.valor-animado {
+  transition: opacity 0.2s ease;
+}
+
+.valor-animado.counting {
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   FORM MSG ERROR STYLE
+   ========================================================================== */
+.form-msg-erro {
+  color: var(--red);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--red-light);
+  border: 1px solid rgba(185, 44, 44, 0.15);
+  animation: shakeIn 0.4s ease;
+}
+
+@keyframes shakeIn {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* ==========================================================================
+   AVISO PILLS (status messages)
+   ========================================================================== */
+.aviso-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.aviso-pill.sim {
+  background: var(--green-light);
+  color: var(--green);
+}
+.aviso-pill.nao {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+/* Retirada bloqueada */
+.retirada-bloqueada {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   SESSION TIMER INDICATOR
+   ========================================================================== */
+.session-timer {
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  margin-left: 4px;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+.session-timer.warning {
+  color: var(--amber);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ==========================================================================
+   OBSERVATION TAGS (#14)
+   ========================================================================== */
+.obs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.obs-tag-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.obs-tag-btn:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.obs-tag-btn.active {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--edge-accent);
+  box-shadow: inset 0 -3px 0 var(--edge-accent);
+}
+
+/* ==========================================================================
+   SYNC BADGE (#16)
+   ========================================================================== */
+.sync-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--tone-warning-soft);
+  color: var(--tone-warning-ink);
+  border: 2px solid var(--tone-warning-line);
+  font-size: 0.62rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulse 2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.sync-badge i {
+  font-size: 0.6rem;
+}
+
+.icon-btn {
+  position: relative;
+}
+
+/* ==========================================================================
+   BOTTOM NAVIGATION (Mobile PWA — #7)
+   ========================================================================== */
+.bottom-nav,
+.fab {
+  display: none;
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — barra inferior e ação flutuante
+   --------------------------------------------------------------------------
+   Amarradas à densidade, e não a 768px como antes: é o que fecha o vão de
+   769–900px em que existia hambúrguer e nenhuma barra de navegação.
+   O desenho de cada uma (proporções, indicador, presença do FAB) é definido
+   pelo idioma da plataforma, mais abaixo — aqui fica só o que é comum.
+   Perfis com muitos atalhos (Líder, Owner com Insights IA) não cabem numa
+   barra fixa: o JS já limita a 4 destinos + "Mais" (webapp/app.js), então a
+   barra em si não precisa rolar.
+   ========================================================================== */
+.density-compact .bottom-nav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface-1);
+  border-top: 1px solid var(--edge-subtle);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  justify-content: space-around;
+  align-items: stretch;
+}
+
+.density-compact .bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+  font-family: var(--font-body);
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.density-compact .bottom-nav-btn .nav-icon {
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* O rótulo pode ser longo ("Metas Hora a Hora"): trunca em vez de empurrar os
+   vizinhos e desalinhar a barra. Aplicado ao rótulo, e não ao botão, para não
+   cortar o ícone junto. */
+.density-compact .bottom-nav-btn .nav-rotulo {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+}
+
+.density-compact .fab {
+  position: fixed;
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border: 1.5px solid var(--edge-accent);
+  font-size: 1.6rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.density-compact .fab:active {
+  transform: scale(0.94);
+}
+
+/* Espaço para a barra inferior não cobrir o fim do conteúdo nem os toasts. */
+.density-compact main {
+  padding-bottom: calc(var(--nav-inferior-altura, 64px) + 24px + env(safe-area-inset-bottom, 0px));
+}
+
+.density-compact #toast-container {
+  bottom: calc(var(--nav-inferior-altura, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Na densidade expandida a navegação é a barra lateral: nenhuma das duas
+   peças flutuantes deve aparecer, em nenhum idioma. */
+.density-expanded .bottom-nav,
+.density-expanded .fab {
+  display: none !important;
+}
+
+/* ==========================================================================
+   MODAL CONFIRM: Multiline text support
+   ========================================================================== */
+.modal-confirm .modal-sub {
+  white-space: pre-line;
+  text-align: left;
+}
+
+/* ==========================================================================
+   KPI BAR (#9 — Relatórios visuais)
+   ========================================================================== */
+.kpi-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+.kpi-item {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.kpi-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.kpi-value {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--wine);
+  letter-spacing: -0.02em;
+}
+
+.kpi-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   PAGINATION (#4)
+   ========================================================================== */
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 12px 0;
+}
+
+.btn-pag {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--paper);
+  color: var(--wine);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.btn-pag:hover:not(:disabled) {
+  background: var(--tone-accent-soft);
+  color: var(--tone-accent-ink);
+  border-color: var(--edge-accent);
+}
+
+.btn-pag:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pag-info {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .kpi-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .kpi-item {
+    padding: 12px 14px;
+  }
+
+  .kpi-value {
+    font-size: 1.05rem;
+  }
+
+  .paginacao {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-pag {
+    padding: 6px 14px;
+    font-size: 0.78rem;
+  }
+}
+
+/* ============================================================
+   FAÇAAMIGOS — TEMA VISUAL PRÓPRIO
+   ============================================================ */
+
+/* Variáveis FA */
+:root {
+  --indigo: #002D2F;
+  --indigo-light: #004547;
+  --aqua: #EAFBF4;
+  --sky: #A8F0D6;
+  --coral: #F50469;
+  --coral-dark: #c00352;
+  --sun: #FFE234;
+  --sun-dark: #e6c810;
+  --mint: #3CE9B1;
+  --wa: #25D366;
+  --wa-dark: #1DA851;
+  --white: #FFFFFF;
+  --ink-soft: #416264;
+  --gray-100: #F3F4F6;
+  --fa-shadow-sm: 0 4px 6px -1px rgba(0, 45, 47, 0.1), 0 2px 4px -1px rgba(0, 45, 47, 0.06);
+  --fa-shadow-md: 0 10px 15px -3px rgba(0, 45, 47, 0.1), 0 4px 6px -2px rgba(0, 45, 47, 0.05);
+  --fa-shadow-lg: 0 20px 25px -5px rgba(0, 45, 47, 0.1), 0 10px 10px -5px rgba(0, 45, 47, 0.04);
+  --fa-shadow-float: 0 20px 40px rgba(0, 45, 47, 0.18);
+}
+
+/* Tab button FA — cor de destaque */
+.fa-tab-btn.active,
+.tab-btn.fa-tab-btn.active {
+  background: var(--coral) !important;
+  color: #fff !important;
+  border-color: var(--coral) !important;
+  box-shadow: 0 0 0 3px rgba(245,4,105,0.2) !important;
+  border-left: 4px solid var(--coral) !important;
+}
+
+.tab-btn.fa-tab-btn:not(.hidden):not(.active):hover {
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+  background-color: rgba(245,4,105,0.08) !important;
+}
+
+/* Seção principal FA */
+.fa-section {
+  animation: fadeInUp 0.35s ease;
+}
+
+/* Header banner FaçaAmigos */
+.fa-header-banner {
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-light) 100%);
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: var(--fa-shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.fa-header-banner::before {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 160px;
+  height: 160px;
+  background: var(--coral);
+  border-radius: 50%;
+  opacity: 0.15;
+}
+
+.fa-header-banner::after {
+  content: '';
+  position: absolute;
+  right: 40px;
+  bottom: -30px;
+  width: 100px;
+  height: 100px;
+  background: var(--sun);
+  border-radius: 50%;
+  opacity: 0.12;
+}
+
+.fa-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 1;
+}
+
+.fa-logo-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.fa-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.fa-title-accent {
+  color: var(--coral);
+}
+
+.fa-subtitle {
+  /* Alto contraste sobre o banner escuro: branco sólido + sombra sutil,
+     em vez do branco a 65% que ficava apagado em telas com brilho baixo. */
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+  margin: 2px 0 0;
+}
+
+.fa-lojas-badge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 1;
+}
+
+.fa-lojas-badge span {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+.btn-modulo-switch {
+  background: var(--indigo-light);
+  color: var(--sun);
+  border: 1.5px solid rgba(255, 226, 52, 0.4);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  transition: all 0.2s ease;
+}
+.btn-modulo-switch:hover {
+  background: var(--mint);
+  color: var(--indigo);
+  border-color: rgba(255, 226, 52, 0.8);
+  transform: translateY(-1.5px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.35);
+}
+
+/* Sub-navegação FA */
+.fa-subnav {
+  display: flex;
+  gap: 4px;
+  background: var(--gray-100);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.fa-sub-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.fa-sub-btn:hover {
+  background: rgba(245,4,105,0.08);
+  color: var(--coral);
+}
+
+.fa-sub-btn.active {
+  background: var(--coral);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(245,4,105,0.3);
+}
+
+.fa-subnav-single {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Painel FA */
+.fa-tab-panel {
+  animation: fadeInUp 0.25s ease;
+}
+
+/* Form FA — card com borda coral sutil */
+.fa-form-card {
+  border-top: 4px solid var(--coral);
+}
+
+.fa-form-title {
+  margin-bottom: 20px;
+}
+
+/* Segmented FA */
+.fa-segmented .seg-btn.active {
+  background: var(--coral);
+  color: #fff;
+  border-color: var(--coral);
+}
+
+/* Botão submit FA */
+.fa-btn-primary {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-dark) 100%);
+  border-color: transparent;
+}
+
+.fa-btn-primary:hover {
+  background: linear-gradient(135deg, var(--coral-dark) 0%, var(--coral) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245,4,105,0.35);
+}
+
+/* Loja cards FA — accent coral */
+.fa-loja-card {
+  border-left: 4px solid var(--coral);
+}
+
+.fa-loja-card .valor {
+  color: var(--coral);
+}
+
+/* Barra FA */
+.fa-bar-fill {
+  background: linear-gradient(90deg, var(--coral) 0%, var(--coral-dark) 100%);
+}
+
+/* Banner aviso FA */
+.fa-aviso {
+  border-left: 4px solid var(--coral);
+}
+
+/* WhatsApp FA */
+.fa-btn-whatsapp {
+  background: linear-gradient(135deg, var(--wa) 0%, var(--wa-dark) 100%);
+}
+
+.fa-btn-whatsapp:hover {
+  background: linear-gradient(135deg, var(--wa-dark) 0%, var(--wa) 100%);
+  transform: translateY(-1px);
+}
+
+/* Tema escuro — quando body.tema-fa */
+body.tema-fa .topbar {
+  border-bottom-color: var(--coral);
+  box-shadow: 0 2px 12px rgba(245,4,105,0.12);
+}
+
+/* Responsivo FA */
+@media (max-width: 640px) {
+  .fa-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 16px;
+  }
+
+  .fa-title {
+    font-size: 1.45rem;
+  }
+
+  .fa-sub-btn {
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+
+  .fa-lojas-badge {
+    gap: 5px;
+  }
+
+  .fa-lojas-badge span {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+  }
+}
+
+/* ============================================================
+   FAÇAAMIGOS — CAMADA DE PRESERVAÇÃO
+   ------------------------------------------------------------
+   O módulo Faça Amigos está congelado: deve renderizar exatamente
+   como antes da migração para o tema claro. Ele não é atingido
+   pela renomeação de classes (não usa nenhum utilitário de cor
+   do app), mas herdava três coisas do sistema global que este
+   refactor mudou. Este bloco reproduz o valor computado de cada
+   uma, escopado no subtree do módulo.
+
+   Sem isto, "não modificar o Faça Amigos" seria violado por
+   herança, mesmo com o código-fonte do módulo intacto.
+   ============================================================ */
+
+/* 1. Tokens compartilhados que o FA consome via .card, .field,
+      input, .empty-state, .btn-secondary, .modal-*, .toast.
+      Redeclarados no subtree com os valores anteriores ao
+      refactor, já que as custom properties herdam. */
+.fa-section,
+.fa-tab-panel {
+  color: #1C2435;
+  /* A seção não tinha fundo próprio: mostrava o canvas da página, que era
+     #F2F6F9. O novo canvas é #F4F6FA — dois níveis mais claro. Fixar o valor
+     antigo aqui deixa o módulo idêntico ao pixel, em vez de "quase". */
+  background: #F2F6F9;
+  --cream: #F2F6F9;
+  --paper: #FFFFFF;
+  --ink: #1C2435;
+  --muted: #4A4A4A;
+  --border: #E2E8F0;
+  --wine: #2D538E;
+  --wine-light: #4A7FD3;
+  --wine-dark: #1C2435;
+  --gold: #009688;
+  --gold-light: #E0F2F1;
+  --gold-dark: #00796B;
+  --green: #009688;
+  --green-light: #E0F2F1;
+  --amber: #F57C00;
+  --amber-light: #FFE0B2;
+  --red: #F44336;
+  --red-light: #FFEBEE;
+  --blue: #1E62C9;
+  --blue-light: #EBF5FF;
+  --radius: 12px;
+  --shadow-sm: 0 2px 8px rgba(28, 36, 53, 0.03);
+  --shadow-md: 0 4px 12px rgba(28, 36, 53, 0.05);
+  --shadow-lg: 0 8px 24px rgba(28, 36, 53, 0.08);
+}
+
+/* 3. Identidade do módulo, dentro do sistema claro.
+      ------------------------------------------------------------
+      Até aqui o banner e os botões do Faça Amigos estavam congelados em
+      azul-marinho e teal — não por desenho, mas por dois vazamentos: o
+      seletor posicional `.tab-panel > div:first-child` sobrescrevia o
+      banner, e dois blocos `.btn-primary` concorrentes deixavam os botões
+      com o gradiente cinza-escuro de um deles.
+
+      O módulo recupera agora sua identidade coral. O banner, porém, NÃO
+      volta ao índigo escuro original: um fundo escuro com título branco
+      contradiz a diretriz do sistema. A identidade vem do coral no
+      título, na faixa de acento e nos botões, sobre a superfície clara
+      `--aqua`, que também é do próprio módulo.
+      ------------------------------------------------------------ */
+/* Tint e tinta do coral, para o módulo cumprir AAA sem abrir mão da cor.
+   --coral-ink (#8A0038) sobre --coral-tint (#FFE9F1) dá 9,1:1. Declarados
+   aqui, e não no bloco de tema do módulo: aquele bloco serve de tripwire
+   contra alteração acidental do Faça Amigos e é melhor não tocá-lo. */
+.fa-section,
+.fa-tab-panel {
+  --coral-tint: #FFE9F1;
+  --coral-tint-hover: #FFD6E6;
+  --coral-ink: #8A0038;
+}
+
+.fa-section > .fa-header-banner {
+  background: var(--aqua);
+  border: 1px solid var(--sky);
+  border-radius: 16px;
+  box-shadow: inset 4px 0 0 var(--coral), var(--fa-shadow-sm);
+}
+
+/* Os dois blobs decorativos foram desenhados para brilhar sobre fundo
+   escuro; sobre a superfície clara viram manchas. */
+.fa-section > .fa-header-banner::before,
+.fa-section > .fa-header-banner::after {
+  display: none;
+}
+
+.fa-section .fa-title {
+  color: var(--indigo);
+}
+
+.fa-section .fa-subtitle {
+  /* --ink-soft (#416264) sobre --aqua dá 6,2:1, e a 13,6px isto é texto
+     normal: o piso é 7:1. Este tom escurecido mantém o verde-petróleo do
+     módulo e chega a 9:1. */
+  color: #2B4A4C;
+}
+
+.fa-section .fa-title-accent {
+  color: var(--coral-dark);
+}
+
+/* Chips das unidades: eram translúcidos sobre escuro. */
+.fa-section .fa-lojas-badge span {
+  background: var(--surface-1);
+  border: 1px solid var(--sky);
+  color: var(--indigo);
+}
+
+/* 4. Botões primários do módulo.
+      O coral puro (#F50469) sobre branco dá 4,1:1 e reprova em AAA, então
+      o preenchimento é o tint claro e o rótulo é a tinta coral escura —
+      mesma regra de tint + tinta que vale para o resto do app, com a cor
+      do Faça Amigos em vez da do sistema.
+
+      Especificidade 0,2,0: vence `.btn-primary` (0,1,0) sem !important e
+      sem depender da ordem do arquivo. Sem isto, o `.btn-primary` global,
+      que vem depois no arquivo, sobreporia a cor e o rótulo ficaria verde
+      sobre coral. */
+.fa-section .fa-btn-primary,
+.fa-tab-panel .fa-btn-primary {
+  background: var(--coral-tint);
+  background-image: none;
+  color: var(--coral-ink);
+  border: 1.5px solid var(--coral);
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+
+.fa-section .fa-btn-primary:hover,
+.fa-tab-panel .fa-btn-primary:hover {
+  background: var(--coral-tint-hover);
+  background-image: none;
+  box-shadow: inset 3px 0 0 var(--coral), var(--fa-shadow-sm);
+}
+
+/* A sub-navegação e a aba do módulo no menu usavam coral puro com rótulo
+   branco: mesmo problema de contraste, mesma solução. */
+.tab-btn.fa-tab-btn {
+  --coral-tint: #FFE9F1;
+  --coral-ink: #8A0038;
+}
+
+.fa-sub-btn.active,
+.fa-tab-btn.active,
+.tab-btn.fa-tab-btn.active {
+  background: var(--coral-tint) !important;
+  color: var(--coral-ink) !important;
+  border-color: var(--coral) !important;
+  box-shadow: inset 4px 0 0 var(--coral) !important;
+}
+
+.fa-sub-btn:hover {
+  background: var(--coral-tint);
+  color: var(--coral-ink);
+}
+
+/* 5. Componentes compartilhados que o FA reusa e que o novo sistema
+      converteu para tint + tinta escura. */
+.fa-section .foto-preview-wrap .btn-mini {
+  background: var(--tone-danger-soft) !important;
+  color: var(--tone-danger-ink) !important;
+  border: 1px solid var(--tone-danger-line) !important;
+}
+
+/* 6. Botão de WhatsApp: o FA tem preenchimento próprio (.fa-btn-whatsapp),
+      sobre o qual o rótulo era branco. */
+/* O verde do WhatsApp com rótulo branco dá 1,8:1. A marca continua legível
+   pelo ícone e pela borda; o rótulo vai para tinta escura. */
+.fa-section .btn-whatsapp {
+  background-color: #E7F8EE !important;
+  background-image: none !important;
+  color: #0B5138 !important;
+  border: 1.5px solid #128C4A !important;
+}
+
+.fa-section .btn-whatsapp:hover {
+  background-color: #D3F1E0 !important;
+  background-image: none !important;
+}
+
+/* 7. O blanket de tinta saiu.
+      Ele existia porque o banner do módulo era escuro: forçava `#1C2435` em
+      todo p/span/label/td/li para o texto continuar legível ali. Com o
+      banner claro não há mais superfície escura no módulo, e o token --ink
+      redeclarado no item 1 já entrega tinta escura por herança. Mantê-lo
+      seria pior que inútil: com !important, ele sobreporia a cor própria de
+      .fa-subtitle, dos chips das unidades e das mensagens de formulário. */
+
+/* A tipografia global (`body, button, input… { font-family: Inter }`) e a
+   cor herdada continuam valendo para o FA exatamente como antes: os tokens
+   redeclarados no item 1 fazem --ink resolver para o valor antigo dentro do
+   módulo, então não é preciso — nem correto — reafirmá-las aqui com
+   especificidade maior, sob pena de sobrepor .fa-sub-btn e afins. */
+
+/* ============================================================
+   SELEÇÃO DE MÓDULOS (OWNERS)
+   ============================================================ */
+
+.module-modal {
+  max-width: 600px;
+  max-height: 100dvh;
+  padding: clamp(16px, 5vw, 32px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.module-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
+  gap: clamp(10px, 3vw, 20px);
+  margin-top: clamp(12px, 3vw, 24px);
+}
+
+.module-card {
+  background: var(--paper);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: clamp(12px, 4vw, 24px);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 12px);
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.module-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+.module-card h3 {
+  margin: 0;
+  font-size: clamp(0.95rem, 4vw, 1.3rem);
+  font-weight: 700;
+}
+
+.module-card p {
+  margin: 0;
+  font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+  color: var(--muted);
+}
+
+.mod-icon {
+  font-size: clamp(1.8rem, 7vw, 3rem);
+  margin-bottom: 8px;
+}
+
+.card-cacau:hover {
+  border-color: var(--wine);
+}
+.card-cacau h3 {
+  color: var(--wine);
+}
+
+.card-faca:hover {
+  border-color: var(--coral);
+}
+.card-faca h3 {
+  color: var(--coral);
+}
+
+/* Abaixo de 600px os 5 cards não cabem em 3 colunas sem esmagar o touch
+   target (>= 48x48dp) — cai para 2 colunas (3ª linha com 1 card sozinho). */
+@media (max-width: 600px) {
+  .module-modal {
+    padding: clamp(12px, 4vw, 20px);
+  }
+  .module-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================================
+   CÂMERA UNIVERSAL (fullscreen, multi-modo)
+   ============================================================ */
+
+/* Única superfície escura que sobrevive ao tema claro: o palco do vídeo.
+   É o letterbox atrás de um feed de câmera ao vivo, não uma superfície de
+   interface — não carrega texto, e um fundo claro deixaria a imagem
+   ilegível. Toda a chrome (título, fechar, status, botão de captura) é
+   clara com tinta escura. Documentado aqui para que a auditoria de
+   contraste possa excluí-lo conscientemente em vez de reprovar sempre. */
+.camera-universal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: #000;
+  z-index: 9999;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.camera-universal-overlay.hidden {
+  display: none;
+}
+
+.camera-universal-video-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+#camera-universal-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* espelha, como um espelho real */
+}
+
+/* Pré-visualização da câmera do Registro de Ponto: mesma lógica de espelhamento
+   da biometria (câmera frontal deve se comportar como um espelho real).
+   A foto realmente capturada/salva NÃO é espelhada — ver capturarFrameRetrato(). */
+#ponto-video {
+  transform: scaleX(-1);
+}
+
+.camera-universal-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Oval/ellipse do rosto: proporcão portrait (mais alto que largo) */
+.camera-universal-mask-frame {
+  border-radius: 50%;
+  border: 4px solid #ef4444;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  width: clamp(200px, 68vw, 300px);
+  height: clamp(260px, 88vw, 390px);
+}
+
+
+.camera-universal-mask-rect .camera-universal-mask-frame {
+  border-radius: 16px;
+  width: min(85vw, 480px);
+  height: min(48vw, 280px);
+}
+
+.camera-universal-mask.state-invalid .camera-universal-mask-frame {
+  border-color: #ef4444;
+}
+
+.camera-universal-mask.state-dark .camera-universal-mask-frame {
+  border-color: #f59e0b;
+}
+
+.camera-universal-mask.state-ready .camera-universal-mask-frame {
+  border-color: #10b981;
+}
+
+.camera-universal-header {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 14px;
+  right: 14px;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.camera-universal-header-title {
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+
+.camera-universal-close {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--edge-strong);
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.camera-universal-status {
+  position: absolute;
+  left: 50%;
+  bottom: 160px;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  border: 1px solid var(--edge-default);
+  font-weight: 700;
+  font-size: clamp(0.85rem, 4vw, 1rem);
+  text-align: center;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+
+.camera-universal-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(32px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  z-index: 3;
+}
+
+.camera-universal-capture-btn {
+  min-width: 72px;
+  min-height: 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid var(--tone-success-line);
+  background: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(46, 43, 37, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.camera-universal-capture-btn:active {
+  transform: scale(0.93);
+  box-shadow: 0 2px 8px rgba(46, 43, 37, 0.3);
+}
+
+
+.camera-universal-capture-btn:disabled {
+  background: var(--surface-3);
+  color: var(--ink-faint);
+  border-color: var(--edge-strong);
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   TIMELINE DE AUDITORIA
+   ============================================================ */
+.timeline-wrap {
+  position: relative;
+  padding: 20px 0;
+  margin-top: 10px;
+}
+.timeline-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 20px;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-item {
+  position: relative;
+  padding-left: 50px;
+  margin-bottom: 24px;
+}
+.timeline-icon {
+  position: absolute;
+  left: 8px;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  border: 4px solid var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  z-index: 1;
+}
+.timeline-content {
+  background: var(--cream);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.timeline-header strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.timeline-body {
+  font-size: 0.95rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+/* ============================================================
+   VALIDAÇÃO VISUAL (Real-time)
+   ============================================================ */
+.input-error-msg {
+  color: var(--red);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.input-error {
+  border-color: var(--red) !important;
+  background-color: var(--red-light) !important;
+  box-shadow: 0 0 0 4px rgba(185, 44, 44, 0.1) !important;
+  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* ============================================================
+   NOTIFICAÇÕES & MICRO-INTERAÇÕES
+   ============================================================ */
+.notificacao-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border: 2px solid var(--tone-danger-line);
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 2px 6px;
+  border: 2px solid var(--wine-dark);
+}
+.icon-btn {
+  position: relative;
+}
+
+/* Efeito Ripple para botões primários */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: "";
+  background: rgba(46, 43, 37, 0.10);
+  display: block;
+  position: absolute;
+  border-radius: 50%;
+  padding-top: 120%;
+  padding-left: 120%;
+  margin-top: -60%;
+  margin-left: -60%;
+  opacity: 0;
+  transition: all 0.8s
+}
+.btn-primary:active::after {
+  padding-top: 0;
+  padding-left: 0;
+  margin-top: 0;
+  margin-left: 0;
+  opacity: 1;
+  transition: 0s;
+}
+
+/* ============================================================
+   CASCA DE NAVEGAÇÃO — comandada por densidade, não por media query
+   ------------------------------------------------------------
+   Antes havia dois pontos de corte em desacordo: a barra lateral virava
+   gaveta em 900px, mas a barra inferior só aparecia em 768px. Entre 769 e
+   900px o usuário ficava com hambúrguer e NENHUMA barra de navegação.
+
+   Agora existe um único ponto estrutural (900px), lido pelo script de
+   detecção no <head> e publicado como `density-compact` / `density-expanded`
+   no <html>. Ler a densidade da classe, e não da media query, faz o CSS e o
+   JS concordarem sobre qual casca está no ar — e torna a emulação de
+   dispositivo testável, porque basta trocar a classe.
+   ============================================================ */
+.density-compact .app-main {
+  margin-left: 0;
+}
+
+/* Sem nenhuma classe de densidade — script de detecção bloqueado ou com erro —
+   o app cai no layout de barra lateral persistente, que é o de hoje. Degradar
+   para o layout atual, nunca para um layout quebrado. */
+
+.density-compact .sidebar {
+  transform: translateX(-100%);
+  /* min(): em telas bem estreitas (ex.: 320-360px, Android de entrada) 285px
+     fixos deixavam quase nada de backdrop visível; agora nunca passa de 86%
+     da largura da tela. */
+  width: min(285px, 86vw);
+  /* Bloqueia o "puxa-empurra" de rolagem entre o drawer e a página por trás
+     dele quando a lista de tabs chega no topo/fim. */
+  overscroll-behavior: contain;
+}
+
+.density-compact .sidebar.open {
+  transform: translateX(0);
+}
+
+.density-compact .sidebar-close-btn {
+  display: flex;
+}
+
+.density-compact .hamburger-btn {
+  display: flex;
+}
+
+.density-compact .topbar-brand-mobile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.density-compact .topbar {
+  padding: 12px 16px;
+}
+
+/* Só top/left/right aqui: o padding-bottom (espaço pra bottom-nav não cobrir
+   o fim do conteúdo) é definido à parte, acima — um shorthand `padding` aqui
+   sobrescreveria e voltaria a esconder o final de cada painel atrás da barra. */
+.density-compact main {
+  padding-top: 16px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* ============================================================
+   SERVER DOWN BANNER & LOGISTICS VISUAL UNIFICATION
+   ============================================================ */
+.offline-banner.server-down {
+  background: var(--tone-danger-soft) !important;
+  border-bottom: 2px solid var(--tone-danger-line) !important;
+  color: var(--tone-danger-ink) !important;
+}
+
+/* Passo a passo retrátil (<details>) */
+.passo-a-passo > .passo-a-passo-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.passo-a-passo > .passo-a-passo-summary::-webkit-details-marker { display: none; }
+.passo-a-passo > .passo-a-passo-summary:hover { opacity: 0.85; }
+.passo-a-passo-chevron {
+  transition: transform 0.2s ease;
+  font-size: 0.7rem;
+}
+.passo-a-passo[open] > .passo-a-passo-summary .passo-a-passo-chevron {
+  transform: rotate(180deg);
+}
+
+/* ============================================================
+   NOTIFICATION DROPDOWN & LIST STYLING
+   ============================================================ */
+.notifications-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notifications-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 340px;
+  background-color: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform-origin: top right;
+}
+
+.notifications-dropdown.hidden {
+  display: none;
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+.notifications-header h3 {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.btn-clear-all {
+  background: none;
+  border: none;
+  color: var(--wine-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.btn-clear-all:hover {
+  color: var(--ink-accent);
+  background-color: var(--surface-hover);
+}
+
+.notifications-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background-color: rgba(124, 88, 64, 0.05);
+}
+
+.notification-item.unread {
+  background-color: rgba(212, 181, 126, 0.08);
+}
+
+.notification-item.unread::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  background-color: var(--red);
+  border-radius: 999px;
+}
+
+.notification-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.notification-origin {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.notification-origin.cacau {
+  background-color: rgba(124, 88, 64, 0.15);
+  color: var(--wine);
+}
+
+.notification-origin.faca {
+  background-color: rgba(212, 181, 126, 0.25);
+  color: var(--gold-dark);
+}
+
+.notification-date {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.notification-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.notification-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.notification-empty {
+  padding: 30px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.notification-empty i {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  color: var(--border);
+  display: block;
+}
+
+.notifications-footer {
+  padding: 8px 16px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+.notifications-footer span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .notifications-dropdown {
+    width: 290px;
+    right: -40px;
+  }
+}
+
+/* --- UX/UI Engineering Improvements --- */
+
+/* Transições e Animações de Login */
+.slide-out-left {
+  animation: slideOutLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Indicador de Bolinhas do PIN */
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--wine-light);
+  background-color: transparent;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pin-dot.filled {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(127, 168, 149, 0.5);
+}
+
+/* Variáveis de Cores Consistentes (Design System) */
+:root {
+  --color-brand-primary: var(--wine);
+  --color-brand-success: var(--green);
+  --color-brand-danger: var(--red);
+}
+
+/* Botões de Destaque Prominentes para Importação (XML / PDF).
+   Fundo claro: o texto escuro sobre papel tem contraste bem melhor que o
+   gradiente escuro anterior, que quase sumia contra os cards do tema claro. */
+.btn-upload-highlight {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.6rem !important;
+  background: var(--paper) !important;
+  color: var(--wine) !important;
+  font-weight: 800 !important;
+  font-size: 0.85rem !important;
+  padding: 0.8rem 1.8rem !important;
+  border-radius: 0.85rem !important;
+  box-shadow: 0 4px 12px rgba(28, 36, 53, 0.10), 0 1px 3px rgba(28, 36, 53, 0.08) !important;
+  border: 1.5px solid var(--wine) !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.btn-upload-highlight i {
+  font-size: 1rem !important;
+  color: var(--wine) !important;
+}
+
+.btn-upload-highlight:hover {
+  background: var(--cream) !important;
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 8px 20px rgba(28, 36, 53, 0.16), 0 3px 8px rgba(28, 36, 53, 0.10) !important;
+  border-color: var(--wine) !important;
+  color: var(--wine) !important;
+}
+
+.btn-upload-highlight:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 6px rgba(28, 36, 53, 0.12) !important;
+}
+
+/* --- Módulo RH & Perfil DISC Styles --- */
+.card-rh {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+.card-rh:hover {
+  border-color: #6366f1 !important;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.25) !important;
+}
+
+.card-ponto {
+  border-color: rgba(37, 99, 235, 0.4) !important;
+}
+
+.card-ponto:hover {
+  border-color: #2563EB !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25) !important;
+}
+
+.card-ponto h3 {
+  color: #2563EB;
+}
+
+.card-caixa {
+  border-color: rgba(22, 163, 74, 0.4) !important;
+}
+
+.card-caixa:hover {
+  border-color: #16a34a !important;
+  box-shadow: 0 10px 30px rgba(22, 163, 74, 0.25) !important;
+}
+
+.card-caixa h3 {
+  color: #16a34a;
+}
+
+/* ============================================================
+   FLUXO DE CAIXA — sub-navegação interna (mesmo padrão de .fa-subnav,
+   com tom verde próprio em vez do coral do FaçaAmigos).
+   ============================================================ */
+.fc-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--gray-100);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.fc-sub-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.fc-sub-btn:hover {
+  background: rgba(22, 163, 74, 0.08);
+  color: #16a34a;
+}
+
+.fc-sub-btn.active {
+  background: #16a34a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+}
+
+.fc-tab-panel {
+  animation: fadeInUp 0.25s ease;
+}
+
+.fc-tab-panel input[type="text"],
+.fc-tab-panel input[type="month"],
+.fc-tab-panel input[type="date"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 0.8rem !important;
+}
+
+.fc-painel-form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.fc-painel-form label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fc-painel-form .fc-salvar-painel {
+  grid-column: 1 / -1;
+}
+
+.disc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Módulo RH/DISC: cores vivas e consistentes por letra, usadas em badges,
+   tabela, gráficos SVG (radar, mapa de talentos, distribuição) e nos cards
+   de insight. Definidas como var() pra JS conseguir ler o mesmo hex exato
+   via getComputedStyle e pintar o SVG sem duplicar a paleta em dois lugares. */
+:root {
+  --disc-d: #ef4444; /* Dominância — vermelho */
+  --disc-i: #f59e0b; /* Influência — âmbar/dourado */
+  --disc-s: #10b981; /* Estabilidade — verde-esmeralda */
+  --disc-c: #6366f1; /* Conformidade — índigo */
+}
+
+/* Badges com fundo sólido vivo + texto branco (era um fundo quase transparente
+   com texto escuro — baixo contraste no tema escuro do módulo). */
+/* Cada letra vira uma tríade tint + tinta escura + linha de acento, com uma
+   faixa lateral de 4px carregando a identidade cromática. O padrão anterior
+   (preenchimento vivo + texto branco) reprovava por larga margem: branco
+   sobre o âmbar de Influência dava 2,15:1 e sobre o verde de Estabilidade,
+   1,62:1 — praticamente ilegível. */
+.disc-badge-d { background-color: var(--tone-danger-soft)  !important; color: var(--tone-danger-ink)  !important; border: 1px solid var(--tone-danger-line);  box-shadow: inset 4px 0 0 var(--tone-danger-line); }
+.disc-badge-i { background-color: var(--tone-warning-soft) !important; color: var(--tone-warning-ink) !important; border: 1px solid var(--tone-warning-line); box-shadow: inset 4px 0 0 var(--tone-warning-line); }
+.disc-badge-s { background-color: var(--tone-success-soft) !important; color: var(--tone-success-ink) !important; border: 1px solid var(--tone-success-line); box-shadow: inset 4px 0 0 var(--tone-success-line); }
+.disc-badge-c { background-color: var(--tone-info-soft)    !important; color: var(--tone-info-ink)    !important; border: 1px solid var(--tone-info-line);    box-shadow: inset 4px 0 0 var(--tone-info-line); }
+
+/* ---- Componentes novos do Módulo RH: gráficos SVG e cards de análise ---- */
+.rh-chart-card {
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+.rh-chart-card h4 {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--ink-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+.rh-chart-card p.rh-chart-sub {
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  margin-bottom: 0.75rem;
+}
+.rh-empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+}
+
+/* Dashboard Gerencial (DISC): fundo claro / texto escuro sempre, alto contraste */
+#tab-rh-modulo .rh-chart-card {
+  background: var(--paper);
+  border-color: var(--border);
+}
+#tab-rh-modulo .rh-chart-card h4 {
+  color: var(--ink);
+}
+#tab-rh-modulo .rh-chart-card p.rh-chart-sub {
+  color: var(--muted);
+}
+#tab-rh-modulo .rh-empty-state {
+  color: var(--muted);
+}
+#tab-rh-modulo .bg-red-950\/20 {
+  background-color: #fef2f2 !important;
+}
+#tab-rh-modulo .bg-amber-950\/20 {
+  background-color: #fffbeb !important;
+}
+#tab-rh-modulo .bg-emerald-950\/20 {
+  background-color: #ecfdf5 !important;
+}
+#tab-rh-modulo .bg-indigo-950\/20 {
+  background-color: #eef2ff !important;
+}
+#tab-rh-modulo .text-red-400 { color: #991b1b !important; }
+#tab-rh-modulo .text-amber-400 { color: #92400e !important; }
+#tab-rh-modulo .text-emerald-400 { color: #065f46 !important; }
+#tab-rh-modulo .text-indigo-400 { color: #3730a3 !important; }
+#tab-rh-modulo .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+#tab-rh-modulo .bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+#tab-rh-modulo .bg-indigo-950\/40 {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+#tab-rh-modulo .text-emerald-300 { color: #065f46 !important; }
+#tab-rh-modulo .text-amber-300 { color: #92400e !important; }
+#tab-rh-modulo .text-indigo-300 { color: #3730a3 !important; }
+.rh-sales-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.rh-sales-badge-alto     { background-color: var(--tone-success-soft) !important; color: var(--tone-success-ink) !important; border: 1px solid var(--tone-success-line); }
+.rh-sales-badge-moderado { background-color: var(--tone-warning-soft) !important; color: var(--tone-warning-ink) !important; border: 1px solid var(--tone-warning-line); }
+.rh-sales-badge-baixo    { background-color: var(--surface-3) !important; color: var(--ink) !important; border: 1px solid var(--edge-strong); }
+.rh-talent-dot {
+  cursor: pointer;
+  transition: r 0.15s ease, opacity 0.15s ease;
+}
+.rh-talent-dot:hover {
+  opacity: 0.85;
+}
+.rh-perfil-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.rh-perfil-modal {
+  background: var(--surface-1);
+  border: 1px solid var(--edge-default);
+  border-radius: 1.25rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ==========================================================================
+   BLUEDOX DESIGN SYSTEM LAYOUT & DESIGN SYSTEM SPECIFIC ADDITIONS
+   ========================================================================== */
+
+/* Tipografia global — duas famílias, uma decisão por papel.
+   -------------------------------------------------------------------------
+   Este bloco tem `!important` porque precisa vencer o tailwind-compiled.css
+   (congelado, carregado depois). Ele é o motivo de as regras
+   `font-family: var(--font-body)` espalhadas acima nunca terem efeito
+   próprio: sobrevivem como documentação do papel de cada peça, mas quem
+   decide é aqui.
+
+   Corpo, controle e rótulo ficam em Figtree. Título vai para Caprasimo —
+   com o peso fixado em 400, porque a face só existe nesse peso e qualquer
+   valor maior vira negrito sintético. */
+body, button, input, select, textarea, .tab-btn {
+  font-family: var(--font-body) !important;
+  color: var(--ink);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.015em;
+  color: var(--ink-strong);
+}
+
+/* `.font-display` já existia como classe em várias telas (ex.: `<h2
+   class="font-display ...">` no cabeçalho do Dashboard) sem nenhuma regra
+   correspondente — nas headings isso não se notava, porque a regra acima já
+   cobre h1–h6; a classe existir sem efeito próprio é o que permite usá-la
+   também fora de uma heading (um <span> de número grande, por exemplo). */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* Herança de tinta: qualquer conteúdo fora do Faça Amigos herda a tinta
+   escura do sistema. Substitui as antigas cadeias `:not(.text-white)
+   :not(.text-brand-200)…`, que existiam só para abrir exceções ao texto
+   claro — não há mais texto claro a excluir, e cada exceção legítima
+   (badges, chips, status) agora tem a própria classe semântica, que vence
+   por especificidade sem precisar de !important. */
+.tab-panel:not(.fa-section),
+.card:not(.fa-section *):not(.fa-tab-panel *),
+.form-card:not(.fa-section *):not(.fa-tab-panel *),
+.table-wrap:not(.fa-section *):not(.fa-tab-panel *),
+aside:not(.fa-section *),
+header:not(.fa-section *) {
+  color: var(--ink);
+}
+
+/* .glass-card ganhou uma definição base própria (acima, perto do topo do
+   arquivo) quando os remendos por aba foram removidos, mas telas adicionadas
+   depois deste refactor (Pós-visita, por ex.) ainda podem trazer markup com
+   classes utilitárias escuras (bg-brand-9xx, text-white...) dentro dele —
+   este bloco força o tema claro nesses casos, sem depender de cada tela ter
+   sido migrada para as classes semânticas. */
+.glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4,
+.glass-card p:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]),
+.glass-card span:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]):not(.tab-icon):not(.group-icon),
+.glass-card label,
+.glass-card td,
+.glass-card li,
+.glass-card div:not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-red"]):not([class*="text-indigo"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-danger"]):not([class*="text-info"]) {
+  color: var(--ink) !important;
+}
+
+.glass-card {
+  background-color: var(--paper) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
+}
+
+/* Descrições, subtítulos e metadados secundários. */
+.text-secondary:not(.fa-section *),
+.subtitle:not(.fa-section *),
+.modal-sub:not(.fa-section *),
+.widget-description:not(.fa-section *),
+.user-role:not(.fa-section *) {
+  color: var(--ink-muted);
+}
+
+/* Rótulos de formulário. */
+label:not(.fa-section *):not(.fa-tab-panel *) {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Caixas de seleção e radios seguem a cor de acento do sistema em vez do
+   azul padrão do navegador, que era o único ponto da interface fora da
+   paleta. `accent-color` é a propriedade certa: `color` não pinta esses
+   controles. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--edge-accent);
+}
+
+/* Placeholder e campo desabilitado: --ink-faint é o único token do sistema
+   que não fecha AAA em todas as superfícies (7,2:1 no branco, 6,4:1 nas
+   mais tonalizadas). Fica restrito a estes dois casos, que a WCAG 1.4.3
+   trata como texto incidental, e nunca a texto de conteúdo. */
+/* !important obrigatório: o preflight do tailwind-compiled.css declara
+   `input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}` com a
+   mesma especificidade e é carregado DEPOIS deste arquivo — sem isto, todo
+   placeholder do app renderiza em #9CA3AF, que dá 2,5:1 sobre branco. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-faint) !important;
+  opacity: 1 !important;
+}
+
+input:disabled:not(.fa-section *),
+select:disabled:not(.fa-section *),
+textarea:disabled:not(.fa-section *),
+button:disabled:not(.fa-section *) {
+  color: var(--ink-faint);
+  background-color: var(--surface-3);
+  cursor: not-allowed;
+}
+
+/* Sidebar Quick Actions Grid (2x2) */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background-color: var(--sidebar-border);
+  border-bottom: 1px solid var(--sidebar-border);
+  margin-bottom: 10px;
+}
+
+.quick-action-item {
+  background-color: var(--surface-1);
+  border: none;
+  color: var(--ink-muted);
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 500;
+  width: 100%;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.quick-action-item i {
+  font-size: 16px;
+  color: var(--ink-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.quick-action-item:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: var(--ink-strong);
+}
+
+.quick-action-item:hover i {
+  color: var(--edge-accent);
+  transform: translateY(-2px);
+}
+
+/* Sidebar Menu Tweaks */
+.sidebar-nav {
+  padding-top: 8px;
+}
+
+/* Item de navegação ativo. O preenchimento azul-marinho com texto branco
+   deu lugar a três sinais redundantes — tint, trilho de acento e peso da
+   fonte — para que o estado ative sem depender só de matiz. O trilho é
+   inset box-shadow em vez de border-left para não deslocar o layout na
+   troca de estado. */
+.tab-btn.active, .sidebar-group-header[aria-expanded="true"], .sidebar-group-header.is-direct.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--sidebar-active-rail);
+}
+
+.tab-btn.active .tab-icon { color: var(--sidebar-active-rail); }
+
+.tab-btn:hover:not(.active) {
+  background-color: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-hover);
+}
+
+/* Header/Topbar adjustments */
+.topbar {
+  background-color: var(--topbar-bg) !important;
+  border-bottom: 1px solid var(--topbar-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  /* min-height (não height): em telas estreitas o topbar empilha em várias
+     linhas (ver @media max-width:768px acima, que muda para flex-direction:
+     column) — uma altura fixa cortava essas linhas extras e o menu
+     "Trocar Módulo"/badge/avatar vazava por cima do conteúdo abaixo. */
+  min-height: 70px;
+  padding: 0 24px;
+}
+
+.topbar-title {
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+}
+
+.hamburger-bar {
+  background-color: var(--ink) !important;
+}
+
+.user-box {
+  gap: 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Botões de ação. O preenchimento sólido com rótulo branco saiu: a
+   affordance passa a vir do tint, da borda de acento e do trilho lateral,
+   mantendo o rótulo em tinta escura. */
+.btn-primary, .btn-submit, button[type="submit"] {
+  background-color: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border: 1.5px solid var(--tone-success-line);
+  border-radius: 8px;
+  font-weight: 700;
+  padding: 10px 20px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: inset 3px 0 0 var(--tone-success-line);
+}
+
+.btn-primary:hover, .btn-submit:hover, button[type="submit"]:hover {
+  background-color: var(--tone-success-hover);
+}
+
+.btn-primary:focus-visible, .btn-submit:focus-visible, button[type="submit"]:focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
+}
+
+/* Card layout formatting: border radius, smooth shadows */
+.card:not(.fa-section *):not(.fa-tab-panel *),
+.form-card:not(.fa-section *):not(.fa-tab-panel *),
+.table-wrap:not(.fa-section *):not(.fa-tab-panel *) {
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--edge-default) !important;
+  background-color: var(--surface-1) !important;
+}
+
+.fa-section .card, .fa-section .form-card, .fa-section .table-wrap,
+.fa-tab-panel .card, .fa-tab-panel .form-card, .fa-tab-panel .table-wrap {
+  border-radius: 8px !important;
+  box-shadow: var(--fa-shadow-sm) !important;
+  border: 1px solid var(--gray-100) !important;
+  background-color: var(--white) !important;
+}
+
+/* Contadores de sincronização e notificação. O disco vermelho sólido com
+   numeral branco dava 3,7:1 num texto de 0,65rem; agora o alarme é a borda
+   de 2px e o numeral fica em tinta escura (9,2:1). */
+.sync-badge, .notificacao-badge {
+  background-color: var(--tone-danger-soft) !important;
+  color: var(--tone-danger-ink) !important;
+  border: 2px solid var(--tone-danger-line) !important;
+}
+
+/* Safe areas (notch/status bar no iOS, cutout/status bar no Android).
+   Antes dependia de uma classe "device-ios" no <body> que nunca chegava a
+   ser aplicada no app principal (só existe em bluedox.js, outra tela) —
+   ou seja, esse ajuste nunca rodava de verdade e o topbar/sidebar ficavam
+   por baixo do notch/status bar. Usa env() direto, com fallback 0px — base
+   universal que cobre Android e o desktop; iOS ganha um tratamento mais
+   completo (topbar translúcida) em `.idiom-ios .topbar` mais abaixo, que
+   herda este mesmo padding-top sem conflito (mesma propriedade, mesmo valor,
+   seletor mais específico). */
+.topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: calc(70px + env(safe-area-inset-top, 0px));
+}
+
+.sidebar {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ===================================================================
+   CONTROLE DE PONTO — botões de marcação
+   -------------------------------------------------------------------
+   Os seis botões usavam preenchimento sólido vivo com rótulo branco.
+   Cada um passa a ser uma tríade tint / borda de acento / tinta escura,
+   com um trilho lateral de 4px reforçando a semântica da marcação.
+   O antigo bloco de dupla-ID que forçava `color:#ffffff` existia só para
+   vencer a regra genérica `.text-xs { color: var(--ink) !important }`;
+   com os dois lados removidos, a especificidade normal já basta.
+   =================================================================== */
+#tab-controle-ponto #btn-ponto-ativar-cam,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria,
+#tab-controle-ponto #btn-ponto-entrada,
+#tab-controle-ponto #btn-ponto-saida-int,
+#tab-controle-ponto #btn-ponto-retorno-int,
+#tab-controle-ponto #btn-ponto-saida {
+  border-width: 1.5px;
+  border-style: solid;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#tab-controle-ponto #btn-ponto-ativar-cam,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria {
+  background-color: var(--tone-info-soft);
+  color: var(--tone-info-ink);
+  border-color: var(--tone-info-line);
+  box-shadow: inset 4px 0 0 var(--tone-info-line);
+}
+
+#tab-controle-ponto #btn-ponto-ativar-cam:hover,
+#tab-controle-ponto #btn-ponto-cadastrar-biometria:hover {
+  background-color: var(--tone-info-hover);
+}
+
+#tab-controle-ponto #btn-ponto-entrada {
+  background-color: var(--tone-success-soft);
+  color: var(--tone-success-ink);
+  border-color: var(--tone-success-line);
+  box-shadow: inset 4px 0 0 var(--tone-success-line);
+}
+
+#tab-controle-ponto #btn-ponto-entrada:hover {
+  background-color: var(--tone-success-hover);
+}
+
+#tab-controle-ponto #btn-ponto-saida-int,
+#tab-controle-ponto #btn-ponto-retorno-int {
+  background-color: var(--tone-warning-soft);
+  color: var(--tone-warning-ink);
+  border-color: var(--tone-warning-line);
+  box-shadow: inset 4px 0 0 var(--tone-warning-line);
+}
+
+#tab-controle-ponto #btn-ponto-saida-int:hover,
+#tab-controle-ponto #btn-ponto-retorno-int:hover {
+  background-color: var(--tone-warning-hover);
+}
+
+/* Retorno do intervalo usa a mesma família de atenção da saída, mas com
+   trilho tracejado — a distinção não pode depender só de matiz. */
+#tab-controle-ponto #btn-ponto-retorno-int {
+  border-style: dashed;
+}
+
+#tab-controle-ponto #btn-ponto-saida {
+  background-color: var(--tone-danger-soft);
+  color: var(--tone-danger-ink);
+  border-color: var(--tone-danger-line);
+  box-shadow: inset 4px 0 0 var(--tone-danger-line);
+}
+
+#tab-controle-ponto #btn-ponto-saida:hover {
+  background-color: var(--tone-danger-hover);
+}
+
+#tab-controle-ponto button:focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   IDIOMAS DE PLATAFORMA
+   --------------------------------------------------------------------------
+   A paleta é a mesma nos três — os tokens do design system claro não mudam
+   aqui. O que muda é convenção: proporções da navegação, forma dos controles,
+   apresentação dos modais e curvas de movimento.
+
+   Todas as regras são prefixadas por `.idiom-*` no <html>, o que dá
+   especificidade 0,2,0 e vence qualquer utilitário de uma classe do
+   tailwind-compiled.css sem precisar de !important.
+
+   Cuidado deliberado: nenhuma regra de idioma define `display` em elemento
+   que o JS controla por `.hidden` (#bottom-nav, #fab-novo-registro, os 17
+   .tab-panel, #btn-instalar-pwa). `.hidden` é `display:none !important` e
+   continua ganhando — mas depender disso seria frágil.
+   ========================================================================== */
+
+:root {
+  --nav-inferior-altura: 64px;
+  --barra-superior-altura: 70px;
+  --motion-padrao: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   iOS — Human Interface Guidelines
+   ========================================================================== */
+
+.idiom-ios {
+  --nav-inferior-altura: 49px;   /* 49pt, a altura de tab bar da HIG */
+  --barra-superior-altura: 44px;
+  --motion-padrao: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --motion-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Barra de abas translúcida. O desfoque é o que dá a sensação de iOS; sem
+   suporte, cai para superfície opaca em vez de virar um vidro cinza ilegível. */
+.idiom-ios.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-top: 0.5px solid rgba(46, 43, 37, 0.14);
+  box-shadow: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .idiom-ios.density-compact .bottom-nav {
+    background: var(--surface-1);
+  }
+}
+
+.idiom-ios.density-compact .bottom-nav-btn {
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.idiom-ios.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 22px;
+}
+
+/* Na HIG o item ativo é tinta, não pílula: o realce em bloco atrás do ícone é
+   vocabulário do Material. */
+.idiom-ios.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-line);
+  background: transparent;
+}
+
+/* Em tablets uma barra de 5 itens esticada de borda a borda fica absurda:
+   centraliza e limita a largura de cada destino. */
+@media (min-width: 600px) {
+  .idiom-ios.density-compact .bottom-nav {
+    justify-content: center;
+  }
+  .idiom-ios.density-compact .bottom-nav-btn {
+    flex: 0 1 110px;
+  }
+}
+
+/* Barra superior translúcida, no mesmo idioma da inferior. */
+.idiom-ios .topbar {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 0.5px solid rgba(46, 43, 37, 0.14);
+  box-shadow: none;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Título grande. Fora do topo, o cabeçalho de seção perde a moldura de card e
+   vira um título de 34px — o padrão de large title da HIG. Nenhuma marcação
+   nova: reaproveita o .section-header que já existe em 16 painéis. */
+.idiom-ios.density-compact .section-header {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 12px;
+  /* Desfaz a virada para linha em >=768px: um chip ao lado de um título de
+     34px não é large title, é um cabeçalho apertado. */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.idiom-ios.density-compact .section-header h2 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.08;
+}
+
+/* O título da barra superior só aparece quando o título grande sai de vista —
+   é a troca que a HIG faz ao rolar. A classe vem do IntersectionObserver. */
+.idiom-ios.density-compact .topbar-title {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s var(--motion-padrao), transform 0.22s var(--motion-padrao);
+}
+
+.idiom-ios.density-compact.title-collapsed .topbar-title {
+  opacity: 1;
+  transform: none;
+}
+
+/* Modais como sheet: sobem de baixo, com alça. */
+.idiom-ios.density-compact .modal-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.idiom-ios.density-compact .modal {
+  width: 100%;
+  max-width: none;
+  border-radius: 14px 14px 0 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: sheetSobe 0.35s var(--motion-sheet) forwards;
+}
+
+.idiom-ios.density-compact .modal::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--edge-default);
+  margin: -8px auto 16px;
+}
+
+@keyframes sheetSobe {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Controle segmentado no desenho iOS: trilho fechado e pastilha branca. */
+.idiom-ios .segmented {
+  background: var(--surface-3);
+  border: none;
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.idiom-ios .seg-btn {
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.idiom-ios .seg-btn.active {
+  background: var(--surface-1);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Resposta ao toque por opacidade — a HIG não tem ripple. */
+.idiom-ios button:active,
+.idiom-ios .tab-btn:active,
+.idiom-ios .bottom-nav-btn:active,
+.idiom-ios .quick-action-item:active {
+  opacity: 0.55;
+  transition: opacity 0s;
+}
+
+/* Rolagem com inércia; contenção para o toque na gaveta e no sheet não
+   arrastar a página atrás. */
+.idiom-ios #main-content,
+.idiom-ios .table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.idiom-ios .sidebar,
+.idiom-ios .modal {
+  overscroll-behavior: contain;
+}
+
+/* A HIG não tem botão de ação flutuante: a ação primária mora na barra de
+   abas ou na barra superior. */
+.idiom-ios .fab {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Android — Material 3
+   ========================================================================== */
+
+.idiom-android {
+  --nav-inferior-altura: 80px;   /* 80dp, a altura de navigation bar do M3 */
+  --barra-superior-altura: 64px;
+  --motion-padrao: cubic-bezier(0.2, 0, 0, 1);          /* emphasized */
+  --motion-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* O Material usa elevação, não translucidez: superfície opaca com sombra. */
+.idiom-android.density-compact .bottom-nav {
+  height: calc(var(--nav-inferior-altura) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-1);
+  border-top: none;
+  box-shadow: 0 -1px 3px rgba(46, 43, 37, 0.08);
+}
+
+.idiom-android.density-compact .bottom-nav-btn {
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  position: relative;
+  padding-top: 12px;
+}
+
+.idiom-android.density-compact .bottom-nav-btn .nav-icon {
+  font-size: 20px;
+  position: relative;
+  z-index: 1;
+  /* espaço para a pílula indicadora respirar em volta do ícone */
+  padding: 4px 20px;
+}
+
+/* Indicador em pílula atrás do ÍCONE — não atrás do rótulo. É a diferença
+   visual mais concreta entre a navigation bar do M3 e a tab bar da HIG. */
+.idiom-android.density-compact .bottom-nav-btn .nav-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: var(--tone-accent-soft);
+  transform: scaleX(0.4);
+  opacity: 0;
+  transition: transform 0.2s var(--motion-padrao), opacity 0.2s var(--motion-padrao);
+  z-index: -1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active .nav-icon::before {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.idiom-android.density-compact .bottom-nav-btn.active {
+  color: var(--tone-accent-ink);
+  font-weight: 600;
+  background: transparent;
+}
+
+/* Top app bar: título à esquerda, elevação ao rolar. */
+.idiom-android .topbar {
+  box-shadow: none;
+  transition: box-shadow 0.2s var(--motion-padrao), background-color 0.2s var(--motion-padrao);
+}
+
+.idiom-android.title-collapsed .topbar {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+
+/* FAB do M3 tem canto de 16dp — não é círculo. */
+.idiom-android.density-compact .fab {
+  border-radius: 16px;
+}
+
+/* Ripple. O elemento é criado pelo JS e removido ao fim da animação. */
+.idiom-android .ripple-alvo {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-efeito {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: rippleExpande 0.55s var(--motion-decel);
+  background-color: rgba(46, 43, 37, 0.12);
+  pointer-events: none;
+}
+
+@keyframes rippleExpande {
+  to { transform: scale(3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ripple-efeito { display: none; }
+  .idiom-ios.density-compact .modal { animation: none; }
+}
+
+/* ==========================================================================
+   Desktop
+   ========================================================================== */
+
+/* Estados de hover só onde existe ponteiro fino: em tela de toque o hover
+   "gruda" depois do toque e o elemento fica preso no estado ativo. */
+@media (hover: hover) and (pointer: fine) {
+  .kpi-item:hover,
+  .logo-dot:hover,
+  .quick-action-item:hover i {
+    transform: translateY(-2px);
+  }
+}
+
+.idiom-desktop.density-expanded main {
+  padding: 24px 32px;
+}
+
+/* Anel de foco visível em toda a navegação por teclado — o desktop é o único
+   idioma em que ela é o caminho principal. */
+.idiom-desktop a:focus-visible,
+.idiom-desktop button:focus-visible,
+.idiom-desktop input:focus-visible,
+.idiom-desktop select:focus-visible,
+.idiom-desktop textarea:focus-visible,
+.idiom-desktop [tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 3px solid var(--edge-focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Comum aos dois idiomas de toque
+   ========================================================================== */
+
+/* Área segura lateral: em paisagem, num aparelho com recorte, o conteúdo
+   ficaria embaixo da moldura. */
+.density-compact .topbar,
+.density-compact main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* O indicador de tempo real é posicionado por cssText inline no
+   realtime.js (bottom:10px). Na densidade compacta ele cairia em cima da
+   barra de navegação; o !important é necessário para vencer o estilo inline. */
+.density-compact #rt-indicator {
+  bottom: calc(var(--nav-inferior-altura) + 12px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* A sub-navegação do Faça Amigos tem 6 botões com flex:1 e nowrap: em 390px
+   cada um fica com ~55px e o texto estoura. É o único ponto DENTRO de um
+   painel que precisa de regra por densidade. */
+.density-compact .fa-subnav {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.density-compact .fa-subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.density-compact .fa-sub-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+}
+
+/* ==========================================================================
+   Balão de descrição (tooltip) — qualquer elemento com data-tip="texto"
+   ganha uma legenda curta ao passar o mouse, sem precisar de JS.
+   ========================================================================== */
+[data-tip] {
+  position: relative;
+}
+
+/* Badge piscante de aniversariantes pendentes, ao lado do texto do menu. */
+.an-badge {
+  margin-left: auto;
+  background: #f97316;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  animation: an-badge-piscar 1.4s ease-in-out infinite;
+}
+@keyframes an-badge-piscar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.88); }
+}
+
+/* Mesmo badge, na cor do WhatsApp para a Pós-visita. */
+.pv-badge {
+  background: #25D366;
+}
+
+/* Fila da Pós-visita: grade responsiva de 1 a 6 colunas em vez de lista
+   1-card-por-linha — melhor aproveitamento de tela em telas largas. */
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 1600px) {
+  .pv-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* Formulário de indicação recebida: é preenchido no balcão, com a família
+   esperando, então os campos acompanham a largura disponível em vez de
+   espremer quatro colunas fixas num tablet. */
+.pv-ind-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-tip]::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border: 5px solid transparent;
+  border-top-color: #0f172a;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+}
+
+[data-tip]:hover::after,
+[data-tip]:hover::before,
+[data-tip]:focus-visible::after,
+[data-tip]:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+
+/* Cabeçalho clicável dos cards recolhíveis do Painel de Configurações
+   (Operações, WhatsApp, Contador). Sem isso o <button> herda o visual
+   padrão do navegador e destoa do card. */
+.config-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.config-toggle:hover .config-toggle-icon {
+  color: var(--brand-500, #7a4a2b);
+}
+.config-toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+/* ==========================================================================
+   PAINEL INSIGHTS IA (insights-ia.js / aba #tab-insights-ia)
+   Ancorado nos tokens de :root para seguir o mesmo sistema visual do resto
+   do app, inclusive no tema escuro (que redefine as mesmas variáveis).
+   ========================================================================== */
+
+.ia-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.ia-card-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.ia-card-topo h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.ia-card-topo h3 i { color: var(--wine); }
+
+.ia-card-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.ia-select {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+/* Toggle Cacau Show / FaçaAmigos dentro de Insights IA */
+.ia-negocio-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+
+.ia-negocio-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ia-negocio-btn:hover { border-color: var(--wine); color: var(--ink); }
+
+.ia-negocio-btn.active {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: #fff;
+}
+
+.ia-negocio-bloco.hidden { display: none; }
+
+/* --- estados --- */
+.ia-loading, .ia-erro {
+  font-size: 12.5px;
+  padding: 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ia-loading { color: var(--muted); background: var(--cream); }
+.ia-erro { color: var(--red); background: var(--red-light); border: 1px solid var(--red); }
+
+/* --- selo de procedência: IA, fallback ou sem dados --- */
+.ia-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.ia-selo-ok { background: var(--green-light); color: var(--gold-dark); border: 1px solid var(--green); }
+.ia-selo-alerta { background: var(--amber-light); color: #8a4b00; border: 1px solid var(--amber); }
+.ia-selo-neutro { background: var(--cream); color: var(--muted); border: 1px solid var(--border); }
+
+/* --- tipografia do conteúdo --- */
+.ia-manchete {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.ia-texto {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.ia-destaque { color: var(--gold-dark); }
+.ia-atencao { color: #8a4b00; }
+.ia-subtitulo {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--wine);
+  margin: 16px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ia-lista { margin: 0 0 10px; padding-left: 20px; }
+.ia-lista li {
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.ia-lista-num { list-style: decimal; }
+.ia-fechamento {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  border-left: 3px solid var(--wine);
+  padding-left: 10px;
+  margin-top: 14px;
+}
+.ia-rodape-aviso {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- faixa de métricas --- */
+.ia-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ia-metrica {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ia-metrica-num { font-size: 16px; font-weight: 800; color: var(--ink); }
+.ia-metrica-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.ia-metrica-alerta { background: var(--red-light); border-color: var(--red); }
+.ia-metrica-alerta .ia-metrica-num { color: var(--red); }
+.ia-metrica-ok { background: var(--green-light); border-color: var(--green); }
+.ia-metrica-ok .ia-metrica-num { color: var(--gold-dark); }
+
+/* --- linhas de loja no briefing --- */
+.ia-lojas { margin-bottom: 12px; }
+.ia-loja-linha {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 0.5fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.ia-loja-nome { font-weight: 700; color: var(--ink); }
+.ia-loja-valor { font-weight: 700; color: var(--ink); }
+.ia-loja-meta { color: var(--muted); font-size: 11px; }
+.ia-loja-pct { font-weight: 800; text-align: right; }
+.ia-pos { color: var(--green); }
+.ia-neg { color: var(--red); }
+
+/* --- achados da auditoria, por severidade --- */
+.ia-achado {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--cream);
+}
+.ia-sev-alta { border-left-color: var(--red); }
+.ia-sev-media { border-left-color: var(--amber); }
+.ia-sev-baixa { border-left-color: var(--blue); }
+.ia-achado-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.ia-achado-topo strong { font-size: 12.5px; color: var(--ink); }
+.ia-sev-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.ia-sev-alta .ia-sev-tag { color: var(--red); border-color: var(--red); }
+.ia-sev-media .ia-sev-tag { color: var(--amber); border-color: var(--amber); }
+.ia-achado-detalhe { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0 0 6px; }
+.ia-achado-acao { font-size: 12px; color: var(--ink); font-weight: 600; line-height: 1.5; margin: 0; }
+.ia-achado-acao i { color: var(--wine); margin-right: 4px; }
+
+/* --- prévia da notificação do copiloto --- */
+.ia-push-preview {
+  background: var(--wine-dark);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #fff;
+  max-width: 460px;
+}
+.ia-push-titulo { font-size: 11.5px; font-weight: 800; opacity: 0.85; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.ia-push-corpo { font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  .ia-loja-linha { grid-template-columns: 1fr 1fr; row-gap: 2px; }
+  .ia-card-topo { align-items: flex-start; }
+}
+
+/* --- Destaque de Último Acesso no Login --- */
+.login-user-card.ultimo-acesso {
+  position: relative;
+  border: 2px solid #8b263e !important;
+  background: linear-gradient(135deg, rgba(139, 38, 62, 0.08) 0%, rgba(255, 213, 128, 0.15) 100%) !important;
+  box-shadow: 0 4px 14px rgba(139, 38, 62, 0.2);
+}
+.login-user-badge {
+  position: absolute;
+  top: -9px;
+  right: 4px;
+  background: #8b263e;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  z-index: 2;
+}
+
+/* ==========================================================================
+   PONTO — PAINEL ADMINISTRATIVO EM TELAS DE COMPUTADOR
+   Resumo da Jornada, Histórico Mensal e Relatório de Ponto por Operação
+   (webapp/index.html, dentro de #ponto-painel-admin) foram desenhados
+   mobile-first: colunas estreitas e fonte pequena mesmo com bastante largura
+   sobrando em monitor. Os ajustes abaixo só entram a partir de 1024px — o
+   layout de celular (a maioria do uso diário de bater ponto) não muda em
+   nada. Segue a mesma convenção de breakpoint "desktop-first override" já
+   usada no resto deste arquivo (@media max-width para mobile) e o padrão de
+   ganho extra em telas bem largas visto em .pv-grid (@media min-width:1600px).
+   ========================================================================== */
+@media (min-width: 1024px) {
+  /* Resumo da Jornada / Atestado / Histórico / Relatório: mais respiro */
+  #ponto-painel-admin .glass-card {
+    padding: 1.75rem;
+  }
+
+  /* Mini-cards de Meta Diária / Saldo Acumulado dentro do Resumo da Jornada */
+  .ponto-resumo-stats {
+    gap: 1rem;
+  }
+  .ponto-resumo-stats > div {
+    padding: 1rem 0.75rem;
+  }
+  .ponto-resumo-stats strong {
+    font-size: 1.4rem;
+  }
+
+  /* Histórico Mensal e Relatório de Ponto por Operação: tabelas menos
+     cramped — fonte e espaçamento de célula um pouco maiores. */
+  .ponto-tabela-desktop table {
+    font-size: 0.8125rem;
+  }
+  .ponto-tabela-desktop th,
+  .ponto-tabela-desktop td {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  /* Em monitores bem largos a câmera do registro de ponto não precisa de
+     1/3 da tela — o painel administrativo (Resumo/Histórico/Relatório)
+     ganha mais espaço horizontal. O !important é necessário aqui porque
+     tailwind-compiled.css é carregado depois de style.css no <head> e
+     "lg:grid-cols-3" venceria em empate de especificidade. */
+  .ponto-layout-grid {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+}
+
+/* ==========================================================================
+   Toast / Badge de Feedback de Navegação e Gestos
+   ========================================================================== */
+.toast-nav-badge {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(40px) scale(0.9);
+  background: rgba(15, 23, 42, 0.88);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999999;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+
+.toast-nav-badge.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* ==========================================================================
+   INTEGRAÇÃO IFOOD (ESTILOS DO PAINEL NATIVO)
+   ========================================================================== */
+.grid-lojas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.card-loja {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-loja:hover {
+  border-color: #ea1d2c;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(234, 29, 44, 0.08);
+}
+.card-loja.selecionada {
+  border-color: #ea1d2c;
+  box-shadow: 0 0 0 2px rgba(234, 29, 44, 0.2);
+  background: #fffafa;
+}
+.card-loja .nome {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink, #0f172a);
+  margin-bottom: 8px;
+}
+.card-loja .linha-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--ink-muted, #64748b);
+  margin-top: 8px;
+}
+.badge-ifood, .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-block;
+}
+.badge-ifood.ok, .badge.ok { background: #dcfce7; color: #14532d; }
+.badge-ifood.pendente, .badge.pendente { background: #fef3c7; color: #78350f; }
+.badge-ifood.pausado, .badge.pausado { background: #f1f5f9; color: #64748b; }
+
+.painel-ifood, .painel {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.painel-ifood nav.abas button.ativa, nav.abas button.ativa {
+  color: #ea1d2c;
+  border-bottom-color: #ea1d2c;
+}
+.feedback.sucesso { background: #dcfce7; color: #14532d; display: block !important; }
+.feedback.erro { background: #fee2e2; color: #991b1b; display: block !important; }
+
+/* MÓDULO IFOOD - OCULTO EM TODAS AS INSTÂNCIAS */
+#btn-mod-ifood,
+.card-ifood,
+#tab-btn-ifood,
+#tab-ifood,
+.ifood-container,
+.painel-ifood {
+  display: none !important;
+}
+
+/* ==========================================================================
+   TIPOGRAFIA DISPLAY EM PEÇAS QUE NÃO SÃO CABEÇALHO
+   --------------------------------------------------------------------------
+   O bloco global acima já manda h1–h6 para a Caprasimo. Estes quatro não são
+   heading no markup, mas ocupam o mesmo papel visual — nome do produto e
+   números-chave —, e é o que o design publicado faz com eles.
+   font-weight: 400 porque a face só existe nesse peso (ver :root).
+   ========================================================================== */
+.topbar-title,
+.dash-total,
+.loja-card .valor,
+.stat-card .valor {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+}
+
+/* O !important de `.topbar-title { font-weight: 700 }`, lá em cima, é
+   anterior a este e perderia por ordem de documento — mas só se este também
+   for !important, que é o caso acima. */
+
+/* ==========================================================================
+   CASCA COMPACTA — CABEÇALHO DE PERFIL
+   --------------------------------------------------------------------------
+   No desktop o topo é uma barra de ferramentas: marca à esquerda, uma fila
+   de botões à direita. No celular o design publicado troca isso por um
+   cabeçalho de identidade — avatar, nome, escopo e o sino — porque é a única
+   superfície onde cabe dizer "estes números são da Marambaia".
+
+   A reordenação é feita com `display: contents` na .user-box, e não movendo
+   markup: os mesmos elementos servem as duas densidades, então o avatar não
+   pode existir em dois lugares do DOM. `contents` dissolve o contêiner e
+   promove os filhos a itens do flex do .topbar, onde `order` os coloca na
+   ordem do design (avatar → identidade → sino) sem duplicar nada.
+   ========================================================================== */
+.density-compact .topbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+}
+
+.density-compact .user-box {
+  display: contents;
+}
+
+.density-compact .topbar-left { order: 1; flex: none; gap: 4px; }
+.density-compact #topbar-user-profile { order: 2; flex: 1 1 auto; min-width: 0; }
+.density-compact #btn-instalar-pwa { order: 3; }
+.density-compact .notifications-wrapper { order: 4; flex: none; }
+
+/* A marca sai: o nome do app já está no ícone da tela inicial e na splash, e
+   o cabeçalho compacto tem 200px úteis para nome + escopo. */
+.density-compact .topbar-brand-mobile { display: none; }
+
+/* Duplicatas da gaveta. Todas continuam alcançáveis pelo hambúrguer/"Mais":
+   "Configurações" é aba na barra lateral e "Trocar Módulo" está em
+   .sidebar-actions. Mantê-las aqui espremeria o escopo até as reticências. */
+.density-compact #btn-global-configuracoes,
+.density-compact #owner-module-switch,
+.density-compact #btn-topbar-trocar-modulo {
+  display: none !important;
+}
+
+/* Instalar o PWA importa justamente aqui, então o botão fica — só perde o
+   rótulo. font-size: 0 no botão apaga o nó de texto solto (não há elemento
+   para esconder); o ícone recupera o seu tamanho. */
+.density-compact #btn-instalar-pwa {
+  font-size: 0;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+}
+.density-compact #btn-instalar-pwa i { font-size: 15px; }
+
+/* Os três !important vencem o `style=` inline do #topbar-user-profile, que
+   desenha o separador vertical do desktop. */
+.density-compact #topbar-user-profile {
+  border-left: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  gap: 11px !important;
+}
+
+.density-compact #topbar-user-avatar {
+  width: 38px !important;
+  height: 38px !important;
+  font-size: 14px !important;
+  background: var(--tone-accent-soft) !important;
+  color: var(--tone-accent-ink) !important;
+  border-color: var(--edge-accent) !important;
+  flex: none;
+}
+
+.topbar-user-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* No desktop o escopo já está na barra lateral; mostrá-lo aqui seria a mesma
+   frase duas vezes na mesma tela. */
+.topbar-user-scope { display: none; }
+
+.density-compact .topbar-user-ident { flex: 1 1 auto; }
+
+.density-compact #topbar-user-name {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: var(--ink-strong) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.density-compact .topbar-user-scope {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* O sino é o destino de "Avisos" do design. Ele já existe e já traz o
+   contador; na casca compacta só cresce para o alvo de toque mínimo. */
+.density-compact .notifications-wrapper .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-default);
+  background: var(--surface-1);
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — BARRA INFERIOR NA PALETA NOVA
+   --------------------------------------------------------------------------
+   A estrutura (posição, alturas por idioma, pílula indicadora do M3) é a que
+   já estava publicada. Muda só o acabamento, para bater com o design: a
+   barra assenta no tom mais claro, não no areia dos cartões, e a pílula é
+   redonda de verdade em vez de 16dp.
+   ========================================================================== */
+.density-compact .bottom-nav {
+  background: var(--surface-2);
+  border-top: 1px solid var(--edge-subtle);
+}
+
+.idiom-android.density-compact .bottom-nav {
+  background: var(--surface-2);
+}
+
+.idiom-android.density-compact .bottom-nav-btn .nav-icon::before {
+  border-radius: 999px;
+}
+
+.density-compact .bottom-nav-btn .nav-rotulo {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Cinco destinos entram em 390px, mas sem folga para padding lateral: o
+   rótulo precisa da largura inteira do botão para não truncar "Inventário". */
+.density-compact .bottom-nav-btn { padding: 0 2px; }
+
+/* ==========================================================================
+   CASCA COMPACTA — "Envelopes Aguardando Retirada" (Owner) em cartões
+   --------------------------------------------------------------------------
+   A tabela ao lado tem 9 colunas fixas (checkbox, loja, consultor, data,
+   valor, dias, foto, aviso, ação) — em 375px ela vira uma faixa de ~960px
+   dentro de uma coluna de ~340px, rolável na horizontal e ilegível. Os
+   cartões são gerados pela MESMA renderDashboard() a partir dos mesmos
+   `filtrados`/`selecionadosPendentes` — nunca uma segunda fonte de dados.
+   ========================================================================== */
+.pendentes-cards { display: none; }
+
+.density-compact .pendentes-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.density-compact #envelopes-pendentes-secao .table-wrap {
+  display: none;
+}
+
+.pendentes-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1.5px solid var(--edge-subtle);
+  text-align: left;
+  cursor: pointer;
+  min-height: 64px;
+}
+
+.pendentes-card.selected {
+  border-color: var(--edge-accent);
+  background: var(--tone-accent-soft);
+}
+
+.pendentes-card-check {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  border: 2px solid var(--edge-strong);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 13px;
+}
+
+.pendentes-card.selected .pendentes-card-check {
+  border-color: var(--edge-accent);
+  background: var(--tone-accent-line);
+  color: var(--surface-canvas);
+}
+
+.pendentes-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pendentes-card-loja {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--ink-strong);
+}
+
+.pendentes-card-meta {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pendentes-card-dias {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.pendentes-card-dias.risco {
+  color: var(--tone-danger-ink);
+}
+
+.pendentes-card-valor {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--ink-strong);
+  text-align: right;
+}
+
+/* Envelope já retirado por outra pessoa entre um render e outro, ou perfil
+   sem permissão de retirada: cartão informativo, sem toque nem checkbox. */
+.pendentes-card.bloqueado {
+  cursor: default;
+}
+.pendentes-card-lock {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: right;
+  max-width: 90px;
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — Feedback de bipagem (NF-e e Inventário)
+   --------------------------------------------------------------------------
+   Animações copiadas do design mobile publicado (flashRing/checkPop): a
+   moldura da câmera acende em verde-oliva e esmaece pro laranja de marca,
+   com um selo de check pulsando por cima, a cada leitura confirmada.
+   ========================================================================== */
+@keyframes flashRing {
+  0% { border-color: var(--tone-success-line); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone-success-line) 35%, transparent); }
+  100% { border-color: var(--edge-subtle); box-shadow: none; }
+}
+@keyframes checkPop {
+  0% { transform: scale(.5); opacity: 0; }
+  40% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.scan-flash {
+  animation: flashRing .6s ease-out;
+}
+
+.scan-check-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--tone-success-line);
+  color: var(--surface-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  animation: checkPop .34s ease-out;
+  z-index: 2;
+}
+
+/* O painel inteiro (contadores + cartão + lista) só existe na casca
+   compacta: no desktop a tabela de produtos continua visível e é ela quem
+   dá a confirmação, rolando até a linha bipada. */
+.bipe-mobile-panel { display: none; }
+
+.density-compact .bipe-mobile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.bipe-stats-row {
+  display: flex;
+  gap: 8px;
+}
+
+.bipe-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1px solid var(--edge-subtle);
+}
+
+.bipe-stat-valor {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--ink-strong);
+}
+
+.bipe-stat-alerta .bipe-stat-valor { color: var(--tone-warning-ink); }
+
+.bipe-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.bipe-feedback-card {
+  border-radius: var(--radius);
+  background: var(--tone-success-soft);
+  border: 1.5px solid var(--tone-success-line);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bipe-feedback-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bipe-feedback-qtd {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--tone-success-ink);
+  flex: none;
+}
+
+.bipe-feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bipe-feedback-nome {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--tone-success-ink);
+  line-height: 1.25;
+}
+
+.bipe-feedback-ean {
+  font-size: 11px;
+  color: var(--tone-success-ink);
+  opacity: .8;
+  font-variant-numeric: tabular-nums;
+}
+
+.bipe-feedback-card .bipe-btn-desfazer {
+  border-color: var(--tone-success-line);
+}
+
+/* Stepper de quantidade dentro do cartão de feedback do bipe — permite
+   corrigir a quantidade contada (+/- ou digitando um valor) sem sair da tela
+   de bipagem. Mesma paleta verde do cartão (.bipe-feedback-card). */
+.bipe-feedback-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bipe-feedback-stepper-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--tone-success-ink);
+  opacity: .85;
+}
+
+.bipe-stepper-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bipe-stepper-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 999px;
+  border: 1.5px solid var(--tone-success-line);
+  background: var(--surface-canvas);
+  color: var(--tone-success-ink);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bipe-stepper-btn:active {
+  background: var(--tone-success-soft);
+}
+
+.bipe-stepper-input {
+  width: 56px;
+  text-align: center;
+  background: var(--surface-canvas);
+  border: 1.5px solid var(--tone-success-line);
+  border-radius: 10px;
+  padding: 6px 0;
+  color: var(--tone-success-ink);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.bipe-stepper-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tone-success-line) 35%, transparent);
+}
+
+.bipe-lista-recentes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bipe-item-recente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+
+.bipe-item-qtd {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bipe-item-nome {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tabela de produto de NF-e: 6 colunas fixas, mesma classe de overflow que
+   já quebrava em "Envelopes Aguardando Retirada" (Owner). Sem equivalente em
+   cartão ainda — a revisão item a item de uma nota inteira continua sendo
+   tarefa de desktop; o mobile ganhou a bipagem rápida com feedback
+   (.bipe-mobile-panel, acima), não a edição linha a linha. */
+.density-compact #nf-tabela-produtos-wrap {
+  display: none;
+}
+
+/* Tabela de produto de Inventário: mesmo motivo (7 colunas fixas), mas AQUI
+   a lista inteira de produtos da loja tem um substituto em cartões
+   (#inv-produtos-cards, abaixo) — ao contrário da NF-e, o Owner precisa
+   revisar/editar item a item pelo celular, não só bipar. */
+.density-compact #inv-tabela-produtos-wrap {
+  display: none;
+}
+
+/* ==========================================================================
+   CASCA COMPACTA — "Inventário de Estoque" em cartões
+   --------------------------------------------------------------------------
+   A tabela ao lado tem 7 colunas fixas (cod_prod, produto, data entrada NF,
+   entrada CX, data validade, dias a vencer, qtd inventariada) — em 375px ela
+   vira uma faixa rolável ilegível. Os cartões são gerados pela MESMA
+   renderTable() a partir da MESMA lista `filteredProducts`, e o input de
+   quantidade grava no MESMO objeto `p` que a tabela usa — nunca uma segunda
+   fonte de dados.
+   ========================================================================== */
+.inv-produtos-cards { display: none; }
+
+.density-compact .inv-produtos-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inv-produto-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1.5px solid var(--edge-subtle);
+  border-left: 4px solid var(--edge-subtle);
+}
+
+.inv-produto-card.critico { border-left-color: var(--tone-danger-line); }
+.inv-produto-card.alerta { border-left-color: var(--tone-warning-line); }
+.inv-produto-card.ok { border-left-color: var(--tone-success-line); }
+
+.inv-produto-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inv-produto-card-cod {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-muted);
+  letter-spacing: 0.03em;
+}
+
+.inv-produto-card-status {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tone-success-soft);
+  color: var(--ink);
+}
+
+.inv-produto-card.critico .inv-produto-card-status { background: var(--tone-danger-soft); }
+.inv-produto-card.alerta .inv-produto-card-status { background: var(--tone-warning-soft); }
+.inv-produto-card.sem-validade .inv-produto-card-status { background: var(--surface-3); color: var(--ink-muted); }
+
+.inv-produto-card-nome {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.inv-produto-card-meta {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+
+.inv-produto-card-qtd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.inv-produto-card-qtd label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+
+.inv-produto-card-input {
+  width: 84px;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--edge-subtle);
+  border-radius: 10px;
+  padding: 6px 0;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.inv-produto-card-input:focus {
+  outline: none;
+  border-color: var(--edge-accent);
+}
+
+/* ==========================================================================
+   TELA INICIAL (login) — fundo sólido na cor predominante da logo
+   --------------------------------------------------------------------------
+   #533927 foi extraído por amostragem da própria arte (uploads/logo-...png):
+   média das cores do painel de fundo do ícone, excluindo os cantos claros
+   fora do quadrado arredondado. É a mesma cor de manifest.json
+   (background_color) e do #boot-splash — a tela de login é, na prática, a
+   continuação visual da splash até o app carregar.
+
+   Só #login-overlay, não .modal-overlay inteiro: essa classe é reaproveitada
+   por todo modal do sistema (confirmação, foto, sessão pausada) — trocar o
+   fundo ali afetaria diálogos que abrem por cima do app já carregado, onde o
+   véu translúcido com blur continua fazendo sentido (dá pra ver o que ficou
+   por trás). No login não há nada útil por trás pra ver.
+   ========================================================================== */
+#login-overlay.modal-overlay {
+  background: #533927;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

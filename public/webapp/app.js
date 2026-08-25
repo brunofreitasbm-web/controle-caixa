@@ -1,0 +1,16143 @@
+// ==========================================================================
+// Controle de Caixa
+// Banco de dados centralizado via API. Fallback para LocalStorage se offline.
+// ==========================================================================
+
+let API_BASE = window.location.protocol === "file:"
+  ? "http://localhost:5000/api"
+  : "/api";
+
+// Fase 2 do plano de arquitetura SaaS: todo fetch para a API leva o token de
+// sessão (currentUser.token, obtido no login) no header Authorization, se
+// existir — sem isso o servidor usa a organização padrão (ver
+// resolveTenantSession no backend), que hoje é a única que existe. Um
+// wrapper aqui evita editar os ~100 call sites de fetch(`${API_BASE}/...`)
+// espalhados neste arquivo.
+(function instalarAuthFetchWrapper() {
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = function(url, options = {}) {
+    const urlStr = typeof url === "string" ? url : (url && url.url) || "";
+    if (urlStr.startsWith(API_BASE) && typeof currentUser !== "undefined" && currentUser && currentUser.token) {
+      options = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${currentUser.token}` } };
+    }
+    return fetchOriginal(url, options);
+  };
+})();
+
+const STORAGE_KEY = "cacaushow_controle_caixa_v1";
+const USER_KEY = "cacaushow_current_user";
+const PIN_KEY = "cacaushow_pins_v1";
+const CONFIG_KEY = "cacaushow_config";
+const THEME_KEY = "cacaushow_theme";
+const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
+let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dinamicamente do config)
+
+const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
+const LOJAS_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
+
+// --- IDENTIDADE VISUAL DAS OPERAÇÕES ---
+// Emoji e cor fixos por operação (Cacau Show + Faça Amigos), usados em
+// selects, filtros, cards e badges para dar ao operador uma referência
+// visual imediata de qual operação ele está alimentando/filtrando.
+const OPERACOES_INFO = {
+  "Marambaia": { emoji: "🟣", cor: "#8b5cf6" },
+  "Icoaraci": { emoji: "🔵", cor: "#3b82f6" },
+  "Mário Covas": { emoji: "🟢", cor: "#22c55e" },
+  "Venda Direta": { emoji: "🟠", cor: "#f97316" },
+  "Grão Pará": { emoji: "🟤", cor: "#92400e" },
+  "ParqueShopping": { emoji: "🟡", cor: "#eab308" },
+  "Parque Circuito": { emoji: "🔴", cor: "#ef4444" }
+};
+
+// Apelidos/códigos usados em outros módulos (RH, NF-e, Ponto) para as
+// mesmas operações acima.
+const OPERACOES_ALIASES = {
+  "Grão-Pará": "Grão Pará",
+  "Playground": "ParqueShopping",
+  "FaçaAmigos Circuito": "Parque Circuito",
+  "9175": "Marambaia",
+  "4304": "Icoaraci",
+  "9201": "Mário Covas",
+  "fa-grao-para": "Grão Pará",
+  "fa-playground": "ParqueShopping",
+  "fa-parque": "Parque Circuito"
+};
+
+function opKey(nome) {
+  if (!nome) return null;
+  if (OPERACOES_INFO[nome]) return nome;
+  if (OPERACOES_ALIASES[nome]) return OPERACOES_ALIASES[nome];
+  return null;
+}
+function opEmoji(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].emoji : "📍";
+}
+function opCor(nome) {
+  const k = opKey(nome);
+  return k ? OPERACOES_INFO[k].cor : "#9ca3af";
+}
+function opLabel(nome) {
+  return nome ? `${opEmoji(nome)} ${nome}` : nome;
+}
+// Badge colorido (emoji + nome) para uso em células de tabela.
+function opChip(nome) {
+  if (!nome) return "";
+  return `<span class="op-chip" style="--op-cor:${opCor(nome)}">${opEmoji(nome)} ${nome}</span>`;
+}
+// Aplica a cor da operação selecionada como borda esquerda do <select>.
+function aplicarCorOperacaoSelect(select) {
+  if (!select) return;
+  select.classList.add("op-select");
+  select.style.setProperty("--op-select-cor", select.value ? opCor(select.value) : "var(--border)");
+}
+
+// Liga a borda colorida por operação aos selects de loja/filtro sempre
+// presentes no DOM (os demais — Ponto, Meta Hora a Hora — são tratados em
+// seus próprios inicializadores, pois só existem quando a aba é aberta).
+function inicializarCorOperacaoSelects() {
+  [
+    "loja", "fa-loja",
+    "filtro-loja-pendentes", "filtro-loja-hist",
+    "fa-filtro-loja-pendentes", "fa-filtro-loja-hist",
+    "metas-loja-selector", "auditoria-store-filter"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    aplicarCorOperacaoSelect(el);
+    el.addEventListener("change", () => aplicarCorOperacaoSelect(el));
+  });
+}
+
+// --- CONFIGURAÇÃO MANUAL DOS GRUPOS DE WHATSAPP ---
+// Cole aqui o link de convite do grupo do WhatsApp de cada loja.
+// Para extrair o link de convite:
+// 1. No WhatsApp, abra o grupo da loja correspondente.
+// 2. Clique no nome do grupo no topo para abrir os dados do grupo.
+// 3. Clique em "Convidar via link" (ou "Invite via link").
+// 4. Copiar link (ex: https://chat.whatsapp.com/...) e cole abaixo dentro das aspas.
+let WHATSAPP_GRUPOS = {
+  "Marambaia": "https://chat.whatsapp.com/HMdUcq1xcoEHj0Z5TUSX7I",
+  "Icoaraci": "https://chat.whatsapp.com/Jc5ORUEzXNH5TNYfTZSKsp",
+  "Mário Covas": "https://chat.whatsapp.com/EL12D3ceZOPLEColPZZhvF",
+  "Venda Direta": "https://chat.whatsapp.com/F8YcLG5nVOtIxjLltT3Tn4"
+};
+
+// Grupos WhatsApp do FaçaAmigos (preencher quando disponibilizar os links)
+let WHATSAPP_GRUPOS_FA = {
+  "Grão Pará": "",       // TODO: cole o link do grupo Grão Pará aqui
+  "ParqueShopping": "https://chat.whatsapp.com/LpA1OZEKr0aCyLf0GoUXyt",  // TODO: cole o link do grupo ParqueShopping aqui
+  "Parque Circuito": ""  // TODO: cole o link do grupo Parque Circuito aqui
+};
+
+// Localização (GPS) de cada operação — usada no geofencing do Ponto Eletrônico.
+// Declarado aqui (e não perto do resto do módulo de Ponto, mais abaixo no arquivo)
+// porque carregarConfiguracoes() mescla os valores salvos nele logo no carregamento
+// da página, antes de qualquer outro código do módulo de Ponto rodar.
+const LOJAS_GEOLOC = {
+  "Marambaia": { lat: -1.4116, lng: -48.4418 },
+  "Icoaraci": { lat: -1.3039, lng: -48.4878 },
+  "Mário Covas": { lat: -1.3815, lng: -48.4115 },
+  // Unidades do Faça Amigos — coordenadas reais preenchidas pelo Líder de
+  // Operações/Owner em Configurações.
+  "Grão Pará": { lat: 0, lng: 0 },
+  "ParqueShopping": { lat: 0, lng: 0 },
+  "Parque Circuito": { lat: 0, lng: 0 }
+};
+
+// Horário de funcionamento e meta diária de vendas por operação. Preenchido/editado
+// em Configurações (Líder de Operações/Owner); usado no geofencing do Ponto e no
+// cálculo do Meta Hora a Hora.
+const OPERACOES_CONFIG = {
+  "Marambaia": { abertura: "09:00", fechamento: "22:00" },
+  "Icoaraci": { abertura: "09:00", fechamento: "22:00" },
+  "Mário Covas": { abertura: "09:00", fechamento: "22:00" },
+  "Grão Pará": { abertura: "10:00", fechamento: "22:00" },
+  "ParqueShopping": { abertura: "10:00", fechamento: "22:00" },
+  "Parque Circuito": { abertura: "10:00", fechamento: "22:00" }
+};
+
+// Unidades do Faça Amigos (mesmos rótulos de LOJAS_FA / seletor #fa-loja).
+const UNIDADES_FA = ["Grão Pará", "ParqueShopping", "Parque Circuito"];
+
+// Raio de tolerância (metros) da cerca virtual do Ponto. Editável em
+// Configurações (Líder de Operações/Owner); mesclado por carregarConfiguracoes()/
+// inicializarDados() como os objetos acima.
+let GEOFENCE_RAIO_METROS = 50;
+
+// Biometria facial do Registro de Ponto (face-api.js).
+const FACE_DETECTION_MIN_CONFIDENCE = 0.85; // confiança mínima do detector p/ considerar que há um rosto nítido
+const FACE_MATCH_MAX_DISTANCE = 0.5;        // distância euclidiana máx. entre embeddings p/ considerar "mesma pessoa"
+
+// Perfis de acesso:
+// consultora            -> só "Novo Registro"
+// consultora_dashboard   -> "Novo Registro" + "Dashboard de Envelopes"
+// owner                  -> tudo (Registro, Dashboard, Histórico, Mensal)
+// consultora_fa          -> apenas aba "faca-amigos" (só Registro FA)
+let USERS = [
+  { nome: "Ana Júlia", role: "consultora" },
+  { nome: "Vitória", role: "consultora" },
+  { nome: "Débora", role: "consultora" },
+  { nome: "Alexandra", role: "consultora_dashboard" },
+  { nome: "Janine", role: "consultora" },
+  { nome: "Estheffany", role: "consultora" },
+  { nome: "Sabrina", role: "consultora" },
+  { nome: "Alice", role: "consultora_fa" },
+  { nome: "Alessandra", role: "consultora_fa" },
+  { nome: "Isabella", role: "owner" },
+  { nome: "Bruno", role: "owner" },
+];
+
+const TABS_POR_ROLE = {
+  // "hoje" só para consultora: é o resumo de UMA loja (a dela), não faz
+  // sentido para quem acompanha várias (Líder de Operações usa "meta-hora-hora"
+  // com o seletor de loja; ver QUICK_MENU_POR_ROLE mais abaixo).
+  consultora: ["hoje", "registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
+  consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
+  consultora_fa: ["faca-amigos", "avisos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "avisos", "configuracoes"],
+};
+
+// Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
+// curado por perfil — diferente de TABS_POR_ROLE, que continua controlando a
+// sidebar completa. `faSubtab`, quando presente, pula direto para a sub-aba
+// certa dentro de "faca-amigos" (mesmo padrão dos botões tab-btn-fa-*).
+//
+// A ORDEM importa duas vezes. Na grade da sidebar ela é só leitura; na barra
+// inferior ela decide o que cabe, porque só os primeiros itens viram destino
+// fixo e o resto vai para "Mais". Por isso cada lista começa pelo destino que
+// o perfil abre primeiro no dia — a mesma ordem do design mobile publicado:
+// operador entra na meta do dia, líder no hora a hora, owner no painel.
+//
+// `curto` é o rótulo da barra inferior. A grade da sidebar continua com
+// `label` inteiro: lá há largura para "Metas Hora a Hora", aqui não — em
+// 390px de tela um destino tem ~78px e o rótulo longo virava reticências,
+// que não distinguem "Conferência NF-e" de "Conferência de estoque".
+const QUICK_MENU_POR_ROLE = {
+  consultora: [
+    { tab: "hoje", icon: "fa-bullseye", label: "Hoje", curto: "Hoje" },
+    { tab: "registro", icon: "fa-box-open", label: "Registrar Caixa", curto: "Caixa" },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", label: "Conferência NF-e", curto: "NF-e" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
+  ],
+  consultora_dashboard: [
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
+    { tab: "importar-meta", icon: "fa-bullseye", label: "Metas do Dia", curto: "Metas" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard", curto: "Painel" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
+    { tab: "registro", icon: "fa-box-open", label: "Registrar Caixa", curto: "Caixa" },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", label: "Conferência NF-e", curto: "NF-e" },
+    { tab: "controle-ponto", icon: "fa-clock-rotate-left", label: "Bater Ponto", curto: "Ponto" },
+    { tab: "historico", icon: "fa-receipt", label: "Histórico", curto: "Histórico" },
+    { tab: "importacoes", icon: "fa-file-import", label: "Importações", curto: "Importar" },
+  ],
+  consultora_fa: [
+    { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope", curto: "Envelope" },
+    { tab: "faca-amigos", faSubtab: "fa-meta", icon: "fa-bullseye", label: "Meta & Bonificação", curto: "Meta" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
+  ],
+  owner: [
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS", curto: "Painel" },
+    // "Envelopes" mira o Dashboard, não o Histórico: a gestão de retirada em
+    // lote (lista selecionável + "Marcar como retirados") mora dentro do
+    // Dashboard, embaixo dos cards por loja — "Histórico Completo" é outra
+    // tela, uma tabela de auditoria com filtro/busca/exportação que não tem
+    // equivalente no design mobile. scrollTo pula direto pra seção certa.
+    { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
+    { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
+    { tab: "faturamento-nfe", icon: "fa-file-invoice-dollar", label: "Faturamento NFE", curto: "NFE" },
+    { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
+    { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
+    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
+  ],
+};
+
+// Mapeamento de perfis para as preferências de notificação
+const ROLE_NOTIF_MAP = {
+  "consultora": "colab",
+  "consultora_dashboard": "lider",
+  "consultora_fa": "colab",
+  "owner": "owner"
+};
+
+// Notificação por tipo e perfil (default: tudo ativado via Email)
+const DEFAULT_NOTIF_PREFS = {
+  "envelopes": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "inv-inicio": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "inv-fim": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "nfe": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "divergencia": { colab: true, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "meta-lembrete": { colab: true, lider: false, owner: false, colab_ch: "push", lider_ch: "email", owner_ch: "email" },
+  "meta-atraso": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "fechamento": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "email" },
+  "abertura": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
+  "visao-19h": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
+  "nfe-pendente": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" },
+  "nfe-faturamento-novo-produto": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" }
+};
+const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
+// Chave mestra de notificações de eventos (email + push). Default: desativada.
+const NOTIF_MASTER_KEY = "cacaushow_notif_master_v1";
+
+function notifMasterFromValue(valor) {
+  const v = String(valor == null ? "" : valor).trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+function loadNotifMasterEnabled() {
+  return notifMasterFromValue(localStorage.getItem(NOTIF_MASTER_KEY));
+}
+
+// ==========================================================================
+// UI Helpers (Toast, Loading, Modal, Session)
+// ==========================================================================
+function showToast(mensagem, tipo = "info") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${tipo}`;
+
+  let icon = '<i class="fa-solid fa-circle-info"></i>';
+  if (tipo === "sucesso") icon = '<i class="fa-solid fa-circle-check" style="color: var(--green);"></i>';
+  if (tipo === "erro") icon = '<i class="fa-solid fa-circle-xmark" style="color: var(--red);"></i>';
+
+  toast.innerHTML = `<span>${icon}</span> <span>${mensagem}</span>`;
+  container.appendChild(toast);
+
+  // Animate in
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  // Remove after 3.5s
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+
+// --- Modal de confirmação customizado (substitui alert/confirm nativos) ---
+let _confirmResolve = null;
+
+/**
+ * Exibe um modal de alerta estilizado (substitui window.alert).
+ * @param {string} mensagem - Texto a exibir.
+ * @param {object} opts - {icon, title, btnText, btnClass}
+ */
+function showModal(mensagem, opts = {}) {
+  const icon = opts.icon || "ℹ️";
+  const title = opts.title || "Aviso";
+  const btnText = opts.btnText || "OK";
+  const btnClass = opts.btnClass || "";
+
+  const overlay = document.getElementById("modal-confirm");
+  document.getElementById("confirm-icon").textContent = icon;
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = mensagem;
+
+  const okBtn = document.getElementById("confirm-ok");
+  const cancelBtn = document.getElementById("confirm-cancel");
+
+  okBtn.textContent = btnText;
+  okBtn.className = "btn-primary " + btnClass;
+  cancelBtn.classList.add("hidden");
+
+  overlay.classList.remove("hidden");
+  okBtn.focus();
+
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    okBtn.onclick = () => { overlay.classList.add("hidden"); cancelBtn.classList.remove("hidden"); resolve(true); };
+  });
+}
+
+/**
+ * Exibe um modal de confirmação estilizado (substitui window.confirm).
+ * @param {string} mensagem - Texto da pergunta.
+ * @param {object} opts - {icon, title, confirmText, cancelText, confirmClass}
+ * @returns {Promise<boolean>}
+ */
+function showConfirm(mensagem, opts = {}) {
+  const icon = opts.icon || "⚠️";
+  const title = opts.title || "Confirmação";
+  const confirmText = opts.confirmText || "Confirmar";
+  const cancelText = opts.cancelText || "Cancelar";
+  const confirmClass = opts.confirmClass || "";
+
+  const overlay = document.getElementById("modal-confirm");
+  document.getElementById("confirm-icon").textContent = icon;
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = mensagem;
+
+  const okBtn = document.getElementById("confirm-ok");
+  const cancelBtn = document.getElementById("confirm-cancel");
+
+  okBtn.textContent = confirmText;
+  okBtn.className = "btn-primary " + confirmClass;
+  cancelBtn.textContent = cancelText;
+  cancelBtn.classList.remove("hidden");
+
+  overlay.classList.remove("hidden");
+  cancelBtn.focus();
+
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    okBtn.onclick = () => { overlay.classList.add("hidden"); resolve(true); };
+    cancelBtn.onclick = () => { overlay.classList.add("hidden"); resolve(false); };
+  });
+}
+
+// --- Animação de contagem nos valores monetários ---
+function animateValue(element, targetValue, duration = 600) {
+  const start = parseFloat(element.dataset.currentValue || "0");
+  const diff = targetValue - start;
+  if (Math.abs(diff) < 0.01) { element.textContent = formatBRL(targetValue); return; }
+
+  element.classList.add("valor-animado", "counting");
+  const startTime = performance.now();
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // easeOutQuart
+    const eased = 1 - Math.pow(1 - progress, 4);
+    const current = start + diff * eased;
+    element.textContent = formatBRL(current);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      element.textContent = formatBRL(targetValue);
+      element.dataset.currentValue = targetValue;
+      element.classList.remove("counting");
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// --- Skeleton Loading para Dashboard ---
+function renderSkeletonCards(containerId, count = 4) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement("div");
+    card.className = "loja-card skeleton-card";
+    card.innerHTML = `
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-value"></div>
+      <div class="skeleton skeleton-line medium"></div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+function setLoading(btnId, isLoading) {
+  const btn = document.getElementById(btnId) || btnId;
+  if (!btn) return;
+  if (isLoading) {
+    btn.classList.add("btn-loading");
+    btn.disabled = true;
+  } else {
+    btn.classList.remove("btn-loading");
+    btn.disabled = false;
+  }
+}
+
+function formatarMoedaInput(e) {
+  let value = e.target.value.replace(/\D/g, "");
+  if (!value) {
+    e.target.value = "";
+    return;
+  }
+  value = (parseInt(value, 10) / 100).toFixed(2);
+  value = value.replace(".", ",");
+  value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+  e.target.value = "R$ " + value;
+  // Dispara evento de change para que a validação/autosave em tempo real rode
+  e.target.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function parseMoeda(str) {
+  if (!str) return 0;
+  if (typeof str === "number") return str;
+  const clean = str.replace(/[^0-9,-]/g, "");
+  if (!clean) return 0;
+  return parseFloat(clean.replace(/\./g, "").replace(",", "."));
+}
+
+document.getElementById("fundo-caixa").addEventListener("input", formatarMoedaInput);
+document.getElementById("valor-envelope").addEventListener("input", formatarMoedaInput);
+// Campos FA
+document.getElementById("fa-fundo-caixa").addEventListener("input", formatarMoedaInput);
+document.getElementById("fa-valor-envelope").addEventListener("input", formatarMoedaInput);
+
+// --- Rascunho / Autosave dos formulários no localStorage ---
+function salvarRascunhosForm() {
+  const rascunhoCaixa = {
+    consultor: document.getElementById("consultor").value,
+    loja: document.getElementById("loja").value,
+    dataOperacao: document.getElementById("data-operacao").value,
+    tipoOperacao: tipoOperacaoSelecionado,
+    fundoCaixa: document.getElementById("fundo-caixa").value,
+    valorEnvelope: document.getElementById("valor-envelope").value,
+    observacoes: document.getElementById("observacoes").value
+  };
+  localStorage.setItem("rascunho_registro_caixa", JSON.stringify(rascunhoCaixa));
+}
+
+function salvarRascunhosFormFA() {
+  const rascunhoFa = {
+    consultor: document.getElementById("fa-consultor").value,
+    loja: document.getElementById("fa-loja").value,
+    dataOperacao: document.getElementById("fa-data-operacao").value,
+    tipoOperacao: faTipoOperacaoSelecionado,
+    fundoCaixa: document.getElementById("fa-fundo-caixa").value,
+    valorEnvelope: document.getElementById("fa-valor-envelope").value,
+    observacoes: document.getElementById("fa-observacoes").value
+  };
+  localStorage.setItem("rascunho_registro_fa", JSON.stringify(rascunhoFa));
+}
+
+function restaurarRascunhosForm() {
+  try {
+    const rawCaixa = localStorage.getItem("rascunho_registro_caixa");
+    if (rawCaixa) {
+      const data = JSON.parse(rawCaixa);
+      if (data.consultor) document.getElementById("consultor").value = data.consultor;
+      if (data.loja) document.getElementById("loja").value = data.loja;
+      if (data.dataOperacao) document.getElementById("data-operacao").value = data.dataOperacao;
+      if (data.tipoOperacao) {
+        tipoOperacaoSelecionado = data.tipoOperacao;
+        document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.value === tipoOperacaoSelecionado);
+        });
+        atualizarCamposPorOperacao();
+      }
+      if (data.fundoCaixa) document.getElementById("fundo-caixa").value = data.fundoCaixa;
+      if (data.valorEnvelope) document.getElementById("valor-envelope").value = data.valorEnvelope;
+      if (data.observacoes) document.getElementById("observacoes").value = data.observacoes;
+    }
+  } catch (e) {
+    console.error("Erro ao restaurar rascunho Caixa:", e);
+  }
+
+  try {
+    const rawFa = localStorage.getItem("rascunho_registro_fa");
+    if (rawFa) {
+      const data = JSON.parse(rawFa);
+      if (data.consultor) document.getElementById("fa-consultor").value = data.consultor;
+      if (data.loja) document.getElementById("fa-loja").value = data.loja;
+      if (data.dataOperacao) document.getElementById("fa-data-operacao").value = data.dataOperacao;
+      if (data.tipoOperacao) {
+        faTipoOperacaoSelecionado = data.tipoOperacao;
+        document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.value === faTipoOperacaoSelecionado);
+        });
+        atualizarFaCamposPorOperacao();
+      }
+      if (data.fundoCaixa) document.getElementById("fa-fundo-caixa").value = data.fundoCaixa;
+      if (data.valorEnvelope) document.getElementById("fa-valor-envelope").value = data.valorEnvelope;
+      if (data.observacoes) document.getElementById("fa-observacoes").value = data.observacoes;
+    }
+  } catch (e) {
+    console.error("Erro ao restaurar rascunho FA:", e);
+  }
+}
+
+function inicializarAutosaveForm() {
+  const fieldsCaixa = ["consultor", "loja", "data-operacao", "fundo-caixa", "valor-envelope", "observacoes"];
+  fieldsCaixa.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", salvarRascunhosForm);
+      el.addEventListener("change", salvarRascunhosForm);
+    }
+  });
+
+  const fieldsFa = ["fa-consultor", "fa-loja", "fa-data-operacao", "fa-fundo-caixa", "fa-valor-envelope", "fa-observacoes"];
+  fieldsFa.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", salvarRascunhosFormFA);
+      el.addEventListener("change", salvarRascunhosFormFA);
+    }
+  });
+
+  // Salvar rascunho ao selecionar operação
+  document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", salvarRascunhosForm);
+  });
+  document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", salvarRascunhosFormFA);
+  });
+}
+
+// --- Pré-seleção Baseada em Horário para Abertura/Fechamento ---
+function preselecionarOperacaoPorHorario() {
+  const hour = new Date().getHours();
+  const operacaoSugerida = hour < 13 ? "Abertura" : "Fechamento";
+
+  const rascunhoCaixa = localStorage.getItem("rascunho_registro_caixa");
+  if (!rascunhoCaixa) {
+    const btnCacau = document.querySelector(`#tipo-operacao .seg-btn[data-value="${operacaoSugerida}"]`);
+    if (btnCacau) {
+      document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+      btnCacau.classList.add("active");
+      tipoOperacaoSelecionado = operacaoSugerida;
+      atualizarCamposPorOperacao();
+    }
+  }
+
+  const rascunhoFa = localStorage.getItem("rascunho_registro_fa");
+  if (!rascunhoFa) {
+    const btnFa = document.querySelector(`#fa-tipo-operacao .seg-btn[data-value="${operacaoSugerida}"]`);
+    if (btnFa) {
+      document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+      btnFa.classList.add("active");
+      faTipoOperacaoSelecionado = operacaoSugerida;
+      atualizarFaCamposPorOperacao();
+    }
+  }
+}
+
+// --- Limpeza Visual e Comportamento dos Erros Inline ---
+function limparErrosInline(prefix = "") {
+  const ids = ["consultor", "loja", "tipo-operacao", "data-operacao", "fundo-caixa", "valor-envelope", "foto-envelope"];
+  ids.forEach(id => {
+    const fullId = prefix ? `${prefix}-${id}` : id;
+    const el = document.getElementById(fullId);
+    if (el) el.classList.remove("input-error");
+    const errEl = document.getElementById(`${fullId}-error`);
+    if (errEl) errEl.classList.add("hidden");
+  });
+}
+
+function registrarLimparErroAoDigitar() {
+  const ids = ["consultor", "loja", "tipo-operacao", "data-operacao", "fundo-caixa", "valor-envelope", "foto-envelope",
+               "fa-consultor", "fa-loja", "fa-tipo-operacao", "fa-data-operacao", "fa-fundo-caixa", "fa-valor-envelope", "fa-foto-envelope"];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const handler = () => {
+        el.classList.remove("input-error");
+        const errEl = document.getElementById(`${id}-error`);
+        if (errEl) errEl.classList.add("hidden");
+      };
+      el.addEventListener("input", handler);
+      el.addEventListener("change", handler);
+    }
+  });
+  document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("tipo-operacao").classList.remove("input-error");
+      const err = document.getElementById("tipo-operacao-error");
+      if (err) err.classList.add("hidden");
+    });
+  });
+  document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("fa-tipo-operacao").classList.remove("input-error");
+      const err = document.getElementById("fa-tipo-operacao-error");
+      if (err) err.classList.add("hidden");
+    });
+  });
+}
+
+// Só essas pessoas podem confirmar a retirada física do dinheiro.
+// Alexandra (Líder de Operações) precisa de autorização (PIN) de Bruno ou Isabella.
+const RETIRADA_PERMITIDA = ["Bruno", "Isabella", "Alexandra"];
+
+// Fase 2 do plano de arquitetura SaaS: prefere a capacidade vinda do login
+// (colaboradores.capacidades no banco, ver config/database.js); os arrays
+// hardcoded acima/abaixo (RETIRADA_PERMITIDA, RESUMO_USUARIOS) viram só o
+// fallback para quando currentUser ainda não tem capacidades (sessão antiga
+// no localStorage, ou app usado sem o token — ver instalarAuthFetchWrapper).
+function usuarioTemCapacidade(capacidade, nomesFallback) {
+  if (currentUser && Array.isArray(currentUser.capacidades)) {
+    return currentUser.capacidades.includes(capacidade);
+  }
+  return !!(currentUser && nomesFallback.includes(currentUser.nome));
+}
+// Quem propõe a retirada mas não pode confirmar sozinha: em vez de digitar o
+// PIN de Bruno/Isabella (que ela não sabe), a retirada vira uma solicitação
+// que abre um modal de autorização sozinho na tela dos owners.
+const LIDERES_QUE_PRECISAM_AUTORIZACAO = ["Alexandra"];
+
+// Perfis que podem manter a sessão salva e entrar direto no menu principal
+// ao reabrir o app. Todos os demais (consultora, consultora_fa) têm que
+// digitar o PIN sempre — a sessão salva só serve para pular a etapa de
+// "Quem é você?" e já cair direto na tela de PIN com o nome preenchido.
+const PERFIS_ENTRADA_DIRETA = ["owner", "consultora_dashboard"];
+
+let API_ONLINE = false;
+let registros = [];
+let registrosFA = []; // Registros FaçaAmigos (isolados)
+let pins = {};
+let config = { linkGrupo: "" };
+let currentUser = carregarJSON(USER_KEY, null);
+
+let tipoOperacaoSelecionado = null;
+let fotoDataUrl = null;
+let retiradaAlvoId = null;
+
+// Envelopes marcados para retirada em lote. Precisa viver fora de
+// renderDashboard()/renderFaDashboard() — cada toggle de checkbox chama a
+// própria função de novo, e um `let` local seria recriado vazio a cada render,
+// perdendo a seleção antes do usuário conseguir marcar mais de um envelope.
+let selecionadosPendentes = new Set();
+let selecionadosFAPendentes = new Set();
+
+// Estado específico do FaçaAmigos
+let faTipoOperacaoSelecionado = null;
+let faFotoDataUrl = null;
+
+function carregarJSON(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key));
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// --- Detecção do Status de Rede / Conectividade do Servidor ---
+const offlineBanner = document.getElementById("offline-banner");
+
+async function checkApiConnection() {
+  // Os fallbacks de localhost só fazem sentido quando o próprio app está sendo
+  // aberto localmente (arquivo ou servidor de desenvolvimento). Num domínio
+  // hospedado (Render, etc.) o navegador bloqueia a tentativa por política de
+  // acesso ao "loopback address space" e enche o console de erro de CORS.
+  const ehAmbienteLocal = window.location.protocol === "file:" ||
+    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+
+  const endpoints = ehAmbienteLocal
+    ? [API_BASE, "http://localhost:5000/api", "http://127.0.0.1:5000/api"]
+    : [API_BASE];
+
+  // /ping é um heartbeat leve (não toca no banco) — só pra checar se o
+  // servidor está de pé. Os dados de config de verdade são carregados
+  // uma vez em inicializarDados(), via /config.
+  const tentarPing = async (ep, timeoutMs) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${ep}/ping`, { method: "GET", signal: controller.signal });
+      return !!(res && res.ok);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  for (const ep of endpoints) {
+    // Timeout generoso (8s) com uma segunda tentativa antes de desistir do
+    // endpoint: em rede móvel a latência é maior e uma única falha passageira
+    // não pode derrubar o status "online" e disparar o alerta de servidor
+    // indisponível bem na hora em que a colaboradora está fazendo a abertura.
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        if (await tentarPing(ep, 8000)) {
+          if (!API_ONLINE) console.log(`API Backend conectada via ${ep}!`);
+          API_BASE = ep;
+          API_ONLINE = true;
+          offlineBanner.style.display = "none";
+          offlineBanner.classList.remove("server-down");
+          return true;
+        }
+      } catch (e) {
+        // Tentar de novo (ou o próximo endpoint)
+      }
+    }
+  }
+
+  if (API_ONLINE || offlineBanner.style.display !== "block") {
+    console.warn("API Backend offline. Executando modo offline com armazenamento local.");
+  }
+  API_ONLINE = false;
+  
+  if (!navigator.onLine) {
+    offlineBanner.classList.remove("server-down");
+    offlineBanner.innerHTML = '<i class="fa-solid fa-wifi-slash"></i> Sem conexão com a internet. O app está rodando offline e sincronizará quando a rede voltar.';
+  } else {
+    offlineBanner.classList.add("server-down");
+    offlineBanner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Alerta: Servidor indisponível. Algumas funções podem falhar. Entre em contato com o suporte.';
+  }
+  
+  offlineBanner.style.display = "block";
+  return false;
+}
+
+const defaultNotifRules = {
+  envelopes: { colab: false, lider: true, owner: true },
+  inventario_inicio: { colab: false, lider: true, owner: true },
+  inventario_conclusao: { colab: false, lider: true, owner: true },
+  conferencia_nfe: { colab: false, lider: true, owner: true },
+  divergencia_caixa: { colab: false, lider: true, owner: true },
+  meta_lembrete: { colab: true, lider: false, owner: false },
+  meta_atraso: { colab: false, lider: true, owner: true }
+};
+
+function getDestinatariosNotificacao(tipo) {
+  // Mapeamento de tipo de notificação para chave nas preferências
+  const notifTypeMap = {
+    'conferencia_nfe': 'nfe',
+    'inventario_inicio': 'inv-inicio',
+    'inventario_fim': 'inv-fim',
+    'envelopes': 'envelopes',
+    'divergencia': 'divergencia',
+    'meta_lembrete': 'meta-lembrete',
+    'meta_atraso': 'meta-atraso',
+    'fechamento_caixa': 'fechamento'
+  };
+
+  const prefKey = notifTypeMap[tipo] || tipo;
+  const prefs = loadNotificationPrefs();
+  let typeRules = prefs[prefKey] || { colab: false, lider: true, owner: true };
+
+  // Lembrete de lançamento da Meta Hora a Hora: só a operadora da loja, mesmo
+  // que uma preferência antiga tenha ficado salva com Líder/Owner marcados.
+  // Mesma regra aplicada no servidor (config/notifications.js).
+  if (prefKey === "meta-lembrete") {
+    typeRules = Object.assign({}, typeRules, { colab: true, lider: false, owner: false });
+  }
+
+  const rolesPermitidos = [];
+  if (typeRules.colab) {
+    rolesPermitidos.push('consultora', 'consultora_fa');
+  }
+  if (typeRules.lider) {
+    rolesPermitidos.push('consultora_dashboard');
+  }
+  if (typeRules.owner) {
+    rolesPermitidos.push('owner');
+  }
+
+  return USERS.filter(u => rolesPermitidos.includes(u.role)).map(u => u.nome);
+}
+
+// --- Sincronização Inicial ---
+async function inicializarDados() {
+  await checkApiConnection();
+
+  if (API_ONLINE) {
+    try {
+      const [resReg, resRegFA, resPins, resConfig] = await Promise.all([
+        fetch(`${API_BASE}/registros`),
+        fetch(`${API_BASE}/registros-fa`),
+        fetch(`${API_BASE}/pins`),
+        fetch(`${API_BASE}/config`)
+      ]);
+
+      const dataReg = await resReg.json();
+      registros = Array.isArray(dataReg) ? dataReg : [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+
+      // Carregar registros FA
+      const dataRegFA = await resRegFA.json();
+      registrosFA = Array.isArray(dataRegFA) ? dataRegFA : [];
+
+      // GET /api/pins agora retorna apenas quais usuários têm PIN (sem os PINs reais)
+      const pinsMap = await resPins.json();
+      // Marcar quais usuários têm PIN configurado
+      Object.keys(pinsMap).forEach(u => { pins[u] = pins[u] || '****'; });
+      // Manter pins locais para fallback offline
+      if (Object.keys(pins).length) localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+
+      config = await resConfig.json();
+      if (!config.linkGrupo) config.linkGrupo = "";
+
+      // Sincronizar preferências de notificação do servidor para local
+      if (config.notificacoes_config) {
+        try {
+          const serverPrefs = JSON.parse(config.notificacoes_config);
+          localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(serverPrefs));
+        } catch (e) {
+          console.error("Erro ao sincronizar notificacoes_config do servidor:", e);
+        }
+      }
+
+      // Localização (geofencing), horário e meta das operações: cadastro
+      // centralizado no servidor (tabela `configuracoes`), para que a cerca
+      // virtual valha igual em qualquer dispositivo/colaboradora — não só no
+      // navegador de quem configurou. Strings JSON, mesmo padrão do
+      // notificacoes_config acima.
+      if (config.operacoesGeoloc) {
+        try {
+          Object.assign(LOJAS_GEOLOC, JSON.parse(config.operacoesGeoloc));
+        } catch (e) {
+          console.error("Erro ao sincronizar operacoesGeoloc do servidor:", e);
+        }
+      }
+      if (config.operacoesConfig) {
+        try {
+          Object.assign(OPERACOES_CONFIG, JSON.parse(config.operacoesConfig));
+        } catch (e) {
+          console.error("Erro ao sincronizar operacoesConfig do servidor:", e);
+        }
+      }
+      if (config.geofenceRaioMetros !== undefined) {
+        GEOFENCE_RAIO_METROS = parseInt(config.geofenceRaioMetros) || 50;
+      }
+
+      // Chave mestra de notificações de eventos (default: desativada)
+      localStorage.setItem(NOTIF_MASTER_KEY, notifMasterFromValue(config.notificacoes_eventos_ativas) ? "1" : "0");
+      renderNotificationTable();
+
+      // Carregar lista de colaboradores cadastrados
+      await carregarColaboradores();
+
+      // Carregar NF-es do servidor — merge com dados locais
+      try {
+        const resNfs = await fetch(`${API_BASE}/nfs`);
+        if (resNfs.ok) {
+          const dataNfs = await resNfs.json();
+          const serverNfs = {};
+          dataNfs.forEach(nf => {
+            if (!nf || !nf.numero) return;
+            if (!nf.info) nf.info = {};
+            if (nf.info.rawEmissaoDate) {
+              nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+            }
+            if (Array.isArray(nf.products)) {
+              nf.products.forEach(p => {
+                if (p.validade) p.validade = new Date(p.validade);
+              });
+            }
+            const store = nf.info.targetStore ? nf.info.targetStore.toString() : '9175';
+            nf.info.targetStore = store;
+            const key = `${nf.numero.toString().trim()}_${store}`;
+            serverNfs[key] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
+          });
+          importedNfs = mesclarNfs(importedNfs, serverNfs);
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+        }
+      } catch (nfErr) {
+        console.error("Erro ao sincronizar NF-es do servidor:", nfErr);
+      }
+    } catch (e) {
+      console.error("Erro ao puxar dados da API:", e);
+      carregarDadosLocais();
+    }
+  } else {
+    carregarDadosLocais();
+    carregarColaboradores();
+  }
+
+  renderApp();
+  // Sinaliza que os dados do servidor foram carregados — DOMContentLoaded vai renderizar
+  window._nfsServerLoaded = true;
+  if (typeof renderNfCardsGallery === 'function') {
+    try { renderNfCardsGallery(); } catch(e) { /* DOM pode não estar pronto ainda */ }
+  }
+}
+
+/**
+ * Mescla as NF-es do servidor com as que estão no aparelho.
+ *
+ * Antes isto era um Object.assign (servidor sobrescrevia tudo), o que apagava
+ * contagens digitadas offline e ainda não enviadas. Agora o servidor manda na
+ * estrutura da nota, mas uma contagem que só existe localmente é preservada.
+ */
+function mesclarNfs(locais, doServidor) {
+  const resultado = Object.assign({}, locais);
+
+  Object.keys(doServidor).forEach(chave => {
+    const nfServidor = doServidor[chave];
+    const nfLocal = resultado[chave];
+
+    if (!nfLocal || !Array.isArray(nfLocal.products)) {
+      resultado[chave] = nfServidor;
+      return;
+    }
+
+    const contagemLocal = {};
+    const creditoLocal = {};
+    nfLocal.products.forEach(p => {
+      if (p && p.code !== undefined && p.countedQty !== '' && p.countedQty !== undefined && p.countedQty !== null) {
+        contagemLocal[p.code] = p.countedQty;
+      }
+      // Guarda o crédito de estoque já aplicado localmente (ver autoCreditNfProductToInventory)
+      // para não se perder se o PUT que devia ter sincronizado isso com o servidor falhou —
+      // sem isso, o próximo cálculo trataria a linha como "nunca creditada" e creditaria de novo.
+      if (p && p.code !== undefined && p.stockCreditApplied) {
+        creditoLocal[p.code] = {
+          stockCreditedUnits: p.stockCreditedUnits,
+          stockCreditApplied: p.stockCreditApplied,
+          stockCreditedAt: p.stockCreditedAt
+        };
+      }
+    });
+
+    (nfServidor.products || []).forEach(p => {
+      const semValorNoServidor = p.countedQty === '' || p.countedQty === undefined || p.countedQty === null;
+      if (semValorNoServidor && contagemLocal[p.code] !== undefined) {
+        p.countedQty = contagemLocal[p.code];
+      }
+      if (!p.stockCreditApplied && creditoLocal[p.code] !== undefined) {
+        Object.assign(p, creditoLocal[p.code]);
+      }
+    });
+
+    resultado[chave] = nfServidor;
+  });
+
+  return resultado;
+}
+
+const STORAGE_KEY_FA = "cacaushow_controle_caixa_fa_v1";
+
+function carregarDadosLocais() {
+  registros = carregarJSON(STORAGE_KEY, []);
+  registrosFA = carregarJSON(STORAGE_KEY_FA, []);
+  pins = carregarJSON(PIN_KEY, {});
+  config = carregarJSON(CONFIG_KEY, { linkGrupo: "" });
+}
+
+// --- Salvar dados ---
+async function salvarRegistroAPI(reg) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) {
+    console.log("Modo Treinamento: Registro não armazenado no Banco de Dados/LocalStorage.");
+    return true; // Retorna sucesso sem persistir
+  }
+  if (API_ONLINE) {
+    try {
+      const clientId = (window.RT && window.RT.clientId) || "";
+      const res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}&clientId=${encodeURIComponent(clientId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reg)
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao salvar registro na API:", e);
+    }
+  }
+  // Fallback Local
+  registros.push(reg);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
+  return false;
+}
+
+async function atualizarRegistroAPI(id, dados) {
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/registros/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados)
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao atualizar registro na API:", e);
+    }
+  }
+  // Fallback Local
+  const idx = registros.findIndex(r => r.id === id);
+  if (idx !== -1) {
+    registros[idx] = { ...registros[idx], ...dados };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
+  }
+  return false;
+}
+
+async function excluirRegistroAPI(id) {
+  let excluido = false;
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/registros/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+        method: "DELETE"
+      });
+      if (res.ok) excluido = true;
+    } catch (e) {
+      console.error("Erro ao excluir registro na API:", e);
+    }
+  } else {
+    excluido = true;
+  }
+
+  if (excluido) {
+    const idx = registros.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      registros.splice(idx, 1);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+    }
+    return true;
+  }
+  return false;
+}
+
+async function salvarPinAPI(usuario, pin) {
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/pins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario, pin })
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao salvar PIN na API:", e);
+    }
+  }
+  // Fallback Local
+  pins[usuario] = pin;
+  localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+  return false;
+}
+
+// ==================== FAÇAAMIGOS API FUNCTIONS ====================
+
+async function salvarRegistroFAAPI(reg) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) {
+    console.log("Modo Treinamento FA: Registro não armazenado no Banco de Dados/LocalStorage.");
+    return true; // Retorna sucesso sem persistir
+  }
+  if (API_ONLINE) {
+    try {
+      const clientId = (window.RT && window.RT.clientId) || "";
+      const res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}&clientId=${encodeURIComponent(clientId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reg)
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao salvar registro FA na API:", e);
+    }
+  }
+  // Fallback Local
+  registrosFA.push(reg);
+  localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
+  }
+  return false;
+}
+
+async function atualizarRegistroFAAPI(id, dados) {
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/registros-fa/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados)
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao atualizar registro FA na API:", e);
+    }
+  }
+  // Fallback Local
+  const idx = registrosFA.findIndex(r => r.id === id);
+  if (idx !== -1) {
+    registrosFA[idx] = { ...registrosFA[idx], ...dados };
+    localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  }
+  if (typeof addToSyncQueue === "function") {
+    addToSyncQueue({ type: "FA_UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
+  }
+  return false;
+}
+
+async function excluirRegistroFAAPI(id) {
+  let excluido = false;
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/registros-fa/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
+        method: "DELETE"
+      });
+      if (res.ok) excluido = true;
+    } catch (e) {
+      console.error("Erro ao excluir registro FA na API:", e);
+    }
+  } else {
+    excluido = true;
+  }
+
+  if (excluido) {
+    const idx = registrosFA.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      registrosFA.splice(idx, 1);
+      localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+    }
+    return true;
+  }
+  return false;
+}
+
+// ==================== SOLICITAÇÃO DE RETIRADA (autorização remota) ====================
+// Fluxo: Alexandra propõe a retirada de um ou mais envelopes sem saber
+// o PIN de Bruno/Isabella. O servidor cria a solicitação, avisa os owners por
+// push e evento em tempo real, e cada owner autoriza (ou recusa) digitando o
+// PRÓPRIO PIN no PRÓPRIO aparelho — nunca no da Líder de Operações.
+async function criarSolicitacaoRetiradaAPI(dados) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados)
+  });
+  if (!res.ok) {
+    const erro = await res.json().catch(() => ({}));
+    throw new Error(erro.error || "Falha ao criar solicitação de retirada.");
+  }
+  return res.json();
+}
+
+async function buscarSolicitacoesRetiradaPendentesAPI() {
+  try {
+    const res = await fetch(`${API_BASE}/solicitacoes-retirada?status=pendente`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    console.error("Erro ao buscar solicitações de retirada pendentes:", e);
+    return [];
+  }
+}
+
+async function autorizarSolicitacaoRetiradaAPI(id, pin) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/autorizar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, pin })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao autorizar retirada.");
+  return data;
+}
+
+async function recusarSolicitacaoRetiradaAPI(id, motivo) {
+  const res = await fetch(`${API_BASE}/solicitacoes-retirada/${id}/recusar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actorUsuario: currentUser.nome, motivo })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Falha ao recusar retirada.");
+  return data;
+}
+
+async function salvarConfigAPI(chave, valor) {
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chave, valor })
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Erro ao salvar config na API:", e);
+    }
+  }
+  // Fallback Local
+  config[chave] = valor;
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  return false;
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function formatBRL(v) {
+  return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatDataHora(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function diffDias(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+function mesmoDia(isoA, isoB) {
+  const a = new Date(isoA), b = new Date(isoB);
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// ==========================================================================
+// TEMA & CONFIGURAÇÕES GERAIS (HuB Operações)
+// ==========================================================================
+function aplicarTema() {
+  // Modo escuro removido: o app opera exclusivamente no tema claro.
+  document.documentElement.setAttribute("data-theme", "light");
+}
+
+function carregarConfiguracoes() {
+  config = carregarJSON(CONFIG_KEY, {
+    linkGrupo: "",
+    sessionTimeout: 1800,
+    whatsappGrupos: {},
+    whatsappGruposFa: {},
+    operacoesGeoloc: {},
+    operacoesConfig: {},
+    geofenceRaioMetros: 50
+  });
+
+  // Personalização de cor de destaque removida: o app usa a paleta fixa da
+  // marca definida em style.css. Limpa a preferência antiga salva localmente
+  // para que navegadores já usados não fiquem com um acento sobrescrito.
+  if (config.accentColor !== undefined) {
+    delete config.accentColor;
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  }
+  document.documentElement.style.removeProperty('--wine');
+  document.documentElement.style.removeProperty('--wine-light');
+
+  // Aplicar Tema (sempre claro)
+  aplicarTema();
+
+  // Configurar timeout da sessão
+  const timeoutVal = parseInt(config.sessionTimeout !== undefined ? config.sessionTimeout : 1800);
+  if (timeoutVal === 0) {
+    sessionTimeoutMs = 0;
+  } else {
+    sessionTimeoutMs = timeoutVal * 1000;
+  }
+
+  // Sobrescrever grupos de WhatsApp com os links salvos no config
+  if (config.whatsappGrupos) {
+    Object.assign(WHATSAPP_GRUPOS, config.whatsappGrupos);
+  }
+  if (config.whatsappGruposFa) {
+    Object.assign(WHATSAPP_GRUPOS_FA, config.whatsappGruposFa);
+  }
+
+  // Sobrescrever localização/horário/meta das operações com os valores salvos.
+  // Um valor pode chegar aqui já parseado (objeto) ou ainda como string JSON
+  // (config antigo salvo direto pelo fallback local de salvarConfigAPI) —
+  // sem esse parse, Object.assign espalha os caracteres da string em chaves
+  // numéricas (0, 1, 2, ...) e corrompe LOJAS_GEOLOC/OPERACOES_CONFIG.
+  if (config.operacoesGeoloc) {
+    try {
+      const geoloc = typeof config.operacoesGeoloc === "string" ? JSON.parse(config.operacoesGeoloc) : config.operacoesGeoloc;
+      Object.assign(LOJAS_GEOLOC, geoloc);
+    } catch (e) {
+      console.error("Erro ao ler operacoesGeoloc do config local:", e);
+    }
+  }
+  if (config.operacoesConfig) {
+    try {
+      const opConfig = typeof config.operacoesConfig === "string" ? JSON.parse(config.operacoesConfig) : config.operacoesConfig;
+      Object.assign(OPERACOES_CONFIG, opConfig);
+    } catch (e) {
+      console.error("Erro ao ler operacoesConfig do config local:", e);
+    }
+  }
+  if (config.geofenceRaioMetros !== undefined) {
+    GEOFENCE_RAIO_METROS = parseInt(config.geofenceRaioMetros) || 50;
+  }
+}
+
+// Inicializar carregamento de configurações e aplicar imediatamente
+(function initConfiguracoes() {
+  carregarConfiguracoes();
+})();
+
+
+// ==========================================================================
+// LOGIN / PERFIS / PIN
+// ==========================================================================
+const loginOverlay = document.getElementById("login-overlay");
+const loginStepCards = document.getElementById("login-step-cards");
+const loginStepPin = document.getElementById("login-step-pin");
+const loginUserGrid = document.getElementById("login-user-grid");
+const loginBackBtn = document.getElementById("login-back-btn");
+const loginUsuarioNomeSpan = document.getElementById("login-usuario-nome");
+const loginUsuarioAvatar = document.getElementById("login-usuario-avatar");
+const loginPinLabel = document.getElementById("login-pin-label");
+const loginPinInput = document.getElementById("login-pin");
+const loginPinConfirmWrap = document.getElementById("login-pin-confirm-wrap");
+const loginPinConfirmInput = document.getElementById("login-pin-confirm");
+const loginMsg = document.getElementById("login-msg");
+const loginEntrarBtn = document.getElementById("login-entrar");
+const appEl = document.getElementById("app");
+
+let loginUsuarioSelecionado = null;
+
+// Emojis amigáveis/carinhosos para o avatar de cada colaborador(a) — sem
+// nenhuma relação com aparência ou características pessoais. A escolha é
+// estável durante a semana (todo mundo vê sempre o mesmo emoji enquanto a
+// semana não vira) e roda automaticamente 1x por semana para todos.
+const EMOJIS_AMIGAVEIS = ['😊', '🤗', '🥰', '😄', '✨', '🌟', '💛', '🌸', '🍀', '🌻', '💫', '🌈', '😇', '🧡'];
+
+function getSemanaAtual() {
+  return Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+}
+
+function getEmojiUsuario(nome) {
+  const chave = `${nome}-${getSemanaAtual()}`;
+  let hash = 0;
+  for (let i = 0; i < chave.length; i++) {
+    hash = (hash * 31 + chave.charCodeAt(i)) >>> 0;
+  }
+  return EMOJIS_AMIGAVEIS[hash % EMOJIS_AMIGAVEIS.length];
+}
+
+function renderLoginUserGrid() {
+  loginUserGrid.innerHTML = "";
+  const ultimoUsuario = localStorage.getItem("ultimo_usuario_login");
+  USERS.forEach(u => {
+    const isUltimo = u.nome === ultimoUsuario;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "login-user-card" + (isUltimo ? " ultimo-acesso" : "");
+    card.setAttribute("role", "listitem");
+    card.innerHTML = `
+      ${isUltimo ? '<span class="login-user-badge">⚡ Último Acesso</span>' : ''}
+      <span class="login-user-avatar">${getEmojiUsuario(u.nome)}</span>
+      <span class="login-user-name">${u.nome}</span>
+    `;
+    card.addEventListener("click", () => selecionarUsuarioLogin(u.nome));
+    loginUserGrid.appendChild(card);
+  });
+}
+renderLoginUserGrid();
+
+// ==========================================================================
+// BOOTSTRAP DE TENANT (Fase 2 do plano de arquitetura SaaS)
+// ==========================================================================
+// Substitui os dados hoje hardcoded acima (USERS, LOJAS, OPERACOES_INFO,
+// OPERACOES_ALIASES, WHATSAPP_GRUPOS, LOJAS_GEOLOC, OPERACOES_CONFIG) pelo
+// que vem de GET /tenant/bootstrap, escopado por organização no servidor.
+// Só cobre o negócio "cacau-show" — Faça Amigos fica de fora de propósito
+// (módulo em descontinuação para o SaaS) e continua servido pelos valores
+// hardcoded de sempre, sem passar por aqui.
+//
+// Falha de rede/servidor aqui NUNCA impede o login: os valores hardcoded já
+// aplicados continuam valendo como estão, exatamente como antes desta
+// mudança — este bloco só sobrescreve o que conseguir buscar.
+window.__tenantModulos = {};
+
+function aplicarBootstrapTenant(dados) {
+  if (!dados) return;
+
+  if (Array.isArray(dados.colaboradoresLogin) && dados.colaboradoresLogin.length) {
+    USERS = dados.colaboradoresLogin.map(c => ({ nome: c.nome, role: c.role }));
+    renderLoginUserGrid();
+  }
+
+  if (Array.isArray(dados.unidades)) {
+    dados.unidades.forEach(u => {
+      if (!u || !u.nome) return;
+      if (!LOJAS.includes(u.nome)) LOJAS.push(u.nome);
+      if (!OPERACOES_INFO[u.nome]) OPERACOES_INFO[u.nome] = { emoji: "📍", cor: "#9ca3af" };
+      if (u.whatsappGrupoUrl) WHATSAPP_GRUPOS[u.nome] = u.whatsappGrupoUrl;
+      if (u.lat && u.lng) LOJAS_GEOLOC[u.nome] = { lat: u.lat, lng: u.lng };
+      if (u.abertura && u.fechamento) OPERACOES_CONFIG[u.nome] = { abertura: u.abertura, fechamento: u.fechamento };
+      if (u.codigoExterno) OPERACOES_ALIASES[u.codigoExterno] = u.nome;
+    });
+  }
+
+  window.__tenantModulos = dados.modulos || {};
+  if (typeof aplicarVisibilidadeModulosTenant === "function") aplicarVisibilidadeModulosTenant();
+}
+
+async function carregarBootstrapTenant() {
+  try {
+    const res = await fetch(`${API_BASE}/tenant/bootstrap`);
+    if (!res.ok) return;
+    aplicarBootstrapTenant(await res.json());
+  } catch (e) {
+    // Sem tenant/bootstrap disponível, o app segue 100% funcional com os
+    // valores hardcoded de sempre — não é um requisito para usar o sistema.
+    console.warn("[Tenant] bootstrap indisponível, usando valores locais:", e.message);
+  }
+}
+carregarBootstrapTenant();
+
+function selecionarUsuarioLogin(nome) {
+  loginUsuarioSelecionado = nome;
+  loginMsg.classList.add("hidden");
+  loginUsuarioNomeSpan.textContent = nome;
+  loginUsuarioAvatar.textContent = getEmojiUsuario(nome);
+  loginPinInput.value = "";
+  loginPinConfirmInput.value = "";
+
+  if (pins[nome]) {
+    loginPinLabel.textContent = "PIN (4 dígitos)";
+    loginPinConfirmWrap.classList.add("hidden");
+    loginEntrarBtn.textContent = "Entrar";
+  } else {
+    loginPinLabel.textContent = "Crie seu PIN (4 dígitos)";
+    loginPinConfirmWrap.classList.remove("hidden");
+    loginEntrarBtn.textContent = "Criar PIN e Entrar";
+  }
+
+  loginStepCards.classList.remove("slide-out-left");
+  loginStepPin.classList.remove("slide-in-right");
+  loginStepCards.classList.add("slide-out-left");
+  
+  setTimeout(() => {
+    loginStepCards.classList.add("hidden");
+    loginStepCards.classList.remove("slide-out-left");
+    loginStepPin.classList.remove("hidden");
+    loginStepPin.classList.add("slide-in-right");
+    
+    // Reset/clear dots for new input
+    updatePinDots(loginPinInput, "pin-dots-login");
+    updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
+    
+    setTimeout(() => loginPinInput.focus(), 50);
+  }, 200);
+}
+
+loginBackBtn.addEventListener("click", () => {
+  loginUsuarioSelecionado = null;
+  loginStepPin.classList.remove("slide-in-right");
+  loginStepPin.classList.add("hidden");
+  loginStepCards.classList.remove("hidden");
+  loginStepCards.classList.add("slide-in-right");
+  loginMsg.classList.add("hidden");
+  
+  loginPinInput.value = "";
+  loginPinConfirmInput.value = "";
+  updatePinDots(loginPinInput, "pin-dots-login");
+  updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
+  
+  setTimeout(() => {
+    loginStepCards.classList.remove("slide-in-right");
+  }, 350);
+});
+
+function pinValido(v) { return /^\d{4}$/.test(v); }
+
+function resetLoginForm() {
+  loginUsuarioSelecionado = null;
+  loginPinInput.value = "";
+  loginPinConfirmInput.value = "";
+  updatePinDots(loginPinInput, "pin-dots-login");
+  updatePinDots(loginPinConfirmInput, "pin-dots-confirm");
+  loginPinConfirmWrap.classList.add("hidden");
+  loginMsg.classList.add("hidden");
+  loginEntrarBtn.textContent = "Entrar";
+  loginStepPin.classList.add("hidden");
+  loginStepCards.classList.remove("hidden");
+}
+
+loginEntrarBtn.addEventListener("click", async () => {
+  const nome = loginUsuarioSelecionado;
+  if (!nome) { mostrarErroLogin("Selecione seu nome."); return; }
+  const user = USERS.find(u => u.nome === nome);
+  const pinDigitado = loginPinInput.value.trim();
+  // Preenchido pela resposta de POST /auth/verify quando o PIN é validado
+  // (Fase 2): token de sessão + capacidades do colaborador. Continua
+  // funcionando sem eles (ex.: app offline, fallback local) — currentUser
+  // só ganha os campos extra quando o servidor os devolve.
+  let sessaoObtida = null;
+
+  // Se o campo de confirmação NÃO está escondido, o usuário está criando seu PIN
+  const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
+
+  if (ehCriacao) {
+    const confirma = loginPinConfirmInput.value.trim();
+    if (!pinValido(pinDigitado)) { mostrarErroLogin("O PIN deve ter exatamente 4 dígitos."); return; }
+    if (pinDigitado !== confirma) { mostrarErroLogin("Os PINs não conferem."); return; }
+    await salvarPinAPI(nome, pinDigitado);
+    pins[nome] = '****';
+    localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+  } else {
+    // Autenticação com PIN existente
+    if (API_ONLINE) {
+      try {
+        const res = await fetch(`${API_BASE}/auth/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario: nome, pin: pinDigitado })
+        });
+        const result = await res.json();
+        if (result.hasPin === false) {
+          delete pins[nome];
+          localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+          loginPinLabel.textContent = "Crie seu PIN (4 dígitos)";
+          loginPinConfirmWrap.classList.remove("hidden");
+          loginEntrarBtn.textContent = "Criar PIN e Entrar";
+          mostrarErroLogin("Usuário não possui PIN. Por favor, crie seu PIN e confirme.");
+          return;
+        }
+        if (!result.valid) {
+          mostrarErroLogin("PIN incorreto.");
+          return;
+        }
+        if (result.token) {
+          sessaoObtida = { token: result.token, capacidades: result.capacidades || [] };
+        }
+      } catch (e) {
+        if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+          mostrarErroLogin("PIN incorreto.");
+          return;
+        }
+      }
+    } else {
+      if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
+        mostrarErroLogin("PIN incorreto.");
+        return;
+      }
+    }
+  }
+
+  currentUser = sessaoObtida ? { ...user, token: sessaoObtida.token, capacidades: sessaoObtida.capacidades } : user;
+  localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+  localStorage.setItem("ultimo_usuario_login", user.nome);
+  resetLoginForm();
+  entrarNoApp();
+});
+
+function mostrarErroLogin(msg) {
+  loginMsg.textContent = msg;
+  loginMsg.classList.remove("hidden");
+}
+
+document.getElementById("btn-trocar-usuario").addEventListener("click", () => {
+  currentUser = null;
+  localStorage.removeItem(USER_KEY);
+  resetLoginForm();
+  appEl.classList.add("hidden");
+  loginOverlay.classList.remove("hidden");
+  atualizarNotificacoes();
+});
+
+// Iniciais do avatar: duas letras, como no design mobile publicado.
+// "Ana Júlia" -> AJ, "Alexandra" -> AL, "Bruno" -> BR. Uma letra só ficava
+// ambígua num time onde três pessoas começam com A.
+function iniciaisDoUsuario(nome) {
+  if (!nome) return "U";
+  const partes = String(nome).trim().split(/\s+/).filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return partes[0].slice(0, 2).toUpperCase();
+}
+
+// Linha de escopo do cabeçalho: de qual recorte de dados é a tela.
+// Quem opera uma loja vê a loja; quem acompanha várias vê a contagem, porque
+// listar quatro nomes não cabe numa linha de 200px e a contagem é a
+// informação que muda a leitura ("isto é o consolidado, não a minha loja").
+function escopoDoUsuario() {
+  if (!currentUser) return "";
+  const labels = typeof UNIDADE_LABEL_TEXTO !== "undefined" ? UNIDADE_LABEL_TEXTO : {};
+  const bruto = currentUser.unidade || "";
+
+  if (currentUser.role === "consultora_dashboard") return "Operação · todas as unidades";
+  if (bruto === "all" || bruto === "") {
+    return currentUser.role === "owner" ? "Todas as unidades" : "Sem unidade definida";
+  }
+
+  const unidades = String(bruto).split(",").map(u => u.trim()).filter(Boolean);
+  if (unidades.length === 1) {
+    // "9175 - Marambaia" -> "Marambaia · 9175": o nome vem primeiro porque é
+    // o que a consultora usa para falar da loja; o código fica de conferência.
+    const label = labels[unidades[0]] || unidades[0];
+    const m = /^(\S+)\s*-\s*(.+)$/.exec(label);
+    return m ? `${m[2]} · ${m[1]}` : label;
+  }
+  return `${unidades.length} unidades`;
+}
+
+function entrarNoApp() {
+  loginOverlay.classList.add("hidden");
+  document.getElementById("session-overlay").classList.add("hidden");
+
+  // Atualizar dados de Perfil (BlueDox style) na Topbar
+  if (currentUser) {
+    const avatarEl = document.getElementById("topbar-user-avatar");
+    const nameEl = document.getElementById("topbar-user-name");
+    const scopeEl = document.getElementById("topbar-user-scope");
+    if (avatarEl) avatarEl.textContent = iniciaisDoUsuario(currentUser.nome);
+    if (nameEl) nameEl.textContent = currentUser.nome.split(" ")[0] || "Usuário";
+    // A linha de escopo só aparece na casca compacta (ver style.css): no
+    // celular o cabeçalho é a única peça que diz de qual loja são os números
+    // da tela — no desktop isso já está na barra lateral.
+    if (scopeEl) scopeEl.textContent = escopoDoUsuario();
+  }
+
+  // Badge do sino: antes só disparava dentro do Dashboard (Owner), que o
+  // operador nunca abre. Agora que o sino/Avisos serve todo mundo, precisa
+  // de um número certo desde o primeiro segundo logado, não só depois de
+  // visitar uma aba específica.
+  atualizarNotificacoes();
+
+  inscreverPushNotificacoes();
+
+  // Se existir alguma retirada aguardando autorização, abre o modal de PIN
+  // sozinho assim que o owner entra no app (cobre o caso de ele estar offline
+  // quando a Líder de Operações fez a solicitação).
+  if (currentUser.role === "owner") {
+    carregarSolicitacoesRetiradaPendentes();
+  }
+
+  // Exibir botão de trocar módulo para todos os perfis permitidos
+  const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
+  if (btnTopbar) btnTopbar.classList.remove("hidden");
+
+  ajustarCardsModulos();
+
+  let ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
+
+  // Deep link de notificação push (ex.: "?modulo=cacau-show&tab=faturamento-nfe")
+  // manda no módulo a abrir, sobrepondo o último módulo usado — senão a pessoa
+  // cai no módulo em que estava antes (ex.: FaçaAmigos) e a aba pedida nem
+  // existe ali. O parâmetro "tab" em si é lido dentro de iniciarModuloBase.
+  const moduloDeepLink = new URLSearchParams(location.search).get("modulo");
+  if (moduloDeepLink) ultimoModulo = moduloDeepLink;
+
+  const unidadesStr = currentUser && currentUser.unidade ? currentUser.unidade : "";
+  const unidades = unidadesStr !== "all" && unidadesStr !== "" ? unidadesStr.split(",").map(u => u.trim()).filter(Boolean) : [];
+
+  if (unidadesStr === "all" || unidades.length === 0) {
+    if (ultimoModulo) {
+      iniciarModuloBase(ultimoModulo);
+    } else {
+      document.getElementById("module-selection-overlay").classList.remove("hidden");
+      appEl.classList.add("hidden");
+    }
+  } else if (unidades.length === 1) {
+    const singleUnit = unidades[0];
+    // UNIDADES_FA e ALIASES
+    let isFA = false;
+    if (singleUnit.startsWith("fa-")) {
+      isFA = true;
+    } else {
+      const pNome = OPERACOES_ALIASES[singleUnit] || singleUnit;
+      if (UNIDADES_FA.includes(pNome)) isFA = true;
+    }
+    ultimoModulo = isFA ? "faca-amigos" : "cacau-show";
+    
+    setTimeout(() => {
+      const nomeLoja = OPERACOES_ALIASES[singleUnit] || singleUnit;
+      
+      const selectLoja = document.getElementById("loja");
+      if (selectLoja) {
+        selectLoja.value = nomeLoja;
+        selectLoja.dispatchEvent(new Event("change"));
+      }
+      
+      const selectLojaFA = document.getElementById("fa-loja");
+      if (selectLojaFA) {
+        selectLojaFA.value = nomeLoja;
+        selectLojaFA.dispatchEvent(new Event("change"));
+      }
+    }, 150);
+
+    iniciarModuloBase(ultimoModulo);
+  } else {
+    // Múltiplas unidades
+    mostrarSelecaoUnidade(unidades);
+  }
+}
+
+function mostrarSelecaoUnidade(unidadesArray) {
+  const overlay = document.getElementById("unit-selection-overlay");
+  const container = document.getElementById("unit-selection-cards");
+  container.innerHTML = "";
+  appEl.classList.add("hidden");
+
+  unidadesArray.forEach(unidadeRaw => {
+    const nomeLoja = OPERACOES_ALIASES[unidadeRaw] || unidadeRaw;
+    const isFA = UNIDADES_FA.includes(nomeLoja) || unidadeRaw.startsWith("fa-");
+    const icone = isFA ? '<i class="fa-solid fa-heart" style="color: var(--coral);"></i>' : '<i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i>';
+    const sub = isFA ? 'FaçaAmigos' : 'Cacau Show';
+
+    const btn = document.createElement("button");
+    btn.className = `module-card ${isFA ? 'card-faca' : 'card-cacau'}`;
+    btn.innerHTML = `
+      <span class="mod-icon">${icone}</span>
+      <h3>${nomeLoja}</h3>
+      <p>${sub}</p>
+    `;
+    btn.onclick = () => {
+      overlay.classList.add("hidden");
+      const modulo = isFA ? "faca-amigos" : "cacau-show";
+      
+      setTimeout(() => {
+        const selectLoja = document.getElementById("loja");
+        if (selectLoja) {
+          selectLoja.value = nomeLoja;
+          selectLoja.dispatchEvent(new Event("change"));
+        }
+        
+        const selectLojaFA = document.getElementById("fa-loja");
+        if (selectLojaFA) {
+          selectLojaFA.value = nomeLoja;
+          selectLojaFA.dispatchEvent(new Event("change"));
+        }
+      }, 150);
+
+      iniciarModuloBase(modulo);
+    };
+    container.appendChild(btn);
+  });
+
+  overlay.classList.remove("hidden");
+}
+
+function ajustarCardsModulos() {
+  const btnCacau = document.getElementById("btn-mod-cacau");
+  const btnFaca = document.getElementById("btn-mod-faca");
+  const btnRh = document.getElementById("btn-mod-rh");
+  const btnPonto = document.getElementById("btn-mod-ponto");
+
+  const role = currentUser.role;
+
+  if (btnCacau) btnCacau.classList.toggle("hidden", !(role === "owner" || role === "consultora" || role === "consultora_dashboard"));
+  if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
+  if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
+  // Registro de Ponto do FaçaAmigos é feito por outro sistema — o módulo
+  // aqui é exclusivo do Cacau Show, não aparece para consultora_fa.
+  if (btnPonto) btnPonto.classList.toggle("hidden", role === "consultora_fa");
+
+  // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
+  // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
+  // demais perfis continuam usando "Trocar Módulo" (tela cheia de seleção).
+  const ownerSwitch = document.getElementById("owner-module-switch");
+  const btnTopbarTrocarModulo = document.getElementById("btn-topbar-trocar-modulo");
+  if (ownerSwitch) ownerSwitch.classList.toggle("hidden", role !== "owner");
+  if (btnTopbarTrocarModulo) btnTopbarTrocarModulo.classList.toggle("hidden", role === "owner");
+}
+
+// Fase 3 do plano de arquitetura SaaS: feature flags por organização
+// (tenant_modules no banco, ver routes/tenant.js e a tela de Configurações).
+// Roda POR CIMA do filtro de tabsPermitidas por role feito em
+// iniciarModuloBase — só ESCONDE abas cujo módulo está explicitamente
+// desligado (habilitado === false); um módulo ausente do mapa (bootstrap
+// não rodou, ou a chave nem existe ainda) nunca esconde nada, então isto
+// nunca reduz o que já funciona hoje para a organização atual.
+const TAB_PARA_MODULO_TENANT = {
+  "faca-amigos": "faca-amigos",
+  "aniversarios": "faca-amigos",
+  "pos-visita": "faca-amigos",
+  "conferencia-nfe": "nfe",
+  "faturamento-nfe": "nfe",
+  "inventario-estoque": "inventario",
+  "controle-ponto": "ponto",
+  "importar-meta": "metas-xlsx",
+  "rh-modulo": "rh-modulo"
+};
+
+function aplicarVisibilidadeModulosTenant() {
+  const modulos = window.__tenantModulos || {};
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    const moduloChave = TAB_PARA_MODULO_TENANT[btn.dataset.tab];
+    if (moduloChave && modulos[moduloChave] === false) {
+      btn.classList.add("hidden");
+    }
+  });
+  ["group-controle-caixa", "group-faca-amigos", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    if (!temTabVisivel) group.classList.add("hidden");
+  });
+  atualizarCardModulosTenant();
+  atualizarCardUnidadesTenant();
+}
+
+// --------------------------------------------------------------------------
+// Card "Módulos ativos" em Configurações (Fase 3): toggle de feature flag por
+// organização, ligado a PUT /api/tenant/modules/:chave (owner-only no
+// servidor — o botão só aparece pra quem tem role owner aqui, mas a
+// autorização de verdade é sempre a do backend). Só lista módulos que a
+// organização já tem cadastrados em tenant_modules (ver bootstrap); nenhum
+// módulo do Faça Amigos entra nesta lista de propósito — ver TAB_PARA_MODULO_TENANT.
+// --------------------------------------------------------------------------
+const MODULOS_TOGGLE_LABELS = {
+  "faca-amigos": "Faça Amigos",
+  "nfe": "Conferência/Faturamento de NF-e",
+  "inventario": "Inventário de Estoque",
+  "ponto": "Controle de Ponto",
+  "metas-xlsx": "Importação de Metas (XLSX)",
+  "rh-modulo": "Módulo RH"
+};
+
+function criarCardModulosTenant() {
+  const grid = document.getElementById("config-grid");
+  if (!grid || document.getElementById("config-card-modulos-tenant")) return;
+
+  const card = document.createElement("div");
+  card.id = "config-card-modulos-tenant";
+  card.className = "card p-6 rounded-2xl border border-border md:col-span-2 hidden";
+  card.dataset.configBusca = "modulos funcionalidades feature flags saas plano organizacao";
+  card.innerHTML = `
+    <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-modulos-tenant">
+      <h3 class="text-base font-bold flex items-center gap-2">
+        <i class="fa-solid fa-toggle-on text-accent"></i> Módulos ativos
+      </h3>
+      <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+    </button>
+    <div id="config-corpo-modulos-tenant" class="config-corpo hidden mt-3">
+      <p class="text-xs text-muted mb-4">Liga/desliga funcionalidades para esta organização. Desligar um módulo esconde as abas dele na barra lateral para todo mundo.</p>
+      <div id="config-modulos-lista" class="space-y-2"></div>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const toggle = card.querySelector(".config-toggle");
+  toggle.addEventListener("click", () => {
+    const corpo = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!corpo) return;
+    const abrindo = corpo.classList.contains("hidden");
+    corpo.classList.toggle("hidden", !abrindo);
+    toggle.setAttribute("aria-expanded", String(abrindo));
+    const icone = toggle.querySelector(".config-toggle-icon");
+    if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+  });
+}
+
+function atualizarCardModulosTenant() {
+  const card = document.getElementById("config-card-modulos-tenant");
+  if (!card) return;
+  const isOwner = !!(currentUser && currentUser.role === "owner");
+  card.classList.toggle("hidden", !isOwner);
+  if (!isOwner) return;
+
+  const lista = document.getElementById("config-modulos-lista");
+  if (!lista) return;
+  const modulos = window.__tenantModulos || {};
+
+  lista.innerHTML = "";
+  Object.keys(MODULOS_TOGGLE_LABELS).forEach(chave => {
+    if (!(chave in modulos)) return; // organização não tem este módulo cadastrado ainda
+    const habilitado = modulos[chave] !== false;
+    const linha = document.createElement("label");
+    linha.className = "flex items-center justify-between gap-3 py-2 border-b border-border text-sm";
+    linha.innerHTML = `
+      <span>${MODULOS_TOGGLE_LABELS[chave]}</span>
+      <input type="checkbox" class="config-modulo-checkbox" data-modulo="${chave}" ${habilitado ? "checked" : ""}>
+    `;
+    lista.appendChild(linha);
+  });
+
+  lista.querySelectorAll(".config-modulo-checkbox").forEach(input => {
+    input.addEventListener("change", async () => {
+      const chave = input.dataset.modulo;
+      const habilitado = input.checked;
+      input.disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/modules/${encodeURIComponent(chave)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ habilitado, actorUsuario: currentUser.nome })
+        });
+        if (!res.ok) throw new Error("Falha ao salvar");
+        window.__tenantModulos[chave] = habilitado;
+        aplicarVisibilidadeModulosTenant();
+        showToast(`${MODULOS_TOGGLE_LABELS[chave]} ${habilitado ? "ativado" : "desativado"}.`, "sucesso");
+      } catch (e) {
+        input.checked = !habilitado;
+        showToast("Não foi possível salvar. Tente novamente.", "erro");
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+}
+
+// --------------------------------------------------------------------------
+// Card "Unidades (lojas)" em Configurações (owner-only): CRUD completo sobre
+// a tabela `unidades` (routes/tenant.js) — nome, negócio, código externo e
+// ativo/inativo. Substitui a edição manual do objeto LOJAS hardcoded em
+// webapp/app.js por um cadastro de verdade, sem precisar de deploy.
+// --------------------------------------------------------------------------
+function criarCardUnidadesTenant() {
+  const grid = document.getElementById("config-grid");
+  if (!grid || document.getElementById("config-card-unidades-tenant")) return;
+
+  const card = document.createElement("div");
+  card.id = "config-card-unidades-tenant";
+  card.className = "card p-6 rounded-2xl border border-border md:col-span-2 hidden";
+  card.dataset.configBusca = "unidades lojas cadastro gestao saas negocio";
+  card.innerHTML = `
+    <button type="button" class="config-toggle w-full flex items-center justify-between gap-3 text-left" aria-expanded="false" aria-controls="config-corpo-unidades-tenant">
+      <h3 class="text-base font-bold flex items-center gap-2">
+        <i class="fa-solid fa-store text-accent"></i> Unidades (lojas)
+      </h3>
+      <i class="fa-solid fa-chevron-down config-toggle-icon text-muted text-xs transition"></i>
+    </button>
+    <div id="config-corpo-unidades-tenant" class="config-corpo hidden mt-3">
+      <p class="text-xs text-muted mb-4">Cadastro das unidades desta organização. Excluir marca a unidade como inativa — o histórico de registros que já citam o nome dela continua intacto.</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-border uppercase tracking-wider font-bold">
+              <th class="py-2 px-2">Nome</th>
+              <th class="py-2 px-2">Negócio</th>
+              <th class="py-2 px-2">Código externo</th>
+              <th class="py-2 px-2">Ativa</th>
+              <th class="py-2 px-2"></th>
+            </tr>
+          </thead>
+          <tbody id="config-unidades-tbody" class="divide-y divide-border"></tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-end gap-2 mt-4 pt-4 border-t border-border">
+        <div>
+          <label class="block text-xs text-muted mb-1">Nome</label>
+          <input type="text" id="config-unidade-novo-nome" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="Ex.: Nazaré">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Negócio</label>
+          <input type="text" id="config-unidade-novo-negocio" class="w-28 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="cacau-show">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Código externo</label>
+          <input type="text" id="config-unidade-novo-codigo" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs" placeholder="opcional">
+        </div>
+        <button type="button" id="config-unidade-btn-adicionar" class="btn-secondary" style="padding: 7px 14px; font-size: 12px;">
+          <i class="fa-solid fa-plus"></i> Adicionar unidade
+        </button>
+      </div>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const toggle = card.querySelector(".config-toggle");
+  toggle.addEventListener("click", () => {
+    const corpo = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!corpo) return;
+    const abrindo = corpo.classList.contains("hidden");
+    corpo.classList.toggle("hidden", !abrindo);
+    toggle.setAttribute("aria-expanded", String(abrindo));
+    const icone = toggle.querySelector(".config-toggle-icon");
+    if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+  });
+
+  document.getElementById("config-unidade-btn-adicionar").addEventListener("click", async () => {
+    const nome = document.getElementById("config-unidade-novo-nome").value.trim();
+    const negocioChave = document.getElementById("config-unidade-novo-negocio").value.trim() || "cacau-show";
+    const codigoExterno = document.getElementById("config-unidade-novo-codigo").value.trim();
+    if (!nome) { showToast("Informe o nome da unidade.", "erro"); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/tenant/unidades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioChave, nome, codigoExterno: codigoExterno || null, actorUsuario: currentUser.nome })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Falha ao criar unidade");
+
+      document.getElementById("config-unidade-novo-nome").value = "";
+      document.getElementById("config-unidade-novo-negocio").value = "";
+      document.getElementById("config-unidade-novo-codigo").value = "";
+      showToast(`Unidade "${nome}" criada.`, "sucesso");
+      await atualizarCardUnidadesTenant();
+    } catch (e) {
+      showToast(e.message || "Não foi possível criar a unidade.", "erro");
+    }
+  });
+}
+
+async function atualizarCardUnidadesTenant() {
+  const card = document.getElementById("config-card-unidades-tenant");
+  if (!card) return;
+  const isOwner = !!(currentUser && currentUser.role === "owner");
+  card.classList.toggle("hidden", !isOwner);
+  if (!isOwner) return;
+
+  const tbody = document.getElementById("config-unidades-tbody");
+  if (!tbody) return;
+
+  let unidades = [];
+  try {
+    const res = await fetch(`${API_BASE}/tenant/unidades?actorUsuario=${encodeURIComponent(currentUser.nome)}`);
+    if (res.ok) unidades = await res.json();
+  } catch (e) {
+    console.warn("[Unidades] Falha ao carregar lista:", e.message);
+    return;
+  }
+
+  tbody.innerHTML = "";
+  unidades.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="py-2 px-2 font-bold">${u.nome}</td>
+      <td class="py-2 px-2">${u.negocioChave}</td>
+      <td class="py-2 px-2">${u.codigoExterno || "—"}</td>
+      <td class="py-2 px-2">
+        <input type="checkbox" class="config-unidade-ativo" data-id="${u.id}" ${u.ativo ? "checked" : ""}>
+      </td>
+      <td class="py-2 px-2">
+        <button type="button" class="btn-secondary config-unidade-excluir" data-id="${u.id}" data-nome="${u.nome}" style="padding: 4px 8px; font-size: 11px;">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".config-unidade-ativo").forEach(input => {
+    input.addEventListener("change", async () => {
+      const id = input.dataset.id;
+      const ativo = input.checked;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ativo, actorUsuario: currentUser.nome })
+        });
+        if (!res.ok) throw new Error("Falha ao salvar");
+        showToast(`Unidade ${ativo ? "ativada" : "desativada"}.`, "sucesso");
+      } catch (e) {
+        input.checked = !ativo;
+        showToast("Não foi possível salvar. Tente novamente.", "erro");
+      }
+    });
+  });
+
+  tbody.querySelectorAll(".config-unidade-excluir").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const nome = btn.dataset.nome;
+      const confirmado = await showConfirm(
+        `Remover a unidade "${nome}"? Ela some da operação do dia a dia, mas o histórico de registros continua intacto.`,
+        { icon: "🗑️", title: "Remover unidade", confirmText: "Remover", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (!confirmado) return;
+      try {
+        const res = await fetch(`${API_BASE}/tenant/unidades/${encodeURIComponent(id)}?actorUsuario=${encodeURIComponent(currentUser.nome)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Falha ao remover");
+        showToast(`Unidade "${nome}" removida.`, "sucesso");
+        await atualizarCardUnidadesTenant();
+      } catch (e) {
+        showToast("Não foi possível remover a unidade.", "erro");
+      }
+    });
+  });
+}
+
+function iniciarModuloBase(moduloOpcional) {
+  document.getElementById("module-selection-overlay").classList.add("hidden");
+  appEl.classList.remove("hidden");
+
+  document.getElementById("user-badge").textContent = currentUser.nome;
+
+  // Quando chamado sem argumento (ex.: recarregar permissões depois que o role
+  // muda no servidor, ver carregarColaboradores()), reaproveita o último módulo
+  // ativo em vez de cair no bloco `else` abaixo — sem isso, o filtro de
+  // Cacau Show/FaçaAmigos/RH/Ponto era pulado por completo e a lista bruta de
+  // TABS_POR_ROLE (que mistura os módulos) vazava direto pra sidebar.
+  if (!moduloOpcional) {
+    moduloOpcional = localStorage.getItem("ultimoModulo_" + currentUser.nome) || moduloOpcional;
+  }
+
+  // Guarda-costas contra "ultimoModulo" salvo antes desta regra existir: uma
+  // consultora_fa não entra no módulo de Ponto (Cacau Show only) mesmo que
+  // tenha ficado gravado no localStorage dela de uma sessão antiga.
+  if (moduloOpcional === "controle-ponto" && currentUser.role === "consultora_fa") {
+    moduloOpcional = "faca-amigos";
+  }
+
+  // Guarda contra "ultimoModulo" salvo no localStorage como "fluxo-caixa" antes
+  // deste módulo ser removido: sem isso, nenhum dos ramos abaixo bate e a
+  // sidebar cai na lista crua e sem filtro de TABS_POR_ROLE (ver histórico do
+  // mesmo problema em webapp/sw.js, causado por uma remoção anterior).
+  if (moduloOpcional === "fluxo-caixa") {
+    moduloOpcional = currentUser.role === "consultora_fa" ? "faca-amigos" : "cacau-show";
+  }
+
+  let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
+
+  if (moduloOpcional) {
+    localStorage.setItem("ultimoModulo_" + currentUser.nome, moduloOpcional);
+    if (moduloOpcional === "cacau-show") {
+      // controle-ponto continua liberado aqui: virou item normal de menu para
+      // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
+      // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
+      // "faca-amigos" em si) — "pos-visita"/"aniversarios" também estão na
+      // lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro do módulo
+      // Cacau Show antes desta correção.
+      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "aniversarios"];
+      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "faca-amigos") {
+      // Sem "controle-ponto" aqui: Registro de Ponto do FaçaAmigos é feito por
+      // outro sistema, o módulo de Ponto deste app é exclusivo do Cacau Show.
+      tabsPermitidas = ["faca-amigos", "aniversarios", "avisos", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "rh-modulo") {
+      tabsPermitidas = ["rh-modulo", "colaboradores", "avisos", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    } else if (moduloOpcional === "controle-ponto") {
+      tabsPermitidas = ["controle-ponto", "avisos", "configuracoes"];
+      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
+    }
+  } else {
+    document.getElementById("btn-trocar-modulo").classList.add("hidden");
+  }
+
+  // Realça na topbar (Owner) qual dos dois módulos está ativo agora.
+  document.querySelectorAll(".module-switch-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.modulo === moduloOpcional);
+  });
+
+  // Os passo a passo de importação são material de apoio de quem opera a
+  // extração no Cacau Digital: Líder de Operações (consultora_dashboard) e
+  // owner, que administra o sistema. Para os demais perfis só ocupam espaço.
+  const mostrarPassoAPasso = currentUser.role === "consultora_dashboard" || currentUser.role === "owner";
+  ["passo-a-passo-xml"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !mostrarPassoAPasso);
+  });
+
+  // Painel admin do Ponto (Resumo/Atestado/Histórico/Relatório por Operação):
+  // colaboradoras comuns só batem ponto — Resumo, Atestado e Histórico saem
+  // por completo da tela delas (não é uma seção recolhida, some mesmo).
+  const mostrarPontoAdmin = currentUser.role === "consultora_dashboard" || currentUser.role === "owner";
+  const pontoPainelAdmin = document.getElementById("ponto-painel-admin");
+  if (pontoPainelAdmin) pontoPainelAdmin.classList.toggle("hidden", !mostrarPontoAdmin);
+
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    const permitido = tabsPermitidas.includes(btn.dataset.tab);
+    btn.classList.toggle("hidden", !permitido);
+  });
+
+  // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
+  // nenhuma de suas abas estiver liberada para o perfil atual.
+  ["group-controle-caixa", "group-faca-amigos", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
+    group.classList.toggle("hidden", !temTabVisivel);
+  });
+
+  // Reforço explícito: cada módulo é fechado, nunca mostra o grupo do outro
+  // negócio na sidebar, mesmo que algum tab-btn futuro volte a ser
+  // compartilhado entre os dois (caso do antigo Registro de Ponto, hoje
+  // exclusivo do Cacau Show — FaçaAmigos bate ponto em outro sistema).
+  if (moduloOpcional === "faca-amigos") {
+    document.getElementById("group-controle-caixa")?.classList.add("hidden");
+  } else if (moduloOpcional === "cacau-show") {
+    document.getElementById("group-faca-amigos")?.classList.add("hidden");
+  }
+
+  // Expande de cara o grupo do módulo em que a pessoa acabou de entrar — antes
+  // era preciso clicar no cabeçalho pra revelar as próprias funções do módulo
+  // ativo, um clique a mais toda vez que a página recarregava. Os demais
+  // grupos-acordeão (do outro negócio, se visível pro perfil) continuam
+  // recolhidos; "Insights IA" é atalho direto e não entra nesse controle.
+  const GRUPO_POR_MODULO = {
+    "cacau-show": "group-controle-caixa",
+    "faca-amigos": "group-faca-amigos",
+    "rh-modulo": "group-rh-equipe",
+  };
+  const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
+  document.querySelectorAll(".sidebar-group").forEach(group => {
+    const header = group.querySelector(".sidebar-group-header");
+    if (!header || header.classList.contains("is-direct")) return;
+    const deveExpandir = group.id === grupoDoModuloAtivo;
+    group.classList.toggle("expanded", deveExpandir);
+    group.classList.toggle("collapsed", !deveExpandir);
+    header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
+  });
+
+  // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
+  // pra que o operador veja o número piscando assim que entra no módulo.
+  if (tabsPermitidas.includes("aniversarios")) buscarContagemAniversariosPendentes();
+
+  // Menu rápido (grade desktop + barra mobile), curado por perfil
+  renderMenuRapido();
+  document.getElementById("bottom-nav").classList.remove("hidden");
+  document.getElementById("fab-novo-registro").classList.remove("hidden");
+
+  // Configura a aba padrão após selecionar módulo (Owners)
+  if (currentUser.role === "owner" && moduloOpcional) {
+    if (moduloOpcional === "cacau-show") {
+      ativarTab("dashboard");
+    } else if (moduloOpcional === "faca-amigos") {
+      faSubTabAtiva = "fa-dashboard";
+      ativarTab("faca-amigos");
+    } else if (moduloOpcional === "rh-modulo") {
+      ativarTab("rh-modulo");
+    }
+  } else {
+    const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
+    if (!tabsPermitidas.includes(ativa)) {
+      ativarTab(tabsPermitidas[0]);
+    }
+  }
+
+  // Deep link vindo de notificação push (ex.: "?modulo=cacau-show&tab=faturamento-nfe"
+  // — ver config/notifications.js, enviarNotificacaoNfeFaturamentoNovosProdutos):
+  // sobrepõe a aba padrão definida acima, sempre que a aba pedida for permitida
+  // para o perfil logado. Roda uma única vez por carregamento — a URL é limpa
+  // em seguida para não reabrir a mesma aba a cada F5.
+  const tabDeepLink = new URLSearchParams(location.search).get("tab");
+  if (tabDeepLink && tabsPermitidas.includes(tabDeepLink)) {
+    ativarTab(tabDeepLink);
+    history.replaceState(null, "", location.pathname);
+  }
+
+  // Sugerir Abertura/Fechamento por hora e restaurar rascunhos salvos
+  preselecionarOperacaoPorHorario();
+  restaurarRascunhosForm();
+  inicializarCorOperacaoSelects();
+
+  // Verificar aviso de Inventário Mensal Obrigatório para colaboradoras Cacau Show
+  verificarInventarioMensalNotificacao();
+
+  // Configurações específicas por role
+  const isFAConsultora = currentUser.role === "consultora_fa";
+  const isOwner = currentUser.role === "owner";
+
+  // Consultor Cacau Show
+  const consultorSelect = document.getElementById("consultor");
+  if (currentUser.role !== "owner") {
+    consultorSelect.value = currentUser.nome;
+    consultorSelect.disabled = true;
+  } else {
+    consultorSelect.disabled = false;
+  }
+
+  // Consultor FA
+  const faConsultorSelect = document.getElementById("fa-consultor");
+  if (isFAConsultora) {
+    faConsultorSelect.value = currentUser.nome;
+    faConsultorSelect.disabled = true;
+    // Sub-abas FA: consultora_fa vê Registro e Minha Meta (bonificação própria)
+    document.querySelectorAll(".fa-sub-btn").forEach(btn => {
+      btn.classList.add("hidden");
+    });
+    document.getElementById("fa-tablink-registro").classList.remove("hidden");
+    document.getElementById("fa-tablink-meta").classList.remove("hidden");
+    document.getElementById("fa-subnav").classList.remove("fa-subnav-single");
+    faSubTabAtiva = "fa-registro";
+    ativarFaSubTab("fa-registro");
+  } else if (isOwner) {
+    faConsultorSelect.disabled = false;
+    // Owners vêem todas as sub-abas FA
+    document.querySelectorAll(".fa-sub-btn").forEach(btn => {
+      btn.classList.remove("hidden");
+    });
+    document.getElementById("fa-subnav").classList.remove("fa-subnav-single");
+  }
+
+  // Regras de Bonificação FA: só Bruno e Isabella administram os valores da
+  // premiação (mesmo padrão de nomes explícitos usado para Boletos/Auditoria).
+  // Vale tanto para a sub-aba interna quanto para o atalho na sidebar.
+  const nomesPermitidosRegrasBonificacaoFa = ["Bruno", "Isabella"];
+  const podeVerRegrasFa = nomesPermitidosRegrasBonificacaoFa.includes(currentUser.nome);
+  ["fa-tablink-regras-bonificacao", "tab-btn-fa-regras"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !podeVerRegrasFa);
+  });
+
+  const isBruno = currentUser && currentUser.nome === "Bruno";
+  document.querySelectorAll(".col-bruno").forEach(el => {
+    el.classList.toggle("hidden", !isBruno);
+  });
+
+  renderDashboard();
+  renderHistorico();
+  resetSessionTimer();
+  mostrarResumoMatinal();
+  aplicarVisibilidadeModulosTenant();
+}
+
+/**
+ * Função para calcular se a data atual corresponde ao 1º dia útil da última semana do mês
+ * e notificar as colaboradoras da Cacau Show com prazo de 2 dias úteis, notificando Alexandra.
+ */
+function verificarInventarioMensalNotificacao() {
+  if (!currentUser) return;
+  
+  // Apenas colaboradoras da Cacau Show (não aplica a consultora_fa pura)
+  if (currentUser.role === "consultora_fa") return;
+
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth(); // 0-indexed
+  const diaSemana = hoje.getDay(); // 0=Dom, 1=Seg, 2=Ter...
+
+  // Obter o último dia do mês
+  const ultimoDiaMes = new Date(ano, mes + 1, 0);
+  const totalDiasMes = ultimoDiaMes.getDate();
+
+  // Encontrar o 1º dia útil da última semana (últimos 7 dias do mês)
+  let primeiroDiaUtilUltimaSemana = null;
+  for (let d = totalDiasMes - 6; d <= totalDiasMes; d++) {
+    const dataTemp = new Date(ano, mes, d);
+    const dayOfWeek = dataTemp.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Não é Sábado nem Domingo
+      primeiroDiaUtilUltimaSemana = dataTemp;
+      break;
+    }
+  }
+
+  if (!primeiroDiaUtilUltimaSemana) return;
+
+  // Verificar se HOJE é o 1º dia útil da última semana
+  const isHojePrimeiroDiaUtil = hoje.getDate() === primeiroDiaUtilUltimaSemana.getDate() &&
+                                hoje.getMonth() === primeiroDiaUtilUltimaSemana.getMonth() &&
+                                hoje.getFullYear() === primeiroDiaUtilUltimaSemana.getFullYear();
+
+  if (!isHojePrimeiroDiaUtil) return;
+
+  // Evitar notificação repetida no mesmo dia para o mesmo usuário
+  const storageKey = `inv_alert_${ano}_${mes}_${currentUser.nome}`;
+  if (localStorage.getItem(storageKey)) return;
+
+  // Calcular a data de término (2 dias úteis após o 1º dia útil)
+  let diasAdicionados = 0;
+  let dataTermino = new Date(primeiroDiaUtilUltimaSemana);
+  while (diasAdicionados < 2) {
+    dataTermino.setDate(dataTermino.getDate() + 1);
+    const dow = dataTermino.getDay();
+    if (dow !== 0 && dow !== 6) {
+      diasAdicionados++;
+    }
+  }
+
+  const dataInicioStr = primeiroDiaUtilUltimaSemana.toLocaleDateString('pt-BR');
+  const dataTerminoStr = dataTermino.toLocaleDateString('pt-BR');
+
+  // Disparar Notificação Silenciosa para Alexandra (Gestão/Dashboard) sobre o início e fim do prazo
+  const notifKeyAlexandra = `inv_notif_alexandra_${ano}_${mes}`;
+  if (!localStorage.getItem(notifKeyAlexandra)) {
+    localStorage.setItem(notifKeyAlexandra, "true");
+    fetch('/api/notificar-gestao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinatarios: getDestinatariosNotificacao('inventario_inicio'),
+        assunto: `📋 AVISO: Início do Inventário Mensal Obrigatório (${dataInicioStr})`,
+        mensagem: `Atenção Alexandra, o Inventário Mensal Obrigatório das lojas foi iniciado hoje (${dataInicioStr}). O prazo para conclusão pelas colaboradoras é de 2 dias úteis, finalizando em ${dataTerminoStr}.`,
+        operador: currentUser.nome
+      })
+    }).catch(err => console.error('Erro notificação Alexandra:', err));
+  }
+
+  // Exibir Pop-up de Alerta para a Colaboradora
+  setTimeout(() => {
+    showModal(
+      `⚠️ INVENTÁRIO MENSAL OBRIGATÓRIO INICIADO!\n\nHoje (${dataInicioStr}) é o primeiro dia útil para a realização do Inventário Cego Mensal Obrigatório de estoque e validade.\n\n⏰ Prazo para conclusão: 2 dias úteis (Término até ${dataTerminoStr}).\n\nPor favor, acesse a aba "Inventário de Estoque" no Módulo Logística para iniciar a contagem.`,
+      {
+        icon: "📋",
+        title: "Inventário Mensal Obrigatório",
+        btnText: "Entendi / Ir para Inventário",
+        btnClass: "bg-accent-soft hover:bg-surface-hover text-ink font-bold"
+      }
+    ).then(() => {
+      localStorage.setItem(storageKey, "true");
+      ativarTab("inventario-estoque");
+    });
+  }, 600);
+}
+
+// Botões de Seleção de Módulo
+document.getElementById("btn-mod-cacau").addEventListener("click", () => {
+  iniciarModuloBase("cacau-show");
+});
+
+document.getElementById("btn-mod-faca").addEventListener("click", () => {
+  iniciarModuloBase("faca-amigos");
+});
+
+const btnModRh = document.getElementById("btn-mod-rh");
+if (btnModRh) {
+  btnModRh.addEventListener("click", () => {
+    iniciarModuloBase("rh-modulo");
+  });
+}
+
+const btnModPonto = document.getElementById("btn-mod-ponto");
+if (btnModPonto) {
+  btnModPonto.addEventListener("click", () => {
+    iniciarModuloBase("controle-ponto");
+    ativarTab("controle-ponto");
+  });
+}
+
+// Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
+// num clique só, pro módulo escolhido.
+document.querySelectorAll(".module-switch-btn").forEach(btn => {
+  btn.addEventListener("click", () => iniciarModuloBase(btn.dataset.modulo));
+});
+
+// Botão Trocar Módulo na Topbar / Sidebar
+const trocarModuloHandler = () => {
+  appEl.classList.add("hidden");
+  document.getElementById("module-selection-overlay").classList.remove("hidden");
+};
+document.getElementById("btn-trocar-modulo").addEventListener("click", trocarModuloHandler);
+const btnTopbarTrocar = document.getElementById("btn-topbar-trocar-modulo");
+if (btnTopbarTrocar) btnTopbarTrocar.addEventListener("click", trocarModuloHandler);
+
+function esconderBootSplash() {
+  const splash = document.getElementById("boot-splash");
+  if (!splash) return;
+  splash.classList.add("boot-splash-out");
+  setTimeout(() => splash.remove(), 400);
+}
+
+function renderApp() {
+  if (currentUser && PERFIS_ENTRADA_DIRETA.includes(currentUser.role)) {
+    // Sessão salva de Owner/Líder de Operações: pula o login e cai direto
+    // no menu principal, sem passar pela tela de PIN.
+    entrarNoApp();
+    esconderBootSplash();
+    return;
+  }
+
+  if (currentUser) {
+    // Sessão salva, mas esse perfil tem que digitar o PIN toda vez que
+    // entra no sistema — pula direto para a etapa de PIN (nome já
+    // preenchido), sem passar pela seleção de "Quem é você?".
+    const nomeSalvo = currentUser.nome;
+    currentUser = null;
+    localStorage.removeItem(USER_KEY);
+    loginOverlay.classList.remove("hidden");
+    selecionarUsuarioLogin(nomeSalvo);
+  } else {
+    loginOverlay.classList.remove("hidden");
+  }
+  esconderBootSplash();
+}
+
+// --- Configurações Globais ---
+const btnGlobalConfig = document.getElementById("btn-global-configuracoes");
+if (btnGlobalConfig) {
+  btnGlobalConfig.addEventListener("click", () => {
+    ativarTab("configuracoes");
+  });
+}
+
+// --- Trocar PIN ---
+const modalTrocarPin = document.getElementById("modal-trocar-pin");
+document.getElementById("btn-trocar-pin").addEventListener("click", () => {
+  document.getElementById("pin-atual").value = "";
+  document.getElementById("pin-novo").value = "";
+  document.getElementById("pin-novo-confirma").value = "";
+  document.getElementById("trocar-pin-msg").classList.add("hidden");
+  modalTrocarPin.classList.remove("hidden");
+});
+document.getElementById("trocar-pin-cancelar").addEventListener("click", () => modalTrocarPin.classList.add("hidden"));
+document.getElementById("trocar-pin-salvar").addEventListener("click", async () => {
+  const atual = document.getElementById("pin-atual").value.trim();
+  const novo = document.getElementById("pin-novo").value.trim();
+  const confirma = document.getElementById("pin-novo-confirma").value.trim();
+  const msg = document.getElementById("trocar-pin-msg");
+
+  function erro(texto) { msg.textContent = texto; msg.classList.remove("hidden"); }
+
+  if (atual !== pins[currentUser.nome]) { erro("PIN atual incorreto."); return; }
+  if (!pinValido(novo)) { erro("O novo PIN deve ter exatamente 4 dígitos."); return; }
+  if (novo !== confirma) { erro("Os novos PINs não conferem."); return; }
+
+  await salvarPinAPI(currentUser.nome, novo);
+  modalTrocarPin.classList.add("hidden");
+  showModal("PIN alterado com sucesso!", { icon: "✅", title: "Sucesso", btnText: "Fechar" });
+});
+
+// --- Tabs & Histórico de Navegação ---
+var tabHistoryStack = [];
+var currentActiveTab = null;
+
+function ativarTab(tabName, skipHistory = false) {
+  if (currentActiveTab && currentActiveTab !== tabName && !skipHistory) {
+    tabHistoryStack.push(currentActiveTab);
+    if (tabHistoryStack.length > 30) tabHistoryStack.shift();
+  }
+  currentActiveTab = tabName;
+
+  // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "hoje", "avisos"];
+
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.remove("active");
+    b.setAttribute("aria-selected", "false");
+    b.setAttribute("tabindex", "-1");
+  });
+
+  // Remove active de todos os painéis e re-oculta os que eram hidden por padrão
+  document.querySelectorAll(".tab-panel").forEach(p => {
+    p.classList.remove("active");
+    const panelId = p.id.replace("tab-", "");
+    if (PANELS_HIDDEN_BY_DEFAULT.includes(panelId) && panelId !== tabName) {
+      p.classList.add("hidden");
+    }
+  });
+
+  const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add("active");
+    activeBtn.setAttribute("aria-selected", "true");
+    activeBtn.setAttribute("tabindex", "0");
+  }
+
+  // Cabeçalhos que são atalho direto (grupo de item único, ex.: Insights IA)
+  // também precisam refletir a aba aberta.
+  document.querySelectorAll(".sidebar-group-header.is-direct").forEach(h => {
+    h.classList.toggle("active", h.dataset.tab === tabName);
+  });
+
+  const activePanel = document.getElementById("tab-" + tabName);
+  if (activePanel) {
+    activePanel.classList.remove("hidden"); // ← garante que hidden seja removido
+    activePanel.classList.add("active");
+  }
+
+  if (tabName === "configuracoes") {
+    inicializarPainelConfiguracoes();
+  }
+
+  // Sync bottom nav + grade de atalhos (#7). Quando duas pílulas apontam pro
+  // mesmo data-tab (ex.: "Registrar Envelope" e "Meta & Bonificação", ambas
+  // faca-amigos), prioriza a que casa também com a sub-aba atual — cada
+  // superfície (mobile/desktop) é resolvida separadamente.
+  document.querySelectorAll(".bottom-nav-btn, .quick-action-item").forEach(b => b.classList.remove("active"));
+  [".bottom-nav-btn", ".quick-action-item"].forEach(seletor => {
+    const candidatos = document.querySelectorAll(`${seletor}[data-tab="${tabName}"]`);
+    const ativo = [...candidatos].find(b => b.dataset.faSubtab === faSubTabAtiva) || candidatos[0];
+    if (ativo) ativo.classList.add("active");
+  });
+
+  // Aplicar/remover tema visual FAçaAmigos
+  document.body.classList.toggle("tema-fa", tabName === "faca-amigos");
+
+  if (tabName === "dashboard") renderDashboard();
+  if (tabName === "historico") renderHistorico();
+  if (tabName === "mensal") renderMensal();
+  if (tabName === "auditoria") carregarAuditoria();
+  if (tabName === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
+  if (tabName === "colaboradores") renderizarColaboradores();
+  if (tabName === "rh-modulo") renderRhModulo();
+  if (tabName === "importar-meta") renderImportarMeta();
+  if (tabName === "conferencia-nfe") renderNfCardsGallery();
+  if (tabName === "faturamento-nfe") renderFaturamentoNfe();
+  if (tabName === "controle-ponto") inicializarAbaPonto();
+  if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
+  // "hoje" lê os mesmos dados de "meta-hora-hora" (ver atualizarPainelHoje,
+  // chamado de dentro de carregarMetaHoraHora) — reaproveita o mesmo init.
+  if (tabName === "hoje") inicializarMetaHoraHora();
+  if (tabName === "avisos") renderAvisos();
+  if (tabName === "aniversarios") renderAniversarios();
+  // Fecha a sidebar mobile ao selecionar uma aba
+  fecharSidebarMobile();
+  observarTituloDaSecao(tabName);
+}
+
+// ==========================================================================
+// TÍTULO GRANDE (iOS) / TOP APP BAR COM ELEVAÇÃO (Material)
+// --------------------------------------------------------------------------
+// Os dois idiomas precisam da mesma informação: o cabeçalho da seção ainda
+// está visível? O iOS usa para trocar o título grande pelo título da barra; o
+// Material, para levantar a top app bar.
+//
+// Um único IntersectionObserver, reapontado a cada troca de aba e sempre
+// desconectado antes — sem vazamento e sem listener de scroll, que forçaria
+// leitura de layout a cada quadro.
+// ==========================================================================
+let observadorTitulo = null;
+
+function observarTituloDaSecao(tabName) {
+  if (observadorTitulo) { observadorTitulo.disconnect(); observadorTitulo = null; }
+  document.documentElement.classList.remove("title-collapsed");
+
+  const painel = document.getElementById("tab-" + tabName);
+  if (!painel || typeof IntersectionObserver === "undefined") return;
+
+  // 16 painéis abrem com .section-header; o Faça Amigos abre com o próprio
+  // banner. Qualquer um dos dois serve de sentinela.
+  const alvo = painel.querySelector(".section-header, .fa-header-banner");
+  if (!alvo) return;
+
+  const alturaBarra = parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue("--barra-superior-altura")
+  , 10) || 64;
+
+  observadorTitulo = new IntersectionObserver(entradas => {
+    document.documentElement.classList.toggle("title-collapsed", !entradas[0].isIntersecting);
+  }, { rootMargin: `-${alturaBarra}px 0px 0px 0px`, threshold: 0 });
+
+  observadorTitulo.observe(alvo);
+}
+
+// ==========================================================================
+// RIPPLE (Material)
+// --------------------------------------------------------------------------
+// Um único listener delegado no documento, e não um por elemento: o app cria
+// botões dinamicamente o tempo todo (tabelas, cards, barra inferior), e
+// registrar por elemento significaria reanexar a cada render.
+// ==========================================================================
+document.addEventListener("pointerdown", e => {
+  if (!document.documentElement.classList.contains("idiom-android")) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const alvo = e.target.closest("button, .quick-action-item, .bottom-nav-btn, .tab-btn, .seg-btn");
+  // .notifications-wrapper é excluído de propósito: o ripple exige
+  // overflow:hidden no alvo, e isso recortaria o dropdown de notificações.
+  if (!alvo || alvo.closest(".notifications-wrapper") || alvo.disabled) return;
+
+  alvo.classList.add("ripple-alvo");
+  const r = alvo.getBoundingClientRect();
+  const d = Math.max(r.width, r.height);
+  const onda = document.createElement("span");
+  onda.className = "ripple-efeito";
+  onda.style.width = onda.style.height = d + "px";
+  onda.style.left = (e.clientX - r.left - d / 2) + "px";
+  onda.style.top = (e.clientY - r.top - d / 2) + "px";
+  alvo.appendChild(onda);
+  onda.addEventListener("animationend", () => onda.remove());
+}, { passive: true });
+
+// Ao voltar para a densidade expandida a gaveta perde o sentido: se ficasse
+// aberta, apareceria sobreposta à barra lateral já persistente.
+document.addEventListener("platformchange", e => {
+  if (e.detail && e.detail.density === "expanded") fecharSidebarMobile();
+});
+
+// --- Controle da Sidebar Mobile ---
+const sidebarEl = document.getElementById("sidebar");
+const sidebarOverlayEl = document.getElementById("sidebar-overlay");
+const btnHamburger = document.getElementById("btn-menu-hamburger");
+const btnCloseSidebar = document.getElementById("btn-close-sidebar");
+
+function abrirSidebarMobile() {
+  if (sidebarEl) sidebarEl.classList.add("open");
+  if (sidebarOverlayEl) sidebarOverlayEl.classList.add("open");
+  // Trava o scroll da página por trás do drawer (Android e iOS) e manda o
+  // foco pro botão de fechar, pra quem navega por teclado/leitor de tela.
+  document.documentElement.classList.add("sidebar-mobile-open");
+  if (btnCloseSidebar) btnCloseSidebar.focus();
+}
+
+function fecharSidebarMobile() {
+  const estavaAberta = sidebarEl && sidebarEl.classList.contains("open");
+  if (sidebarEl) sidebarEl.classList.remove("open");
+  if (sidebarOverlayEl) sidebarOverlayEl.classList.remove("open");
+  document.documentElement.classList.remove("sidebar-mobile-open");
+  // Devolve o foco pro hamburger só se o drawer realmente estava aberto,
+  // pra não roubar o foco de outro elemento em cada troca de aba.
+  if (estavaAberta && btnHamburger) btnHamburger.focus();
+}
+
+if (btnHamburger) btnHamburger.addEventListener("click", abrirSidebarMobile);
+if (btnCloseSidebar) btnCloseSidebar.addEventListener("click", fecharSidebarMobile);
+if (sidebarOverlayEl) sidebarOverlayEl.addEventListener("click", fecharSidebarMobile);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") fecharSidebarMobile();
+});
+
+// Enter ativa o botão principal (.btn-primary) do modal/overlay aberto no
+// momento, sem precisar clicar — vale para login, PIN, confirmações
+// (showModal/showConfirm) e qualquer outro .modal-overlay visível.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const tag = e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "BUTTON" || tag === "A") return;
+
+  // Quando há mais de um overlay visível ao mesmo tempo (ex.: uma confirmação
+  // aberta por cima da tela de login), o último no DOM é o que fica
+  // visualmente por cima — todos compartilham o mesmo z-index.
+  const overlaysVisiveis = Array.from(document.querySelectorAll(".modal-overlay"))
+    .filter(o => !o.classList.contains("hidden"));
+  const overlayAberto = overlaysVisiveis[overlaysVisiveis.length - 1];
+  if (!overlayAberto) return;
+
+  const btnPrincipal = overlayAberto.querySelector(".btn-primary:not(:disabled)");
+  if (btnPrincipal) {
+    e.preventDefault();
+    btnPrincipal.click();
+  }
+});
+
+// ==========================================================================
+// GERENCIADOR GLOBAL DE GESTOS E ATALHOS DE NAVEGAÇÃO
+// ==========================================================================
+
+function mostrarToastNavegacao(mensagem) {
+  let toastEl = document.getElementById("toast-navegacao-feedback");
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "toast-navegacao-feedback";
+    toastEl.className = "toast-nav-badge";
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = mensagem;
+  toastEl.classList.add("visible");
+  clearTimeout(toastEl._timer);
+  toastEl._timer = setTimeout(() => {
+    toastEl.classList.remove("visible");
+  }, 1800);
+}
+
+function fecharModalAtivo() {
+  const overlaysVisiveis = Array.from(document.querySelectorAll(".modal-overlay, .rh-perfil-modal-overlay, .modal-confirm, .module-modal"))
+    .filter(o => !o.classList.contains("hidden") && getComputedStyle(o).display !== "none");
+  
+  if (overlaysVisiveis.length > 0) {
+    const topoModal = overlaysVisiveis[overlaysVisiveis.length - 1];
+    const btnFechar = topoModal.querySelector(".btn-secondary, .btn-cancel, [id$='-cancelar'], [id$='-fechar'], .modal-close");
+    if (btnFechar) {
+      btnFechar.click();
+    } else {
+      topoModal.classList.add("hidden");
+    }
+    return true;
+  }
+  return false;
+}
+
+function voltarTelaAnterior() {
+  // 1. Fechar modal aberto
+  if (fecharModalAtivo()) {
+    mostrarToastNavegacao("✕ Modal Fechado");
+    return true;
+  }
+
+  // 2. Fechar sidebar mobile se estiver aberta
+  if (document.documentElement.classList.contains("sidebar-mobile-open") || (typeof sidebarEl !== "undefined" && sidebarEl && sidebarEl.classList.contains("open"))) {
+    if (typeof fecharSidebarMobile === "function") fecharSidebarMobile();
+    mostrarToastNavegacao("← Menu Fechado");
+    return true;
+  }
+
+  // 3. Voltar no histórico de abas
+  if (typeof tabHistoryStack !== "undefined" && tabHistoryStack && tabHistoryStack.length > 0) {
+    const abaAnterior = tabHistoryStack.pop();
+    if (typeof ativarTab === "function") {
+      ativarTab(abaAnterior, true);
+      const btn = document.querySelector(`.tab-btn[data-tab="${abaAnterior}"]`);
+      const label = btn ? btn.textContent.trim() : abaAnterior;
+      mostrarToastNavegacao(`← Voltou para ${label}`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Atalhos globais de teclado (Backspace, Escape, Alt + Seta, Ctrl + K)
+document.addEventListener("keydown", (e) => {
+  const target = e.target;
+  const isInput = target && (
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT" ||
+    target.isContentEditable
+  );
+
+  // Esc -> Volta a tela ou fecha modal
+  if (e.key === "Escape") {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Backspace -> Volta a tela/modal somente se NÃO estiver digitando em campo de texto
+  if (e.key === "Backspace" && !isInput) {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Alt + Seta Esquerda -> Voltar tela
+  if (e.altKey && e.key === "ArrowLeft") {
+    if (voltarTelaAnterior()) {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Ctrl + K ou Cmd + K -> Foco na busca rápida
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    const campoBusca = document.querySelector("input[type='search'], #search-input, .input-busca, #filtro-busca, input[placeholder*='Buscar'], input[placeholder*='buscar']");
+    if (campoBusca) {
+      e.preventDefault();
+      campoBusca.focus();
+      if (campoBusca.select) campoBusca.select();
+      mostrarToastNavegacao("🔍 Busca Rápida");
+    }
+    return;
+  }
+});
+
+// Gestos Touch e Interações de Tela (Swipe horizontal, Double-Tap no Topo, Backdrop Click)
+(function inicializarGestosNavegacao() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const duration = Date.now() - touchStartTime;
+
+    // Ignora se o toque demorou muito (> 600ms) ou se o movimento vertical foi acentuado (> 70px)
+    if (duration > 600 || Math.abs(deltaY) > 70) return;
+
+    // Ignora gestos que iniciam em elementos de scroll horizontal (tabelas, carrosséis)
+    const target = e.target;
+    if (target && target.closest && target.closest(".no-swipe, .carousel, table, .overflow-x-auto, [data-no-swipe]")) {
+      return;
+    }
+
+    // Arraste da esquerda para a direita (Swipe Right) -> Voltar Tela
+    if (deltaX > 90) {
+      voltarTelaAnterior();
+    }
+  }, { passive: true });
+
+  // Fechar modais ao clicar no fundo escurecido (overlay backdrop)
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains("modal-overlay")) {
+      e.target.classList.add("hidden");
+      mostrarToastNavegacao("✕ Modal Fechado");
+    }
+  });
+
+  // Toque duplo no cabeçalho para rolar ao topo (Scroll to Top)
+  document.addEventListener("DOMContentLoaded", () => {
+    const headers = document.querySelectorAll("header, .app-header, .topbar, .navbar, .sidebar-mobile-header");
+    headers.forEach(header => {
+      let lastTap = 0;
+      header.addEventListener("touchend", (e) => {
+        const currentTime = Date.now();
+        const tapLength = currentTime - lastTap;
+        if (tapLength < 300 && tapLength > 0) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          mostrarToastNavegacao("⬆ Topo da Página");
+          e.preventDefault();
+        }
+        lastTap = currentTime;
+      });
+    });
+  });
+})();
+
+
+// Toggle expandir/colapsar grupos da sidebar (Acordeão: abrir um grupo
+// recolhe automaticamente os demais, evitando uma sidebar gigante quando
+// vários grupos ficam abertos ao mesmo tempo).
+document.querySelectorAll(".sidebar-group-header").forEach(header => {
+  header.addEventListener("click", () => {
+    // Grupo de item único (ex.: Insights IA): o cabeçalho vira atalho direto —
+    // abre a aba no primeiro clique, sem acordeão.
+    if (header.dataset.tab) {
+      ativarTab(header.dataset.tab);
+      return;
+    }
+
+    const group = header.closest(".sidebar-group");
+    if (!group) return;
+    const isExpanded = group.classList.contains("expanded");
+
+    document.querySelectorAll(".sidebar-group.expanded").forEach(outroGrupo => {
+      if (outroGrupo === group) return;
+      outroGrupo.classList.remove("expanded");
+      outroGrupo.classList.add("collapsed");
+      const outroHeader = outroGrupo.querySelector(".sidebar-group-header");
+      if (outroHeader) outroHeader.setAttribute("aria-expanded", "false");
+    });
+
+    if (isExpanded) {
+      group.classList.remove("expanded");
+      group.classList.add("collapsed");
+      header.setAttribute("aria-expanded", "false");
+    } else {
+      group.classList.remove("collapsed");
+      group.classList.add("expanded");
+      header.setAttribute("aria-expanded", "true");
+    }
+  });
+});
+
+// Toggle Cacau Show / FaçaAmigos dentro de Insights IA: Escala e Copiloto usam
+// dados de Meta Hora a Hora (só existe no Cacau Show), Coach de conversão usa
+// colaboradoras do FaçaAmigos — o toggle troca qual bloco fica visível, sem
+// duplicar cartões nem disparar chamadas novas (cada cartão só carrega quando
+// o usuário aperta "Analisar", como já era).
+document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const negocio = btn.dataset.iaNegocio;
+    document.querySelectorAll("#ia-negocio-toggle .ia-negocio-btn").forEach(b => {
+      const ativo = b === btn;
+      b.classList.toggle("active", ativo);
+      b.setAttribute("aria-selected", ativo ? "true" : "false");
+    });
+    document.querySelectorAll(".ia-negocio-bloco").forEach(bloco => {
+      bloco.classList.toggle("hidden", bloco.dataset.iaNegocioBloco !== negocio);
+    });
+  });
+});
+
+// Sub-tab ativa do FaçaAmigos
+let faSubTabAtiva = "fa-registro";
+
+function ativarFaSubTab(subTabName) {
+  // consultora_fa só tem acesso a Registro e Minha Meta (bonificação própria) —
+  // qualquer outra sub-aba cai de volta para Registro.
+  if (currentUser && currentUser.role === "consultora_fa" && subTabName !== "fa-registro" && subTabName !== "fa-meta") {
+    subTabName = "fa-registro";
+  }
+  faSubTabAtiva = subTabName;
+  document.querySelectorAll(".fa-sub-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".fa-tab-panel").forEach(p => p.classList.add("hidden"));
+  const activeBtn = document.querySelector(`.fa-sub-btn[data-fa-tab="${subTabName}"]`);
+  if (activeBtn) activeBtn.classList.add("active");
+  const panel = document.getElementById(`fa-tab-${subTabName}`);
+  if (panel) panel.classList.remove("hidden");
+
+  if (subTabName === "fa-dashboard") renderFaDashboard();
+  if (subTabName === "fa-historico") renderFaHistorico();
+  if (subTabName === "fa-mensal") renderFaMensal();
+  if (subTabName === "fa-meta") inicializarFaMeta();
+  if (subTabName === "fa-regras-bonificacao") inicializarFaRegrasBonificacao();
+}
+
+// Listeners para sub-abas FA
+document.querySelectorAll(".fa-sub-btn").forEach(btn => {
+  btn.addEventListener("click", () => ativarFaSubTab(btn.dataset.faTab));
+});
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    // Alguns botões da sidebar abrem a aba Faça Amigos já numa sub-aba
+    // específica (ex.: "Meta" e "Regras de Bonificação").
+    if (btn.dataset.faSubtab) faSubTabAtiva = btn.dataset.faSubtab;
+    ativarTab(btn.dataset.tab);
+  });
+});
+
+// --- Menu rápido (grade desktop + barra mobile), curado por perfil ---
+// Substitui a grade de atalhos fixa e a filtragem da barra mobile por
+// tabsPermitidas: cada perfil tem sua própria lista (QUICK_MENU_POR_ROLE),
+// então os botões apontam direto pro alvo certo, sem precisar "adivinhar".
+function renderMenuRapido() {
+  const itens = QUICK_MENU_POR_ROLE[currentUser.role] || [];
+
+  const criarBotao = (item, classe) => {
+    const btn = document.createElement("button");
+    btn.className = classe;
+    btn.dataset.tab = item.tab;
+    if (item.faSubtab) btn.dataset.faSubtab = item.faSubtab;
+    btn.addEventListener("click", () => {
+      if (item.faSubtab) faSubTabAtiva = item.faSubtab;
+      ativarTab(item.tab);
+      // "Envelopes" (Owner) e "Painel" (dashboard) apontam pro MESMO tab —
+      // a gestão de retirada em lote mora dentro do Dashboard, não tem aba
+      // própria. scrollTo é o que faz os dois botões parecerem destinos
+      // diferentes: um cai no topo, o outro pula direto pra seção certa.
+      if (item.scrollTo) {
+        requestAnimationFrame(() => {
+          document.getElementById(item.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+    });
+    return btn;
+  };
+
+  const grade = document.getElementById("quick-actions-grid");
+  if (grade) {
+    grade.innerHTML = "";
+    itens.forEach(item => {
+      const btn = criarBotao(item, "quick-action-item");
+      btn.setAttribute("aria-label", item.label);
+      btn.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.label}</span>`;
+      grade.appendChild(btn);
+    });
+  }
+
+  // A barra inferior recebe no máximo 5 destinos + "Mais"; a grade da barra
+  // lateral continua com a lista inteira. O perfil consultora_dashboard tem 9
+  // atalhos, e nove destinos numa barra de 390px dão ~43px cada — abaixo do
+  // mínimo de toque das duas plataformas (44pt na HIG, 48dp no Material) e
+  // muito além do limite de destinos que ambas recomendam. "Mais" abre a
+  // gaveta, que já contém todos os itens.
+  //
+  // 5, e não os 4 de antes, porque é o que o design mobile publicado usa para
+  // o operador (Hoje · Caixa · NF-e · Inventário · Ponto) e o que as duas
+  // plataformas ainda admitem: 5 destinos em 390px dão 78px cada, folgado
+  // sobre os 44pt da HIG e os 48dp do Material. 6 já não daria.
+  const NAV_MAX = 5;
+  const bottomNav = document.getElementById("bottom-nav");
+  if (bottomNav) {
+    bottomNav.innerHTML = "";
+    const cabem = itens.length > NAV_MAX ? itens.slice(0, NAV_MAX) : itens;
+    cabem.forEach(item => {
+      const btn = criarBotao(item, "bottom-nav-btn");
+      btn.setAttribute("aria-label", item.label);
+      btn.innerHTML = `<span class="nav-icon"><i class="fa-solid ${item.icon}"></i></span><span class="nav-rotulo">${item.curto || item.label}</span>`;
+      bottomNav.appendChild(btn);
+    });
+    if (itens.length > NAV_MAX) {
+      const btnMais = document.createElement("button");
+      btnMais.className = "bottom-nav-btn";
+      btnMais.type = "button";
+      btnMais.setAttribute("aria-label", "Mais opções de navegação");
+      btnMais.innerHTML = `<span class="nav-icon"><i class="fa-solid fa-ellipsis"></i></span><span class="nav-rotulo">Mais</span>`;
+      btnMais.addEventListener("click", abrirSidebarMobile);
+      bottomNav.appendChild(btnMais);
+    }
+  }
+}
+
+// FAB — abre tab de registro (#7)
+document.getElementById("fab-novo-registro").addEventListener("click", () => {
+  ativarTab("registro");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// Navegação por teclado nas tabs (seta esquerda/direita)
+const tabsContainer = document.querySelector(".tabs") || document.querySelector(".sidebar-nav");
+if (tabsContainer) {
+  tabsContainer.addEventListener("keydown", e => {
+    const visibleTabs = [...document.querySelectorAll(".tab-btn:not(.hidden)")];
+    const currentIndex = visibleTabs.indexOf(document.activeElement);
+    if (currentIndex === -1) return;
+    let newIndex = currentIndex;
+    if (e.key === "ArrowRight") newIndex = (currentIndex + 1) % visibleTabs.length;
+    else if (e.key === "ArrowLeft") newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+    else return;
+    e.preventDefault();
+    visibleTabs[newIndex].focus();
+    ativarTab(visibleTabs[newIndex].dataset.tab);
+  });
+}
+
+// --- Form: tipo operação (Cacau Show) ---
+document.querySelectorAll("#tipo-operacao .seg-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    tipoOperacaoSelecionado = btn.dataset.value;
+    atualizarCamposPorOperacao();
+  });
+});
+
+// --- Form: tipo operação (FaçaAmigos) ---
+document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    faTipoOperacaoSelecionado = btn.dataset.value;
+    atualizarFaCamposPorOperacao();
+  });
+});
+
+function atualizarCamposPorOperacao() {
+  const fieldEnvelope = document.getElementById("field-valor-envelope");
+  const valorEnvelopeInput = document.getElementById("valor-envelope");
+  const fieldFaturado = document.getElementById("field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("valor-faturado");
+  const fieldSangria = document.getElementById("field-sangria");
+  const fotoHint = document.getElementById("foto-hint");
+
+  if (tipoOperacaoSelecionado === "Abertura") {
+    fieldEnvelope.classList.add("hidden");
+    valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
+    document.getElementById("field-sangria-motivo").classList.add("hidden");
+    fotoHint.textContent = "(não necessário na abertura)";
+  } else {
+    fieldEnvelope.classList.remove("hidden");
+    valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
+    fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarSangriaMotivo();
+  }
+  sugerirFundoCaixa();
+}
+
+function atualizarSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("sangria").value);
+  const field = document.getElementById("field-sangria-motivo");
+  const mostrar = tipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("sangria-motivo").value = "";
+  }
+}
+document.getElementById("sangria").addEventListener("input", atualizarSangriaMotivo);
+
+function atualizarFaCamposPorOperacao() {
+  const fieldEnvelope = document.getElementById("fa-field-valor-envelope");
+  const valorEnvelopeInput = document.getElementById("fa-valor-envelope");
+  const fieldFaturado = document.getElementById("fa-field-valor-faturado");
+  const valorFaturadoInput = document.getElementById("fa-valor-faturado");
+  const fieldSangria = document.getElementById("fa-field-sangria");
+  const fotoHint = document.getElementById("fa-foto-hint");
+
+  if (faTipoOperacaoSelecionado === "Abertura") {
+    fieldEnvelope.classList.add("hidden");
+    valorEnvelopeInput.required = false;
+    fieldFaturado.classList.add("hidden");
+    valorFaturadoInput.required = false;
+    fieldSangria.classList.add("hidden");
+    document.getElementById("fa-field-sangria-motivo").classList.add("hidden");
+    fotoHint.textContent = "(não necessário na abertura)";
+  } else {
+    fieldEnvelope.classList.remove("hidden");
+    valorEnvelopeInput.required = true;
+    fieldFaturado.classList.remove("hidden");
+    valorFaturadoInput.required = true;
+    fieldSangria.classList.remove("hidden");
+    fotoHint.textContent = "(Obrigatório no fechamento) *";
+    atualizarFaSangriaMotivo();
+  }
+  sugerirFundoCaixaFa();
+}
+
+function atualizarFaSangriaMotivo() {
+  const valor = parseMoeda(document.getElementById("fa-sangria").value);
+  const field = document.getElementById("fa-field-sangria-motivo");
+  const mostrar = faTipoOperacaoSelecionado === "Fechamento" && !isNaN(valor) && valor > 0.01;
+  field.classList.toggle("hidden", !mostrar);
+  if (!mostrar) {
+    document.getElementById("fa-sangria-motivo").value = "";
+  }
+}
+document.getElementById("fa-sangria").addEventListener("input", atualizarFaSangriaMotivo);
+
+// --- Sugestão automática de Fundo de Caixa (Cacau Show) ---
+// Só faz sentido na Abertura (carregar o fundo do fechamento anterior). No
+// Fechamento a pessoa precisa CONTAR o dinheiro físico que sobra no caixa —
+// herdar aqui o valor sugerido da abertura mascararia uma sobra/falta real
+// (ver relato de fundo de fechamento idêntico ao da abertura no mesmo dia).
+function sugerirFundoCaixa() {
+  const loja = document.getElementById("loja").value;
+  const fundoInput = document.getElementById("fundo-caixa");
+  const hint = document.getElementById("fundo-caixa-hint");
+
+  if (tipoOperacaoSelecionado !== "Abertura") {
+    hint.classList.add("hidden");
+    if (fundoInput.dataset.autoPreenchido === "1") {
+      fundoInput.value = "";
+      delete fundoInput.dataset.autoPreenchido;
+    }
+    return;
+  }
+
+  const ultimo = [...registros]
+    .filter(r => r.loja === loja)
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
+
+  if (loja && ultimo) {
+    if (!fundoInput.value) {
+      let val = ultimo.fundoCaixa.toFixed(2).replace(".", ",");
+      val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+      fundoInput.value = val;
+      fundoInput.dataset.autoPreenchido = "1";
+    }
+    hint.textContent = `Preenchido com o último fundo de caixa registrado em ${loja} (${formatBRL(ultimo.fundoCaixa)}). Edite se for diferente.`;
+    hint.classList.remove("hidden");
+  } else {
+    hint.classList.add("hidden");
+  }
+}
+document.getElementById("loja").addEventListener("change", sugerirFundoCaixa);
+document.getElementById("fundo-caixa").addEventListener("input", function () {
+  delete this.dataset.autoPreenchido;
+});
+
+// --- Sugestão automática de Fundo de Caixa (FaçaAmigos) ---
+// Mesma regra: nunca sugerir/herdar valor no Fechamento, só na Abertura.
+function sugerirFundoCaixaFa() {
+  const loja = document.getElementById("fa-loja").value;
+  const fundoInput = document.getElementById("fa-fundo-caixa");
+  const hint = document.getElementById("fa-fundo-caixa-hint");
+
+  if (faTipoOperacaoSelecionado !== "Abertura") {
+    hint.classList.add("hidden");
+    if (fundoInput.dataset.autoPreenchido === "1") {
+      fundoInput.value = "";
+      delete fundoInput.dataset.autoPreenchido;
+    }
+    return;
+  }
+
+  const ultimo = [...registrosFA]
+    .filter(r => r.loja === loja)
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
+
+  if (loja && ultimo) {
+    if (!fundoInput.value) {
+      let val = ultimo.fundoCaixa.toFixed(2).replace(".", ",");
+      val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+      fundoInput.value = val;
+      fundoInput.dataset.autoPreenchido = "1";
+    }
+    hint.textContent = `Preenchido com o último fundo de caixa registrado em ${loja} (${formatBRL(ultimo.fundoCaixa)}). Edite se for diferente.`;
+    hint.classList.remove("hidden");
+  } else {
+    hint.classList.add("hidden");
+  }
+}
+document.getElementById("fa-loja").addEventListener("change", sugerirFundoCaixaFa);
+document.getElementById("fa-fundo-caixa").addEventListener("input", function () {
+  delete this.dataset.autoPreenchido;
+});
+
+// --- Tags de Observação (#14) ---
+const OBS_TAGS = [
+  "Sem ocorrências",
+  "Troco faltando",
+  "Cédula rasgada",
+  "Sistema TEF falhou",
+  "Sangria extra",
+  "Diferença no caixa",
+  "Abertura com atraso"
+];
+
+(function initObsTags() {
+  const obsField = document.getElementById("observacoes").closest(".field");
+  const tagsWrap = document.createElement("div");
+  tagsWrap.className = "obs-tags";
+  OBS_TAGS.forEach(tag => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "obs-tag-btn";
+    btn.textContent = tag;
+    btn.addEventListener("click", () => {
+      const obsInput = document.getElementById("observacoes");
+      const current = obsInput.value.trim();
+      btn.classList.toggle("active");
+      if (btn.classList.contains("active")) {
+        obsInput.value = current ? current + ", " + tag : tag;
+      } else {
+        obsInput.value = current.replace(new RegExp(",?\\s*" + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g"), "").replace(/^,\s*/, "").trim();
+      }
+    });
+    tagsWrap.appendChild(btn);
+  });
+  obsField.insertBefore(tagsWrap, document.getElementById("observacoes"));
+})();
+
+// --- Foto ---
+const fotoInput = document.getElementById("foto-envelope");
+const fotoPreviewWrap = document.getElementById("foto-preview-wrap");
+const fotoPreview = document.getElementById("foto-preview");
+
+fotoInput.addEventListener("change", () => {
+  const file = fotoInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Comprime e redimensiona para JPEG (qualidade 60%)
+      fotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+      fotoPreview.src = fotoDataUrl;
+      fotoPreviewWrap.classList.remove("hidden");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("foto-remover").addEventListener("click", () => {
+  fotoDataUrl = null;
+  fotoInput.value = "";
+  fotoPreviewWrap.classList.add("hidden");
+});
+
+// --- FA: Foto ---
+const faFotoInput = document.getElementById("fa-foto-envelope");
+const faFotoPreviewWrap = document.getElementById("fa-foto-preview-wrap");
+const faFotoPreview = document.getElementById("fa-foto-preview");
+
+faFotoInput.addEventListener("change", () => {
+  const file = faFotoInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+      } else {
+        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      faFotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+      faFotoPreview.src = faFotoDataUrl;
+      faFotoPreviewWrap.classList.remove("hidden");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("fa-foto-remover").addEventListener("click", () => {
+  faFotoDataUrl = null;
+  faFotoInput.value = "";
+  faFotoPreviewWrap.classList.add("hidden");
+});
+
+// --- Data/hora default = agora ---
+function setAgora(inputEl) {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  inputEl.value = now.toISOString().slice(0, 16);
+}
+setAgora(document.getElementById("data-operacao"));
+setAgora(document.getElementById("fa-data-operacao"));
+
+// --- Validação Visual em Tempo Real ---
+function validarValoresTempoReal(fundoId, envelopeId, errorFundoId, errorEnvelopeId) {
+  const fundoInput = document.getElementById(fundoId);
+  const envelopeInput = document.getElementById(envelopeId);
+  const errFundo = document.getElementById(errorFundoId);
+  const errEnvelope = document.getElementById(errorEnvelopeId);
+
+  if (!fundoInput || !envelopeInput) return;
+
+  function check() {
+    const isCacauShow = document.querySelector(`#tipo-operacao .seg-btn.active`) !== null;
+    const isFa = document.querySelector(`#fa-tipo-operacao .seg-btn.active`) !== null;
+    let tipo = "";
+    if (isCacauShow) tipo = document.querySelector(`#tipo-operacao .seg-btn.active`)?.dataset.value;
+    else if (isFa) tipo = document.querySelector(`#fa-tipo-operacao .seg-btn.active`)?.dataset.value;
+
+    if (tipo !== "Fechamento") {
+      envelopeInput.classList.remove("input-error");
+      if (errEnvelope) errEnvelope.classList.add("hidden");
+      return;
+    }
+
+    const fundo = parseMoeda(fundoInput.value);
+    const env = parseMoeda(envelopeInput.value);
+
+    if (fundoInput.value && envelopeInput.value) {
+      // Alerta se envelope for < 30% do fundo (quebra muito alta ou esquecimento de venda)
+      if (env < (fundo * 0.3) && env !== 0) {
+        envelopeInput.classList.add("input-error");
+        if (errEnvelope) {
+          errEnvelope.textContent = "Alerta: Valor do envelope anormalmente baixo comparado ao fundo.";
+          errEnvelope.classList.remove("hidden");
+        }
+      } else {
+        envelopeInput.classList.remove("input-error");
+        if (errEnvelope) errEnvelope.classList.add("hidden");
+      }
+    }
+  }
+
+  fundoInput.addEventListener("input", check);
+  envelopeInput.addEventListener("input", check);
+}
+
+validarValoresTempoReal("fundo-caixa", "valor-envelope", "fundo-caixa-error", "valor-envelope-error");
+
+// --- Submit ---
+document.getElementById("form-registro").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const btnSubmit = document.querySelector("#form-registro button[type='submit']");
+
+  const consultor = document.getElementById("consultor").value;
+  const loja = document.getElementById("loja").value;
+  const dataOperacao = document.getElementById("data-operacao").value;
+  const fundoCaixaRaw = document.getElementById("fundo-caixa").value;
+  const valorEnvelopeRaw = document.getElementById("valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("valor-faturado").value;
+  const sangriaRaw = document.getElementById("sangria").value;
+  const sangriaMotivo = document.getElementById("sangria-motivo").value.trim();
+  const observacoes = document.getElementById("observacoes").value;
+
+  limparErrosInline("");
+
+  let temErro = false;
+  let primeiroInvalido = null;
+
+  function marcarErro(inputEl, errorEl) {
+    if (inputEl) {
+      inputEl.classList.add("input-error");
+      if (!primeiroInvalido) primeiroInvalido = inputEl;
+    }
+    if (errorEl) errorEl.classList.remove("hidden");
+    temErro = true;
+  }
+
+  if (!consultor) {
+    marcarErro(document.getElementById("consultor"), document.getElementById("consultor-error"));
+  }
+  if (!loja) {
+    marcarErro(document.getElementById("loja"), document.getElementById("loja-error"));
+  }
+  if (!tipoOperacaoSelecionado) {
+    marcarErro(document.getElementById("tipo-operacao"), document.getElementById("tipo-operacao-error"));
+  }
+  if (!dataOperacao) {
+    marcarErro(document.getElementById("data-operacao"), document.getElementById("data-operacao-error"));
+  }
+  if (fundoCaixaRaw === "" || isNaN(parseMoeda(fundoCaixaRaw))) {
+    marcarErro(document.getElementById("fundo-caixa"), document.getElementById("fundo-caixa-error"));
+  }
+  if (tipoOperacaoSelecionado === "Fechamento") {
+    if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
+      marcarErro(document.getElementById("valor-envelope"), document.getElementById("valor-envelope-error"));
+    }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("valor-faturado"), document.getElementById("valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("sangria"), document.getElementById("sangria-error"));
+    }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("sangria-motivo"), document.getElementById("sangria-motivo-error"));
+    }
+    if (!fotoDataUrl) {
+      marcarErro(document.getElementById("foto-envelope"), document.getElementById("foto-envelope-error"));
+    }
+  }
+
+  if (temErro) {
+    if (primeiroInvalido) primeiroInvalido.focus();
+    showToast("Por favor, preencha todos os campos obrigatórios corretamente.", "erro");
+    return;
+  }
+
+  const fundoCaixa = parseMoeda(fundoCaixaRaw);
+  const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = tipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = tipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
+
+  const duplicado = loja !== "Venda Direta" && registros.some(r =>
+    r.loja === loja &&
+    r.tipoOperacao === tipoOperacaoSelecionado &&
+    mesmoDia(r.dataOperacao, dataOperacao)
+  );
+  if (duplicado) {
+    showToast(`Já existe um registro de ${tipoOperacaoSelecionado} para ${loja} nesse dia.`, "erro");
+    return;
+  }
+
+  setLoading(btnSubmit, true);
+
+  const registro = {
+    id: uid(),
+    consultor,
+    loja,
+    tipoOperacao: tipoOperacaoSelecionado,
+    dataOperacao: new Date(dataOperacao).toISOString(),
+    fundoCaixa,
+    valorEnvelope: tipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
+    sangriaMotivo: sangriaMotivoFinal,
+    observacoes: observacoes || null,
+    fotoEnvelope: tipoOperacaoSelecionado === "Fechamento" ? fotoDataUrl : null,
+    status: tipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
+    dataRetirada: null,
+    retiradoPor: null,
+    confirmadoPorApp: null,
+    autorizadoPor: null,
+    mensagemGerada: false,
+    criadoEm: new Date().toISOString(),
+  };
+
+  // Se salvar na API com sucesso, adicionamos localmente e atualizamos.
+  const apiSalvo = await salvarRegistroAPI(registro);
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento")) && !registros.some(r => r.id === registro.id)) {
+    registros.push(registro);
+  }
+
+  setLoading(btnSubmit, false);
+  showToast("Registro salvo com sucesso!", "sucesso");
+  localStorage.removeItem("rascunho_registro_caixa");
+  await showModal(`Seu registro de ${tipoOperacaoSelecionado} para a loja ${loja} foi realizado com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+
+  // === RECONCILIAÇÃO ABERTURA ↔ FECHAMENTO (#8) ===
+  if (tipoOperacaoSelecionado === "Abertura") {
+    const ultimoFechamento = [...registros]
+      .filter(r => r.loja === loja && r.tipoOperacao === "Fechamento")
+      .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
+
+    if (ultimoFechamento && ultimoFechamento.fundoCaixa !== undefined) {
+      const diff = fundoCaixa - ultimoFechamento.fundoCaixa;
+      if (Math.abs(diff) > 0.01) {
+        showModal(
+          `Divergência detectada! O fundo de caixa desta abertura (${formatBRL(fundoCaixa)}) difere do último fechamento de ${loja} (${formatBRL(ultimoFechamento.fundoCaixa)}). Diferença: ${formatBRL(Math.abs(diff))} (${diff > 0 ? 'a mais' : 'a menos'}).`,
+          { icon: "⚠️", title: "Divergência de Fundo de Caixa", btnText: "Entendido" }
+        );
+        // Notificar via email (silencioso)
+        if (API_ONLINE) {
+          fetch(`${API_BASE}/divergencia`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              loja,
+              consultor,
+              fundoAbertura: fundoCaixa,
+              fundoUltimoFechamento: ultimoFechamento.fundoCaixa,
+              diferenca: diff
+            })
+          }).catch(() => { });
+        }
+      }
+    }
+  }
+
+  e.target.reset();
+  document.querySelectorAll("#tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+  tipoOperacaoSelecionado = null;
+  fotoDataUrl = null;
+  fotoPreviewWrap.classList.add("hidden");
+  atualizarCamposPorOperacao();
+  setAgora(document.getElementById("data-operacao"));
+  document.getElementById("fundo-caixa-hint").classList.add("hidden");
+  if (currentUser.role !== "owner") {
+    document.getElementById("consultor").value = currentUser.nome;
+  }
+
+  if (registro.tipoOperacao === "Fechamento") {
+    const METAS_VALIDAS_MSG = ["diaria", "manual"];
+    const metaHoje = await buscarMetaDiaLoja(loja, dataOperacao.slice(0, 10));
+    registro._metaDiaria = (metaHoje && METAS_VALIDAS_MSG.includes(metaHoje.origem)) ? metaHoje.valor : null;
+  }
+
+  mostrarGeradorMensagem(registro);
+});
+
+// ==================== FAÇAAMIGOS FORM SUBMIT ====================
+document.getElementById("form-registro-fa").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const btnSubmit = document.getElementById("fa-submit-btn");
+
+  const consultor = document.getElementById("fa-consultor").value;
+  const loja = document.getElementById("fa-loja").value;
+  const dataOperacao = document.getElementById("fa-data-operacao").value;
+  const fundoCaixaRaw = document.getElementById("fa-fundo-caixa").value;
+  const valorEnvelopeRaw = document.getElementById("fa-valor-envelope").value;
+  const valorFaturadoRaw = document.getElementById("fa-valor-faturado").value;
+  const sangriaRaw = document.getElementById("fa-sangria").value;
+  const sangriaMotivo = document.getElementById("fa-sangria-motivo").value.trim();
+  const observacoes = document.getElementById("fa-observacoes").value;
+
+  limparErrosInline("fa");
+
+  let temErro = false;
+  let primeiroInvalido = null;
+
+  function marcarErro(inputEl, errorEl) {
+    if (inputEl) {
+      inputEl.classList.add("input-error");
+      if (!primeiroInvalido) primeiroInvalido = inputEl;
+    }
+    if (errorEl) errorEl.classList.remove("hidden");
+    temErro = true;
+  }
+
+  if (!consultor) {
+    marcarErro(document.getElementById("fa-consultor"), document.getElementById("fa-consultor-error"));
+  }
+  if (!loja) {
+    marcarErro(document.getElementById("fa-loja"), document.getElementById("fa-loja-error"));
+  }
+  if (!faTipoOperacaoSelecionado) {
+    marcarErro(document.getElementById("fa-tipo-operacao"), document.getElementById("fa-tipo-operacao-error"));
+  }
+  if (!dataOperacao) {
+    marcarErro(document.getElementById("fa-data-operacao"), document.getElementById("fa-data-operacao-error"));
+  }
+  if (fundoCaixaRaw === "" || isNaN(parseMoeda(fundoCaixaRaw))) {
+    marcarErro(document.getElementById("fa-fundo-caixa"), document.getElementById("fa-fundo-caixa-error"));
+  }
+  if (faTipoOperacaoSelecionado === "Fechamento") {
+    if (valorEnvelopeRaw === "" || isNaN(parseMoeda(valorEnvelopeRaw))) {
+      marcarErro(document.getElementById("fa-valor-envelope"), document.getElementById("fa-valor-envelope-error"));
+    }
+    if (valorFaturadoRaw === "" || isNaN(parseMoeda(valorFaturadoRaw))) {
+      marcarErro(document.getElementById("fa-valor-faturado"), document.getElementById("fa-valor-faturado-error"));
+    }
+    if (sangriaRaw !== "" && isNaN(parseMoeda(sangriaRaw))) {
+      marcarErro(document.getElementById("fa-sangria"), document.getElementById("fa-sangria-error"));
+    }
+    if (sangriaRaw !== "" && !isNaN(parseMoeda(sangriaRaw)) && parseMoeda(sangriaRaw) > 0.01 && !sangriaMotivo) {
+      marcarErro(document.getElementById("fa-sangria-motivo"), document.getElementById("fa-sangria-motivo-error"));
+    }
+    if (!faFotoDataUrl) {
+      marcarErro(document.getElementById("fa-foto-envelope"), document.getElementById("fa-foto-envelope-error"));
+    }
+  }
+
+  if (temErro) {
+    if (primeiroInvalido) primeiroInvalido.focus();
+    showToast("Por favor, preencha todos os campos obrigatórios corretamente.", "erro");
+    return;
+  }
+
+  const fundoCaixa = parseMoeda(fundoCaixaRaw);
+  const valorEnvelope = parseMoeda(valorEnvelopeRaw);
+  const valorFaturado = faTipoOperacaoSelecionado === "Fechamento" ? parseMoeda(valorFaturadoRaw) : null;
+  const sangria = faTipoOperacaoSelecionado === "Fechamento" && sangriaRaw !== "" ? parseMoeda(sangriaRaw) : null;
+  const sangriaMotivoFinal = sangria !== null && sangria > 0.01 ? sangriaMotivo : null;
+
+  const duplicado = registrosFA.some(r =>
+    r.loja === loja &&
+    r.tipoOperacao === faTipoOperacaoSelecionado &&
+    mesmoDia(r.dataOperacao, dataOperacao)
+  );
+  if (duplicado) {
+    showToast(`Já existe um registro de ${faTipoOperacaoSelecionado} para ${loja} nesse dia.`, "erro");
+    return;
+  }
+
+  setLoading(btnSubmit, true);
+
+  const registro = {
+    id: uid(),
+    consultor,
+    loja,
+    tipoOperacao: faTipoOperacaoSelecionado,
+    dataOperacao: new Date(dataOperacao).toISOString(),
+    fundoCaixa,
+    valorEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? valorEnvelope : null,
+    valorFaturado,
+    sangria,
+    sangriaMotivo: sangriaMotivoFinal,
+    observacoes: observacoes || null,
+    fotoEnvelope: faTipoOperacaoSelecionado === "Fechamento" ? faFotoDataUrl : null,
+    status: faTipoOperacaoSelecionado === "Fechamento" ? "aguardando_retirada" : "aberto",
+    dataRetirada: null,
+    retiradoPor: null,
+    confirmadoPorApp: null,
+    autorizadoPor: null,
+    mensagemGerada: false,
+    criadoEm: new Date().toISOString(),
+  };
+
+  const apiSalvo = await salvarRegistroFAAPI(registro);
+  if (apiSalvo && (!currentUser || !currentUser.nome || !currentUser.nome.includes("Treinamento")) && !registrosFA.some(r => r.id === registro.id)) {
+    registrosFA.push(registro);
+  }
+
+  setLoading(btnSubmit, false);
+  showToast("Registro FaçaAmigos salvo com sucesso!", "sucesso");
+  localStorage.removeItem("rascunho_registro_fa");
+  await showModal(`Registro de ${faTipoOperacaoSelecionado} para ${loja} (FaçaAmigos) foi salvo com sucesso!`, { icon: "✅", title: "Registro Salvo" });
+
+  // Reconciliação FA: Abertura vs Fechamento anterior
+  if (faTipoOperacaoSelecionado === "Abertura") {
+    const ultimoFechamento = [...registrosFA]
+      .filter(r => r.loja === loja && r.tipoOperacao === "Fechamento")
+      .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))[0];
+    if (ultimoFechamento && ultimoFechamento.fundoCaixa !== undefined) {
+      const diff = fundoCaixa - ultimoFechamento.fundoCaixa;
+      if (Math.abs(diff) > 0.01) {
+        showModal(
+          `[FaçaAmigos] Divergência detectada! Abertura (${formatBRL(fundoCaixa)}) difere do último fechamento de ${loja} (${formatBRL(ultimoFechamento.fundoCaixa)}). Diferença: ${formatBRL(Math.abs(diff))} (${diff > 0 ? 'a mais' : 'a menos'}).`,
+          { icon: "⚠️", title: "Divergência FaçaAmigos", btnText: "Entendido" }
+        );
+      }
+    }
+  }
+
+  e.target.reset();
+  document.querySelectorAll("#fa-tipo-operacao .seg-btn").forEach(b => b.classList.remove("active"));
+  faTipoOperacaoSelecionado = null;
+  faFotoDataUrl = null;
+  faFotoPreviewWrap.classList.add("hidden");
+  atualizarFaCamposPorOperacao();
+  setAgora(document.getElementById("fa-data-operacao"));
+  document.getElementById("fa-fundo-caixa-hint").classList.add("hidden");
+  if (currentUser.role === "consultora_fa") {
+    document.getElementById("fa-consultor").value = currentUser.nome;
+  }
+
+  mostrarFaGeradorMensagem(registro);
+});
+
+// --- Gerador de Mensagem WhatsApp (Cacau Show) ---
+function mensagemAviso(r) {
+  if (r.tipoOperacao === "Abertura") {
+    return (
+      `🔔 Abertura de Caixa - Cacau Show\n` +
+      `Loja: ${r.loja}\n` +
+      `Consultor: ${r.consultor}\n` +
+      `Data: ${formatDataHora(r.dataOperacao)}\n` +
+      `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}`
+    );
+  }
+  let pctMetaLinha;
+  if (r._metaDiaria) {
+    const pct = (r.valorFaturado / r._metaDiaria) * 100;
+    pctMetaLinha = `📊 ${pct.toFixed(1)}% da meta`;
+  } else {
+    pctMetaLinha = `📊 Meta não configurada`;
+  }
+  return (
+    `🔔 Fechamento de Caixa - Cacau Show\n` +
+    `Loja: ${r.loja}\n` +
+    `Consultor: ${r.consultor}\n` +
+    `Data: ${formatDataHora(r.dataOperacao)}\n` +
+    `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}\n` +
+    (r.sangria ? `Sangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}\n` : "") +
+    pctMetaLinha
+  );
+}
+
+function mostrarGeradorMensagem(registro) {
+  const banner = document.getElementById("aviso-banner");
+  const textarea = document.getElementById("aviso-texto");
+  const status = document.getElementById("aviso-status");
+  const linkBtn = document.getElementById("btn-abrir-whatsapp");
+
+  textarea.value = mensagemAviso(registro);
+  status.classList.add("hidden");
+
+  const linkGrupoLoja = WHATSAPP_GRUPOS[registro.loja];
+
+  linkBtn.href = linkGrupoLoja
+    ? linkGrupoLoja
+    : `https://wa.me/?text=${encodeURIComponent(mensagemAviso(registro))}`;
+
+  async function marcarGerado() {
+    registro.mensagemGerada = true;
+    await atualizarRegistroAPI(registro.id, { mensagemGerada: true });
+    status.classList.remove("hidden");
+  }
+
+  document.getElementById("btn-copiar-mensagem").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch {
+      textarea.select();
+      document.execCommand("copy");
+    }
+    await marcarGerado();
+  };
+
+  linkBtn.onclick = async () => await marcarGerado();
+
+  banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ==================== FAÇAAMIGOS WHATSAPP GENERATOR ====================
+
+// Emoji de unidade no cabeçalho da mensagem: carrinhos no Parque Circuito
+// (quiosque de carrinhos), playground/brincadeira nas demais unidades.
+function emojiUnidadeFA(loja) {
+  return UNIDADES_FA_CONVERSAO.includes(loja) ? "🛝🎈" : "🚗🏎️";
+}
+
+function mensagemAvisoFA(r, linhaVendas = "") {
+  const emojiUnidade = emojiUnidadeFA(r.loja);
+  if (r.tipoOperacao === "Abertura") {
+    return (
+      `🧡${emojiUnidade} Abertura de Caixa - FaçaAmigos\n` +
+      `Loja: ${r.loja}\n` +
+      `Consultora: ${r.consultor}\n` +
+      `Data: ${formatDataHora(r.dataOperacao)}\n` +
+      `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}`
+    );
+  }
+  return (
+    `🧡${emojiUnidade} Fechamento de Caixa - FaçaAmigos\n` +
+    `Loja: ${r.loja}\n` +
+    `Consultora: ${r.consultor}\n` +
+    `Data: ${formatDataHora(r.dataOperacao)}\n` +
+    `Fundo de Caixa: ${formatBRL(r.fundoCaixa)}\n` +
+    `Valor do Envelope: ${formatBRL(r.valorEnvelope)}\n` +
+    `Valor Faturado: ${formatBRL(r.valorFaturado)}` +
+    (r.sangria ? `\nSangria: ${formatBRL(r.sangria)}${r.sangriaMotivo ? ` (${r.sangriaMotivo})` : ""}` : "") +
+    linhaVendas
+  );
+}
+
+// Busca o lançamento de vendas por checkpoint (30min/1h/2h) do dia para a
+// consultora+unidade, usado para compor a linha de conversão na mensagem de
+// fechamento. Só existe para as unidades que usam a metodologia de conversão.
+async function buscarLancamentoHojeFA(usuario, unidade) {
+  if (!UNIDADES_FA_CONVERSAO.includes(unidade)) return null;
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuario)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.find(l => l.data === hoje) || null;
+  } catch (err) {
+    console.error("Erro ao buscar lançamento de vendas do dia (FA):", err);
+    return null;
+  }
+}
+
+// Status baixo/laranja/verde da conversão do dia. Não existe hoje uma meta
+// diária numérica própria para as unidades de playground (conversão), então
+// reaproveitamos os mesmos limiares já configurados para o bônus Ouro/
+// Diamante do mês (ouroPercentMin/diamantePercentMin), aplicados à conversão
+// de hoje em vez da conversão acumulada do mês.
+function statusMetaConversaoDia(pctHoje, regra) {
+  const fracaoHoje = pctHoje / 100;
+  if (fracaoHoje >= regra.diamantePercentMin) return { emoji: "🟢", texto: "Verde" };
+  if (fracaoHoje >= regra.ouroPercentMin) return { emoji: "🟠", texto: "Laranja" };
+  return { emoji: "🔴", texto: "Baixo" };
+}
+
+// Conversão = (1h + 2h) / total de atendimentos — a mesma definição da regra
+// de bonificação, que é o que os limiares Ouro/Diamante medem. Manter uma só
+// fórmula garante que o número da mensagem, o do painel de Meta & Bonificação
+// e o do coach digam sempre a mesma coisa.
+function linhaVendasConversaoFA(l, regra) {
+  // Antes, sem lançamento do dia a linha simplesmente sumia — e o grupo não
+  // tinha como saber se o dia foi fraco ou se ninguém lançou as vendas.
+  if (!l) return `\n🛝 Vendas do dia: ainda não lançadas em Meta & Bonificação.`;
+  const v30 = l.vendas30 || 0;
+  const v1h = l.vendas1h || 0;
+  const v2h = l.vendas2h || 0;
+  const longos = v1h + v2h;
+  const total = v30 + longos;
+  const pct = total > 0 ? (longos / total) * 100 : 0;
+  const st = statusMetaConversaoDia(pct, regra);
+
+  return `\n🛝 Vendas do dia - 30min: ${v30} unid, 1h: ${v1h} unid, 2h: ${v2h} unid` +
+    `\n📈 Conversão: ${pct.toFixed(1)}% [(1h+2h)/total de atendimentos]` +
+    `\n${st.emoji} Meta do dia: ${st.texto}`;
+}
+
+// Total de locações da unidade (todas as colaboradoras) numa data — a meta de
+// locações do Parque Circuito é por unidade, então a mensagem de fechamento
+// precisa do total do dia inteiro, não só o lançamento de quem fechou o caixa.
+async function buscarLocacoesHojeUnidade(unidade, dataStr) {
+  const competencia = dataStr.slice(0, 7);
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    const lancamentos = data.lancamentos || [];
+    return lancamentos.filter(l => l.data === dataStr).reduce((s, l) => s + (l.locacoes || 0), 0);
+  } catch (err) {
+    console.error("Erro ao buscar locações do dia (unidade) FA:", err);
+    return 0;
+  }
+}
+
+function linhaMetaLocacoesFA(qtd, metaDiaria, regra) {
+  const metaArredondada = Math.round(metaDiaria);
+  const pct = metaDiaria > 0 ? (qtd / metaDiaria) * 100 : 0;
+  const st = statusMetaDiariaInterpolada(qtd, metaDiaria, regra);
+  return `\n🚗🛺 Locações: ${qtd}/${metaArredondada} (${pct.toFixed(1)}%) ${st.emoji} ${st.texto}`;
+}
+
+async function mostrarFaGeradorMensagem(registro) {
+  const banner = document.getElementById("fa-aviso-banner");
+  const textarea = document.getElementById("fa-aviso-texto");
+  const status = document.getElementById("fa-aviso-status");
+  const linkBtn = document.getElementById("fa-btn-abrir-whatsapp");
+
+  let linhaVendas = "";
+  if (registro.tipoOperacao === "Fechamento") {
+    if (UNIDADES_FA_CONVERSAO.includes(registro.loja)) {
+      const [lancamentoHoje, regraConversao] = await Promise.all([
+        buscarLancamentoHojeFA(registro.consultor, registro.loja),
+        buscarRegraFaBonificacao(competenciaAtual())
+      ]);
+      linhaVendas = linhaVendasConversaoFA(lancamentoHoje, regraConversao);
+    } else {
+      // Não usar registro.dataOperacao.slice(0, 10): essa string está em UTC
+      // e o Parque Circuito fecha perto das 22h locais (Belém, UTC-3), então
+      // fatiar o ISO em UTC frequentemente já cai no dia seguinte, fazendo a
+      // busca de locações/meta do dia não encontrar o lançamento de hoje.
+      const dOp = new Date(registro.dataOperacao);
+      const dataStr = `${dOp.getFullYear()}-${String(dOp.getMonth() + 1).padStart(2, "0")}-${String(dOp.getDate()).padStart(2, "0")}`;
+      const regra = await buscarRegraLocacoes(dataStr.slice(0, 7));
+      const metaDiaria = metaLocacoesDoDia(dataStr, regra);
+      const qtdHoje = await buscarLocacoesHojeUnidade(registro.loja, dataStr);
+      linhaVendas = linhaMetaLocacoesFA(qtdHoje, metaDiaria, regra);
+    }
+  }
+
+  const texto = mensagemAvisoFA(registro, linhaVendas);
+  textarea.value = texto;
+  status.classList.add("hidden");
+
+  const linkGrupoLoja = WHATSAPP_GRUPOS_FA[registro.loja];
+  linkBtn.href = linkGrupoLoja
+    ? linkGrupoLoja
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+
+  async function marcarFaGerado() {
+    registro.mensagemGerada = true;
+    await atualizarRegistroFAAPI(registro.id, { mensagemGerada: true });
+    status.classList.remove("hidden");
+  }
+
+  document.getElementById("fa-btn-copiar-mensagem").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch {
+      textarea.select();
+      document.execCommand("copy");
+    }
+    await marcarFaGerado();
+  };
+
+  linkBtn.onclick = async () => await marcarFaGerado();
+  banner.classList.remove("hidden");
+  banner.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ==================== FAÇAAMIGOS RENDER FUNCTIONS ====================
+
+// LOJAS_FA moved to top of file (near LOJAS) to avoid temporal dead zone
+
+function renderFaDashboard() {
+  atualizarNotificacoes();
+  const filtroLoja = document.getElementById("fa-filtro-loja-pendentes").value;
+  const pendentes = registrosFA.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
+
+  const hoje = new Date().toISOString();
+  const semFechamento = LOJAS_FA.filter(loja => {
+    return !registrosFA.some(r => r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, hoje));
+  });
+  const alertaCard = document.getElementById("fa-alerta-sem-fechamento");
+  if (semFechamento.length) {
+    document.getElementById("fa-lojas-sem-fechamento").textContent = " " + semFechamento.join(", ");
+    alertaCard.classList.remove("hidden");
+  } else {
+    alertaCard.classList.add("hidden");
+  }
+
+  const cardsWrap = document.getElementById("fa-cards-lojas");
+  cardsWrap.innerHTML = "";
+  let totalGeral = 0;
+  const totaisPorLoja = {};
+
+  LOJAS_FA.forEach(loja => {
+    const doLoja = pendentes.filter(r => r.loja === loja);
+    const total = doLoja.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    totaisPorLoja[loja] = total;
+    totalGeral += total;
+    const maisAntigo = doLoja.reduce((max, r) => {
+      const dias = diffDias(r.dataOperacao);
+      return dias > max ? dias : max;
+    }, 0);
+    const emRisco = maisAntigo >= RISCO_DIAS && doLoja.length > 0;
+
+    const card = document.createElement("div");
+    card.className = "loja-card fa-loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
+    card.innerHTML = `
+      <h4>${opLabel(loja)}</h4>
+      <div class="valor">${formatBRL(total)}</div>
+      <div class="meta">
+        <span>${doLoja.length} envelope(s)</span>
+        <span>${doLoja.length ? maisAntigo + "d mais antigo" : "—"}</span>
+      </div>
+      ${emRisco ? `<span class="badge-alerta">⚠ Retirada atrasada</span>` : ""}
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  document.getElementById("fa-dash-total-geral").textContent = formatBRL(totalGeral) + " em trânsito";
+
+  function atualizarBatchBarFAPendentes(filtrados) {
+    const bar = document.getElementById("fa-batch-actions-pendentes");
+    const countInfo = document.getElementById("fa-batch-count-info");
+    const selectAllCheckbox = document.getElementById("fa-select-all-pendentes");
+
+    if (!bar) return;
+
+    if (selecionadosFAPendentes.size > 0) {
+      bar.classList.remove("hidden");
+      const selecionadosList = filtrados.filter(r => selecionadosFAPendentes.has(String(r.id)));
+      const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+      countInfo.textContent = `${selecionadosFAPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
+    } else {
+      bar.classList.add("hidden");
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosFAPendentes.has(String(r.id)));
+      selectAllCheckbox.indeterminate = selecionadosFAPendentes.size > 0 && !selectAllCheckbox.checked;
+    }
+  }
+
+  const filtrados = filtroLoja ? pendentes.filter(r => r.loja === filtroLoja) : pendentes;
+  const tbody = document.querySelector("#fa-tabela-pendentes tbody");
+  tbody.innerHTML = "";
+
+  // Apenas Bruno e Isabella podem retirar no FA
+  const podeRetirar = currentUser && (currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+
+  // Limpar IDs selecionados que não estão mais na lista de filtrados
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosFAPendentes = new Set([...selecionadosFAPendentes].map(String).filter(id => idsFiltrados.has(id)));
+
+  filtrados
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
+    .forEach(r => {
+      const dias = diffDias(r.dataOperacao);
+      const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosFAPendentes.has(String(r.id));
+      const tr = document.createElement("tr");
+      if (isSelected) tr.classList.add("selected-row");
+
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+        </td>
+        <td>${opChip(r.loja)}</td>
+        <td>${r.consultor}</td>
+        <td>${formatDataHora(r.dataOperacao)}</td>
+        <td>${formatBRL(r.valorEnvelope)}</td>
+        <td><span class="dias-badge ${risco ? "risco" : ""}">${dias}d</span></td>
+        <td>${fotoCelula(r)}</td>
+        <td>${avisoCelula(r)}</td>
+        <td>${podeRetirar
+          ? `<button class="btn-retirar fa-btn-retirar" data-id="${r.id}">Marcar retirado</button>`
+          : `<span class="retirada-bloqueada">🔒 Só Bruno ou Isabella</span>`}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+  atualizarBatchBarFAPendentes(filtrados);
+
+  document.getElementById("fa-pendentes-vazio").classList.toggle("hidden", filtrados.length > 0);
+
+  // Checkbox Select All Listener
+  const selectAll = document.getElementById("fa-select-all-pendentes");
+  if (selectAll) {
+    selectAll.onclick = () => {
+      if (selectAll.checked) {
+        filtrados.forEach(r => selecionadosFAPendentes.add(String(r.id)));
+      } else {
+        selecionadosFAPendentes.clear();
+      }
+      renderFaDashboard();
+    };
+  }
+
+  // Individual Checkbox Listeners
+  tbody.querySelectorAll(".chk-fa-pendente").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = String(chk.dataset.id);
+      if (chk.checked) {
+        selecionadosFAPendentes.add(id);
+      } else {
+        selecionadosFAPendentes.delete(id);
+      }
+      renderFaDashboard();
+    });
+  });
+
+  const btnBatch = document.getElementById("fa-btn-batch-retirar");
+  if (btnBatch) {
+    btnBatch.onclick = () => {
+      if (selecionadosFAPendentes.size > 0) {
+        abrirModalRetiradaFA(Array.from(selecionadosFAPendentes));
+      }
+    };
+  }
+
+  tbody.querySelectorAll(".fa-btn-retirar").forEach(btn => {
+    btn.addEventListener("click", () => abrirModalRetiradaFA(String(btn.dataset.id)));
+  });
+  tbody.querySelectorAll(".thumb-btn").forEach(img => {
+    img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
+  });
+  carregarFotosLazy(tbody, "registros-fa");
+}
+
+// Modal retirada FA (apenas Bruno/Isabella, sem necessidade de autorização adicional)
+function abrirModalRetiradaFA(target) {
+  if (!currentUser || (currentUser.nome !== "Bruno" && currentUser.nome !== "Isabella")) {
+    showModal("Apenas Bruno ou Isabella podem confirmar retiradas no FaçaAmigos.", { icon: "🔒", title: "Acesso restrito" });
+    return;
+  }
+  retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
+  const isBatch = Array.isArray(target);
+
+  if (isBatch) {
+    const targetStrs = target.map(String);
+    const selecionadosList = registrosFA.filter(x => targetStrs.includes(String(x.id)));
+    const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    document.getElementById("modal-sub-info").textContent =
+      `[FaçaAmigos - Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
+  } else {
+    const r = registrosFA.find(x => x.id === target);
+    document.getElementById("modal-sub-info").textContent =
+      `[FaçaAmigos] ${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+  }
+
+  setAgora(document.getElementById("retirada-data"));
+  document.getElementById("retirada-responsavel").value = "";
+  // Ocultar campo de autorização de PIN (não é necessário para owners no FA)
+  document.getElementById("autorizacao-wrap").classList.add("hidden");
+  // Temporariamente conectar o modal ao contexto FA
+  document.getElementById("modal-confirmar").dataset.faMode = "true";
+  document.getElementById("modal-retirada").classList.remove("hidden");
+}
+
+document.getElementById("fa-filtro-loja-pendentes").addEventListener("change", renderFaDashboard);
+
+let faHistPaginaAtual = 1;
+const FA_HIST_PER_PAGE = 20;
+
+function renderFaHistorico() {
+  const filtroLoja = document.getElementById("fa-filtro-loja-hist").value;
+  const filtroStatus = document.getElementById("fa-filtro-status-hist").value;
+  const busca = document.getElementById("fa-busca-hist").value.trim().toLowerCase();
+
+  let lista = [...registrosFA].sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao));
+  if (filtroLoja) lista = lista.filter(r => r.loja === filtroLoja);
+  if (filtroStatus === "ativas") {
+    lista = lista.filter(r => r.status !== "retirado");
+  } else if (filtroStatus) {
+    lista = lista.filter(r => r.status === filtroStatus);
+  }
+  if (busca) {
+    lista = lista.filter(r =>
+      [r.loja, r.consultor, r.observacoes].some(v => (v || "").toLowerCase().includes(busca))
+    );
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / FA_HIST_PER_PAGE));
+  if (faHistPaginaAtual > totalPaginas) faHistPaginaAtual = totalPaginas;
+  const inicio = (faHistPaginaAtual - 1) * FA_HIST_PER_PAGE;
+  const paginada = lista.slice(inicio, inicio + FA_HIST_PER_PAGE);
+
+  const tbody = document.querySelector("#fa-tabela-historico tbody");
+  tbody.innerHTML = "";
+
+  const statusLabel = {
+    aberto: "Aberto",
+    aguardando_retirada: "Aguardando retirada",
+    retirado: "Retirado",
+  };
+
+  const isBruno = currentUser && currentUser.nome === "Bruno";
+
+  paginada.forEach(r => {
+    const tr = document.createElement("tr");
+    let retiradaTexto = "—";
+    if (r.dataRetirada) {
+      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${r.retiradoPor}`;
+      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${r.confirmadoPorApp})`;
+    }
+    tr.innerHTML = `
+      <td>${formatDataHora(r.dataOperacao)}</td>
+      <td>${opChip(r.loja)}</td>
+      <td>${r.consultor}</td>
+      <td>${formatBRL(r.fundoCaixa)}</td>
+      <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
+      <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
+      <td>${retiradaTexto}</td>
+      <td>${avisoCelula(r)}</td>
+      <td>${fotoCelula(r)}</td>
+      ${isBruno ? `<td><button class="btn-excluir fa-btn-excluir" data-id="${r.id}">Excluir</button></td>` : ""}
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("fa-historico-vazio").classList.toggle("hidden", lista.length > 0);
+
+  // Paginação FA
+  let paginacao = document.getElementById("fa-hist-paginacao");
+  if (!paginacao) {
+    paginacao = document.createElement("div");
+    paginacao.id = "fa-hist-paginacao";
+    paginacao.className = "paginacao";
+    document.querySelector("#fa-tabela-historico").closest(".table-wrap").appendChild(paginacao);
+  }
+  if (totalPaginas > 1) {
+    paginacao.classList.remove("hidden");
+    paginacao.innerHTML = `
+      <button class="btn-pag" id="fa-hist-prev" ${faHistPaginaAtual <= 1 ? "disabled" : ""}>← Anterior</button>
+      <span class="pag-info">Página ${faHistPaginaAtual} de ${totalPaginas} (${lista.length} registros)</span>
+      <button class="btn-pag" id="fa-hist-next" ${faHistPaginaAtual >= totalPaginas ? "disabled" : ""}>Próxima →</button>
+    `;
+    document.getElementById("fa-hist-prev").addEventListener("click", () => {
+      if (faHistPaginaAtual > 1) { faHistPaginaAtual--; renderFaHistorico(); }
+    });
+    document.getElementById("fa-hist-next").addEventListener("click", () => {
+      if (faHistPaginaAtual < totalPaginas) { faHistPaginaAtual++; renderFaHistorico(); }
+    });
+  } else {
+    paginacao.classList.add("hidden");
+  }
+
+  tbody.querySelectorAll(".thumb-btn").forEach(img => {
+    img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
+  });
+  carregarFotosLazy(tbody, "registros-fa");
+
+  tbody.querySelectorAll(".fa-btn-excluir").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const reg = registrosFA.find(r => r.id === id);
+      const info = reg ? `do colaborador "${reg.consultor}" no valor de R$ ${reg.valorEnvelope || reg.fundoCaixa || 0} da loja "${reg.loja}"` : "este registro";
+      const confirmado = await showConfirm(
+        `[FaçaAmigos] Deseja realmente apagar o registro ${info}? Esta ação não pode ser desfeita.`,
+        { icon: "🗑️", title: "Excluir registro FA", confirmText: "Excluir", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (confirmado) {
+        const sucesso = await excluirRegistroFAAPI(id);
+        if (sucesso) {
+          showToast("Registro FA apagado com sucesso!", "sucesso");
+          renderFaDashboard();
+          renderFaHistorico();
+          renderFaMensal();
+        } else {
+          showModal("Erro ao apagar registro FA ou você não possui permissão.", { icon: "❌", title: "Erro" });
+        }
+      }
+    });
+  });
+}
+
+document.getElementById("fa-filtro-loja-hist").addEventListener("change", () => { faHistPaginaAtual = 1; renderFaHistorico(); });
+document.getElementById("fa-filtro-status-hist").addEventListener("change", () => { faHistPaginaAtual = 1; renderFaHistorico(); });
+let faBuscaHistDebounce;
+document.getElementById("fa-busca-hist").addEventListener("input", () => {
+  clearTimeout(faBuscaHistDebounce);
+  faBuscaHistDebounce = setTimeout(() => { faHistPaginaAtual = 1; renderFaHistorico(); }, 250);
+});
+
+// FA: Exportar CSV
+document.getElementById("fa-btn-exportar").addEventListener("click", () => {
+  const header = ["Data", "Loja", "Consultora", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Mensagem Gerada", "Observacoes"];
+  const linhas = registrosFA.map(r => [
+    formatDataHora(r.dataOperacao),
+    r.loja,
+    r.consultor,
+    r.tipoOperacao,
+    r.fundoCaixa,
+    r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
+    r.status,
+    r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
+    r.retiradoPor ?? "",
+    r.confirmadoPorApp ?? "",
+    r.tipoOperacao === "Fechamento" ? (r.mensagemGerada ? "Sim" : "Não") : "",
+    (r.observacoes ?? "").replace(/[\r\n,]/g, " "),
+  ]);
+  const csv = [header, ...linhas].map(l => l.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `facaamigos_caixa_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function renderFaMensal() {
+  const fechamentos = registrosFA.filter(r => r.tipoOperacao === "Fechamento");
+  const mesSelecionado = document.getElementById("fa-mensal-mes-filtro").value;
+
+  const cardsWrap = document.getElementById("fa-cards-lojas-mensal");
+  cardsWrap.innerHTML = "";
+  const totaisMes = {};
+
+  LOJAS_FA.forEach(loja => {
+    const doMes = fechamentos.filter(r => r.loja === loja && mesKey(r.dataOperacao) === mesSelecionado);
+    const total = doMes.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    totaisMes[loja] = total;
+
+    const card = document.createElement("div");
+    card.className = "loja-card fa-loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
+    card.innerHTML = `
+      <h4>${opLabel(loja)}</h4>
+      <div class="valor">${formatBRL(total)}</div>
+      <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  const barChart = document.getElementById("fa-bar-chart-mensal");
+  barChart.innerHTML = "";
+  const maiorValor = Math.max(...Object.values(totaisMes), 1);
+  LOJAS_FA.forEach(loja => {
+    const total = totaisMes[loja];
+    const pct = Math.round((total / maiorValor) * 100);
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <span>${opLabel(loja)}</span>
+      <div class="bar-track"><div class="bar-fill fa-bar-fill" style="width:${pct}%"></div></div>
+      <span class="bar-value">${formatBRL(total)}</span>
+    `;
+    barChart.appendChild(row);
+  });
+}
+
+const faMensalMesInput = document.getElementById("fa-mensal-mes-filtro");
+(function initFaMesFiltro() {
+  const now = new Date();
+  faMensalMesInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+})();
+faMensalMesInput.addEventListener("change", renderFaMensal);
+
+// ==========================================================================
+// MÓDULO BONIFICAÇÃO FAÇA AMIGOS — "Minha Meta" (colaboradoras) e
+// "Regras de Bonificação" (Bruno/Isabella). Replica as fórmulas da planilha
+// original de acompanhamento de bonificação (ParqueShopping).
+// ==========================================================================
+const DIAS_SEMANA_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+function competenciaAtual() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dataHojeStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function nomeDiaSemanaPorData(dataStr) {
+  // "YYYY-MM-DD" interpretado como data local (evita o desvio de fuso do
+  // construtor `new Date("YYYY-MM-DD")`, que assume UTC).
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  return DIAS_SEMANA_PT[new Date(ano, mes - 1, dia).getDay()];
+}
+
+const REGRA_FA_BONIFICACAO_PADRAO = { ouroPercentMin: 0.5, ouroValor: 100, diamantePercentMin: 0.6, diamanteValor: 150, pixMinVendas2h: 5, pixValor: 20, pixDiasSemana: ["Sexta-feira", "Sábado", "Domingo"] };
+
+function parseRegraFaBonificacao(regra) {
+  if (!regra) return { ...REGRA_FA_BONIFICACAO_PADRAO };
+  return {
+    ...regra,
+    pixDiasSemana: typeof regra.pixDiasSemana === "string" ? JSON.parse(regra.pixDiasSemana) : (regra.pixDiasSemana || [])
+  };
+}
+
+async function buscarRegraFaBonificacao(competencia) {
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras?competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    return parseRegraFaBonificacao(data.regra);
+  } catch (err) {
+    console.error("Erro ao buscar regras de bonificação FA:", err);
+    // Fallback local, idêntico ao padrão do backend, para não travar a tela offline.
+    return { ...REGRA_FA_BONIFICACAO_PADRAO };
+  }
+}
+
+// Deriva os campos calculados de um lançamento (total, % conversão, dia da
+// semana e pix do dia) a partir das contagens brutas de vendas — reaproveitado
+// tanto no dashboard individual (calcularBonificacaoFa) quanto no quadro
+// combinado de todas as colaboradoras (carregarLancamentosDoMesTodasColaboradoras).
+function calcularLinhaBonificacaoFa(l, regra) {
+  const total = (l.vendas30 || 0) + (l.vendas1h || 0) + (l.vendas2h || 0);
+  const pctConversao = total > 0 ? ((l.vendas1h || 0) + (l.vendas2h || 0)) / total : 0;
+  const diaSemana = nomeDiaSemanaPorData(l.data);
+  const pixHoje = (regra.pixDiasSemana.includes(diaSemana) && (l.vendas2h || 0) >= regra.pixMinVendas2h) ? regra.pixValor : 0;
+  return { ...l, diaSemana, total, pctConversao, pixHoje };
+}
+
+function calcularBonificacaoFa(lancamentos, regra) {
+  let totalV30 = 0, totalV1h = 0, totalV2h = 0, totalPix = 0;
+
+  const linhas = lancamentos.map(l => {
+    totalV30 += l.vendas30 || 0;
+    totalV1h += l.vendas1h || 0;
+    totalV2h += l.vendas2h || 0;
+
+    const linha = calcularLinhaBonificacaoFa(l, regra);
+    totalPix += linha.pixHoje;
+    return linha;
+  });
+
+  const totalAtend = totalV30 + totalV1h + totalV2h;
+  const pctConversaoMensal = totalAtend > 0 ? (totalV1h + totalV2h) / totalAtend : 0;
+
+  let bonusTier = 0;
+  let tierNome = null;
+  if (pctConversaoMensal >= regra.diamantePercentMin) {
+    bonusTier = regra.diamanteValor;
+    tierNome = "diamante";
+  } else if (pctConversaoMensal >= regra.ouroPercentMin) {
+    bonusTier = regra.ouroValor;
+    tierNome = "ouro";
+  }
+
+  return {
+    linhas, totalV30, totalV1h, totalV2h, totalAtend, pctConversaoMensal,
+    totalPix, bonusTier, tierNome, totalEstimado: bonusTier + totalPix
+  };
+}
+
+// Unidades do FA que usam a metodologia de conversão (bonificação). O Parque
+// Circuito (carrinhos) usa locações e é tratado à parte.
+const UNIDADES_FA_CONVERSAO = ["ParqueShopping", "Grão Pará"];
+
+async function inicializarFaMeta() {
+  const competencia = competenciaAtual();
+  document.getElementById("fa-meta-competencia-label").textContent = `Competência ${competencia}`;
+
+  // Popula o seletor de colaboradora com as consultoras do Faça Amigos.
+  const selColab = document.getElementById("fa-meta-colaboradora");
+  if (selColab && !selColab.dataset.populado) {
+    const colaboradorasFa = USERS.filter(u => u.role === "consultora_fa").map(u => u.nome);
+    selColab.innerHTML = colaboradorasFa.map(n => `<option value="${n}">${n}</option>`).join("");
+    // Se a própria usuária logada é consultora_fa, começa nela.
+    if (colaboradorasFa.includes(currentUser.nome)) selColab.value = currentUser.nome;
+    selColab.dataset.populado = "true";
+  }
+
+  const selUnidade = document.getElementById("fa-meta-unidade");
+  if (selUnidade && !selUnidade.dataset.wired) {
+    selUnidade.onchange = renderFaMetaPorUnidade;
+    selColab.onchange = renderFaMetaPorUnidade;
+    selUnidade.dataset.wired = "true";
+  }
+
+  await renderFaMetaPorUnidade();
+}
+
+// Alterna entre metodologia de conversão e de locações conforme a unidade.
+async function renderFaMetaPorUnidade() {
+  const unidade = document.getElementById("fa-meta-unidade").value;
+  const blocoConversao = document.getElementById("fa-meta-conversao");
+  const blocoLocacoes = document.getElementById("fa-meta-locacoes");
+
+  const ehConversao = UNIDADES_FA_CONVERSAO.includes(unidade);
+  blocoConversao.classList.toggle("hidden", !ehConversao);
+  blocoLocacoes.classList.toggle("hidden", ehConversao);
+
+  if (ehConversao) await carregarFaMetaConversao(unidade);
+  else await carregarFaMetaLocacoes(unidade);
+}
+
+async function carregarFaMetaConversao(unidade) {
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  const usuarioAlvo = document.getElementById("fa-meta-colaboradora").value || currentUser.nome;
+
+  document.getElementById("fa-meta-hoje-label").textContent = `${nomeDiaSemanaPorData(hoje)}, ${hoje.split("-").reverse().join("/")}`;
+
+  const regra = await buscarRegraFaBonificacao(competencia);
+
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes?usuario=${encodeURIComponent(usuarioAlvo)}&unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar lançamentos de bonificação FA:", err);
+  }
+
+  // Pré-preencher os campos de hoje, se já houver lançamento salvo
+  const lancamentoHoje = lancamentos.find(l => l.data === hoje);
+  const inputV30 = document.getElementById("fa-meta-vendas30");
+  const inputV1h = document.getElementById("fa-meta-vendas1h");
+  const inputV2h = document.getElementById("fa-meta-vendas2h");
+  inputV30.value = lancamentoHoje ? lancamentoHoje.vendas30 : 0;
+  inputV1h.value = lancamentoHoje ? lancamentoHoje.vendas1h : 0;
+  inputV2h.value = lancamentoHoje ? lancamentoHoje.vendas2h : 0;
+
+  const atualizarPreviaHoje = () => {
+    const v30 = parseInt(inputV30.value) || 0;
+    const v1h = parseInt(inputV1h.value) || 0;
+    const v2h = parseInt(inputV2h.value) || 0;
+    const total = v30 + v1h + v2h;
+    const pct = total > 0 ? ((v1h + v2h) / total) * 100 : 0;
+    document.getElementById("fa-meta-total-hoje").textContent = total;
+    document.getElementById("fa-meta-conversao-hoje").textContent = `${pct.toFixed(1)}%`;
+  };
+  [inputV30, inputV1h, inputV2h].forEach(el => { el.oninput = atualizarPreviaHoje; });
+  atualizarPreviaHoje();
+
+  document.getElementById("fa-btn-meta-salvar").onclick = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/fa-bonificacao/diaria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usuario: usuarioAlvo,
+          unidade,
+          data: hoje,
+          vendas30: parseInt(inputV30.value) || 0,
+          vendas1h: parseInt(inputV1h.value) || 0,
+          vendas2h: parseInt(inputV2h.value) || 0
+        })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      showToast("Vendas de hoje salvas!", "sucesso");
+      carregarFaMetaConversao(unidade);
+    } catch (err) {
+      console.error("Erro ao salvar vendas do dia (FA):", err);
+      showToast("Erro ao salvar. Tente novamente.", "erro");
+    }
+  };
+
+  const resultado = calcularBonificacaoFa(lancamentos, regra);
+  renderFaMetaDashboard(resultado, regra);
+  carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, regra);
+}
+
+// Quadro "Lançamentos do Mês": ao contrário do dashboard acima (que é sempre
+// da colaboradora selecionada), aqui mostramos o mês inteiro com todas as
+// colaboradoras da unidade juntas — quem lançou cada dia aparece na coluna
+// Colaboradora, já que elas costumam se revezar dia a dia.
+async function carregarLancamentosDoMesTodasColaboradoras(unidade, competencia, regra) {
+  const tbody = document.getElementById("fa-meta-tabela-mes-tbody");
+  const tabelaVazia = document.getElementById("fa-meta-tabela-vazia");
+  if (!tbody) return;
+
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar lançamentos do mês (todas as colaboradoras) FA:", err);
+  }
+
+  const linhas = lancamentos
+    .map(l => calcularLinhaBonificacaoFa(l, regra))
+    .sort((a, b) => b.data.localeCompare(a.data) || a.usuario.localeCompare(b.usuario));
+
+  tbody.innerHTML = "";
+  tabelaVazia.classList.toggle("hidden", linhas.length > 0);
+  linhas.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${l.data.split("-").reverse().join("/")}</td>
+      <td>${l.usuario}</td>
+      <td>${l.diaSemana}</td>
+      <td>${l.vendas30 || 0}</td>
+      <td>${l.vendas1h || 0}</td>
+      <td>${l.vendas2h || 0}</td>
+      <td>${l.total}</td>
+      <td>${(l.pctConversao * 100).toFixed(1)}%</td>
+      <td>${l.pixHoje > 0 ? formatBRL(l.pixHoje) : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderFaMetaDashboard(resultado, regra) {
+  const pctExibicao = resultado.pctConversaoMensal * 100;
+  const ouroPercent = (regra.ouroPercentMin || 0.5) * 100;
+  const diamantePercent = (regra.diamantePercentMin || 0.6) * 100;
+
+  // Zonas da trilha Bronze -> Ouro -> Diamante (relativas à escala fixa de 0-100%)
+  const zonaBronzeEl = document.getElementById("fa-meta-zona-bronze");
+  const zonaOuroEl = document.getElementById("fa-meta-zona-ouro");
+  const zonaDiamanteEl = document.getElementById("fa-meta-zona-diamante");
+  if (zonaBronzeEl) zonaBronzeEl.style.width = `${ouroPercent}%`;
+  if (zonaOuroEl) zonaOuroEl.style.width = `${Math.max(0, diamantePercent - ouroPercent)}%`;
+  if (zonaDiamanteEl) zonaDiamanteEl.style.width = `${Math.max(0, 100 - diamantePercent)}%`;
+  const marcaOuroEl = document.getElementById("fa-meta-marca-ouro");
+  const marcaDiamanteEl = document.getElementById("fa-meta-marca-diamante");
+  if (marcaOuroEl) marcaOuroEl.style.left = `${ouroPercent}%`;
+  if (marcaDiamanteEl) marcaDiamanteEl.style.left = `${diamantePercent}%`;
+
+  // Gauge
+  const gaugeBar = document.getElementById("fa-meta-gauge-bar");
+  gaugeBar.style.width = `${Math.min(100, pctExibicao)}%`;
+  gaugeBar.style.background = resultado.tierNome === "diamante" ? "#2563eb" : (resultado.tierNome === "ouro" ? "#d4af37" : "#94a3b8");
+  document.getElementById("fa-meta-conversao-mensal-label").textContent = `${pctExibicao.toFixed(1)}%`;
+
+  // Etapa atual da jornada Bronze -> Ouro -> Diamante: trata o próximo tier
+  // como o marco em foco, em vez de comparar sempre com o Diamante (o mais distante).
+  let etapaNum, etapaLabel, etapaAlvoPercent;
+  if (resultado.tierNome === "diamante") {
+    etapaNum = 3; etapaLabel = "Diamante conquistado! 💎"; etapaAlvoPercent = diamantePercent;
+  } else if (resultado.tierNome === "ouro") {
+    etapaNum = 2; etapaLabel = "Rumo ao Diamante"; etapaAlvoPercent = diamantePercent;
+  } else {
+    etapaNum = 1; etapaLabel = "Rumo ao Ouro"; etapaAlvoPercent = ouroPercent;
+  }
+  const etapaAtualLabel = document.getElementById("fa-meta-etapa-atual-label");
+  if (etapaAtualLabel) etapaAtualLabel.textContent = `Etapa ${etapaNum} de 3 · ${etapaLabel}`;
+
+  // Chips das 3 etapas com estado concluída / foco atual / a seguir
+  const etapasWrap = document.getElementById("fa-meta-etapas");
+  if (etapasWrap) {
+    etapasWrap.innerHTML = "";
+    const etapas = [
+      { titulo: "Bronze", icone: "🥉", numEtapa: 1, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Ouro", icone: "🥇", numEtapa: 2, alvo: `${ouroPercent.toFixed(0)}%`, concluida: resultado.tierNome === "ouro" || resultado.tierNome === "diamante" },
+      { titulo: "Diamante", icone: "💎", numEtapa: 3, alvo: `${diamantePercent.toFixed(0)}%`, concluida: resultado.tierNome === "diamante" }
+    ];
+    etapas.forEach(et => {
+      const atual = !et.concluida && et.numEtapa === etapaNum;
+      const chip = document.createElement("span");
+      chip.style.cssText = "padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; border:1px solid var(--border); white-space:nowrap;";
+      if (et.concluida) {
+        chip.textContent = `✅ ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "#dcfce7"; chip.style.color = "#166534"; chip.style.borderColor = "#86efac";
+      } else if (atual) {
+        chip.textContent = `${et.icone} ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""} — foco agora`;
+        chip.style.background = "#fef3c7"; chip.style.color = "#92400e"; chip.style.borderColor = "#fbbf24";
+        chip.style.boxShadow = "0 0 0 2px rgba(251,191,36,0.35)";
+      } else {
+        chip.textContent = `🔒 ${et.titulo}${et.alvo ? ` (${et.alvo})` : ""}`;
+        chip.style.background = "var(--cream)"; chip.style.color = "var(--muted)";
+      }
+      etapasWrap.appendChild(chip);
+    });
+  }
+
+  // Mensagem motivacional por etapa (marco próximo, não o Diamante direto)
+  const msgEl = document.getElementById("fa-meta-mensagem-motivacional");
+  if (resultado.tierNome === "diamante") {
+    msgEl.textContent = "💎 Bônus Diamante conquistado! Você é fera!";
+    msgEl.style.color = "#2563eb";
+  } else if (resultado.tierNome === "ouro") {
+    const faltaDiamante = (diamantePercent - pctExibicao).toFixed(1);
+    msgEl.textContent = `🥇 Bônus Ouro garantido! Faltam ${faltaDiamante} pontos percentuais para o Diamante 💎`;
+    msgEl.style.color = "#b8860b";
+  } else {
+    const faltaOuro = (ouroPercent - pctExibicao).toFixed(1);
+    const pctEtapa = ouroPercent > 0 ? Math.min(100, Math.round((pctExibicao / ouroPercent) * 100)) : 0;
+    msgEl.textContent = `Você já está ${pctEtapa}% do caminho para o Ouro! Faltam ${faltaOuro} pontos percentuais. Continue vendendo planos de 1h e 2h! 🥉`;
+    msgEl.style.color = "var(--muted)";
+  }
+
+  // Ritmo diário sugerido: pega o ritmo médio de atendimentos já registrado
+  // neste mês, projeta o total até o fim do mês e traduz a meta percentual
+  // em uma quantidade concreta de vendas de 1h/2h por dia no período restante.
+  const ritmoEl = document.getElementById("fa-meta-ritmo-diario");
+  if (ritmoEl) {
+    const hojeLoc = new Date();
+    const diasNoMesLoc = new Date(hojeLoc.getFullYear(), hojeLoc.getMonth() + 1, 0).getDate();
+    const diasDecorridosLoc = Math.max(1, hojeLoc.getDate());
+    const diasRestantesLoc = Math.max(1, diasNoMesLoc - hojeLoc.getDate() + 1);
+    const mediaAtendDia = resultado.totalAtend / diasDecorridosLoc;
+    if (resultado.tierNome === "diamante" || mediaAtendDia <= 0) {
+      ritmoEl.textContent = "";
+    } else {
+      const projecaoAtendMes = mediaAtendDia * diasNoMesLoc;
+      const totalLongos = resultado.totalV1h + resultado.totalV2h;
+      const neededLongosTotal = (etapaAlvoPercent / 100) * projecaoAtendMes;
+      const faltamLongos = Math.max(0, Math.ceil(neededLongosTotal - totalLongos));
+      const ritmoDiaLongos = Math.ceil(faltamLongos / diasRestantesLoc);
+      ritmoEl.textContent = ritmoDiaLongos > 0
+        ? `Ritmo sugerido: pelo menos ${ritmoDiaLongos} venda(s) de 1h/2h por dia nos próximos ${diasRestantesLoc} dia(s) para garantir "${etapaLabel}" ⏱️`
+        : "";
+    }
+  }
+
+  // Cards de resumo do mês
+  const cardsWrap = document.getElementById("fa-meta-cards-resumo");
+  cardsWrap.innerHTML = "";
+  const cardsInfo = [
+    { titulo: "Total de Atendimentos", valor: resultado.totalAtend, meta: "no mês" },
+    { titulo: "Vendas 30min", valor: resultado.totalV30, meta: "no mês" },
+    { titulo: "Vendas 1h", valor: resultado.totalV1h, meta: "no mês" },
+    { titulo: "Vendas 2h", valor: resultado.totalV2h, meta: "no mês" },
+    { titulo: "Pix Guardião Acumulado", valor: formatBRL(resultado.totalPix), meta: "fins de semana qualificados" },
+    { titulo: "TOTAL ESTIMADO NO MÊS", valor: formatBRL(resultado.totalEstimado), meta: "bônus + pix", destaque: true }
+  ];
+  cardsInfo.forEach(info => {
+    const card = document.createElement("div");
+    card.className = "loja-card fa-loja-card";
+    if (info.destaque) card.style.borderTopColor = "#d4af37";
+    card.innerHTML = `
+      <h4>${info.titulo}</h4>
+      <div class="valor">${info.valor}</div>
+      <div class="meta"><span>${info.meta}</span></div>
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  // Rastreador de fim de semana: dias do mês corrente que caem nos dias
+  // configurados como "fim de semana" na regra, já passados ou não.
+  const fdsWrap = document.getElementById("fa-meta-fds-tracker");
+  fdsWrap.innerHTML = "";
+  const hoje = dataHojeStr();
+  const now = new Date();
+  const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const linhasPorData = {};
+  resultado.linhas.forEach(l => { linhasPorData[l.data] = l; });
+
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    const diaSemana = nomeDiaSemanaPorData(dataStr);
+    if (!regra.pixDiasSemana.includes(diaSemana)) continue;
+
+    const chip = document.createElement("span");
+    chip.style.cssText = "padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; border:1px solid var(--border);";
+    if (dataStr > hoje) {
+      chip.textContent = `${dia}/${String(now.getMonth() + 1).padStart(2, "0")} — ainda não chegou`;
+      chip.style.background = "var(--cream)";
+      chip.style.color = "var(--muted)";
+    } else {
+      const linha = linhasPorData[dataStr];
+      const bateu = linha && linha.pixHoje > 0;
+      chip.textContent = `${dia}/${String(now.getMonth() + 1).padStart(2, "0")} ${bateu ? "✅" : "❌"}`;
+      chip.style.background = bateu ? "#dcfce7" : "#fee2e2";
+      chip.style.color = bateu ? "#166534" : "#991b1b";
+    }
+    fdsWrap.appendChild(chip);
+  }
+}
+
+// ==========================================================================
+// METODOLOGIA DE LOCAÇÕES — Parque Circuito (quiosque de carrinhos)
+// ==========================================================================
+const REGRA_LOCACOES_FALLBACK = {
+  metaSegQui: 20, metaSexta: 38, metaSabado: 45, metaDomingo: 40,
+  ticketMedio: 48, pisoMes: 480, metaMes: 840, superMetaMes: 1110,
+  farolVerde: 1.0, farolAmarelo: 0.8
+};
+
+async function buscarRegraLocacoes(competencia) {
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes?competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    return data.regra;
+  } catch (err) {
+    console.error("Erro ao buscar regras de locações:", err);
+    return { competencia, ...REGRA_LOCACOES_FALLBACK };
+  }
+}
+
+// Meta de locações do dia conforme o dia da semana (0=Dom .. 6=Sáb).
+function metaLocacoesDoDia(dataStr, regra) {
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  const dow = new Date(ano, mes - 1, dia).getDay();
+  if (dow === 5) return regra.metaSexta;      // Sexta
+  if (dow === 6) return regra.metaSabado;     // Sábado
+  if (dow === 0) return regra.metaDomingo;    // Domingo
+  return regra.metaSegQui;                    // Seg–Qui
+}
+
+function farolLocacoes(realizado, meta, regra) {
+  const pct = meta > 0 ? realizado / meta : 0;
+  if (pct >= regra.farolVerde) return { emoji: "🟢", texto: "Bateu a meta", cor: "#16a34a" };
+  if (pct >= regra.farolAmarelo) return { emoji: "🟡", texto: "Quase lá", cor: "#d97706" };
+  return { emoji: "🔴", texto: "Abaixo", cor: "#dc2626" };
+}
+
+// Status baixo/médio/acima da meta diária, usando os mesmos limiares
+// configuráveis (farolVerde/farolAmarelo) do farol de locações. A meta de
+// locações do Parque Circuito é por unidade — não por colaboradora —, e a
+// meta diária "interpolada" da meta mensal é a tabela por dia da semana do
+// anexo META.pdf (metaLocacoesDoDia), não uma divisão linear por dias do mês.
+function statusMetaDiariaInterpolada(realizado, metaDiaria, regra) {
+  const pct = metaDiaria > 0 ? realizado / metaDiaria : 0;
+  if (pct >= (regra.farolVerde || 1)) return { emoji: "🟢", texto: "Acima" };
+  if (pct >= (regra.farolAmarelo || 0.8)) return { emoji: "🟡", texto: "Médio" };
+  return { emoji: "🔴", texto: "Baixo" };
+}
+
+async function carregarFaMetaLocacoes(unidade) {
+  const competencia = competenciaAtual();
+  const hoje = dataHojeStr();
+  const usuarioAlvo = document.getElementById("fa-meta-colaboradora").value || currentUser.nome;
+
+  document.getElementById("fa-loc-hoje-label").textContent = `${nomeDiaSemanaPorData(hoje)}, ${hoje.split("-").reverse().join("/")}`;
+
+  const regra = await buscarRegraLocacoes(competencia);
+
+  // A meta de locações é da unidade inteira, não de cada colaboradora — por
+  // isso o progresso (hoje e no mês) sempre soma os lançamentos de TODAS as
+  // colaboradoras do Parque Circuito, independente de quem está selecionada
+  // no seletor (que serve só para saber em nome de quem salvar o lançamento).
+  let lancamentos = [];
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/mes-todas?unidade=${encodeURIComponent(unidade)}&competencia=${encodeURIComponent(competencia)}`);
+    const data = await res.json();
+    lancamentos = data.lancamentos || [];
+  } catch (err) {
+    console.error("Erro ao buscar locações FA:", err);
+  }
+
+  const lancamentosHoje = lancamentos.filter(l => l.data === hoje);
+  const totalUnidadeHojeSalvo = lancamentosHoje.reduce((s, l) => s + (l.locacoes || 0), 0);
+  const lancamentoHojeUsuario = lancamentosHoje.find(l => l.usuario === usuarioAlvo);
+  const valorSalvoUsuario = lancamentoHojeUsuario ? (lancamentoHojeUsuario.locacoes || 0) : 0;
+
+  const inputLoc = document.getElementById("fa-loc-locacoes");
+  inputLoc.value = valorSalvoUsuario;
+
+  const metaHoje = metaLocacoesDoDia(hoje, regra);
+  document.getElementById("fa-loc-meta-dia").value = `${metaHoje} locações (unidade)`;
+
+  // Prévia ao vivo: soma o que as outras colaboradoras já lançaram hoje com
+  // o valor sendo digitado por quem está com o seletor aberto agora.
+  const atualizarFarolHoje = () => {
+    const locDigitado = parseInt(inputLoc.value) || 0;
+    const totalUnidadeHoje = (totalUnidadeHojeSalvo - valorSalvoUsuario) + locDigitado;
+    const f = farolLocacoes(totalUnidadeHoje, metaHoje, regra);
+    const el = document.getElementById("fa-loc-farol-hoje");
+    el.textContent = `${f.emoji} ${totalUnidadeHoje} de ${metaHoje} locações da unidade — ${f.texto}`;
+    el.style.color = f.cor;
+  };
+  inputLoc.oninput = atualizarFarolHoje;
+  atualizarFarolHoje();
+
+  document.getElementById("fa-btn-loc-salvar").onclick = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/fa-bonificacao/diaria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: usuarioAlvo, unidade, data: hoje, locacoes: parseInt(inputLoc.value) || 0 })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      showToast("Locações de hoje salvas!", "sucesso");
+      carregarFaMetaLocacoes(unidade);
+    } catch (err) {
+      console.error("Erro ao salvar locações do dia:", err);
+      showToast("Erro ao salvar. Tente novamente.", "erro");
+    }
+  };
+
+  renderFaLocacoesDashboard(lancamentos, regra);
+}
+
+function renderFaLocacoesDashboard(lancamentos, regra) {
+  const totalMes = lancamentos.reduce((s, l) => s + (l.locacoes || 0), 0);
+  const receitaMes = totalMes * (regra.ticketMedio || 48);
+
+  // Calcular receita real a partir dos envelopes de fechamento FaçaAmigos para esta unidade no mês
+  const competencia = document.getElementById("fa-regras-competencia-selector") ? document.getElementById("fa-regras-competencia-selector").value : competenciaAtual();
+  const unidade = document.getElementById("fa-meta-unidade") ? document.getElementById("fa-meta-unidade").value : "Parque Circuito";
+  const envelopesMes = (registrosFA || []).filter(r => 
+    r.loja === unidade && 
+    r.tipoOperacao === "Fechamento" && 
+    r.dataOperacao && 
+    r.dataOperacao.startsWith(competencia)
+  );
+  const receitaReal = envelopesMes.reduce((s, r) => s + (parseMoeda(r.valorEnvelope) || 0), 0);
+  const ticketMedioReal = totalMes > 0 ? receitaReal / totalMes : 0;
+
+  // Cálculo da Bonificação conforme o Plano de Bonificação (Circuito - CIRCUITO.docx)
+  let bonusVolume = 0;
+  if (totalMes >= 1500 && totalMes < 1950) {
+    bonusVolume = 300;
+  } else if (totalMes >= 1950) {
+    const blocosAcima = Math.floor((totalMes - 1950) / 50);
+    bonusVolume = 600 + (blocosAcima * 10);
+  }
+
+  // Bônus por captura de excedente: R$ 100 se ticket médio real >= R$ 27 e superou o piso de bonificação (824)
+  let bonusExcedente = 0;
+  const ticketMedioMeta = 27; 
+  if (ticketMedioReal >= ticketMedioMeta && totalMes >= 824) {
+    bonusExcedente = 100;
+  }
+
+  const bonusTotalAtendente = bonusVolume + bonusExcedente;
+
+  // Jornada do mês em 3 etapas (Piso -> Meta -> Super-Meta), cada uma tratada como
+  // um marco próximo e alcançável em vez de comparar sempre contra o total do mês —
+  // isso evita o efeito "0 / 840" que passa a sensação de estar muito longe da meta.
+  const piso = regra.pisoMes || 480;
+  const meta = regra.metaMes || 840;
+  const superMeta = regra.superMetaMes || 1110;
+  const escala = Math.max(superMeta, meta, piso, 1);
+
+  const pctZonaPiso = (piso / escala) * 100;
+  const pctZonaMeta = ((meta - piso) / escala) * 100;
+  const pctZonaSuper = 100 - pctZonaPiso - pctZonaMeta;
+  const zonaPisoEl = document.getElementById("fa-loc-zona-piso");
+  const zonaMetaEl = document.getElementById("fa-loc-zona-meta");
+  const zonaSuperEl = document.getElementById("fa-loc-zona-super");
+  if (zonaPisoEl) zonaPisoEl.style.width = `${pctZonaPiso}%`;
+  if (zonaMetaEl) zonaMetaEl.style.width = `${pctZonaMeta}%`;
+  if (zonaSuperEl) zonaSuperEl.style.width = `${pctZonaSuper}%`;
+
+  const pct = Math.min(100, (totalMes / escala) * 100);
+  const bar = document.getElementById("fa-loc-gauge-bar");
+  if (bar) {
+    bar.style.width = `${pct}%`;
+    bar.style.background = totalMes >= meta ? "#16a34a" : (totalMes >= piso ? "#d4af37" : "#dc2626");
+  }
+
+  // Marcas de piso e meta na barra (relativas à escala total = super-meta ou meta, o que for maior)
+  const marcaPiso = document.getElementById("fa-loc-marca-piso");
+  const marcaMeta = document.getElementById("fa-loc-marca-meta");
+  if (marcaPiso) marcaPiso.style.left = `${pctZonaPiso}%`;
+  if (marcaMeta) marcaMeta.style.left = `${pctZonaPiso + pctZonaMeta}%`;
+
+  // Dividindo as metas mensais dia a dia: média necessária por dia do mês para
+  // cada marco, além do ritmo recalculado com base no que ainda falta e nos dias restantes.
+  const hojeLoc = new Date();
+  const diasNoMesLoc = new Date(hojeLoc.getFullYear(), hojeLoc.getMonth() + 1, 0).getDate();
+  const diasRestantesLoc = Math.max(1, diasNoMesLoc - hojeLoc.getDate() + 1);
+  const mediaDiaPiso = Math.ceil(piso / diasNoMesLoc);
+  const mediaDiaMeta = Math.ceil(meta / diasNoMesLoc);
+  const mediaDiaSuper = Math.ceil(superMeta / diasNoMesLoc);
+
+  // Etapa atual da jornada: qual marco é o próximo foco
+  let etapaNum, etapaLabel, etapaAlvo;
+  if (totalMes >= superMeta) {
+    etapaNum = 3; etapaLabel = "Super-Meta batida! 🏆"; etapaAlvo = superMeta;
+  } else if (totalMes >= meta) {
+    etapaNum = 3; etapaLabel = "Super-Meta"; etapaAlvo = superMeta;
+  } else if (totalMes >= piso) {
+    etapaNum = 2; etapaLabel = "Meta do Mês"; etapaAlvo = meta;
+  } else {
+    etapaNum = 1; etapaLabel = "Ponto de Equilíbrio"; etapaAlvo = piso;
+  }
+  const etapaAtualLabel = document.getElementById("fa-loc-etapa-atual-label");
+  if (etapaAtualLabel) etapaAtualLabel.textContent = `Etapa ${Math.min(etapaNum, 3)} de 3 · ${etapaLabel}`;
+
+  const labelMes = document.getElementById("fa-loc-mes-label");
+  if (labelMes) labelMes.textContent = totalMes >= superMeta ? `${totalMes} locações 🎉` : `${totalMes} / ${etapaAlvo} locações`;
+
+  // Chips das 3 etapas com estado concluída / foco atual / a seguir e o ritmo médio/dia de cada uma
+  const etapasWrap = document.getElementById("fa-loc-etapas");
+  if (etapasWrap) {
+    etapasWrap.innerHTML = "";
+    const etapas = [
+      { titulo: "Piso", icone: "🎯", alvo: piso, mediaDia: mediaDiaPiso },
+      { titulo: "Meta", icone: "🥇", alvo: meta, mediaDia: mediaDiaMeta },
+      { titulo: "Super-Meta", icone: "🏆", alvo: superMeta, mediaDia: mediaDiaSuper }
+    ];
+    etapas.forEach((et, idx) => {
+      const numEtapa = idx + 1;
+      const concluida = totalMes >= et.alvo;
+      const atual = !concluida && numEtapa === etapaNum;
+      const chip = document.createElement("span");
+      chip.style.cssText = "padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; border:1px solid var(--border); white-space:nowrap;";
+      if (concluida) {
+        chip.textContent = `✅ ${et.titulo} (${et.alvo})`;
+        chip.style.background = "#dcfce7";
+        chip.style.color = "#166534";
+        chip.style.borderColor = "#86efac";
+      } else if (atual) {
+        chip.textContent = `${et.icone} ${et.titulo} (${et.alvo}) · ~${et.mediaDia}/dia — foco agora`;
+        chip.style.background = "#fef3c7";
+        chip.style.color = "#92400e";
+        chip.style.borderColor = "#fbbf24";
+        chip.style.boxShadow = "0 0 0 2px rgba(251,191,36,0.35)";
+      } else {
+        chip.textContent = `🔒 ${et.titulo} (${et.alvo}) · ~${et.mediaDia}/dia`;
+        chip.style.background = "var(--cream)";
+        chip.style.color = "var(--muted)";
+      }
+      etapasWrap.appendChild(chip);
+    });
+  }
+
+  // Mensagem motivacional por etapa (marco próximo, não o total do mês)
+  const msg = document.getElementById("fa-loc-mensagem-motivacional");
+  if (msg) {
+    if (totalMes >= superMeta) {
+      msg.textContent = `🏆 Super-meta batida! Desempenho excelente no mês!`;
+      msg.style.color = "#16a34a";
+    } else if (totalMes >= meta) {
+      msg.textContent = `🎉 Meta do mês batida! Faltam ${superMeta - totalMes} locações para a Super-Meta 🏆`;
+      msg.style.color = "#16a34a";
+    } else if (totalMes >= piso) {
+      msg.textContent = `💪 Piso garantido! Faltam ${meta - totalMes} locações para a Meta 🎯`;
+      msg.style.color = "#d97706";
+    } else {
+      const pctEtapa = piso > 0 ? Math.round((totalMes / piso) * 100) : 0;
+      msg.textContent = `Você já está ${pctEtapa}% do caminho para o Piso! Faltam ${piso - totalMes} locações. Bora focar nas vendas! 🧸`;
+      msg.style.color = "var(--muted)";
+    }
+  }
+
+  // Ritmo diário sugerido: reparte o que falta para a etapa atual pelos dias restantes do mês
+  const ritmoEl = document.getElementById("fa-loc-ritmo-diario");
+  if (ritmoEl) {
+    const faltamParaEtapa = Math.max(0, etapaAlvo - totalMes);
+    if (faltamParaEtapa > 0) {
+      const ritmoDia = Math.ceil(faltamParaEtapa / diasRestantesLoc);
+      ritmoEl.textContent = `Ritmo sugerido: ${ritmoDia} locações/dia nos próximos ${diasRestantesLoc} dia(s) para garantir "${etapaLabel}" ⏱️`;
+    } else {
+      ritmoEl.textContent = "";
+    }
+  }
+
+  // Cards de resumo
+  const cardsWrap = document.getElementById("fa-loc-cards-resumo");
+  if (cardsWrap) {
+    cardsWrap.innerHTML = "";
+    const cards = [
+      { titulo: "Locações no Mês", valor: totalMes, meta: `piso ${regra.pisoMes || 480} / meta ${regra.metaMes || 840}` },
+      { titulo: "Receita Real (Caixa)", valor: formatBRL(receitaReal), meta: `realizada em fechamentos` },
+      { titulo: "Ticket Médio Real", valor: formatBRL(ticketMedioReal), meta: `meta excedente: ${formatBRL(ticketMedioMeta)}` },
+      { titulo: "Bônus Volume", valor: formatBRL(bonusVolume), meta: totalMes >= 1500 ? "✅ Garantido" : "Abaixo da Meta (1500)" },
+      { titulo: "Bônus Excedente", valor: formatBRL(bonusExcedente), meta: bonusExcedente > 0 ? "✅ Qualificado" : "Fora da Meta (Piso 824)" },
+      { titulo: "BÔNUS POR ATENDENTE", valor: formatBRL(bonusTotalAtendente), meta: "volume + excedente", destaque: true }
+    ];
+    cards.forEach(info => {
+      const card = document.createElement("div");
+      card.className = "loja-card fa-loja-card";
+      if (info.destaque) card.style.borderTopColor = "#16a34a";
+      card.innerHTML = `<h4>${info.titulo}</h4><div class="valor">${info.valor}</div><div class="meta"><span>${info.meta}</span></div>`;
+      cardsWrap.appendChild(card);
+    });
+  }
+
+  // Tabela dia a dia — soma as locações de todas as colaboradoras por data,
+  // já que a meta (e o farol) é da unidade como um todo, não de quem lançou.
+  const tbody = document.getElementById("fa-loc-tabela-mes-tbody");
+  const vazia = document.getElementById("fa-loc-tabela-vazia");
+  tbody.innerHTML = "";
+  const totalPorData = {};
+  lancamentos.forEach(l => { totalPorData[l.data] = (totalPorData[l.data] || 0) + (l.locacoes || 0); });
+  const ordenados = Object.keys(totalPorData)
+    .sort((a, b) => b.localeCompare(a))
+    .map(data => ({ data, locacoes: totalPorData[data] }));
+  vazia.classList.toggle("hidden", ordenados.length > 0);
+  ordenados.forEach(l => {
+    const meta = metaLocacoesDoDia(l.data, regra);
+    const realizado = l.locacoes || 0;
+    const f = farolLocacoes(realizado, meta, regra);
+    const pctDia = meta > 0 ? (realizado / meta) * 100 : 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${l.data.split("-").reverse().join("/")}</td>
+      <td>${nomeDiaSemanaPorData(l.data)}</td>
+      <td>${meta}</td>
+      <td>${realizado}</td>
+      <td>${pctDia.toFixed(0)}%</td>
+      <td>${f.emoji} ${f.texto}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Regras de Bonificação (Bruno/Isabella) ---
+async function inicializarFaRegrasBonificacao() {
+  const seletor = document.getElementById("fa-regras-competencia-selector");
+  if (!seletor.value) seletor.value = competenciaAtual();
+  seletor.onchange = () => carregarRegrasFaConformeModo();
+
+  const selMetodologia = document.getElementById("fa-regras-metodologia");
+  if (selMetodologia) selMetodologia.onchange = alternarModoRegrasFa;
+
+  document.getElementById("fa-btn-regras-salvar").onclick = salvarRegrasFaConformeModo;
+
+  // Lógica de importação do plano DOCX (Parque Circuito)
+  const inputDocx = document.getElementById("fa-loc-regras-importar-docx");
+  const statusDocx = document.getElementById("fa-loc-regras-importar-status");
+  if (inputDocx) {
+    inputDocx.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      statusDocx.textContent = "Processando arquivo...";
+      statusDocx.style.color = "var(--wine)";
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const docXml = await zip.file("word/document.xml").async("text");
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(docXml, "text/xml");
+        const paragraphs = xmlDoc.getElementsByTagName("w:p");
+        
+        let fullText = "";
+        for (let i = 0; i < paragraphs.length; i++) {
+          const p = paragraphs[i];
+          let pText = "";
+          const texts = p.getElementsByTagName("w:t");
+          for (let j = 0; j < texts.length; j++) {
+            pText += texts[j].textContent;
+          }
+          if (pText.trim()) {
+            fullText += pText + "\n";
+          }
+        }
+        
+        // Parser Regex Inteligente
+        const textoLimpo = fullText.replace(/(\d)\.(\d{3})/g, "$1$2");
+        
+        let piso = 824; 
+        let meta = 1500;
+        let superMeta = 1950;
+        let ticket = 27;
+        
+        // Buscar Piso (Ex: "824 a 1.499" ou "Abaixo de 824")
+        const matchPiso = textoLimpo.match(/Abaixo de (\d+)/) || textoLimpo.match(/(\d+) a \d+.*Piso/i) || textoLimpo.match(/Piso\D*(\d+)/i);
+        if (matchPiso) piso = parseInt(matchPiso[1]);
+        
+        // Buscar Meta (Ex: "1.500 a 1.949")
+        const matchMeta = textoLimpo.match(/(\d+) a \d+.*Meta/i) || textoLimpo.match(/Meta\D*(\d+)/i);
+        if (matchMeta) meta = parseInt(matchMeta[1]);
+        
+        // Buscar Super-meta (Ex: "1.950 ou mais")
+        const matchSuper = textoLimpo.match(/(\d+) ou mais.*Super/i) || textoLimpo.match(/Super-meta\D*(\d+)/i);
+        if (matchSuper) superMeta = parseInt(matchSuper[1]);
+        
+        // Buscar Ticket Médio (Ex: "R$ 27")
+        const matchTicket = textoLimpo.match(/ticket médio\D*(\d+)/i) || textoLimpo.match(/R\$\s*(\d+)/);
+        if (matchTicket) ticket = parseFloat(matchTicket[1]);
+        
+        // Preencher inputs
+        document.getElementById("fa-loc-regras-piso").value = piso;
+        document.getElementById("fa-loc-regras-meta").value = meta;
+        document.getElementById("fa-loc-regras-super").value = superMeta;
+        document.getElementById("fa-loc-regras-ticket").value = ticket;
+        
+        // Padrões do Farol padrão de locações
+        document.getElementById("fa-loc-regras-segqui").value = 20;
+        document.getElementById("fa-loc-regras-sexta").value = 38;
+        document.getElementById("fa-loc-regras-sabado").value = 45;
+        document.getElementById("fa-loc-regras-domingo").value = 40;
+        document.getElementById("fa-loc-regras-verde").value = 100;
+        document.getElementById("fa-loc-regras-amarelo").value = 80;
+
+        statusDocx.innerHTML = `<span style="color: #16a34a;"><i class="fa-solid fa-circle-check"></i> Importado! (Piso: ${piso}, Meta: ${meta}, Super: ${superMeta}, Ticket: R$ ${ticket})</span>`;
+        showToast("Plano de Bonificação extraído com sucesso!", "sucesso");
+      } catch (err) {
+        console.error("Erro ao processar arquivo docx:", err);
+        statusDocx.innerHTML = `<span style="color: var(--red);"><i class="fa-solid fa-circle-xmark"></i> Erro ao processar arquivo</span>`;
+        showToast("Não foi possível ler o arquivo. Verifique se é um DOCX válido.", "erro");
+      }
+    });
+  }
+
+  alternarModoRegrasFa();
+  await carregarRegrasFaConformeModo();
+}
+
+function alternarModoRegrasFa() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  document.getElementById("fa-regras-bloco-conversao").classList.toggle("hidden", modo !== "conversao");
+  document.getElementById("fa-regras-bloco-locacoes").classList.toggle("hidden", modo !== "locacoes");
+  carregarRegrasFaConformeModo();
+}
+
+function carregarRegrasFaConformeModo() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (modo === "locacoes") return carregarRegraLocacoesNoFormulario(competencia);
+  return carregarRegraNoFormulario(competencia);
+}
+
+function salvarRegrasFaConformeModo() {
+  const modo = document.getElementById("fa-regras-metodologia").value;
+  if (modo === "locacoes") return salvarRegraLocacoes();
+  return salvarRegraFaBonificacao();
+}
+
+async function carregarRegraLocacoesNoFormulario(competencia) {
+  const data = await (await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes?competencia=${encodeURIComponent(competencia)}`)).json();
+  const r = data.regra;
+
+  document.getElementById("fa-loc-regras-segqui").value = r.metaSegQui;
+  document.getElementById("fa-loc-regras-sexta").value = r.metaSexta;
+  document.getElementById("fa-loc-regras-sabado").value = r.metaSabado;
+  document.getElementById("fa-loc-regras-domingo").value = r.metaDomingo;
+  document.getElementById("fa-loc-regras-ticket").value = r.ticketMedio;
+  document.getElementById("fa-loc-regras-piso").value = r.pisoMes;
+  document.getElementById("fa-loc-regras-meta").value = r.metaMes;
+  document.getElementById("fa-loc-regras-super").value = r.superMetaMes;
+  document.getElementById("fa-loc-regras-verde").value = Math.round(r.farolVerde * 100);
+  document.getElementById("fa-loc-regras-amarelo").value = Math.round(r.farolAmarelo * 100);
+
+  const aviso = document.getElementById("fa-regras-origem-aviso");
+  if (data.origem === "herdada") {
+    aviso.textContent = `Nenhuma regra de locações para ${competencia} ainda — mostrando a do mês mais recente (${r.competencia}). Salve para criar uma regra própria.`;
+    aviso.classList.remove("hidden");
+  } else if (data.origem === "padrao") {
+    aviso.textContent = `Nenhuma regra de locações cadastrada ainda — mostrando os valores padrão do Parque Circuito (META.pdf). Salve para criar a primeira.`;
+    aviso.classList.remove("hidden");
+  } else {
+    aviso.classList.add("hidden");
+  }
+}
+
+async function salvarRegraLocacoes() {
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (!competencia) { showToast("Selecione uma competência.", "erro"); return; }
+
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras-locacoes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        competencia,
+        metaSegQui: parseInt(document.getElementById("fa-loc-regras-segqui").value) || 0,
+        metaSexta: parseInt(document.getElementById("fa-loc-regras-sexta").value) || 0,
+        metaSabado: parseInt(document.getElementById("fa-loc-regras-sabado").value) || 0,
+        metaDomingo: parseInt(document.getElementById("fa-loc-regras-domingo").value) || 0,
+        ticketMedio: parseFloat(document.getElementById("fa-loc-regras-ticket").value) || 0,
+        pisoMes: parseInt(document.getElementById("fa-loc-regras-piso").value) || 0,
+        metaMes: parseInt(document.getElementById("fa-loc-regras-meta").value) || 0,
+        superMetaMes: parseInt(document.getElementById("fa-loc-regras-super").value) || 0,
+        farolVerde: (parseFloat(document.getElementById("fa-loc-regras-verde").value) || 0) / 100,
+        farolAmarelo: (parseFloat(document.getElementById("fa-loc-regras-amarelo").value) || 0) / 100
+      })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar");
+    showToast(`Regras de locações de ${competencia} salvas!`, "sucesso");
+    carregarRegraLocacoesNoFormulario(competencia);
+  } catch (err) {
+    console.error("Erro ao salvar regras de locações:", err);
+    showToast("Erro ao salvar regras. Tente novamente.", "erro");
+  }
+}
+
+async function carregarRegraNoFormulario(competencia) {
+  const res = await fetch(`${API_BASE}/fa-bonificacao/regras?competencia=${encodeURIComponent(competencia)}`);
+  const data = await res.json();
+  const regra = parseRegraFaBonificacao(data.regra);
+
+  document.getElementById("fa-regras-ouro-percent").value = (regra.ouroPercentMin * 100).toFixed(1);
+  document.getElementById("fa-regras-ouro-valor").value = regra.ouroValor;
+  document.getElementById("fa-regras-diamante-percent").value = (regra.diamantePercentMin * 100).toFixed(1);
+  document.getElementById("fa-regras-diamante-valor").value = regra.diamanteValor;
+  document.getElementById("fa-regras-pix-min-2h").value = regra.pixMinVendas2h;
+  document.getElementById("fa-regras-pix-valor").value = regra.pixValor;
+
+  document.querySelectorAll(".fa-regras-dia-checkbox").forEach(cb => {
+    cb.checked = regra.pixDiasSemana.includes(cb.value);
+  });
+
+  const aviso = document.getElementById("fa-regras-origem-aviso");
+  if (data.origem === "herdada") {
+    aviso.textContent = `Nenhuma regra cadastrada para ${competencia} ainda — mostrando a regra do mês mais recente configurado (${regra.competencia}). Salve para criar uma regra própria deste mês.`;
+    aviso.classList.remove("hidden");
+  } else if (data.origem === "padrao") {
+    aviso.textContent = `Nenhuma regra cadastrada ainda — mostrando os valores padrão (idênticos à planilha original). Salve para criar a primeira regra.`;
+    aviso.classList.remove("hidden");
+  } else {
+    aviso.classList.add("hidden");
+  }
+}
+
+async function salvarRegraFaBonificacao() {
+  const competencia = document.getElementById("fa-regras-competencia-selector").value;
+  if (!competencia) {
+    showToast("Selecione uma competência.", "erro");
+    return;
+  }
+
+  const diasSelecionados = Array.from(document.querySelectorAll(".fa-regras-dia-checkbox:checked")).map(cb => cb.value);
+
+  try {
+    const res = await fetch(`${API_BASE}/fa-bonificacao/regras`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        competencia,
+        ouroPercentMin: (parseFloat(document.getElementById("fa-regras-ouro-percent").value) || 0) / 100,
+        ouroValor: parseFloat(document.getElementById("fa-regras-ouro-valor").value) || 0,
+        diamantePercentMin: (parseFloat(document.getElementById("fa-regras-diamante-percent").value) || 0) / 100,
+        diamanteValor: parseFloat(document.getElementById("fa-regras-diamante-valor").value) || 0,
+        pixMinVendas2h: parseInt(document.getElementById("fa-regras-pix-min-2h").value) || 0,
+        pixValor: parseFloat(document.getElementById("fa-regras-pix-valor").value) || 0,
+        pixDiasSemana: diasSelecionados
+      })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar regra");
+    showToast(`Regras de ${competencia} salvas com sucesso!`, "sucesso");
+    carregarRegraNoFormulario(competencia);
+  } catch (err) {
+    console.error("Erro ao salvar regras de bonificação FA:", err);
+    showToast("Erro ao salvar regras. Tente novamente.", "erro");
+  }
+}
+
+
+// --- Notificações System ---
+// obterNotificacoesPendentes() (owner-only, envelopes de todas as unidades)
+// foi substituída por obterAvisosPendentes() — mesma lógica, generalizada
+// por perfil, mais adiante no arquivo, perto de renderAvisos(). Uma função
+// só, pra badge do sino e a aba "Avisos" nunca discordarem sobre o que está
+// pendente.
+
+function atualizarNotificacoes() {
+  const btnNotif = document.getElementById("btn-notificacoes");
+  const badgeNotif = document.getElementById("notificacao-badge");
+  const dropdown = document.getElementById("notifications-dropdown");
+  const list = document.getElementById("notifications-list");
+
+  if (!btnNotif || !badgeNotif) return;
+
+  // O sino era exclusivo do Owner (só ele via envelope aguardando retirada
+  // de todas as unidades). Agora que existe a aba "Avisos" para todo mundo
+  // — cada perfil com o próprio recorte, ver obterAvisosPendentes() — o
+  // sino também é universal; só o conteúdo pendente muda por perfil.
+  if (!currentUser) {
+    btnNotif.classList.add("hidden");
+    if (dropdown) dropdown.classList.add("hidden");
+    return;
+  }
+
+  btnNotif.classList.remove("hidden");
+
+  const pendentes = obterAvisosPendentes();
+  
+  // Obter IDs já lidos de localStorage
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {
+    lidas = [];
+  }
+
+  // Filtrar apenas as pendências que ainda não foram marcadas como lidas
+  const unreadCount = pendentes.filter(p => !lidas.includes(p.id)).length;
+
+  if (unreadCount > 0) {
+    badgeNotif.textContent = unreadCount;
+    badgeNotif.classList.remove("hidden");
+  } else {
+    badgeNotif.classList.add("hidden");
+  }
+
+  // Renderizar a lista (limitado às últimas 7)
+  if (list) {
+    list.innerHTML = "";
+    const ultimasSete = pendentes.slice(0, 7);
+
+    if (ultimasSete.length === 0) {
+      list.innerHTML = `
+        <div class="notification-empty">
+          <i class="fa-regular fa-bell-slash"></i>
+          Nenhuma pendência recente
+        </div>
+      `;
+    } else {
+      ultimasSete.forEach(p => {
+        const isUnread = !lidas.includes(p.id);
+        const item = document.createElement("div");
+        item.className = `notification-item${isUnread ? " unread" : ""}`;
+        item.dataset.id = p.id;
+        
+        // Formatar data
+        let dataFormatada = "";
+        try {
+          dataFormatada = new Date(p.data).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+          });
+        } catch(e) {
+          dataFormatada = p.data;
+        }
+
+        const origemClass = p.origem === "Cacau Show" ? "cacau" : "faca";
+        const valorFormatado = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.valor);
+
+        item.innerHTML = `
+          <div class="notification-meta">
+            <span class="notification-origin ${origemClass}">${p.origem}</span>
+            <span class="notification-date">${dataFormatada}</span>
+          </div>
+          <div class="notification-title">${p.loja}</div>
+          <div class="notification-desc">${valorFormatado} • Reg. por ${p.consultor}</div>
+        `;
+
+        item.addEventListener("click", () => {
+          if (isUnread) {
+            marcarComoLida(p.id);
+          }
+        });
+
+        list.appendChild(item);
+      });
+    }
+  }
+}
+
+function marcarComoLida(id) {
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {}
+
+  if (!lidas.includes(id)) {
+    lidas.push(id);
+    localStorage.setItem("notificacoes_lidas", JSON.stringify(lidas));
+    atualizarNotificacoes();
+  }
+}
+
+function marcarTodasComoLidas() {
+  const pendentes = obterAvisosPendentes();
+  let lidas = [];
+  try {
+    lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || [];
+  } catch (e) {}
+
+  pendentes.forEach(p => {
+    if (!lidas.includes(p.id)) {
+      lidas.push(p.id);
+    }
+  });
+
+  localStorage.setItem("notificacoes_lidas", JSON.stringify(lidas));
+  atualizarNotificacoes();
+}
+
+// Configurar Event Listeners das notificações
+function inicializarNotificacoesListeners() {
+  const btnNotif = document.getElementById("btn-notificacoes");
+  const dropdown = document.getElementById("notifications-dropdown");
+  const btnMarcarLidas = document.getElementById("btn-marcar-todas-lidas");
+
+  // O sino agora abre a aba "Avisos" (página cheia, com o mesmo texto que a
+  // Avisos tem) em vez do dropdown: em 390px de tela um menu suspenso não
+  // tem onde crescer. O dropdown em si (markup + população da lista) fica
+  // como está, só não é mais alcançável por clique — não vale a pena
+  // remover o HTML/JS dele agora e arriscar quebrar algo que não está sendo
+  // testado nesta leva.
+  if (btnNotif) {
+    btnNotif.onclick = (e) => {
+      e.stopPropagation();
+      ativarTab("avisos");
+    };
+  }
+
+  if (btnMarcarLidas) {
+    btnMarcarLidas.onclick = (e) => {
+      e.stopPropagation();
+      marcarTodasComoLidas();
+    };
+  }
+
+  const btnAvisosMarcarLidas = document.getElementById("btn-avisos-marcar-lidas");
+  if (btnAvisosMarcarLidas) {
+    btnAvisosMarcarLidas.onclick = () => {
+      marcarTodasComoLidas();
+      renderAvisos();
+    };
+  }
+
+  // Fechar ao clicar fora
+  document.addEventListener("click", (e) => {
+    if (dropdown && !dropdown.classList.contains("hidden")) {
+      if (!dropdown.contains(e.target) && e.target !== btnNotif) {
+        dropdown.classList.add("hidden");
+      }
+    }
+  });
+}
+
+// --- Dashboard ---
+
+function renderDashboard() {
+  const filtroLoja = document.getElementById("filtro-loja-pendentes").value;
+  const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
+
+  // --- Atualizar Badge de Notificação (Pendências) ---
+  atualizarNotificacoes();
+
+
+  const hoje = new Date().toISOString();
+  const semFechamento = LOJAS.filter(loja => {
+    return !registros.some(r => r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, hoje));
+  });
+  const alertaCard = document.getElementById("alerta-sem-fechamento");
+  if (semFechamento.length) {
+    document.getElementById("lojas-sem-fechamento").textContent = " " + semFechamento.join(", ");
+    alertaCard.classList.remove("hidden");
+  } else {
+    alertaCard.classList.add("hidden");
+  }
+
+  const cardsWrap = document.getElementById("cards-lojas");
+  cardsWrap.innerHTML = "";
+  let totalGeral = 0;
+  const totaisPorLoja = {};
+
+  LOJAS.forEach(loja => {
+    const doLoja = pendentes.filter(r => r.loja === loja);
+    const total = doLoja.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    totaisPorLoja[loja] = total;
+    totalGeral += total;
+    const maisAntigo = doLoja.reduce((max, r) => {
+      const dias = diffDias(r.dataOperacao);
+      return dias > max ? dias : max;
+    }, 0);
+    const emRisco = maisAntigo >= RISCO_DIAS && doLoja.length > 0;
+
+    const card = document.createElement("div");
+    card.className = "loja-card" + (emRisco ? " alerta" : "");
+    card.style.setProperty("--op-cor", opCor(loja));
+    card.innerHTML = `
+      <h4>${opLabel(loja)}</h4>
+      <div class="valor">${formatBRL(total)}</div>
+      <div class="meta">
+        <span>${doLoja.length} envelope(s)</span>
+        <span>${doLoja.length ? maisAntigo + "d mais antigo" : "—"}</span>
+      </div>
+      ${emRisco ? `<span class="badge-alerta">⚠ Retirada atrasada</span>` : ""}
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  document.getElementById("dash-total-geral").textContent = formatBRL(totalGeral) + " em trânsito";
+
+  const barChart = document.getElementById("bar-chart");
+  barChart.innerHTML = "";
+  const maiorValor = Math.max(...Object.values(totaisPorLoja), 1);
+  LOJAS.forEach(loja => {
+    const total = totaisPorLoja[loja];
+    const pct = Math.round((total / maiorValor) * 100);
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <span>${opLabel(loja)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <span class="bar-value">${formatBRL(total)}</span>
+    `;
+    barChart.appendChild(row);
+  });
+
+  function atualizarBatchBarPendentes(filtrados) {
+    const bar = document.getElementById("batch-actions-pendentes");
+    const countInfo = document.getElementById("batch-count-info");
+    const selectAllCheckbox = document.getElementById("select-all-pendentes");
+
+    if (!bar) return;
+
+    if (selecionadosPendentes.size > 0) {
+      bar.classList.remove("hidden");
+      const selecionadosList = filtrados.filter(r => selecionadosPendentes.has(String(r.id)));
+      const totalValor = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+      countInfo.textContent = `${selecionadosPendentes.size} envelope(s) selecionado(s) (${formatBRL(totalValor)})`;
+    } else {
+      bar.classList.add("hidden");
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = filtrados.length > 0 && filtrados.every(r => selecionadosPendentes.has(String(r.id)));
+      selectAllCheckbox.indeterminate = selecionadosPendentes.size > 0 && !selectAllCheckbox.checked;
+    }
+  }
+
+  const filtrados = filtroLoja ? pendentes.filter(r => r.loja === filtroLoja) : pendentes;
+  const tbody = document.querySelector("#tabela-pendentes tbody");
+  tbody.innerHTML = "";
+
+  const podeRetirar = usuarioTemCapacidade('retirar_envelope', RETIRADA_PERMITIDA);
+
+  // Limpar IDs selecionados que não estão mais na lista de filtrados
+  const idsFiltrados = new Set(filtrados.map(r => String(r.id)));
+  selecionadosPendentes = new Set([...selecionadosPendentes].map(String).filter(id => idsFiltrados.has(id)));
+
+  filtrados
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
+    .forEach(r => {
+      const dias = diffDias(r.dataOperacao);
+      const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosPendentes.has(String(r.id));
+      const tr = document.createElement("tr");
+      if (isSelected) tr.classList.add("selected-row");
+
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+        </td>
+        <td>${opChip(r.loja)}</td>
+        <td>${r.consultor}</td>
+        <td>${formatDataHora(r.dataOperacao)}</td>
+        <td>${formatBRL(r.valorEnvelope)}</td>
+        <td><span class="dias-badge ${risco ? "risco" : ""}">${dias}d</span></td>
+        <td>${fotoCelula(r)}</td>
+        <td>${avisoCelula(r)}</td>
+        <td>${podeRetirar
+          ? `<button class="btn-retirar" data-id="${r.id}">Marcar retirado</button>`
+          : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella ou Alexandra</span>`}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+  atualizarBatchBarPendentes(filtrados);
+  renderPendentesCards(filtrados, podeRetirar);
+
+  document.getElementById("pendentes-vazio").classList.toggle("hidden", filtrados.length > 0);
+
+  // Checkbox Select All Listener
+  const selectAll = document.getElementById("select-all-pendentes");
+  if (selectAll) {
+    selectAll.onclick = () => {
+      if (selectAll.checked) {
+        filtrados.forEach(r => selecionadosPendentes.add(String(r.id)));
+      } else {
+        selecionadosPendentes.clear();
+      }
+      renderDashboard();
+    };
+  }
+
+  // Individual Checkbox Listeners
+  tbody.querySelectorAll(".chk-pendente").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = String(chk.dataset.id);
+      if (chk.checked) {
+        selecionadosPendentes.add(id);
+      } else {
+        selecionadosPendentes.delete(id);
+      }
+      renderDashboard();
+    });
+  });
+
+  const btnBatch = document.getElementById("btn-batch-retirar");
+  if (btnBatch) {
+    btnBatch.onclick = () => {
+      if (selecionadosPendentes.size > 0) {
+        abrirModalRetirada(Array.from(selecionadosPendentes));
+      }
+    };
+  }
+
+  tbody.querySelectorAll(".btn-retirar").forEach(btn => {
+    btn.addEventListener("click", () => abrirModalRetirada(String(btn.dataset.id)));
+  });
+  tbody.querySelectorAll(".thumb-btn").forEach(img => {
+    img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
+  });
+  carregarFotosLazy(tbody, "registros");
+}
+
+// Lista em cartões de "Envelopes Aguardando Retirada" — casca compacta only
+// (ver .density-compact .pendentes-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #tabela-pendentes, mesmo Set de seleção
+// (selecionadosPendentes): tocar o cartão faz exatamente o que marcar o
+// checkbox da linha faria. Sem permissão de retirada, o cartão vira só
+// leitura — sem toque, sem seleção, mesma regra da tabela.
+function renderPendentesCards(filtrados, podeRetirar) {
+  const box = document.getElementById("pendentes-cards");
+  if (!box) return;
+
+  box.innerHTML = "";
+  filtrados
+    .sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao))
+    .forEach(r => {
+      const dias = diffDias(r.dataOperacao);
+      const risco = dias >= RISCO_DIAS;
+      const isSelected = selecionadosPendentes.has(String(r.id));
+
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "pendentes-card" + (isSelected ? " selected" : "") + (podeRetirar ? "" : " bloqueado");
+      card.innerHTML = `
+        ${podeRetirar ? `<span class="pendentes-card-check"><i class="fa-solid fa-check"></i></span>` : ""}
+        <span class="pendentes-card-body">
+          <span class="pendentes-card-loja">${opLabel(r.loja)}</span>
+          <span class="pendentes-card-meta">${r.consultor} · ${formatDataHora(r.dataOperacao)}</span>
+          <span class="pendentes-card-dias${risco ? " risco" : ""}">${dias}d aguardando</span>
+        </span>
+        <span class="pendentes-card-valor">${formatBRL(r.valorEnvelope)}</span>
+        ${podeRetirar ? "" : `<span class="pendentes-card-lock">🔒 Só Bruno, Isabella ou Alexandra</span>`}
+      `;
+      if (podeRetirar) {
+        card.addEventListener("click", () => {
+          const id = String(r.id);
+          if (selecionadosPendentes.has(id)) selecionadosPendentes.delete(id);
+          else selecionadosPendentes.add(id);
+          renderDashboard();
+        });
+      }
+      box.appendChild(card);
+    });
+}
+
+function fotoCelula(r) {
+  if (r.fotoEnvelope && /^(data:image\/|https?:\/\/)/.test(r.fotoEnvelope)) {
+    return `<img class="thumb-btn" src="${r.fotoEnvelope}" data-src="${r.fotoEnvelope}" alt="foto envelope">`;
+  }
+  const temFoto = r.temFoto || r.temfoto;
+  if (temFoto) {
+    const placeholderSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'><rect width='36' height='36' fill='%23f1f5f9' rx='6'/><text x='50%' y='50%' font-size='14' fill='%2364748b' text-anchor='middle' dy='.3em'>📷</text></svg>`;
+    return `<img class="thumb-btn thumb-lazy" src="${placeholderSvg}" data-id="${r.id}" alt="foto envelope">`;
+  }
+  return `<span class="no-photo">sem foto</span>`;
+}
+
+// Busca em paralelo a foto de cada <img class="thumb-lazy"> ainda sem src
+// dentro do tbody informado, e substitui o src quando chega. `rota` é
+// "registros" ou "registros-fa" (endpoint de foto correspondente).
+const _fotosListaEmCarregamento = new Set();
+function carregarFotosLazy(tbody, rota) {
+  if (!tbody) return;
+  tbody.querySelectorAll("img.thumb-lazy[data-id]").forEach(async (img) => {
+    const id = img.dataset.id;
+    const chave = `${rota}:${id}`;
+    if (_fotosListaEmCarregamento.has(chave)) return;
+    _fotosListaEmCarregamento.add(chave);
+    try {
+      const res = await fetch(`${API_BASE}/${rota}/${encodeURIComponent(id)}/foto`);
+      if (res.ok) {
+        const dados = await res.json();
+        if (dados && dados.fotoEnvelope) {
+          img.src = dados.fotoEnvelope;
+          img.dataset.src = dados.fotoEnvelope;
+          img.classList.remove("thumb-lazy");
+          img.alt = "foto envelope";
+          img.onclick = (e) => {
+            e.stopPropagation();
+            abrirModalFoto(dados.fotoEnvelope);
+          };
+          const listaObj = rota === "registros-fa" ? registrosFA : registros;
+          const reg = (listaObj || []).find(x => String(x.id) === String(id));
+          if (reg) reg.fotoEnvelope = dados.fotoEnvelope;
+        }
+      }
+    } catch (e) {
+      // foto é acessório: sem ela a linha ainda aparece normalmente
+    } finally {
+      _fotosListaEmCarregamento.delete(chave);
+    }
+  });
+}
+
+function avisoCelula(r) {
+  if (r.tipoOperacao !== "Fechamento") return "—";
+  return r.mensagemGerada
+    ? `<span class="aviso-pill sim">✅ Mensagem gerada</span>`
+    : `<span class="aviso-pill nao">⏳ Não gerada</span>`;
+}
+
+document.getElementById("filtro-loja-pendentes").addEventListener("change", renderDashboard);
+
+// --- Modal retirada ---
+const modalRetirada = document.getElementById("modal-retirada");
+const autorizacaoWrap = document.getElementById("autorizacao-wrap");
+
+function abrirModalRetirada(target) {
+  if (!currentUser || !usuarioTemCapacidade('retirar_envelope', RETIRADA_PERMITIDA)) {
+    showModal("Apenas Bruno, Isabella ou Alexandra podem confirmar retiradas.", { icon: "🔒", title: "Acesso restrito" });
+    return;
+  }
+  retiradaAlvoId = target; // Pode ser uma string ID ou um Array de IDs
+  const isBatch = Array.isArray(target);
+
+  if (isBatch) {
+    const targetStrs = target.map(String);
+    const selecionadosList = registros.filter(x => targetStrs.includes(String(x.id)));
+    const totalVal = selecionadosList.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    document.getElementById("modal-sub-info").textContent =
+      `[Retirada em Lote] ${target.length} envelopes selecionados — Total: ${formatBRL(totalVal)}`;
+  } else {
+    const r = registros.find(x => String(x.id) === String(target));
+    if (r) {
+      document.getElementById("modal-sub-info").textContent =
+        `${r.loja} — ${r.consultor} — ${formatBRL(r.valorEnvelope)}`;
+    }
+  }
+
+  setAgora(document.getElementById("retirada-data"));
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  const respInput = document.getElementById("retirada-responsavel");
+  if (respInput) {
+    respInput.value = isOwner ? currentUser.nome : "";
+  }
+
+  const respLabel = document.querySelector("label[for='retirada-responsavel']");
+  if (respLabel) {
+    respLabel.textContent = isOwner ? "Responsável pela Retirada (Opcional para Owner)" : "Responsável pela Retirada *";
+  }
+
+  const precisaAutorizacao = (typeof LIDERES_QUE_PRECISAM_AUTORIZACAO !== "undefined" ? LIDERES_QUE_PRECISAM_AUTORIZACAO : ["Alexandra"]).includes(currentUser ? currentUser.nome : "");
+  autorizacaoWrap.classList.toggle("hidden", !precisaAutorizacao);
+  document.getElementById("modal-confirmar").textContent = precisaAutorizacao ? "Enviar para Autorização" : "Confirmar Retirada";
+
+  modalRetirada.classList.remove("hidden");
+}
+
+document.getElementById("modal-cancelar").addEventListener("click", () => {
+  modalRetirada.classList.add("hidden");
+  retiradaAlvoId = null;
+});
+
+document.getElementById("modal-confirmar").addEventListener("click", async () => {
+  const data = document.getElementById("retirada-data").value;
+  let responsavel = document.getElementById("retirada-responsavel").value.trim();
+
+  const isOwner = currentUser && (currentUser.role === "owner" || currentUser.nome === "Bruno" || currentUser.nome === "Isabella");
+  if (!responsavel && isOwner) {
+    responsavel = currentUser.nome;
+  }
+
+  if (!data || !responsavel) {
+    showModal("Preencha a data e o responsável pela retirada.", { icon: "📝", title: "Campos obrigatórios" });
+    return;
+  }
+
+  const isFA = document.getElementById("modal-confirmar").dataset.faMode === "true";
+  const rawTarget = retiradaAlvoId || faRetiradaAlvoId;
+  const targets = Array.isArray(rawTarget) ? rawTarget : (rawTarget ? [rawTarget] : []);
+  if (targets.length === 0) return;
+
+  const dataRetirada = new Date(data).toISOString();
+
+  // Alexandra não confirma sozinha: a retirada vira uma solicitação
+  // e Bruno/Isabella autorizam remotamente com o PRÓPRIO PIN.
+  if (LIDERES_QUE_PRECISAM_AUTORIZACAO.includes(currentUser.nome)) {
+    const listaOrigem = isFA ? registrosFA : registros;
+    const targetStrs = targets.map(String);
+    const selecionados = listaOrigem.filter(r => targetStrs.includes(String(r.id)));
+    const valorTotal = selecionados.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    const loja = selecionados[0] ? selecionados[0].loja : "";
+
+    setLoading("modal-confirmar", true);
+    try {
+      await criarSolicitacaoRetiradaAPI({
+        id: uid(),
+        tipo: isFA ? "fa" : "cshow",
+        registroIds: targets,
+        loja,
+        valorTotal,
+        responsavel,
+        dataRetirada,
+        actorUsuario: currentUser.nome
+      });
+      delete document.getElementById("modal-confirmar").dataset.faMode;
+      modalRetirada.classList.add("hidden");
+      retiradaAlvoId = null;
+      showToast("Solicitação enviada! Bruno ou Isabella vão autorizar no aparelho deles.", "sucesso");
+    } catch (e) {
+      showModal(e.message || "Erro ao enviar solicitação de retirada.", { icon: "⚠️", title: "Falha ao solicitar" });
+    } finally {
+      setLoading("modal-confirmar", false);
+    }
+    return;
+  }
+
+  const updates = {
+    status: "retirado",
+    dataRetirada: dataRetirada,
+    retiradoPor: responsavel,
+    confirmadoPorApp: currentUser ? currentUser.nome : "",
+    autorizadoPor: null
+  };
+
+  for (const rawId of targets) {
+    const idStr = String(rawId);
+    if (isFA) {
+      await atualizarRegistroFAAPI(rawId, updates);
+      const r = registrosFA.find(x => String(x.id) === idStr);
+      if (r) {
+        r.status = "retirado";
+        r.dataRetirada = dataRetirada;
+        r.retiradoPor = responsavel;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+      }
+      selecionadosFAPendentes.delete(idStr);
+      selecionadosFAPendentes.delete(rawId);
+    } else {
+      await atualizarRegistroAPI(rawId, updates);
+      const r = registros.find(x => String(x.id) === idStr);
+      if (r) {
+        r.status = "retirado";
+        r.dataRetirada = dataRetirada;
+        r.retiradoPor = responsavel;
+        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+        r.autorizadoPor = null;
+      }
+      selecionadosPendentes.delete(idStr);
+      selecionadosPendentes.delete(rawId);
+    }
+  }
+
+  delete document.getElementById("modal-confirmar").dataset.faMode;
+  modalRetirada.classList.add("hidden");
+  retiradaAlvoId = null;
+  faRetiradaAlvoId = null;
+
+  if (isFA) {
+    renderFaDashboard();
+    showToast(`${targets.length} retirada(s) FA confirmada(s) com sucesso!`, "sucesso");
+  } else {
+    renderDashboard();
+    showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
+  }
+});
+
+// --- Modal autorizar retirada (owner) ---
+// Abre sozinho na tela de Bruno/Isabella quando Alexandra solicita uma
+// retirada (evento em tempo real) ou quando o owner entra no app e existe
+// alguma solicitação pendente. Fila simples: mostra uma de cada vez.
+let filaAutorizacaoRetirada = [];
+let solicitacaoRetiradaAtual = null;
+
+const modalAutorizarRetirada = document.getElementById("modal-autorizar-retirada");
+const autorizarRetiradaPinInput = document.getElementById("autorizar-retirada-pin");
+const autorizarRetiradaErro = document.getElementById("autorizar-retirada-erro");
+
+function souOwnerAutorizador() {
+  return !!currentUser && currentUser.role === "owner";
+}
+
+function enfileirarSolicitacaoRetirada(solicitacao) {
+  if (!souOwnerAutorizador() || !solicitacao || !solicitacao.id) return;
+  const jaExiste = (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === solicitacao.id) ||
+    filaAutorizacaoRetirada.some(s => s.id === solicitacao.id);
+  if (jaExiste) return;
+  filaAutorizacaoRetirada.push(solicitacao);
+  mostrarProximaSolicitacaoRetirada();
+}
+
+function removerSolicitacaoDaFila(id, mensagemSeAberta) {
+  filaAutorizacaoRetirada = filaAutorizacaoRetirada.filter(s => s.id !== id);
+  if (solicitacaoRetiradaAtual && solicitacaoRetiradaAtual.id === id) {
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    if (mensagemSeAberta) showToast(mensagemSeAberta, "info");
+    mostrarProximaSolicitacaoRetirada();
+  }
+}
+
+function mostrarProximaSolicitacaoRetirada() {
+  if (solicitacaoRetiradaAtual || filaAutorizacaoRetirada.length === 0) return;
+  solicitacaoRetiradaAtual = filaAutorizacaoRetirada.shift();
+  const s = solicitacaoRetiradaAtual;
+
+  const qtd = (s.registroIds || []).length;
+  const qtdTexto = qtd > 1 ? `${qtd} envelopes` : "1 envelope";
+  const dataFmt = s.dataRetirada ? new Date(s.dataRetirada).toLocaleString("pt-BR") : "-";
+  document.getElementById("autorizar-retirada-info").textContent =
+    `${s.solicitadoPor} pediu retirada de ${qtdTexto} — ${formatBRL(s.valorTotal || 0)} — Loja ${s.loja || "-"}. Responsável: ${s.responsavel || "-"}. Data proposta: ${dataFmt}.`;
+
+  autorizarRetiradaPinInput.value = "";
+  autorizarRetiradaErro.classList.add("hidden");
+  autorizarRetiradaErro.textContent = "";
+  modalAutorizarRetirada.classList.remove("hidden");
+  autorizarRetiradaPinInput.focus();
+}
+
+document.getElementById("autorizar-retirada-confirmar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const pin = autorizarRetiradaPinInput.value.trim();
+  if (!pin) {
+    autorizarRetiradaErro.textContent = "Digite o seu PIN.";
+    autorizarRetiradaErro.classList.remove("hidden");
+    return;
+  }
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-confirmar", true);
+  try {
+    await autorizarSolicitacaoRetiradaAPI(id, pin);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Retirada autorizada com sucesso!", "sucesso");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    autorizarRetiradaErro.textContent = e.message || "PIN inválido.";
+    autorizarRetiradaErro.classList.remove("hidden");
+  } finally {
+    setLoading("autorizar-retirada-confirmar", false);
+  }
+});
+
+document.getElementById("autorizar-retirada-recusar").addEventListener("click", async () => {
+  if (!solicitacaoRetiradaAtual) return;
+  const confirmar = await showConfirm("Recusar esta solicitação de retirada? A Líder de Operações precisará revisar e enviar novamente.", { icon: "🚫", title: "Recusar retirada", confirmText: "Recusar", confirmClass: "btn-danger" });
+  if (!confirmar) return;
+
+  const id = solicitacaoRetiradaAtual.id;
+  setLoading("autorizar-retirada-recusar", true);
+  try {
+    await recusarSolicitacaoRetiradaAPI(id, null);
+    solicitacaoRetiradaAtual = null;
+    modalAutorizarRetirada.classList.add("hidden");
+    showToast("Solicitação de retirada recusada.", "info");
+    mostrarProximaSolicitacaoRetirada();
+  } catch (e) {
+    showModal(e.message || "Erro ao recusar retirada.", { icon: "⚠️", title: "Falha ao recusar" });
+  } finally {
+    setLoading("autorizar-retirada-recusar", false);
+  }
+});
+
+async function carregarSolicitacoesRetiradaPendentes() {
+  if (!souOwnerAutorizador()) return;
+  const pendentes = await buscarSolicitacoesRetiradaPendentesAPI();
+  pendentes.forEach(enfileirarSolicitacaoRetirada);
+}
+
+// --- Modal foto ---
+const modalFoto = document.getElementById("modal-foto");
+function abrirModalFoto(src) {
+  if (!src || typeof src !== "string" || src.startsWith("data:image/svg+xml")) return;
+  document.getElementById("modal-foto-img").src = src;
+  modalFoto.classList.remove("hidden");
+}
+document.getElementById("modal-foto-fechar").addEventListener("click", () => {
+  modalFoto.classList.add("hidden");
+});
+
+const RETIRADA_CUTOFFS = {
+  'Icoaraci': '2025-06-05T23:59:59.999Z',
+  'Marambaia': '2025-06-06T23:59:59.999Z',
+  'Desligado': '2025-06-06T23:59:59.999Z',
+  'Mário Covas': '2025-06-06T23:59:59.999Z',
+  'Venda Direta': '2025-06-06T23:59:59.999Z'
+};
+
+function eHistoricoArquivado(r) {
+  if (!r || !r.dataOperacao) return false;
+  const cutoff = RETIRADA_CUTOFFS[r.loja] || '2025-06-06T23:59:59.999Z';
+  return r.dataOperacao <= cutoff;
+}
+
+const HIST_PER_PAGE = 20;
+let histPaginaAtual = 1;
+
+function renderHistorico() {
+  const filtroLoja = document.getElementById("filtro-loja-hist").value;
+  const filtroStatus = document.getElementById("filtro-status-hist").value;
+  const busca = document.getElementById("busca-hist").value.trim().toLowerCase();
+
+  let lista = [...registros].sort((a, b) => new Date(b.dataOperacao) - new Date(a.dataOperacao));
+  if (filtroLoja) lista = lista.filter(r => r.loja === filtroLoja);
+
+  if (filtroStatus === "ativas") {
+    lista = lista.filter(r => !eHistoricoArquivado(r));
+  } else if (filtroStatus === "arquivados") {
+    lista = lista.filter(r => eHistoricoArquivado(r));
+  } else if (filtroStatus) {
+    lista = lista.filter(r => r.status === filtroStatus);
+  }
+
+  if (busca) {
+    lista = lista.filter(r =>
+      [r.loja, r.consultor, r.observacoes].some(v => (v || "").toLowerCase().includes(busca))
+    );
+  }
+
+  // KPIs (#9) (Ocultado a pedido do usuário)
+  const kpiBar = document.getElementById("hist-kpi-bar");
+  if (kpiBar) {
+    kpiBar.remove();
+  }
+
+  // Paginação
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / HIST_PER_PAGE));
+  if (histPaginaAtual > totalPaginas) histPaginaAtual = totalPaginas;
+  const inicio = (histPaginaAtual - 1) * HIST_PER_PAGE;
+  const paginada = lista.slice(inicio, inicio + HIST_PER_PAGE);
+
+  const tbody = document.querySelector("#tabela-historico tbody");
+  tbody.innerHTML = "";
+
+  const statusLabel = {
+    aberto: "Aberto",
+    aguardando_retirada: "Aguardando retirada",
+    retirado: "Retirado",
+  };
+
+  const isBruno = usuarioTemCapacidade('excluir_registro', ['Bruno']);
+
+  paginada.forEach(r => {
+    const tr = document.createElement("tr");
+    let retiradaTexto = "—";
+    if (r.dataRetirada) {
+      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${r.retiradoPor}`;
+      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${r.confirmadoPorApp}`;
+      if (r.autorizadoPor) retiradaTexto += `, autorizado por ${r.autorizadoPor}`;
+      if (r.confirmadoPorApp) retiradaTexto += `)`;
+    }
+    tr.innerHTML = `
+      <td>${formatDataHora(r.dataOperacao)}</td>
+      <td>${opChip(r.loja)}</td>
+      <td>${r.consultor}</td>
+      <td>${formatBRL(r.fundoCaixa)}</td>
+      <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
+      <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
+      <td><span class="status-pill status-${r.status}">${statusLabel[r.status]}</span></td>
+      <td>${retiradaTexto}</td>
+      <td>${avisoCelula(r)}</td>
+      <td>${fotoCelula(r)}</td>
+      ${isBruno ? `<td><button class="btn-excluir" data-id="${r.id}">Excluir</button></td>` : ""}
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("historico-vazio").classList.toggle("hidden", lista.length > 0);
+
+  // Controles de paginação
+  let paginacao = document.getElementById("hist-paginacao");
+  if (!paginacao) {
+    paginacao = document.createElement("div");
+    paginacao.id = "hist-paginacao";
+    paginacao.className = "paginacao";
+    document.querySelector("#tabela-historico").closest(".table-wrap").appendChild(paginacao);
+  }
+
+  if (totalPaginas > 1) {
+    paginacao.classList.remove("hidden");
+    paginacao.innerHTML = `
+      <button class="btn-pag" id="hist-prev" ${histPaginaAtual <= 1 ? "disabled" : ""}>← Anterior</button>
+      <span class="pag-info">Página ${histPaginaAtual} de ${totalPaginas} (${lista.length} registros)</span>
+      <button class="btn-pag" id="hist-next" ${histPaginaAtual >= totalPaginas ? "disabled" : ""}>Próxima →</button>
+    `;
+    document.getElementById("hist-prev").addEventListener("click", () => {
+      if (histPaginaAtual > 1) { histPaginaAtual--; renderHistorico(); }
+    });
+    document.getElementById("hist-next").addEventListener("click", () => {
+      if (histPaginaAtual < totalPaginas) { histPaginaAtual++; renderHistorico(); }
+    });
+  } else {
+    paginacao.classList.add("hidden");
+  }
+
+  tbody.querySelectorAll(".thumb-btn").forEach(img => {
+    img.addEventListener("click", () => abrirModalFoto(img.dataset.src));
+  });
+  carregarFotosLazy(tbody, "registros");
+
+  tbody.querySelectorAll(".btn-excluir").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const reg = registros.find(r => r.id === id);
+      const info = reg ? `do colaborador "${reg.consultor}" no valor de R$ ${reg.valorEnvelope || reg.fundoCaixa || 0} da loja "${reg.loja}"` : "este registro";
+      const confirmado = await showConfirm(
+        `Deseja realmente apagar permanentemente o registro ${info}? Esta ação não pode ser desfeita.`,
+        { icon: "🗑️", title: "Excluir registro", confirmText: "Excluir", cancelText: "Cancelar", confirmClass: "btn-danger" }
+      );
+      if (confirmado) {
+        const sucesso = await excluirRegistroAPI(id);
+        if (sucesso) {
+          showToast("Registro apagado com sucesso!", "sucesso");
+          renderDashboard();
+          renderHistorico();
+          renderMensal();
+        } else {
+          showModal("Erro ao apagar registro ou você não possui permissão.", { icon: "❌", title: "Erro" });
+        }
+      }
+    });
+  });
+}
+
+document.getElementById("filtro-loja-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
+document.getElementById("filtro-status-hist").addEventListener("change", () => { histPaginaAtual = 1; renderHistorico(); });
+let buscaHistDebounce;
+document.getElementById("busca-hist").addEventListener("input", () => {
+  clearTimeout(buscaHistDebounce);
+  buscaHistDebounce = setTimeout(() => { histPaginaAtual = 1; renderHistorico(); }, 250);
+});
+
+// --- Dashboard Mensal ---
+function mesKey(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function mesLabel(chave) {
+  const [ano, mes] = chave.split("-");
+  const nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  return `${nomes[Number(mes) - 1]}/${ano}`;
+}
+
+const mensalMesInput = document.getElementById("mensal-mes-filtro");
+(function initMesFiltro() {
+  const now = new Date();
+  mensalMesInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+})();
+mensalMesInput.addEventListener("change", renderMensal);
+
+function renderMensal() {
+  const fechamentos = registros.filter(r => r.tipoOperacao === "Fechamento");
+  const mesSelecionado = mensalMesInput.value;
+
+  const cardsWrap = document.getElementById("cards-lojas-mensal");
+  cardsWrap.innerHTML = "";
+  const totaisMes = {};
+
+  LOJAS.forEach(loja => {
+    const doMes = fechamentos.filter(r => r.loja === loja && mesKey(r.dataOperacao) === mesSelecionado);
+    const total = doMes.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+    totaisMes[loja] = total;
+
+    const card = document.createElement("div");
+    card.className = "loja-card";
+    card.style.setProperty("--op-cor", opCor(loja));
+    card.innerHTML = `
+      <h4>${opLabel(loja)}</h4>
+      <div class="valor">${formatBRL(total)}</div>
+      <div class="meta"><span>${doMes.length} fechamento(s) no mês</span></div>
+    `;
+    cardsWrap.appendChild(card);
+  });
+
+  const barChart = document.getElementById("bar-chart-mensal");
+  barChart.innerHTML = "";
+  const maiorValor = Math.max(...Object.values(totaisMes), 1);
+  LOJAS.forEach(loja => {
+    const total = totaisMes[loja];
+    const pct = Math.round((total / maiorValor) * 100);
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <span>${opLabel(loja)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <span class="bar-value">${formatBRL(total)}</span>
+    `;
+    barChart.appendChild(row);
+  });
+
+  const somaPorMesLoja = {};
+  fechamentos.forEach(r => {
+    const chave = `${mesKey(r.dataOperacao)}|${r.loja}`;
+    if (!somaPorMesLoja[chave]) somaPorMesLoja[chave] = { mes: mesKey(r.dataOperacao), loja: r.loja, total: 0, qtd: 0 };
+    somaPorMesLoja[chave].total += Number(r.valorEnvelope) || 0;
+    somaPorMesLoja[chave].qtd += 1;
+  });
+
+  const linhas = Object.values(somaPorMesLoja).sort((a, b) => b.mes.localeCompare(a.mes) || a.loja.localeCompare(b.loja));
+  const tbody = document.querySelector("#tabela-mensal tbody");
+  tbody.innerHTML = "";
+  linhas.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${mesLabel(l.mes)}</td>
+      <td>${opChip(l.loja)}</td>
+      <td>${formatBRL(l.total)}</td>
+      <td>${l.qtd}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("mensal-vazio").classList.toggle("hidden", linhas.length > 0);
+}
+
+// --- Exportar CSV ---
+document.getElementById("btn-exportar").addEventListener("click", () => {
+  const header = ["Data", "Loja", "Consultor", "Operacao", "Fundo Caixa", "Valor Envelope", "Valor Faturado", "Status", "Data Retirada", "Retirado Por", "Confirmado Por", "Autorizado Por", "Mensagem Gerada", "Observacoes"];
+  const linhas = registros.map(r => [
+    formatDataHora(r.dataOperacao),
+    r.loja,
+    r.consultor,
+    r.tipoOperacao,
+    r.fundoCaixa,
+    r.valorEnvelope ?? "",
+    r.valorFaturado ?? "",
+    r.status,
+    r.dataRetirada ? formatDataHora(r.dataRetirada) : "",
+    r.retiradoPor ?? "",
+    r.confirmadoPorApp ?? "",
+    r.autorizadoPor ?? "",
+    r.tipoOperacao === "Fechamento" ? (r.mensagemGerada ? "Sim" : "Não") : "",
+    (r.observacoes ?? "").replace(/[\r\n,]/g, " "),
+  ]);
+  const csv = [header, ...linhas].map(l => l.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `controle_caixa_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- Init & Verificação Periódica de Rede ---
+atualizarCamposPorOperacao();
+atualizarFaCamposPorOperacao();
+inicializarDados();
+
+// Polling suave de conectividade a cada 10 segundos
+setInterval(checkApiConnection, 10000);
+
+// ==========================================================================
+// SESSÃO: TIMEOUT POR INATIVIDADE (#17)
+// ==========================================================================
+let sessionTimer = null;
+let sessionWarningTimer = null;
+const SESSION_EVENTS = ["mousedown", "mousemove", "keydown", "touchstart", "scroll", "click"];
+
+function resetSessionTimer() {
+  if (!currentUser || sessionTimeoutMs === 0) {
+    clearTimeout(sessionTimer);
+    clearTimeout(sessionWarningTimer);
+    return;
+  }
+  clearTimeout(sessionTimer);
+  clearTimeout(sessionWarningTimer);
+
+  // Warning timer (5 min antes ou logo antes de expirar)
+  const warningTime = Math.max(1000, sessionTimeoutMs - 5 * 60 * 1000);
+  sessionWarningTimer = setTimeout(() => {
+    showToast("Sua sessão será bloqueada em breve por inatividade.", "info");
+  }, warningTime);
+
+  // Lock timer
+  sessionTimer = setTimeout(() => {
+    lockSession();
+  }, sessionTimeoutMs);
+}
+
+function lockSession() {
+  if (!currentUser) return;
+  const overlay = document.getElementById("session-overlay");
+  overlay.classList.remove("hidden");
+  const sessionPin = document.getElementById("session-pin");
+  sessionPin.value = "";
+  updatePinDots(sessionPin, "pin-dots-session");
+  document.getElementById("session-msg").classList.add("hidden");
+  sessionPin.focus();
+}
+
+// Event listeners para reset do timer
+SESSION_EVENTS.forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (currentUser && document.getElementById("session-overlay").classList.contains("hidden")) {
+      resetSessionTimer();
+    }
+  }, { passive: true });
+});
+
+// Desbloquear sessão (usa API segura quando online)
+document.getElementById("session-unlock").addEventListener("click", async () => {
+  const pinDigitado = document.getElementById("session-pin").value.trim();
+  const msg = document.getElementById("session-msg");
+
+  if (!currentUser) return;
+
+  let pinCorreto = false;
+
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: currentUser.nome, pin: pinDigitado })
+      });
+      const result = await res.json();
+      pinCorreto = result.valid;
+    } catch {
+      // Fallback local
+      pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
+    }
+  } else {
+    pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
+  }
+
+  if (pinCorreto) {
+    document.getElementById("session-overlay").classList.add("hidden");
+    msg.classList.add("hidden");
+    resetSessionTimer();
+    showToast("Sessão desbloqueada!", "sucesso");
+  } else {
+    msg.textContent = "PIN incorreto. Tente novamente.";
+    msg.classList.remove("hidden");
+  }
+});
+
+// Logout da sessão bloqueada
+document.getElementById("session-logout").addEventListener("click", () => {
+  currentUser = null;
+  localStorage.removeItem(USER_KEY);
+  resetLoginForm();
+  document.getElementById("session-overlay").classList.add("hidden");
+  appEl.classList.add("hidden");
+  loginOverlay.classList.remove("hidden");
+});
+
+// ==========================================================================
+// RESUMO MATINAL (#6) — Apenas para Alexandra, Bruno e Isabella
+// ==========================================================================
+const RESUMO_KEY = "cacaushow_ultimo_resumo";
+const RESUMO_USUARIOS = ["Alexandra", "Bruno", "Isabella"];
+
+function mostrarResumoMatinal() {
+  if (!currentUser || !usuarioTemCapacidade('ver_resumo_diario', RESUMO_USUARIOS)) return;
+
+  // Mostrar no máximo 1x por dia por usuário
+  const hoje = new Date().toISOString().slice(0, 10);
+  const ultimoResumo = carregarJSON(RESUMO_KEY, {});
+  if (ultimoResumo[currentUser.nome] === hoje) return;
+
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  const hojeISO = new Date().toISOString();
+
+  // Dados para o resumo
+  const pendentes = registros.filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0);
+  const totalPendente = pendentes.reduce((s, r) => s + (Number(r.valorEnvelope) || 0), 0);
+  const pendentesMaisAntigos = pendentes.filter(r => diffDias(r.dataOperacao) >= RISCO_DIAS);
+
+  const semFechamentoOntem = LOJAS.filter(loja =>
+    !registros.some(r => r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, ontem.toISOString()))
+  );
+
+  const envelopesPorLoja = {};
+  LOJAS.forEach(loja => {
+    const doLoja = pendentes.filter(r => r.loja === loja);
+    envelopesPorLoja[loja] = {
+      qtd: doLoja.length,
+      total: doLoja.reduce((s, r) => s + (r.valorEnvelope || 0), 0)
+    };
+  });
+
+  // Montar mensagem
+  let msg = `📊 Bom dia, ${currentUser.nome}! Aqui está o resumo operacional:\n\n`;
+  msg += `💰 Total em trânsito: ${formatBRL(totalPendente)}\n`;
+  msg += `📦 Envelopes pendentes: ${pendentes.length}\n`;
+
+  if (pendentesMaisAntigos.length > 0) {
+    msg += `\n🔴 ${pendentesMaisAntigos.length} envelope(s) há ${RISCO_DIAS}+ dias sem retirada!\n`;
+  }
+
+  if (semFechamentoOntem.length > 0 && semFechamentoOntem.length < LOJAS.length) {
+    msg += `\n⚠ Lojas sem fechamento ontem: ${semFechamentoOntem.join(", ")}\n`;
+  }
+
+  msg += `\n📍 Detalhamento por loja:`;
+  LOJAS.forEach(loja => {
+    const info = envelopesPorLoja[loja];
+    if (info.qtd > 0) {
+      msg += `\n  • ${loja}: ${info.qtd} envelope(s) — ${formatBRL(info.total)}`;
+    }
+  });
+
+  if (pendentes.length === 0) {
+    msg += `\n\n✅ Todas as lojas em dia! Nenhum envelope pendente.`;
+  }
+
+  showModal(msg, {
+    icon: "☀️",
+    title: "Resumo Matinal",
+    btnText: "Entendido"
+  });
+
+  // Marcar como exibido hoje
+  ultimoResumo[currentUser.nome] = hoje;
+  localStorage.setItem(RESUMO_KEY, JSON.stringify(ultimoResumo));
+}
+
+// ==========================================================================
+// FILA DE SINCRONIZAÇÃO OFFLINE (#16)
+// ==========================================================================
+const SYNC_QUEUE_KEY = "cacaushow_sync_queue";
+
+function getSyncQueue() {
+  return carregarJSON(SYNC_QUEUE_KEY, []);
+}
+
+function addToSyncQueue(action) {
+  const queue = getSyncQueue();
+  queue.push({ ...action, timestamp: new Date().toISOString() });
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  atualizarBadgeSync();
+}
+
+function atualizarBadgeSync() {
+  const queue = getSyncQueue();
+  const badge = document.getElementById("sync-badge");
+  const badgeCount = document.getElementById("sync-badge-count");
+  if (badge) {
+    if (queue.length > 0) {
+      if (badgeCount) badgeCount.textContent = queue.length;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+}
+
+// O badge mostra só um número dentro de um ícone de nuvem; no celular não dá
+// pra passar o mouse pra ler o title="Ações pendentes de sincronização", então
+// o toque precisa explicar o que aquele número significa.
+const syncBadgeEl = document.getElementById("sync-badge");
+if (syncBadgeEl) {
+  const explicarSyncBadge = (e) => {
+    e.stopPropagation();
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    showToast(`${queue.length} ${queue.length === 1 ? "ação" : "ações"} feita(s) offline aguardando conexão para sincronizar com o servidor.`, "info");
+    if (API_ONLINE) {
+      processarFilaSync();
+    }
+  };
+  syncBadgeEl.addEventListener("click", explicarSyncBadge);
+  syncBadgeEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      explicarSyncBadge(e);
+    }
+  });
+}
+
+async function processarFilaSync() {
+  if (!API_ONLINE) return;
+  const queue = getSyncQueue();
+  if (queue.length === 0) return;
+
+  console.log(`Sincronizando ${queue.length} operação(ões) pendentes...`);
+  const failed = [];
+
+  for (const item of queue) {
+    try {
+      let res;
+      if (item.type === "CREATE") {
+        res = await fetch(`${API_BASE}/registros?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "UPDATE") {
+        res = await fetch(`${API_BASE}/registros/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_CREATE") {
+        res = await fetch(`${API_BASE}/registros-fa?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "FA_UPDATE") {
+        res = await fetch(`${API_BASE}/registros-fa/${item.id}?usuario=${encodeURIComponent(item.usuario || "")}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "PIN") {
+        res = await fetch(`${API_BASE}/pins`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      } else if (item.type === "INVENTARIO") {
+        const clientId = (window.RT && window.RT.clientId) || "";
+        res = await fetch(
+          `${API_BASE}/inventario/${encodeURIComponent(item.loja)}/${encodeURIComponent(item.data.code)}` +
+          `?usuario=${encodeURIComponent(item.usuario || "")}&clientId=${encodeURIComponent(clientId)}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(item.data)
+          }
+        );
+      } else if (item.type === "NF_ITEM") {
+        res = await fetch(`${API_BASE}/nfs/${encodeURIComponent(item.nfNum)}/item/${encodeURIComponent(item.code)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.data)
+        });
+      }
+
+      if (!res || !res.ok) {
+        failed.push(item);
+      }
+    } catch {
+      failed.push(item);
+    }
+  }
+
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(failed));
+  atualizarBadgeSync();
+
+  if (failed.length === 0 && queue.length > 0) {
+    showToast(`${queue.length} registro(s) sincronizado(s) com sucesso!`, "sucesso");
+  } else if (failed.length > 0) {
+    showToast(`${queue.length - failed.length} sincronizado(s), ${failed.length} pendente(s).`, "info");
+  }
+}
+
+// Tentar sincronizar quando a API voltar online ou durante verificações
+const _originalCheckApi = checkApiConnection;
+checkApiConnection = async function () {
+  const wasOffline = !API_ONLINE;
+  await _originalCheckApi();
+  if (API_ONLINE && getSyncQueue().length > 0) {
+    processarFilaSync();
+  }
+  if (wasOffline && API_ONLINE) {
+    if (typeof iniciarSincronizacaoDoInventario === "function") {
+      iniciarSincronizacaoDoInventario();
+    }
+  }
+};
+
+window.addEventListener("online", () => {
+  if (typeof checkApiConnection === "function") {
+    checkApiConnection();
+  }
+});
+
+// Badge de sync pendente
+atualizarBadgeSync();
+
+// Quando um Service Worker novo assume o controle, a tela aberta ainda está
+// rodando o HTML/JS da versão anterior — recarrega uma vez para o deploy
+// aparecer na hora. Só vale para troca de versão: numa primeira instalação
+// não havia controller antes, e recarregar ali seria um refresh à toa.
+if ("serviceWorker" in navigator) {
+  const jaTinhaControlador = !!navigator.serviceWorker.controller;
+  let recarregandoPorAtualizacao = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!jaTinhaControlador || recarregandoPorAtualizacao) return;
+    recarregandoPorAtualizacao = true;
+    window.location.reload();
+  });
+}
+
+// ==================== PUSH NOTIFICATIONS ====================
+// Perfis que registram inscrição push. A operadora de loja (consultora) entrou
+// aqui por causa do lembrete de lançamento da Meta Hora a Hora: o aviso é dela,
+// mas sem inscrição não havia para quem enviar. Quem recebe cada tipo continua
+// sendo decidido no servidor (config/notifications.js) — estar inscrito não
+// significa receber tudo.
+const PERFIS_COM_PUSH = ['owner', 'consultora', 'consultora_dashboard'];
+
+async function inscreverPushNotificacoes() {
+  if (!PERFIS_COM_PUSH.includes(currentUser.role)) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    await navigator.serviceWorker.register('/sw.js');
+    // register() resolve assim que o registro é aceito, mas o worker pode
+    // ainda estar instalando — pushManager.subscribe() exige um worker ATIVO,
+    // senão falha com "no active Service Worker". `.ready` só resolve quando
+    // já há um worker ativo controlando esta página.
+    const swReg = await navigator.serviceWorker.ready;
+    console.log('Service Worker registrado', swReg);
+
+    let subscription = await swReg.pushManager.getSubscription();
+    if (!subscription) {
+      // O Safari só entrega push quando o app está instalado na tela de
+      // início. Chamar subscribe() fora disso falha em silêncio, e o usuário
+      // fica achando que ativou. Reenviar uma inscrição que já existe segue
+      // valendo (o bloco acima), porque não pede permissão nova.
+      if ((window.Plataforma || {}).idioma === "ios" && !(window.Plataforma || {}).ehStandalone()) {
+        console.info('Push no iOS exige o app instalado na tela de início.');
+        return;
+      }
+      // Sem pedir permissão explicitamente, o subscribe() rejeita em alguns
+      // navegadores e é bloqueado em outros por não vir de um gesto.
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        const permissao = await Notification.requestPermission();
+        if (permissao !== 'granted') return;
+      }
+      const resVapid = await fetch('/api/vapidPublicKey');
+      const vapidPublicKey = await resVapid.text();
+
+      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      subscription = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ subscription, usuario: currentUser.nome }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    console.log('Inscrição push enviada para o servidor.');
+  } catch (error) {
+    console.error('Erro ao inscrever push notification', error);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// ==================== PWA INSTALL PROMPT ====================
+// `beforeinstallprompt` é do Chromium: o Safari nunca dispara. Sem um caminho
+// próprio, o botão de instalar ficava escondido para sempre no iPhone e no
+// iPad — justamente onde instalar na tela de início é o que habilita as
+// notificações push do iOS. O idioma detectado no <head> dá o ramo.
+const _plat = window.Plataforma || { idioma: "desktop", ehStandalone: () => false };
+
+let deferredInstallPrompt = null;
+const btnInstalarPwa = document.getElementById("btn-instalar-pwa");
+
+if (btnInstalarPwa && _plat.idioma === "ios" && !_plat.ehStandalone()) {
+  btnInstalarPwa.classList.remove("hidden");
+  btnInstalarPwa.addEventListener("click", () => {
+    showModal(
+      "Toque em Compartilhar na barra do Safari e escolha \"Adicionar à Tela de Início\". " +
+      "Instalado, o app abre em tela cheia e passa a poder enviar notificações.",
+      { icon: "📲", title: "Instalar no iPhone ou iPad" }
+    );
+  });
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (btnInstalarPwa) {
+    btnInstalarPwa.classList.remove("hidden");
+  }
+});
+
+if (btnInstalarPwa) {
+  btnInstalarPwa.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`Resultado do prompt de instalação: ${outcome}`);
+    deferredInstallPrompt = null;
+    btnInstalarPwa.classList.add("hidden");
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  console.log("Aplicativo HuB Operações instalado com sucesso.");
+  if (btnInstalarPwa) {
+    btnInstalarPwa.classList.add("hidden");
+  }
+  showToast("Aplicativo HuB Operações instalado com sucesso!", "success");
+});
+
+/* ==========================================================================
+   CACAU SHOW UNIFIED DATABASE BRIDGE - INTEGRAÇÃO APP CONTROLE DE CAIXA & INVENTÁRIO
+   ========================================================================== */
+class CacauShowControlBoxBridge {
+  constructor() {
+    this.channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cacaushow_app_bridge') : null;
+    // Um timer por produto: o campo de quantidade dispara a cada tecla, e sem
+    // isso seria uma requisição por dígito.
+    this.enviosPendentes = new Map();
+    this.DEBOUNCE_MS = 400;
+    this.initListeners();
+  }
+
+  initListeners() {
+    if (this.channel) {
+      this.channel.onmessage = (event) => {
+        if (event.data && event.data.type === 'INVENTORY_UPDATE') {
+          const { storeId, payload } = event.data;
+          console.log(`📦 [Inventário & Validade -> Caixa] Atualização recebida para a Loja ${storeId}:`, payload);
+          if (typeof showToast === 'function') {
+            showToast(`📦 Estoque Atualizado: ${payload.description} (${payload.countedQty || 0} UN)`, "info");
+          }
+        }
+      };
+    }
+  }
+
+  // Obter inventário e validades da loja
+  getInventarioLoja(storeId) {
+    const items = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith(`cacaushow_db_inventory_${storeId}_`)) {
+        try {
+          items.push(JSON.parse(localStorage.getItem(key)));
+        } catch (e) { }
+      }
+    }
+    return items;
+  }
+
+  // Dar baixa de venda no estoque do inventário direto do Caixa
+  baixarEstoqueVenda(storeId, productCode, qtdVendida) {
+    const key = `cacaushow_db_inventory_${storeId}_${productCode}`;
+    const data = localStorage.getItem(key);
+    if (data) {
+      const item = JSON.parse(data);
+      const atual = Number(item.countedQty || 0);
+      item.countedQty = Math.max(0, atual - qtdVendida);
+      item.lastUpdated = new Date().toISOString();
+
+      localStorage.setItem(key, JSON.stringify(item));
+      this.agendarEnvio(storeId, item);
+      if (this.channel) {
+        this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload: item });
+      }
+      return item;
+    }
+    return null;
+  }
+
+  // Monta o payload padrão e grava no localStorage (cache local / modo offline)
+  gravarLocal(storeId, item) {
+    if (!storeId || !item || !item.code) return null;
+    const key = `cacaushow_db_inventory_${storeId}_${item.code}`;
+    const payload = {
+      code: item.code,
+      barras: item.barras || '',
+      description: item.description || '',
+      validade: item.validade ? new Date(item.validade).toISOString() : null,
+      daysRemaining: item.daysRemaining,
+      countedQty: item.countedQty !== undefined ? item.countedQty : '',
+      dataEntrada: item.dataEntrada || '',
+      qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+      qtdEntradaCaixas: item.qtdEntradaCaixas || 0,
+      atualizadoPor: item.atualizadoPor || (typeof currentUser === 'object' && currentUser ? currentUser.nome : null),
+      lastUpdated: item.lastUpdated || new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+    return payload;
+  }
+
+  // Salvar item de inventário: grava local, manda para o servidor (com debounce)
+  // e avisa as outras abas deste mesmo navegador.
+  saveInventoryItem(storeId, item) {
+    const payload = this.gravarLocal(storeId, item);
+    if (!payload) return;
+
+    this.agendarEnvio(storeId, payload);
+    if (this.channel) {
+      this.channel.postMessage({ type: 'INVENTORY_UPDATE', storeId, payload });
+    }
+    return payload;
+  }
+
+  // Item que chegou de OUTRO usuário pelo canal de tempo real: grava no cache
+  // local sem devolver para o servidor (senão vira ping-pong).
+  aplicarItemRemoto(storeId, item) {
+    return this.gravarLocal(storeId, item);
+  }
+
+  agendarEnvio(storeId, payload) {
+    if (typeof currentUser === 'object' && currentUser && currentUser.nome && currentUser.nome.includes('Treinamento')) {
+      return; // Modo treinamento nunca escreve no banco
+    }
+    const chave = `${storeId}_${payload.code}`;
+    clearTimeout(this.enviosPendentes.get(chave));
+    this.enviosPendentes.set(chave, setTimeout(() => {
+      this.enviosPendentes.delete(chave);
+      this.enviarItem(storeId, payload);
+    }, this.DEBOUNCE_MS));
+  }
+
+  async enviarItem(storeId, payload) {
+    const usuario = (typeof currentUser === 'object' && currentUser && currentUser.nome) ? currentUser.nome : '';
+    const clientId = (window.RT && window.RT.clientId) || '';
+
+    if (!API_ONLINE) {
+      addToSyncQueue({ type: 'INVENTARIO', loja: storeId, data: payload, usuario });
+      return false;
+    }
+
+    try {
+      const url = `${API_BASE}/inventario/${encodeURIComponent(storeId)}/${encodeURIComponent(payload.code)}` +
+        `?usuario=${encodeURIComponent(usuario)}&clientId=${encodeURIComponent(clientId)}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return true;
+    } catch (e) {
+      console.error('[Inventário] Falha ao enviar item, indo para a fila offline:', e);
+      addToSyncQueue({ type: 'INVENTARIO', loja: storeId, data: payload, usuario });
+      return false;
+    }
+  }
+
+  // Traz o inventário da loja do servidor e atualiza o cache local.
+  async carregarDoServidor(storeId) {
+    if (!API_ONLINE) return null;
+    try {
+      const res = await fetch(`${API_BASE}/inventario?loja=${encodeURIComponent(storeId)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const itens = await res.json();
+      if (!Array.isArray(itens)) return null;
+      itens.forEach(item => this.gravarLocal(storeId, item));
+      return itens;
+    } catch (e) {
+      console.error('[Inventário] Não foi possível carregar do servidor:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Sobe para o servidor o inventário que já estava salvo neste aparelho.
+   * Roda uma única vez por navegador — sem isso, as contagens em andamento
+   * quando esta versão entrou no ar ficariam presas no celular de quem contou.
+   */
+  async migrarLocalParaServidor() {
+    const FLAG = 'cacaushow_inv_migrado_v1';
+    if (localStorage.getItem(FLAG) === '1' || !API_ONLINE) return;
+
+    const porLoja = {};
+    const prefixo = 'cacaushow_db_inventory_';
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(prefixo)) continue;
+      const resto = key.slice(prefixo.length);
+      const sep = resto.indexOf('_');
+      if (sep <= 0) continue;
+      const loja = resto.slice(0, sep);
+      try {
+        const item = JSON.parse(localStorage.getItem(key));
+        if (!item || !item.code) continue;
+        (porLoja[loja] = porLoja[loja] || []).push(item);
+      } catch (e) { }
+    }
+
+    const lojas = Object.keys(porLoja);
+    if (lojas.length === 0) {
+      localStorage.setItem(FLAG, '1');
+      return;
+    }
+
+    const usuario = (typeof currentUser === 'object' && currentUser && currentUser.nome) ? currentUser.nome : '';
+    let tudoOk = true;
+    for (const loja of lojas) {
+      try {
+        const res = await fetch(`${API_BASE}/inventario/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loja,
+            itens: porLoja[loja],
+            usuario,
+            clientId: (window.RT && window.RT.clientId) || '',
+            origem: 'migracao'
+          })
+        });
+        if (!res.ok) tudoOk = false;
+      } catch (e) {
+        tudoOk = false;
+      }
+    }
+
+    if (tudoOk) {
+      localStorage.setItem(FLAG, '1');
+      console.log(`[Inventário] Migração concluída: ${lojas.length} loja(s) enviadas ao servidor.`);
+    }
+  }
+}
+
+window.cacauShowBoxBridge = new CacauShowControlBoxBridge();
+const dbBridge = window.cacauShowBoxBridge;
+
+/* ==========================================================================
+   CACAU SHOW LOGISTICS & INVENTORY SYSTEM - INTEGRATED ENGINE
+   ========================================================================== */
+
+let products = [];
+let currentFilter = 'all';
+let searchQuery = '';
+let html5QrCode = null;
+let importedNfs = {};
+let activeNfNumber = null;
+let activeNfNumbers = [];
+let selectedNfNumbers = [];
+let nfSearchQuery = '';
+let html5QrCodeNf = null;
+let currentStore = '9175';
+let nfGalleryStoreFilter = null; // aba ativa da galeria de NF-e (separação física por loja)
+const today = new Date();
+const formattedTodayStr = today.toLocaleDateString('pt-BR');
+
+// ==========================================================================
+// CODBARRA_CONSULTA — Biblioteca de Consulta de Códigos de Barras
+// Regra de prioridade na leitura:
+//   1º) CodBarra (EAN/barras do produto) — campo "barras" no XML da NF-e
+//   2º) CodProduto (código da etiqueta da caixa) — fallback via CSV
+// Os dois mapas abaixo permitem converter em ambas as direções:
+//   codBarraParaCodProd["7896986207013"] → "1000001"
+//   codProdParaCodBarra["1000001"]       → "7896986207013"
+// ==========================================================================
+let codBarraParaCodProd = {}; // CodBarra (EAN) → CodProd
+let codProdParaCodBarra = {}; // CodProd → CodBarra (EAN)
+let codBarraParaDesc    = {}; // CodBarra → Descrição do produto
+let codProdParaDesc     = {}; // CodProd  → Descrição do produto
+
+// Parser CSV que respeita campos entre aspas (ex: "BOMBOM 13,5G" tem vírgula interna)
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+async function carregarCodBarraConsulta() {
+  try {
+    const url = window.location.protocol === 'file:'
+      ? 'http://localhost:5000/api/codbarra-consulta'
+      : '/api/codbarra-consulta';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const csvText = await res.text();
+    const linhas = csvText.split(/\r?\n/);
+    // Header: CodProd,Desc. Prod.,CodBarra
+    // O CodBarra é sempre a última coluna; a descrição pode conter vírgulas (campos entre aspas)
+    for (let i = 1; i < linhas.length; i++) {
+      const linha = linhas[i].trim();
+      if (!linha) continue;
+      const partes = parseCSVLine(linha);
+      if (partes.length < 2) continue;
+      const codProd  = partes[0].trim();
+      const codBarra = partes[partes.length - 1].trim();
+      const desc     = partes.slice(1, partes.length - 1).join(',').trim();
+      if (codProd) {
+        codProdParaDesc[codProd] = desc;
+        if (codBarra) {
+          codBarraParaCodProd[codBarra]  = codProd;
+          codProdParaCodBarra[codProd]   = codBarra;
+          codBarraParaDesc[codBarra]     = desc;
+        }
+      }
+    }
+    console.log(`[CodBarra] Biblioteca carregada: ${Object.keys(codBarraParaCodProd).length} registros com EAN, ${Object.keys(codProdParaDesc).length} produtos no total.`);
+    // Enriquece produtos sem EAN no inventário e nas NF-es importadas
+    enrichirProdutosComBarras();
+  } catch (err) {
+    console.warn('[CodBarra] Falha ao carregar Codbarra_Consulta.csv:', err.message);
+  }
+}
+
+// Popula o campo barras (EAN) em produtos de NF-e e itens de inventário que chegaram sem EAN.
+// Usa o CSV como ponte: CodProd → CodBarra. Isso garante que a leitura pelo scanner
+// seja sempre resolvida na 1ª tentativa (CodBarra direto), evitando depender do fallback.
+function enrichirProdutosComBarras() {
+  // Enriquece NF-es importadas
+  let nfsAlteradas = false;
+  for (const key of Object.keys(importedNfs)) {
+    const nf = importedNfs[key];
+    if (!Array.isArray(nf.products)) continue;
+    for (const p of nf.products) {
+      if (!p.barras && p.code) {
+        const ean = codProdParaCodBarra[p.code.toString()];
+        if (ean) { p.barras = ean; nfsAlteradas = true; }
+      }
+    }
+  }
+  if (nfsAlteradas) {
+    try { localStorage.setItem('cacaushow_imported_nfs', JSON.stringify(importedNfs)); } catch (e) {}
+  }
+
+  // Enriquece itens de inventário em localStorage
+  const lojas = ['9175', '4304', '9201'];
+  for (const lojaId of lojas) {
+    const items = dbBridge.getInventarioLoja(lojaId);
+    for (const item of items) {
+      if (!item.barras && item.code) {
+        const ean = codProdParaCodBarra[item.code.toString()];
+        if (ean) { item.barras = ean; dbBridge.saveInventoryItem(lojaId, item); }
+      }
+    }
+  }
+
+  // Atualiza o array products em memória (inventário aberto)
+  if (Array.isArray(products)) {
+    for (const p of products) {
+      if (!p.barras && p.code) {
+        const ean = codProdParaCodBarra[p.code.toString()];
+        if (ean) p.barras = ean;
+      }
+    }
+  }
+}
+
+/**
+ * Resolve um código lido pela câmera para um produto da NF-e ou do inventário.
+ * Prioridade:
+ *   1) Busca direta pelo CodBarra (campo "barras") — leitura do código EAN do produto.
+ *   2) Fallback: se o código lido for um CodBarra no CSV, converte para CodProd e busca pelo code.
+ *   3) Fallback: se o código lido for diretamente um CodProduto (etiqueta da caixa), busca pelo code.
+ *
+ * @param {Array} produtosList - Array de produtos para buscar
+ * @param {string} cleanCode   - Código limpo lido pela câmera
+ * @returns {{ produto: object|null, metodo: string }}
+ */
+function resolverCodigoBipado(produtosList, cleanCode) {
+  // 1º — CodBarra direto (EAN lido da câmera)
+  let p = produtosList.find(prod => prod.barras && prod.barras.trim() === cleanCode);
+  if (p) return { produto: p, metodo: 'CodBarra' };
+
+  // 2º — Fallback via CSV: CodBarra → CodProd
+  const codProdViaBarras = codBarraParaCodProd[cleanCode];
+  if (codProdViaBarras) {
+    p = produtosList.find(prod => prod.code && prod.code.toString() === codProdViaBarras.toString());
+    if (p) return { produto: p, metodo: 'CodBarra→CodProd (CSV)' };
+  }
+
+  // 3º — Fallback: o operador leu o CodProduto da etiqueta da caixa
+  p = produtosList.find(prod => prod.code && prod.code.toString() === cleanCode.toString());
+  if (p) {
+    // Se o produto ainda não tem EAN, enriquece a partir do CSV
+    if (!p.barras && codProdParaCodBarra[cleanCode]) {
+      p.barras = codProdParaCodBarra[cleanCode];
+    }
+    return { produto: p, metodo: 'CodProduto' };
+  }
+
+  return { produto: null, metodo: 'não encontrado' };
+}
+
+function inicializarImportedNfs() {
+  // Carrega dados locais como ponto de partida
+  const salvas = carregarJSON("cacaushow_imported_nfs", {});
+  const limpas = {};
+  
+  for (const numNF in salvas) {
+    const nf = salvas[numNF];
+    if (!nf || !nf.info) continue;
+    
+    if (!nf.info.targetStore) {
+      nf.info.targetStore = '9175';
+    }
+    if (nf.products) {
+      nf.products.forEach(p => {
+        if (p.validade && !(p.validade instanceof Date)) p.validade = new Date(p.validade);
+      });
+    }
+    if (nf.info && nf.info.rawEmissaoDate && !(nf.info.rawEmissaoDate instanceof Date)) {
+      nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+    }
+    limpas[numNF] = nf;
+  }
+  
+  // NÃO sobrescreve se o servidor já carregou dados mais recentes
+  if (!window._nfsServerLoaded) {
+    importedNfs = limpas;
+  } else {
+    // Merge: server data tem prioridade, mas mantém locais não presentes no servidor
+    importedNfs = Object.assign({}, limpas, importedNfs);
+  }
+  
+  const keys = Object.keys(importedNfs);
+  if (keys.length > 0 && !activeNfNumber) {
+    activeNfNumber = keys[0];
+  }
+  
+  nfGalleryStoreFilter = 'todas';
+}
+
+// Init Event Listeners para a Logística
+// ==========================================================================
+// MÓDULO: PREFERÊNCIAS DE NOTIFICAÇÕES (Owner pode configurar)
+// ==========================================================================
+
+function loadNotificationPrefs() {
+  const saved = localStorage.getItem(NOTIF_PREFS_KEY);
+  return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS));
+}
+
+async function saveNotificationPrefs(prefs, masterEnabled) {
+  localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs));
+  await salvarConfigAPI("notificacoes_config", JSON.stringify(prefs));
+
+  localStorage.setItem(NOTIF_MASTER_KEY, masterEnabled ? "1" : "0");
+  await salvarConfigAPI("notificacoes_eventos_ativas", masterEnabled ? "1" : "0");
+
+  renderNotificationTable();
+  showToast(
+    masterEnabled
+      ? "Preferências salvas. Notificações de eventos ATIVADAS."
+      : "Preferências salvas. Notificações de eventos DESATIVADAS (nenhum alerta será enviado).",
+    "sucesso"
+  );
+}
+
+function shouldNotifyUser(notificationType, userRole) {
+  const prefs = loadNotificationPrefs();
+  const notifKey = notificationType;
+  const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
+
+  if (prefs[notifKey] && prefs[notifKey][roleKey] !== undefined) {
+    return prefs[notifKey][roleKey];
+  }
+  return true; // default: notificar
+}
+
+function getNotificationChannel(notificationType, userRole) {
+  const prefs = loadNotificationPrefs();
+  const notifKey = notificationType;
+  const roleKey = ROLE_NOTIF_MAP[userRole] || "colab";
+  const channelKey = `${roleKey}_ch`;
+
+  if (prefs[notifKey] && prefs[notifKey][channelKey]) {
+    return prefs[notifKey][channelKey];
+  }
+  return "email"; // default: email
+}
+
+function sendNotification(destinatarios, assunto, mensagem, canal = "email") {
+  if (!destinatarios || destinatarios.length === 0) return;
+
+  const textCheck = `${assunto || ''} ${mensagem || ''}`.toLowerCase();
+  const isDivergencia = textCheck.includes('divergênc') || textCheck.includes('divergenc');
+
+  if (canal === "push" && !isDivergencia) {
+    // Enviar Push Notification
+    if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window) {
+      const triggerPush = (registration) => {
+        if (registration && registration.showNotification) {
+          registration.showNotification(assunto, {
+            body: mensagem,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag: "notificacao-cacau",
+            requireInteraction: true
+          }).catch(err => console.warn("[Notification] Erro ao exibir:", err));
+        }
+      };
+
+      if (Notification.permission === "granted") {
+        navigator.serviceWorker.getRegistration().then(triggerPush).catch(err => console.warn("[Notification] Erro ao obter SW:", err));
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            navigator.serviceWorker.getRegistration().then(triggerPush).catch(err => console.warn("[Notification] Erro ao obter SW:", err));
+          }
+        }).catch(err => console.warn("[Notification] Permissão recusada:", err));
+      }
+    }
+  }
+
+  // Sempre enviar para backend (email ou push via servidor)
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: destinatarios,
+      assunto: assunto,
+      mensagem: mensagem,
+      canal: isDivergencia && canal === "push" ? "email" : canal
+    })
+  }).catch(err => console.error('Erro ao enviar notificação:', err));
+}
+
+function initializeNotificationPrefs() {
+  const prefs = loadNotificationPrefs();
+
+  // Preencher checkboxes baseado nas preferências salvas
+  Object.keys(prefs).forEach(notifType => {
+    const colab = document.getElementById(`notif-${notifType}-colab`);
+    const lider = document.getElementById(`notif-${notifType}-lider`);
+    const owner = document.getElementById(`notif-${notifType}-owner`);
+
+    if (colab) colab.checked = prefs[notifType].colab;
+    if (lider) lider.checked = prefs[notifType].lider;
+    if (owner) owner.checked = prefs[notifType].owner;
+  });
+}
+
+// O lembrete de lançamento da Meta Hora a Hora é aviso de execução: só a
+// operadora da loja recebe. O servidor já força essa regra
+// (config/notifications.js) — aqui a célula fica travada para a tela não
+// prometer um envio que nunca vai acontecer.
+function tipoExclusivoDaOperadora(notifType, role) {
+  return notifType === "meta-lembrete" && role !== "colab";
+}
+
+function renderNotifRoleCell(notifType, role, isOwner) {
+  const isPushDisabledForType = notifType === "divergencia";
+  const soOperadora = tipoExclusivoDaOperadora(notifType, role);
+  const dis = (!isOwner || soOperadora) ? "disabled" : "";
+  const fade = (!isOwner || soOperadora) ? "opacity: 0.5;" : "";
+  const disPush = (!isOwner || isPushDisabledForType || soOperadora) ? "disabled" : "";
+  const fadePush = (!isOwner || isPushDisabledForType || soOperadora) ? "opacity: 0.4;" : "";
+  const tituloCelula = soOperadora ? ' title="Exclusivo da operadora da loja — Líder e Owner acompanham pelo resumo de atraso"' : "";
+
+  return `
+    <div class="flex flex-col gap-1.5"${tituloCelula}>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" id="notif-${notifType}-${role}" class="notif-check" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
+        <span style="font-size: 0.7rem; opacity: 0.75;">${soOperadora ? "Só a operadora" : "Ativo"}</span>
+      </label>
+      <div class="flex items-center gap-3 pl-1">
+        <label class="flex items-center gap-1">
+          <input type="radio" name="notif-${notifType}-${role}-channel" value="email" class="notif-channel" data-type="${notifType}" data-role="${role}" ${dis} style="${fade}" />
+          <span style="font-size: 0.68rem;">Email</span>
+        </label>
+        <label class="flex items-center gap-1" title="${isPushDisabledForType ? 'Push desativado temporariamente para divergências' : ''}">
+          <input type="radio" name="notif-${notifType}-${role}-channel" value="push" class="notif-channel" data-type="${notifType}" data-role="${role}" ${disPush} style="${fadePush}" />
+          <span style="font-size: 0.68rem; ${isPushDisabledForType ? 'text-decoration: line-through; opacity: 0.5;' : ''}">Push</span>
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderNotificationTable() {
+  const tbody = document.getElementById("notif-table-body");
+  if (!tbody) return;
+  const isOwner = currentUser && currentUser.role === "owner";
+  const badgeEl = document.getElementById("notif-owner-badge");
+
+  if (badgeEl) badgeEl.classList.toggle("hidden", !isOwner);
+
+  const notifLabels = {
+    "envelopes": { title: "Acúmulo de Envelopes (>= R$ 1.000)", desc: "Alerta de segurança ao atingir limite em trânsito" },
+    "inv-inicio": { title: "Início de Inventário", desc: "Aviso de abertura do inventário mensal cego" },
+    "inv-fim": { title: "Conclusão de Inventário", desc: "Confirmação de finalização das contagens" },
+    "nfe": { title: "Conferência de NF-e", desc: "Início e fim do recebimento/conferência de notas" },
+    "divergencia": { title: "Divergência de Fundo de Caixa", desc: "Aviso de diferença no fechamento/abertura (Push desativado temporariamente)" },
+    "meta-lembrete": { title: "Lembrete de Meta Hora a Hora", desc: "Aviso minutos antes do horário de cada intervalo" },
+    "meta-atraso": { title: "Atraso na Meta Hora a Hora", desc: "Resumo de fim de dia com os intervalos perdidos, por loja" },
+    "fechamento": { title: "Fechamento de Caixa", desc: "Aviso a cada fechamento de caixa registrado (Cacau Show e Faça Amigos)" },
+    "abertura": { title: "Abertura de Unidade", desc: "Alerta em tempo real a cada abertura de caixa realizada" },
+    "visao-19h": { title: "Visão Geral das 19h", desc: "Resumo diário automático às 19:00 com meta, faturamento e sessões/locações" },
+    "nfe-pendente": { title: "Nova NFE a Conferir (Owner)", desc: "Aviso exclusivo para Owner de nova nota fiscal pendente de conferência" },
+    "nfe-faturamento-novo-produto": { title: "Produto Novo no Faturamento NFE (Owner)", desc: "Aviso exclusivo para Owner quando um upload de NF-e traz produto nunca visto antes" }
+  };
+
+  const prefs = loadNotificationPrefs();
+
+  tbody.innerHTML = "";
+
+  Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
+    const label = notifLabels[notifType];
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td class="py-4 px-4">
+        <div class="font-bold">${label.title}</div>
+        <div class="text-[10px] text-muted">${label.desc}</div>
+      </td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "colab", isOwner)}</td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "lider", isOwner)}</td>
+      <td class="py-4 px-4">${renderNotifRoleCell(notifType, "owner", isOwner)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  // Carregar preferências salvas (ativo/inativo + canal por perfil)
+  Object.keys(prefs).forEach(notifType => {
+    ["colab", "lider", "owner"].forEach(role => {
+      const checkbox = document.getElementById(`notif-${notifType}-${role}`);
+      // Uma configuração antiga pode ter Líder/Owner marcados no lembrete de
+      // meta; a regra atual não envia para eles, então a tela também não mostra.
+      if (checkbox) checkbox.checked = !tipoExclusivoDaOperadora(notifType, role) && !!prefs[notifType][role];
+
+      let channel = prefs[notifType][`${role}_ch`] || "email";
+      if (notifType === "divergencia" && channel === "push") {
+        channel = "email";
+      }
+      const radio = document.querySelector(`input.notif-channel[name="notif-${notifType}-${role}-channel"][value="${channel}"]`);
+      if (radio) radio.checked = true;
+    });
+  });
+
+  renderNotifMasterSwitch(isOwner);
+}
+
+// Chave mestra: reflete o estado atual e suspende visualmente as regras quando desligada
+function renderNotifMasterSwitch(isOwner) {
+  const toggle = document.getElementById("config-toggle-notificacoes-ativas");
+  if (!toggle) return;
+
+  const ativo = loadNotifMasterEnabled();
+  toggle.checked = ativo;
+  toggle.disabled = !isOwner;
+  toggle.style.opacity = isOwner ? "" : "0.5";
+
+  const statusEl = document.getElementById("notif-master-status");
+  if (statusEl) {
+    statusEl.textContent = ativo ? "Ativado" : "Desativado";
+    statusEl.classList.toggle("text-ink-strong", ativo);
+    statusEl.classList.toggle("text-muted", !ativo);
+  }
+
+  const tbody = document.getElementById("notif-table-body");
+  if (tbody) {
+    tbody.style.opacity = ativo ? "" : "0.45";
+    tbody.title = ativo ? "" : "Ative a chave mestra acima para que estas regras entrem em vigor.";
+  }
+}
+
+function setupNotificationEvents() {
+  const btnSave = document.getElementById("config-btn-save-notificacoes");
+  if (!btnSave) return;
+
+  btnSave.addEventListener("click", () => {
+    if (currentUser && currentUser.role !== "owner") {
+      showToast("Apenas Owners podem modificar as preferências de notificações.", "erro");
+      return;
+    }
+
+    const prefs = {};
+
+    // Ler todos os checkboxes e canais de rádio, montando o objeto de preferências
+    Object.keys(DEFAULT_NOTIF_PREFS).forEach(notifType => {
+      const colab = document.getElementById(`notif-${notifType}-colab`);
+      const lider = document.getElementById(`notif-${notifType}-lider`);
+      const owner = document.getElementById(`notif-${notifType}-owner`);
+
+      const colab_ch = document.querySelector(`input[name="notif-${notifType}-colab-channel"]:checked`)?.value || "email";
+      const lider_ch = document.querySelector(`input[name="notif-${notifType}-lider-channel"]:checked`)?.value || "email";
+      const owner_ch = document.querySelector(`input[name="notif-${notifType}-owner-channel"]:checked`)?.value || "email";
+
+      prefs[notifType] = {
+        colab: colab ? colab.checked : true,
+        lider: lider ? lider.checked : true,
+        owner: owner ? owner.checked : true,
+        colab_ch: colab_ch,
+        lider_ch: lider_ch,
+        owner_ch: owner_ch
+      };
+    });
+
+    const masterToggle = document.getElementById("config-toggle-notificacoes-ativas");
+    saveNotificationPrefs(prefs, masterToggle ? masterToggle.checked : false);
+  });
+
+  const masterToggle = document.getElementById("config-toggle-notificacoes-ativas");
+  if (masterToggle) {
+    masterToggle.addEventListener("change", () => {
+      const isOwner = currentUser && currentUser.role === "owner";
+      const statusEl = document.getElementById("notif-master-status");
+      if (statusEl) statusEl.textContent = masterToggle.checked ? "Ativado (não salvo)" : "Desativado (não salvo)";
+      const tbody = document.getElementById("notif-table-body");
+      if (tbody) tbody.style.opacity = masterToggle.checked ? "" : "0.45";
+      if (!isOwner) masterToggle.checked = loadNotifMasterEnabled();
+    });
+  }
+}
+
+function updatePinDots(inputEl, dotsContainerId) {
+  const container = document.getElementById(dotsContainerId);
+  if (!container) return;
+  const dots = container.querySelectorAll(".pin-dot");
+  const len = inputEl.value.length;
+  dots.forEach((dot, index) => {
+    if (index < len) {
+      dot.classList.add("filled");
+    } else {
+      dot.classList.remove("filled");
+    }
+  });
+}
+
+function setupPinDotsEventHandlers() {
+  const loginPinInput = document.getElementById("login-pin");
+  const loginPinConfirmInput = document.getElementById("login-pin-confirm");
+  const sessionPinInput = document.getElementById("session-pin");
+
+  const pinInputsSetup = [
+    { input: loginPinInput, dots: "pin-dots-login" },
+    { input: loginPinConfirmInput, dots: "pin-dots-confirm" },
+    { input: sessionPinInput, dots: "pin-dots-session" }
+  ];
+  
+  pinInputsSetup.forEach(setup => {
+    if (setup.input) {
+      const container = document.getElementById(setup.dots);
+      if (container) {
+        container.addEventListener("click", () => {
+          setup.input.focus();
+        });
+      }
+      setup.input.addEventListener("input", () => {
+        updatePinDots(setup.input, setup.dots);
+        autoSubmitPinSeCompleto(setup.input);
+      });
+    }
+  });
+}
+
+// Assim que o PIN (4 dígitos) é digitado, envia sozinho — sem precisar de
+// Enter nem clicar em "Entrar". No cadastro de PIN novo, só envia quando os
+// dois campos (PIN + confirmação) já estiverem completos.
+function autoSubmitPinSeCompleto(input) {
+  if (input.value.trim().length !== 4) return;
+
+  if (input.id === "session-pin") {
+    document.getElementById("session-unlock").click();
+    return;
+  }
+
+  if (input.id === "login-pin") {
+    const ehCriacao = !loginPinConfirmWrap.classList.contains("hidden");
+    if (ehCriacao) {
+      if (loginPinConfirmInput.value.trim().length === 4) loginEntrarBtn.click();
+    } else {
+      loginEntrarBtn.click();
+    }
+    return;
+  }
+
+  if (input.id === "login-pin-confirm") {
+    if (loginPinInput.value.trim().length === 4) loginEntrarBtn.click();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupPinDotsEventHandlers();
+  inicializarAutosaveForm();
+  registrarLimparErroAoDigitar();
+  inicializarImportedNfs();
+  renderNotificationTable();
+  setupNotificationEvents();
+
+  // Carrega a biblioteca de consulta de códigos de barras (Codbarra_Consulta.csv)
+  // para permitir o fallback CodBarra → CodProduto na conferência e no inventário
+  carregarCodBarraConsulta();
+  
+  // Aguarda o servidor retornar e re-renderiza a galeria de NF-es
+  const tentarRenderGaleria = () => {
+    if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
+  };
+  // Renderiza imediatamente com dados locais, e novamente após servidor responder
+  tentarRenderGaleria();
+  setTimeout(tentarRenderGaleria, 1500);
+  setTimeout(tentarRenderGaleria, 4000);
+  
+  const nfFileEl = document.getElementById('nf-file');
+  if (nfFileEl) nfFileEl.addEventListener('change', handleNfFileUpload);
+
+  // Inicializar Drag and Drop para o Painel de NF-e
+  const nfDropZone = document.getElementById('nf-drop-zone');
+  if (nfDropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, () => {
+        nfDropZone.classList.add('border-accent', 'bg-surface-1');
+        nfDropZone.classList.remove('border-subtle');
+      }, false);
+    });
+
+    ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+      nfDropZone.addEventListener(eventName, () => {
+        nfDropZone.classList.remove('border-accent', 'bg-surface-1');
+        nfDropZone.classList.add('border-subtle');
+      }, false);
+    });
+
+    nfDropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files && files.length > 0) {
+        handleNfFiles(Array.from(files));
+      }
+    }, false);
+  }
+
+  const nfSearchInput = document.getElementById('nf-search-input');
+  if (nfSearchInput) {
+    nfSearchInput.addEventListener('input', (e) => {
+      nfSearchQuery = e.target.value.trim().toLowerCase();
+      renderNfTable();
+    });
+  }
+
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderTable();
+    });
+  }
+
+  const filterAll = document.getElementById('filter-all');
+  if (filterAll) filterAll.addEventListener('click', () => setFilter('all'));
+  const filterRed = document.getElementById('filter-red');
+  if (filterRed) filterRed.addEventListener('click', () => setFilter('red'));
+  const filterOrange = document.getElementById('filter-orange');
+  if (filterOrange) filterOrange.addEventListener('click', () => setFilter('orange'));
+  const filterGreen = document.getElementById('filter-green');
+  if (filterGreen) filterGreen.addEventListener('click', () => setFilter('green'));
+
+  const storeSelectors = document.querySelectorAll('.store-selector, #store-selector');
+  if (storeSelectors.length > 0) {
+    currentStore = storeSelectors[0].value || '9175';
+    storeSelectors.forEach(sel => {
+      sel.value = currentStore;
+      aplicarCorOperacaoSelect(sel);
+      sel.addEventListener('change', (e) => {
+        currentStore = e.target.value;
+        document.querySelectorAll('.store-selector, #store-selector').forEach(s => {
+          s.value = currentStore;
+          aplicarCorOperacaoSelect(s);
+        });
+        loadInventoryForCurrentStore();
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderNfCardsGallery === 'function') renderNfCardsGallery();
+        // Busca no servidor o que as outras pessoas já contaram nesta loja
+        if (typeof sincronizarInventarioDaLoja === 'function') sincronizarInventarioDaLoja(currentStore);
+        showToast(`Loja ativa alterada para Loja ${currentStore}`, 'info');
+      });
+    });
+  }
+  loadInventoryForCurrentStore();
+  // O inventário agora é compartilhado: sobe o que este aparelho tinha guardado
+  // e puxa o que as outras colaboradoras já contaram.
+  if (typeof iniciarSincronizacaoDoInventario === 'function') iniciarSincronizacaoDoInventario();
+
+  const btnExport = document.getElementById('btn-export');
+  if (btnExport) btnExport.addEventListener('click', exportExcel);
+
+  const btnNfWhatsapp = document.getElementById('btn-nf-whatsapp');
+  if (btnNfWhatsapp) btnNfWhatsapp.addEventListener('click', notificarWhatsappGestao);
+
+  const btnToggleNfScanner = document.getElementById('btn-toggle-nf-scanner');
+  if (btnToggleNfScanner) btnToggleNfScanner.addEventListener('click', toggleNfScanner);
+
+  const btnBackGallery = document.getElementById('btn-back-to-gallery');
+  if (btnBackGallery) btnBackGallery.addEventListener('click', backToNfGallery);
+
+  const btnConferirSel = document.getElementById('btn-conferir-selecionadas');
+  if (btnConferirSel) btnConferirSel.addEventListener('click', () => {
+    if (selectedNfNumbers.length > 0) {
+      openNfConferenceDirectScanner(selectedNfNumbers);
+    }
+  });
+
+  const btnConcluirConf = document.getElementById('btn-concluir-conferencia');
+  if (btnConcluirConf) btnConcluirConf.addEventListener('click', concluirConferenciaAtiva);
+
+  // --- Consulta de NF-e Arquivadas (notas concluídas há mais de 3 dias, ocultas da galeria) ---
+  const btnAbrirArquivadas = document.getElementById('btn-abrir-nf-arquivadas');
+  if (btnAbrirArquivadas) btnAbrirArquivadas.addEventListener('click', abrirModalNfArquivadas);
+
+  const btnFecharArquivadas = document.getElementById('btn-fechar-nf-arquivadas');
+  if (btnFecharArquivadas) btnFecharArquivadas.addEventListener('click', () => {
+    document.getElementById('modal-nf-arquivadas').classList.add('hidden');
+  });
+
+  const buscaArquivadas = document.getElementById('nf-arquivadas-busca');
+  if (buscaArquivadas) buscaArquivadas.addEventListener('input', () => renderNfArquivadasList(buscaArquivadas.value));
+
+  // --- Scanner do Inventário de Estoque ---
+  // Usa a mesma regra de prioridade: CodBarra → CSV → CodProduto
+  inicializarScannerInventario();
+  inicializarInsercaoManualInventario();
+
+  checkMonthlyInventoryAlert();
+  inicializarMetasImportTab();
+});
+
+// Listener de Inserção Manual de Produto no Inventário
+function inicializarInsercaoManualInventario() {
+  const inputCodigo = document.getElementById("inv-manual-codigo");
+  const inputDescricao = document.getElementById("inv-manual-descricao");
+  const inputValidade = document.getElementById("inv-manual-validade");
+  const inputQuantidade = document.getElementById("inv-manual-quantidade");
+  const btnAdicionar = document.getElementById("btn-inv-manual-adicionar");
+  const btnLeitorFisico = document.getElementById("btn-inv-leitor-fisico");
+
+  if (!inputCodigo || !btnAdicionar) return;
+
+  // Leitor físico de código de barras: funciona como teclado, digitando o
+  // código e enviando Enter ao final. Basta focar o campo e capturar o Enter.
+  // Com o leitor ativo, o Enter é hands-free: usa a MESMA resolução e as
+  // mesmas regras de bipe da câmera (onInventarioScanSuccess/resolverCodigoBipado
+  // → CodBarra → CSV → CodProduto, beep, vibração, cartão de feedback), em vez
+  // de exigir validade/quantidade preenchidas a cada leitura como no botão
+  // "Adicionar" manual — que continua disponível pra digitação sem leitor.
+  let leitorFisicoAtivo = false;
+
+  if (btnLeitorFisico) {
+    btnLeitorFisico.addEventListener("click", () => {
+      leitorFisicoAtivo = !leitorFisicoAtivo;
+      btnLeitorFisico.classList.toggle("ring-2", leitorFisicoAtivo);
+      btnLeitorFisico.classList.toggle("ring-success", leitorFisicoAtivo);
+      btnLeitorFisico.innerHTML = leitorFisicoAtivo
+        ? '<i class="fa-solid fa-circle-dot"></i> Leitor Ativo — Aguardando Leitura'
+        : '<i class="fa-solid fa-barcode"></i> Ativar Leitor Físico';
+      if (leitorFisicoAtivo) {
+        inputCodigo.focus();
+      }
+    });
+  }
+
+  inputCodigo.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (!leitorFisicoAtivo) return;
+
+    const cleanCode = inputCodigo.value.trim();
+    if (!cleanCode) return;
+
+    onInventarioScanSuccess(cleanCode);
+
+    inputCodigo.value = "";
+    inputDescricao.value = "";
+    setTimeout(() => inputCodigo.focus(), 0);
+  });
+
+  // Evento de digitação no campo código/EAN para buscar descrição
+  inputCodigo.addEventListener("input", () => {
+    const cleanCode = inputCodigo.value.trim();
+    if (!cleanCode) {
+      inputDescricao.value = "";
+      return;
+    }
+
+    let codProd = null;
+    let desc = null;
+
+    if (codBarraParaCodProd[cleanCode]) {
+      codProd = codBarraParaCodProd[cleanCode];
+      desc = codBarraParaDesc[cleanCode] || codProdParaDesc[codProd] || null;
+    } else if (codProdParaDesc[cleanCode]) {
+      codProd = cleanCode;
+      desc = codProdParaDesc[cleanCode];
+    }
+
+    if (desc) {
+      inputDescricao.value = desc;
+    } else {
+      inputDescricao.value = "Produto não cadastrado";
+    }
+  });
+
+  btnAdicionar.addEventListener("click", () => {
+    const cleanCode = inputCodigo.value.trim();
+    const desc = inputDescricao.value.trim();
+    const validadeVal = inputValidade.value;
+    const qtdVal = inputQuantidade.value.trim();
+
+    if (!cleanCode) {
+      showToast("Por favor, informe o código do produto ou EAN.", "erro");
+      return;
+    }
+
+    if (!desc || desc === "Produto não cadastrado") {
+      showToast("Código do produto não encontrado no sistema.", "erro");
+      return;
+    }
+
+    if (!validadeVal) {
+      showToast("Por favor, selecione a validade.", "erro");
+      return;
+    }
+
+    if (!qtdVal || Number(qtdVal) <= 0) {
+      showToast("Por favor, informe uma quantidade válida.", "erro");
+      return;
+    }
+
+    let codProd = cleanCode;
+    let ean = "";
+    if (codBarraParaCodProd[cleanCode]) {
+      codProd = codBarraParaCodProd[cleanCode];
+      ean = cleanCode;
+    } else if (codProdParaDesc[cleanCode]) {
+      ean = codProdParaCodBarra[cleanCode] || "";
+    }
+
+    const dValidade = new Date(validadeVal + "T12:00:00");
+    const dToday = new Date();
+    dToday.setHours(0, 0, 0, 0);
+    const diffTime = dValidade.getTime() - dToday.getTime();
+    const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Verificar se já existe no inventário atual
+    const jaExiste = products.find(prod => prod.code === codProd);
+    if (jaExiste) {
+      const atual = jaExiste.countedQty === '' ? 0 : Number(jaExiste.countedQty);
+      jaExiste.countedQty = (atual + Number(qtdVal)).toString();
+      jaExiste.validade = dValidade;
+      jaExiste.daysRemaining = daysRemaining;
+      dbBridge.saveInventoryItem(currentStore, jaExiste);
+    } else {
+      const novoProduto = {
+        code: codProd,
+        barras: ean,
+        description: desc,
+        validade: dValidade,
+        daysRemaining: daysRemaining,
+        countedQty: qtdVal,
+        dataEntrada: "",
+        qtdEntradaUnidades: 0,
+        qtdEntradaCaixas: 0
+      };
+      products.push(novoProduto);
+      dbBridge.saveInventoryItem(currentStore, novoProduto);
+    }
+
+    triggerInventoryStartedNotification();
+    renderTable();
+
+    showToast(`✅ ${desc} adicionado com sucesso!`, "sucesso");
+
+    // Limpar os campos do form manual
+    inputCodigo.value = "";
+    inputDescricao.value = "";
+    inputValidade.value = "";
+    inputQuantidade.value = "";
+  });
+}
+
+
+function loadInventoryForCurrentStore() {
+  const savedItems = dbBridge.getInventarioLoja(currentStore);
+  const now = new Date();
+  const dToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Auto-alimentar o inventário com produtos de notas fiscais que estão com ENTRADA OK ou concluídas para esta loja
+  if (typeof importedNfs === 'object' && importedNfs !== null) {
+    Object.keys(importedNfs).forEach(numNF => {
+      const nf = importedNfs[numNF];
+      if (!nf) return;
+      const targetStore = (nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+      if (targetStore !== currentStore) return;
+
+      const totalItens = nf.products ? nf.products.length : 0;
+      let conferidosCount = 0;
+      let faltasCount = 0;
+      if (nf.products) {
+        nf.products.forEach(p => {
+          if (p.countedQty !== '') conferidosCount++;
+          const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+          if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+        });
+      }
+
+      const isOk = (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0);
+      const isConcluded = !!(nf.info && nf.info.concluidaEm);
+
+      if (isOk || isConcluded) {
+        if (nf.products) {
+          nf.products.forEach(p => {
+            const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
+            if (countedBoxes <= 0) return;
+
+            // Recalcula o multiplicador a partir da descrição (sufixo "...100UN" etc.), com
+            // fallback pro boxMultiplier salvo na importação da NF-e — mesma regra usada em
+            // autoCreditNfProductToInventory, pra "QTD Inventariada" nunca ficar presa em
+            // caixas x1 quando a descrição não bateu no momento da importação original.
+            const multiplier = detectBoxMultiplier(null, p.description || '') || p.boxMultiplier || 1;
+            const totalUnits = Math.round(countedBoxes * multiplier);
+            const key = `cacaushow_db_inventory_${currentStore}_${p.code}`;
+            const localData = localStorage.getItem(key);
+            let invProd = null;
+            if (localData) {
+              try { invProd = JSON.parse(localData); } catch (e) {}
+            }
+
+            if (!invProd) {
+              invProd = {
+                code: p.code,
+                barras: p.barras,
+                description: p.description,
+                validade: p.validade,
+                daysRemaining: p.daysRemaining,
+                countedQty: String(totalUnits),
+                dataEntrada: nf.info.emissao,
+                qtdEntradaUnidades: totalUnits,
+                qtdEntradaCaixas: countedBoxes
+              };
+              dbBridge.saveInventoryItem(currentStore, invProd);
+              savedItems.push(invProd);
+            } else if (invProd.qtdEntradaUnidades !== totalUnits || invProd.qtdEntradaCaixas !== countedBoxes || !invProd.dataEntrada) {
+              // Só regulariza a QTD Inventariada se ela ainda não foi ajustada manualmente
+              // (vazia ou igual à entrada antiga/errada) — não sobrescreve contagem física real.
+              const countedQtyVazia = invProd.countedQty === '' || invProd.countedQty === undefined || invProd.countedQty === null;
+              const countedQtyBatiaComEntradaAntiga = Number(invProd.countedQty) === Number(invProd.qtdEntradaUnidades || 0);
+              if (countedQtyVazia || countedQtyBatiaComEntradaAntiga) {
+                invProd.countedQty = String(totalUnits);
+              }
+
+              invProd.dataEntrada = nf.info.emissao;
+              invProd.qtdEntradaUnidades = totalUnits;
+              invProd.qtdEntradaCaixas = countedBoxes;
+              dbBridge.saveInventoryItem(currentStore, invProd);
+
+              const existing = savedItems.find(item => item.code === p.code);
+              if (existing) {
+                existing.countedQty = invProd.countedQty;
+                existing.dataEntrada = nf.info.emissao;
+                existing.qtdEntradaUnidades = totalUnits;
+                existing.qtdEntradaCaixas = countedBoxes;
+              } else {
+                savedItems.push(invProd);
+              }
+            }
+          });
+        }
+      }
+    });
+  }
+
+  products = savedItems.map(item => {
+    let daysRemaining = null;
+    let validadeDate = item.validade ? new Date(item.validade) : null;
+    if (validadeDate && !isNaN(validadeDate.getTime())) {
+      const dVal = new Date(validadeDate.getFullYear(), validadeDate.getMonth(), validadeDate.getDate());
+      const diffTime = dVal.getTime() - dToday.getTime();
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    return {
+      code: item.code,
+      barras: item.barras || '',
+      description: item.description || 'Produto',
+      validade: validadeDate,
+      daysRemaining: daysRemaining,
+      countedQty: item.countedQty !== undefined ? item.countedQty : '',
+      dataEntrada: item.dataEntrada || '',
+      qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+      qtdEntradaCaixas: item.qtdEntradaCaixas || 0
+    };
+  });
+}
+
+// ==========================================================================
+// FEEDBACK MOBILE DE BIPAGEM (NF-e e Inventário) — casca compacta only
+// --------------------------------------------------------------------------
+// A câmera e a lógica de leitura já eram reais (Html5Qrcode + resolverCodigoBipado,
+// ver onNfScanSuccess/onInventarioScanSuccess); o que faltava era uma resposta
+// visual pensada pra tela pequena — no desktop, a confirmação é a própria
+// linha da tabela, que a página rola até e foca; em 375px essa tabela some
+// (ver .density-compact .table-wrap em style.css) e a colaboradora perderia
+// o feedback de "bipei, contou?" a cada leitura. Este bloco fecha esse vão:
+// um cartão "+1" que aparece por leitura, uma lista dos últimos bipes, e um
+// flash na moldura da câmera (mesma animação do design publicado).
+// Zero fetch novo — cada leitura já estava indo pro servidor via
+// saveNfQuantity/dbBridge.saveInventoryItem; isto só lê o mesmo resultado.
+// ==========================================================================
+const BIPE_RECENTES_MAX = 5;
+let nfBipesRecentes = [];
+let invBipesRecentes = [];
+let ultimoBipeNf = null;  // { code, nfNum } — alvo do botão Desfazer
+let ultimoBipeInv = null; // { code }         — alvo do botão Desfazer
+
+// Reinicia a animação mesmo em bipes consecutivos rápidos (remover e
+// reaplicar a classe no mesmo frame não reinicia keyframes já em curso —
+// forçar um reflow com offsetWidth entre as duas chamadas resolve isso).
+function flashScanner(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.classList.remove("scan-flash");
+  void el.offsetWidth;
+  el.classList.add("scan-flash");
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => el.classList.remove("scan-flash"), 600);
+
+  const badge = document.getElementById(containerId + "-check");
+  if (!badge) return;
+  badge.classList.remove("hidden");
+  clearTimeout(badge._hideTimer);
+  badge._hideTimer = setTimeout(() => badge.classList.add("hidden"), 550);
+}
+
+// `prefixo` é "nf" ou "inv" — decide em quais elementos (#nf-bipe-card,
+// #inv-bipe-card, ...) a leitura aparece. Os elementos só existem dentro do
+// painel mobile de cada aba; se a aba nem foi montada ainda, os `if` abaixo
+// fazem a função virar no-op em vez de lançar erro.
+// `code`/`nfNum` alimentam o stepper +/- e o input de quantidade do cartão —
+// sem eles não dá pra saber qual produto (e, no caso de NF-e, qual nota)
+// ajustar quando o usuário mexe no stepper.
+function renderBipeFeedback(prefixo, { nome, ean, qtd, code, nfNum }) {
+  const card = document.getElementById(prefixo + "-bipe-card");
+  if (!card) return;
+  card.classList.remove("hidden");
+  card.innerHTML = `
+    <div class="bipe-feedback-topo">
+      <span class="bipe-feedback-qtd">+1</span>
+      <div class="bipe-feedback-body">
+        <span class="bipe-feedback-nome">${nome}</span>
+        <span class="bipe-feedback-ean">EAN ${ean || "—"}</span>
+      </div>
+    </div>
+    <div class="bipe-feedback-stepper">
+      <span class="bipe-feedback-stepper-label">Contado</span>
+      <div class="bipe-stepper-controls">
+        <button type="button" class="bipe-stepper-btn" data-delta="-1" aria-label="Diminuir quantidade contada">−</button>
+        <input type="number" class="bipe-stepper-input" value="${qtd}" min="0" inputmode="numeric" aria-label="Quantidade contada">
+        <button type="button" class="bipe-stepper-btn" data-delta="1" aria-label="Aumentar quantidade contada">+</button>
+      </div>
+    </div>
+    <button type="button" class="btn-secondary bipe-btn-desfazer">Desfazer</button>
+  `;
+  card.querySelector(".bipe-btn-desfazer").onclick = () => {
+    if (prefixo === "nf") desfazerUltimoBipeNf();
+    else desfazerUltimoBipeInv();
+  };
+
+  const input = card.querySelector(".bipe-stepper-input");
+  const aplicarQtd = (novoValor) => {
+    const valorFinal = Math.max(0, Math.round(Number(novoValor) || 0));
+    input.value = valorFinal;
+    ajustarQtdBipe(prefixo, code, valorFinal, nfNum);
+  };
+  card.querySelectorAll(".bipe-stepper-btn").forEach(btn => {
+    btn.onclick = () => aplicarQtd(Number(input.value || 0) + Number(btn.dataset.delta));
+  });
+  input.onchange = () => aplicarQtd(input.value);
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+// Ajusta a quantidade contada direto pelo stepper/input do cartão de
+// feedback do bipe — sem precisar abrir a tabela ou os cartões da lista.
+// Reusa o MESMO caminho de gravação que cada contexto já tinha (dbBridge.
+// saveInventoryItem no Inventário, saveNfQuantity na NF-e), pra não duplicar
+// a lógica de save/notificação/debounce que cada um carrega consigo.
+function ajustarQtdBipe(prefixo, code, novoValor, nfNum) {
+  if (!code) return;
+  const valorStr = novoValor.toString();
+
+  if (prefixo === "nf") {
+    saveNfQuantity(code, valorStr, nfNum);
+    if (nfBipesRecentes[0] && nfBipesRecentes[0].code === code) nfBipesRecentes[0].qtd = valorStr;
+  } else {
+    const p = products.find(prod => prod.code === code);
+    if (!p) return;
+    p.countedQty = valorStr;
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+    if (invBipesRecentes[0] && invBipesRecentes[0].code === code) invBipesRecentes[0].qtd = valorStr;
+  }
+
+  atualizarListaBipeRecentes(prefixo);
+}
+
+function atualizarListaBipeRecentes(prefixo) {
+  const lista = document.getElementById(prefixo + "-bipe-lista");
+  if (!lista) return;
+  const recentes = prefixo === "nf" ? nfBipesRecentes : invBipesRecentes;
+  lista.innerHTML = recentes.map(r => `
+    <div class="bipe-item-recente">
+      <span class="bipe-item-qtd">${r.qtd}</span>
+      <span class="bipe-item-nome">${r.nome}</span>
+    </div>
+  `).join("");
+}
+
+function desfazerUltimoBipeNf() {
+  if (!ultimoBipeNf) return;
+  const { code, nfNum } = ultimoBipeNf;
+  const nf = importedNfs[nfNum];
+  const p = nf && nf.products.find(prod => prod.code === code);
+  if (!p) return;
+  const atual = p.countedQty === "" ? 0 : Number(p.countedQty);
+  saveNfQuantity(code, Math.max(0, atual - 1).toString(), nfNum);
+  nfBipesRecentes.shift();
+  ultimoBipeNf = null;
+  document.getElementById("nf-bipe-card")?.classList.add("hidden");
+  atualizarListaBipeRecentes("nf");
+  showToast("Última leitura desfeita.", "info");
+}
+
+function desfazerUltimoBipeInv() {
+  if (!ultimoBipeInv) return;
+  const { code } = ultimoBipeInv;
+  const p = products.find(prod => prod.code === code);
+  if (!p) return;
+  const atual = p.countedQty === "" ? 0 : Number(p.countedQty);
+  p.countedQty = Math.max(0, atual - 1).toString();
+  dbBridge.saveInventoryItem(currentStore, p);
+  renderTable();
+  invBipesRecentes.shift();
+  ultimoBipeInv = null;
+  document.getElementById("inv-bipe-card")?.classList.add("hidden");
+  atualizarListaBipeRecentes("inv");
+  showToast("Última leitura desfeita.", "info");
+}
+
+// ==========================================================================
+// SCANNER DO INVENTÁRIO DE ESTOQUE
+// Usa a mesma regra de prioridade do resolverCodigoBipado:
+//   1º) CodBarra (EAN lido da câmera)
+//   2º) Fallback CSV: CodBarra → CodProd
+//   3º) Fallback: CodProduto direto (etiqueta da caixa)
+// ==========================================================================
+function inicializarScannerInventario() {
+  const btnToggle = document.getElementById('btn-toggle-scanner');
+  const scannerContainer = document.getElementById('scanner-container');
+  const scannerBtnText = document.getElementById('scanner-btn-text');
+
+  if (!btnToggle || !scannerContainer) return;
+
+  btnToggle.addEventListener('click', () => {
+    if (scannerContainer.classList.contains('hidden')) {
+      // Ativar câmera do inventário
+      scannerContainer.classList.remove('hidden');
+      if (scannerBtnText) scannerBtnText.textContent = 'Desativar Câmera';
+      iniciarScannerInventario();
+    } else {
+      // Desativar câmera do inventário
+      scannerContainer.classList.add('hidden');
+      if (scannerBtnText) scannerBtnText.textContent = 'Ativar Câmera';
+      pararScannerInventario();
+    }
+  });
+}
+
+function iniciarScannerInventario(cameraId = null) {
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('Biblioteca de leitura não carregada.', 'erro');
+    return;
+  }
+  if (!window.isSecureContext) {
+    showToast('Câmera requer conexão segura (HTTPS).', 'erro');
+    return;
+  }
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode('reader');
+  }
+
+  const config = { fps: 15, qrbox: { width: 300, height: 180 } };
+
+  const startWith = cameraId
+    ? html5QrCode.start({ deviceId: { exact: cameraId } }, config, onInventarioScanSuccess, () => {})
+    : html5QrCode.start({ facingMode: 'environment' }, config, onInventarioScanSuccess, () => {});
+
+  startWith.catch(err => {
+    console.warn('[Inventário Scanner] Erro ao iniciar câmera:', err);
+    const errStr = String(err && (err.name || err.message || err)).toLowerCase();
+    if (errStr.includes("notallowederror") || errStr.includes("permission") || errStr.includes("dismissed") || errStr.includes("denied")) {
+      showToast('Permissão de câmera negada ou cancelada. Habilite o acesso à câmera no seu navegador.', 'erro');
+      return;
+    }
+    // Fallback: lista câmeras e tenta a traseira
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras || cameras.length === 0) {
+        showToast('Nenhuma câmera encontrada.', 'erro');
+        return;
+      }
+      const traseira = cameras.find(c => {
+        const l = c.label.toLowerCase();
+        return l.includes('back') || l.includes('traseira') || l.includes('rear') || l.includes('environment');
+      });
+      const cam = traseira || cameras[cameras.length - 1];
+      html5QrCode.start({ deviceId: { exact: cam.id } }, config, onInventarioScanSuccess, () => {})
+        .catch(e => {
+          console.error('[Inventário Scanner] Falha total:', e);
+          showToast('Não foi possível acessar a câmera. Verifique as permissões.', 'erro');
+        });
+    }).catch(() => {
+      showToast('Erro ao listar câmeras.', 'erro');
+    });
+  });
+}
+
+function pararScannerInventario() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop().catch(err => console.error('[Inventário Scanner] Erro ao parar:', err));
+  }
+}
+
+/**
+ * Callback chamado quando o scanner do Inventário lê um código com sucesso.
+ * Prioridade de resolução:
+ *   1º CodBarra (EAN) → 2º CSV CodBarra→CodProd → 3º CodProduto direto (etiqueta da caixa)
+ * Se o produto não estiver no inventário atual, é adicionado automaticamente via CSV.
+ */
+function onInventarioScanSuccess(decodedText) {
+  const cleanCode = decodedText.trim();
+
+  const { produto: p, metodo } = resolverCodigoBipado(products, cleanCode);
+
+  if (p) {
+    if (navigator.vibrate) navigator.vibrate(150);
+    playBeep('success');
+
+    const atual = p.countedQty === '' ? 0 : Number(p.countedQty);
+    p.countedQty = (atual + 1).toString();
+    dbBridge.saveInventoryItem(currentStore, p);
+    triggerInventoryStartedNotification();
+    renderTable();
+
+    flashScanner("scanner-container");
+    ultimoBipeInv = { code: p.code };
+    invBipesRecentes.unshift({ nome: p.description, qtd: p.countedQty, code: p.code });
+    invBipesRecentes = invBipesRecentes.slice(0, BIPE_RECENTES_MAX);
+    renderBipeFeedback("inv", { nome: p.description, ean: p.barras || '', qtd: p.countedQty, code: p.code });
+
+    // A linha da tabela não existe pra rolar até ela na casca compacta — a
+    // tabela some em favor do cartão de feedback acima (ver style.css).
+    if (document.documentElement.dataset.density !== "compact") {
+      setTimeout(() => {
+        const rowInput = document.querySelector(`input.qty-input[data-code="${p.code}"]`);
+        if (rowInput) {
+          rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          rowInput.focus();
+          rowInput.select();
+        }
+      }, 100);
+    }
+
+    const metodoLabel = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
+    showToast(`✅ ${p.description}${metodoLabel} — Qtd: ${p.countedQty}`, 'sucesso');
+  } else {
+    // Produto não está no inventário: tenta adicionar automaticamente via CSV
+    adicionarProdutoAoInventarioPorScan(cleanCode);
+  }
+}
+
+/**
+ * Adiciona um produto ao inventário mensal a partir de um código bipado não encontrado.
+ * Resolve o produto pelo CSV (CodBarra→CodProd ou CodProd direto) e cria a entrada,
+ * deixando validade e quantidade em branco para o operador preencher.
+ */
+function adicionarProdutoAoInventarioPorScan(cleanCode) {
+  let codProd = null;
+  let ean     = '';
+  let desc    = null;
+
+  // Tenta resolver como EAN (CodBarra → CodProd)
+  if (codBarraParaCodProd[cleanCode]) {
+    codProd = codBarraParaCodProd[cleanCode];
+    ean     = cleanCode;
+    desc    = codBarraParaDesc[cleanCode] || codProdParaDesc[codProd] || null;
+  }
+  // Tenta resolver como CodProduto direto (etiqueta da caixa)
+  else if (codProdParaDesc[cleanCode]) {
+    codProd = cleanCode;
+    ean     = codProdParaCodBarra[cleanCode] || '';
+    desc    = codProdParaDesc[cleanCode];
+  }
+
+  if (!codProd || !desc) {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    playBeep('error');
+    showToast(`Código não cadastrado no sistema: ${cleanCode}`, 'erro');
+    return;
+  }
+
+  // Previne duplicata por bipagem rápida (produto foi adicionado entre dois scans)
+  const jaExiste = products.find(prod => prod.code === codProd);
+  if (jaExiste) {
+    const atual = jaExiste.countedQty === '' ? 0 : Number(jaExiste.countedQty);
+    jaExiste.countedQty = (atual + 1).toString();
+    dbBridge.saveInventoryItem(currentStore, jaExiste);
+    renderTable();
+    showToast(`✅ ${desc} — Qtd: ${jaExiste.countedQty}`, 'sucesso');
+    return;
+  }
+
+  const novoProduto = {
+    code: codProd,
+    barras: ean,
+    description: desc,
+    validade: null,
+    daysRemaining: null,
+    countedQty: '',
+    dataEntrada: '',
+    qtdEntradaUnidades: 0,
+    qtdEntradaCaixas: 0
+  };
+
+  products.push(novoProduto);
+  dbBridge.saveInventoryItem(currentStore, novoProduto);
+  triggerInventoryStartedNotification();
+  renderTable();
+
+  if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+  playBeep('success');
+  showToast(`➕ ${desc} adicionado ao inventário. Preencha a validade e a quantidade.`, 'sucesso');
+
+  // Rola até a linha recém-adicionada e foca o campo de validade
+  setTimeout(() => {
+    const qtyInput = document.querySelector(`input.qty-input[data-code="${codProd}"]`);
+    if (qtyInput) {
+      const row = qtyInput.closest('tr');
+      const validadeInput = row ? row.querySelector('.validade-input') : null;
+      const target = validadeInput || qtyInput;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus();
+    }
+  }, 150);
+}
+
+
+
+function formatDate(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function dateToInputVal(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function setFilter(filterType) {
+  currentFilter = filterType;
+  renderTable();
+}
+
+function playBeep(type = 'success') {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } else if (type === 'error') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) { }
+}
+
+function checkMonthlyInventoryAlert() {
+  const currentDay = today.getDate();
+  const currentMonth = today.toLocaleString('pt-BR', { month: 'long' });
+  const capitalizedMonth = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
+
+  const monthNameEl = document.getElementById('current-month-name');
+  if (monthNameEl) monthNameEl.textContent = `${capitalizedMonth} / ${today.getFullYear()}`;
+
+  const badgeEl = document.getElementById('monthly-deadline-badge');
+  if (badgeEl) {
+    if (currentDay > 25) {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-danger-soft text-ink animate-pulse shadow-md border border-danger";
+      badgeEl.textContent = "⚠️ ATENÇÃO: PRAZO DIA 25 EXCEDIDO!";
+    } else if (currentDay >= 20) {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-warning-soft text-ink animate-pulse shadow-md border border-warning";
+      badgeEl.textContent = `⚠️ RETA FINAL (FALTA ${25 - currentDay} DIA(S))`;
+    } else {
+      badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-surface-3 text-ink border border-subtle";
+      badgeEl.textContent = "Prazo: Dia 25";
+    }
+  }
+}
+
+function handleNfFileUpload(event) {
+  const files = Array.from(event.target.files);
+  handleNfFiles(files);
+}
+
+function handleNfFiles(files) {
+  if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'consultora_dashboard')) {
+    showToast("Apenas o Líder de Operações ou Owner podem fazer importação de NF-e.", "erro");
+    return;
+  }
+  if (!files || files.length === 0) return;
+
+  const infoEl = document.getElementById('nf-file-info');
+  const progressBar = document.getElementById('nf-progress-bar');
+  const progressLabel = document.getElementById('nf-progress-label');
+  if (infoEl) {
+    infoEl.classList.remove('hidden');
+    infoEl.className = "mt-3 text-xs text-ink-muted font-mono";
+    if (progressLabel) progressLabel.textContent = `Processando ${files.length} arquivo(s)... 0%`;
+    if (progressBar) progressBar.style.width = '0%';
+  }
+
+  let processedCount = 0;
+  let successCount = 0;
+  let duplicateCount = 0;
+  let errorCount = 0;
+
+  const onProcessed = (status) => {
+    processedCount++;
+    if (status === 'success') successCount++;
+    else if (status === 'duplicate') duplicateCount++;
+    else errorCount++;
+
+    const percent = Math.round((processedCount / files.length) * 100);
+    if (progressBar) progressBar.style.width = `${percent}%`;
+    if (progressLabel) progressLabel.textContent = `Processando... ${percent}% (${processedCount}/${files.length})`;
+
+    if (processedCount === files.length) {
+      if (activeNfNumber && importedNfs[activeNfNumber] && importedNfs[activeNfNumber].info && importedNfs[activeNfNumber].info.targetStore) {
+        nfGalleryStoreFilter = importedNfs[activeNfNumber].info.targetStore;
+      } else {
+        nfGalleryStoreFilter = 'todas';
+      }
+      renderNfCardsGallery();
+      
+      if (infoEl) {
+        infoEl.innerHTML = `
+          Importação concluída!<br>
+          ✅ ${successCount} importada(s) com sucesso<br>
+          ⚠️ ${duplicateCount} já existente(s) ignorada(s)<br>
+          ❌ ${errorCount} erro(s) ou formato inválido
+        `;
+        if (errorCount > 0) {
+          infoEl.className = "mt-3 text-xs text-danger font-mono bg-danger-soft p-2.5 rounded-lg border border-danger text-left";
+        } else if (successCount > 0) {
+          infoEl.className = "mt-3 text-xs text-success font-mono bg-success-soft p-2.5 rounded-lg border border-success text-left";
+        } else {
+          infoEl.className = "mt-3 text-xs text-ink-muted font-mono bg-surface-3 p-2.5 rounded-lg border border-subtle text-left";
+        }
+      }
+
+      if (errorCount === 0 && duplicateCount === 0 && successCount > 0) {
+        showToast(`${successCount} Nota(s) Fiscal(is) importada(s) com sucesso!`, 'sucesso');
+      } else if (successCount > 0 || duplicateCount > 0) {
+        showToast(`Importação em lote concluída (${successCount} OK, ${duplicateCount} duplicados, ${errorCount} erros)`, 'info');
+      } else if (errorCount > 0) {
+        showToast(`Erro ao importar arquivos XML. Verifique o console ou detalhes.`, 'erro');
+      }
+
+      const nfFileEl = document.getElementById('nf-file');
+      if (nfFileEl) nfFileEl.value = '';
+    }
+  };
+
+  files.forEach(file => {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.xml')) {
+      parseXmlNfe(file, onProcessed);
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      parseExcelNfe(file, onProcessed);
+    } else {
+      onProcessed('error');
+    }
+  });
+}
+
+function detectStoreFromRazaoSocial(razaoSocialText) {
+  if (!razaoSocialText) return null;
+  const text = razaoSocialText.toString().toUpperCase();
+  if (text.includes('0001008688') || text.includes('IB MARIO COVAS') || text.includes('MARIO COVAS')) return '9201';
+  if (text.includes('0001008056') || text.includes('IB ICOARACI') || text.includes('ICOARACI')) return '4304';
+  if (text.includes('0001006495') || text.includes('IB COMERCIO DE DOCES CACAU LTDA') || text.includes('MARAMBAIA')) return '9175';
+  return null;
+}
+
+function detectBoxMultiplier(detElement, xProdText) {
+  const desc = xProdText.toUpperCase();
+
+  // Padrão real da descrição do produto: "...{peso}GX{qtd}UN" (ex: 145GX6UN, 5GX150UN,
+  // 160GX16UN) — a quantidade de unidades por caixa vem sempre logo após o "X" final,
+  // com número de dígitos variável. Aceita "U" sem o "N" por causa de descrições
+  // truncadas no banco (ex: "160GX16U"). Tem prioridade sobre a detecção via XML/regex
+  // porque a conferência é sempre feita em caixas.
+  const suffixMatch = desc.trim().match(/X(\d+)UN?$/);
+  if (suffixMatch) {
+    const val = parseInt(suffixMatch[1], 10);
+    if (val > 0) return val;
+  }
+
+  const uCom = detElement && detElement.querySelector('uCom') ? detElement.querySelector('uCom').textContent.toUpperCase() : '';
+  const qCom = detElement && detElement.querySelector('qCom') ? parseFloat(detElement.querySelector('qCom').textContent) : 1;
+  const qTrib = detElement && detElement.querySelector('qTrib') ? parseFloat(detElement.querySelector('qTrib').textContent) : 1;
+
+  if ((uCom.includes('CX') || uCom.includes('BOX') || uCom.includes('FD')) && qTrib > qCom && qCom > 0) {
+    return Math.round(qTrib / qCom);
+  }
+
+  const matchRegex = /(?:CX|FD|C\/|BOX|DISP|DISPLAY)\s*(\d+)/i;
+  const match = desc.match(matchRegex);
+  if (match && match[1]) {
+    const val = parseInt(match[1]);
+    if (val > 1) return val;
+  }
+  return 1;
+}
+
+// Campanha de uma NF-e da Cacau Show (Páscoa, Natal etc.) vem identificada no
+// campo de Informações Complementares (infAdic > infCpl) por um marcador
+// "PDI_CLI" (identificador do pedido de campanha vinculado ao franqueado) —
+// não existe uma tag própria de campanha no layout padrão da NF-e, por isso a
+// extração é por texto livre. Sem o marcador, retorna string vazia (a tela de
+// Faturamento NFE mostra "sem campanha identificada" nesse caso).
+function extrairCampanhaNfe(texto) {
+  if (!texto) return '';
+  const match = texto.match(/PDI[_\-\s]?CLI\s*[:\-=]?\s*([A-Za-z0-9\/\.\-]+)/i);
+  return match ? match[1].trim() : '';
+}
+
+function isClientNfeDuplicate(nNF, targetStore, productsList) {
+  const key = `${nNF}_${targetStore}`;
+  const existing = importedNfs[key];
+  if (!existing) return false;
+  
+  const p1 = existing.products || [];
+  const p2 = productsList || [];
+  if (p1.length !== p2.length) return false;
+  
+  const map1 = {};
+  for (const item of p1) {
+    const code = (item.code || '').toString().trim();
+    const qty = Number(item.nfQty || 0);
+    map1[code] = (map1[code] || 0) + qty;
+  }
+  
+  const map2 = {};
+  for (const item of p2) {
+    const code = (item.code || '').toString().trim();
+    const qty = Number(item.nfQty || 0);
+    map2[code] = (map2[code] || 0) + qty;
+  }
+  
+  const keys1 = Object.keys(map1);
+  for (const key of keys1) {
+    if (map1[key] !== map2[key]) return false;
+  }
+  
+  return true;
+}
+
+function parseXmlNfe(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const xmlText = e.target.result;
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+    const nNF = xmlDoc.querySelector('nNF') ? xmlDoc.querySelector('nNF').textContent.trim() : `NF-${Date.now().toString().slice(-5)}`;
+    const dhEmi = xmlDoc.querySelector('dhEmi') ? xmlDoc.querySelector('dhEmi').textContent : (xmlDoc.querySelector('dEmi') ? xmlDoc.querySelector('dEmi').textContent : '');
+    const qVol = xmlDoc.querySelector('qVol') ? xmlDoc.querySelector('qVol').textContent : '1';
+    const xNomeEmit = xmlDoc.querySelector('emit > xNome') ? xmlDoc.querySelector('emit > xNome').textContent : 'Cacau Show CD';
+    const xNomeDest = xmlDoc.querySelector('dest > xNome') ? xmlDoc.querySelector('dest > xNome').textContent : '';
+    const cnpjDest = xmlDoc.querySelector('dest > CNPJ') ? xmlDoc.querySelector('dest > CNPJ').textContent : '';
+
+    const storeDetectada = detectStoreFromRazaoSocial(`${xNomeDest} ${cnpjDest}`);
+    const targetStore = storeDetectada || currentStore;
+
+    // Duplicatas/parcelas de cobrança da NF-e (grupo <cobr><dup>): cada parcela traz
+    // Nº de Ordem (nDup), Vencimento (dVenc) e Valor (vDup) — usado na Auditoria de
+    // Boletos para cruzar cada parcela individualmente (parcelamento = várias duplicatas).
+    const duplicatas = [];
+    xmlDoc.querySelectorAll('cobr > dup').forEach(dup => {
+      const nDup = dup.querySelector('nDup') ? dup.querySelector('nDup').textContent.trim() : '';
+      const dVencRaw = dup.querySelector('dVenc') ? dup.querySelector('dVenc').textContent.trim() : '';
+      const vDupRaw = dup.querySelector('vDup') ? dup.querySelector('vDup').textContent.trim() : '';
+      if (!nDup && !dVencRaw && !vDupRaw) return;
+
+      let vencimentoFormatado = '';
+      if (dVencRaw) {
+        const dVencDate = new Date(dVencRaw + 'T12:00:00');
+        vencimentoFormatado = !isNaN(dVencDate.getTime()) ? formatDate(dVencDate) : dVencRaw;
+      }
+
+      duplicatas.push({
+        nDup: nDup,
+        vencimento: vencimentoFormatado,
+        valor: parseFloat(vDupRaw) || 0
+      });
+    });
+
+    const vNFEl = xmlDoc.querySelector('total > ICMSTot > vNF') || xmlDoc.querySelector('vNF');
+    const valorTotal = vNFEl ? parseFloat(vNFEl.textContent) : 0;
+
+    let formattedDate = '-';
+    if (dhEmi) {
+      const d = new Date(dhEmi);
+      if (!isNaN(d.getTime())) formattedDate = formatDate(d);
+    }
+
+    // Campanha (marcador PDI_CLI): procurado nas Informações Complementares da
+    // nota; se ausente lá, cai para o texto cru do XML como plano B (algumas
+    // notas trazem o marcador fora de <infCpl>, direto em <infAdProd> de item).
+    const infCplEl = xmlDoc.querySelector('infAdic > infCpl');
+    const campanha = extrairCampanhaNfe(infCplEl ? infCplEl.textContent : '') || extrairCampanhaNfe(xmlText);
+
+    const info = {
+      numero: nNF,
+      emissao: formattedDate,
+      rawEmissaoDate: dhEmi ? new Date(dhEmi) : new Date(),
+      volumes: qVol,
+      fornecedor: xNomeEmit,
+      destinatario: xNomeDest,
+      targetStore: targetStore,
+      storeAutoDetectada: !!storeDetectada,
+      valorTotal: valorTotal,
+      campanha: campanha,
+      duplicatas: duplicatas
+    };
+
+    if (!storeDetectada) {
+      showToast(`NF-e Nº ${nNF}: loja de destino não identificada pelo destinatário/CNPJ. Alocada à Loja Ativa (${getLojaNomePorCodigo(currentStore)}) — confira antes de conferir.`, 'erro');
+    }
+
+    const detElements = xmlDoc.querySelectorAll('det');
+    const productsList = [];
+
+    detElements.forEach((det, idx) => {
+      const cProd = det.querySelector('cProd') ? det.querySelector('cProd').textContent.trim() : `ITEM-${idx + 1}`;
+      const cEAN = det.querySelector('cEAN') ? det.querySelector('cEAN').textContent.trim() : '';
+      const xProd = det.querySelector('xProd') ? det.querySelector('xProd').textContent.trim() : 'Produto Desconhecido';
+      const qCom = det.querySelector('qCom') ? parseFloat(det.querySelector('qCom').textContent) : 0;
+      const vProd = det.querySelector('vProd') ? parseFloat(det.querySelector('vProd').textContent) : 0;
+      const vUnCom = det.querySelector('vUnCom') ? parseFloat(det.querySelector('vUnCom').textContent) : 0;
+
+      const boxMultiplier = detectBoxMultiplier(det, xProd);
+      const totalUnitsFaturadas = Math.round(qCom * boxMultiplier);
+
+      let expDate = null;
+      const dVal = det.querySelector('dVal');
+      if (dVal && dVal.textContent) expDate = new Date(dVal.textContent + 'T12:00:00');
+
+      const savedQty = localStorage.getItem(`nfcnt_${targetStore}_${nNF}_${cProd}`);
+      const savedValidade = localStorage.getItem(`nfval_${targetStore}_${nNF}_${cProd}`);
+
+      let validadeDate = expDate;
+      if (savedValidade) validadeDate = new Date(savedValidade);
+
+      let daysRemaining = null;
+      if (validadeDate) {
+        const diffTime = validadeDate.getTime() - today.getTime();
+        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      // Salvar vínculo do cProd (código de 7 dígitos da NF-e XML) com o produto para o inventário de estoque
+      const cod7Digitos = cProd.replace(/\D/g, '').padStart(7, '0').slice(-7) || cProd;
+      localStorage.setItem(`nfe_cprod_${cEAN}`, cod7Digitos);
+      if (cProd) localStorage.setItem(`nfe_cprod_desc_${xProd.trim().toUpperCase()}`, cod7Digitos);
+
+      productsList.push({
+        code: cod7Digitos,
+        barras: cEAN !== 'SEM GTIN' ? cEAN : '',
+        description: xProd,
+        nfQty: qCom,
+        valorUnitario: vUnCom,
+        valorTotal: vProd,
+        boxMultiplier: boxMultiplier,
+        totalUnits: totalUnitsFaturadas,
+        countedQty: savedQty !== null ? savedQty : '',
+        validade: validadeDate,
+        daysRemaining: daysRemaining
+      });
+    });
+
+    const isDuplicate = isClientNfeDuplicate(nNF, targetStore, productsList);
+
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: nNF, info, products: productsList })
+      })
+      .then(res => {
+        if (res.status === 409) {
+          importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = nNF + '_' + targetStore;
+          if (callback) callback('duplicate');
+          else showToast(`A NF-e Nº ${nNF} já consta no sistema e foi carregada na galeria.`, 'info');
+          return null;
+        }
+        if (!res.ok) throw new Error('Erro ao salvar no servidor');
+        return res.json();
+      })
+      .then(data => {
+        if (data) {
+          importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = nNF + '_' + targetStore;
+          if (callback) callback('success');
+          else showToast(`NF-e Nº ${nNF} importada com sucesso!`, 'sucesso');
+          setTimeout(() => {
+            if (window.carregarAuditoriaBoletos) {
+              window.carregarAuditoriaBoletos();
+            }
+          }, 800);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        if (callback) callback('error');
+        else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
+      });
+    } else {
+      importedNfs[nNF + '_' + targetStore] = { info, products: productsList };
+      localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+      activeNfNumber = nNF + '_' + targetStore;
+      if (isDuplicate) {
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${nNF} já foi importada anteriormente e foi recarregada.`, 'info');
+        return;
+      }
+      if (callback) callback('success');
+      else showToast(`NF-e Nº ${nNF} importada localmente!`, 'sucesso');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseExcelNfe(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    let headerRowIndex = 0;
+    let headers = [];
+
+    for (let r = 0; r < Math.min(5, rawRows.length); r++) {
+      const row = rawRows[r];
+      if (row && row.some(val => typeof val === 'string' && (val.toLowerCase().includes('cód. produto') || val.toLowerCase().includes('código') || val.toLowerCase().includes('produto')))) {
+        headerRowIndex = r;
+        headers = row;
+        break;
+      }
+    }
+
+    const colMap = {};
+    headers.forEach((h, idx) => {
+      if (h) colMap[h.toString().trim()] = idx;
+    });
+
+    const getVal = (row, keys) => {
+      for (let k of keys) {
+        if (colMap[k] !== undefined) return row[colMap[k]];
+      }
+      return undefined;
+    };
+
+    const firstRow = rawRows[headerRowIndex + 1] || [];
+    const numNF = getVal(firstRow, ['Nº Nota', 'Nota', 'NF', 'Nº NF']) || `NF-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const numNfStr = numNF.toString().trim();
+
+    const info = {
+      numero: numNfStr,
+      emissao: formattedTodayStr,
+      volumes: '1',
+      fornecedor: 'Cacau Show CD',
+      targetStore: currentStore,
+      storeAutoDetectada: false
+    };
+
+    const productsList = [];
+    for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+      const row = rawRows[r];
+      if (!row || row.length === 0) continue;
+
+      const code = getVal(row, ['Cód. Produto', 'Código', 'Cod']);
+      if (!code) continue;
+
+      const desc = getVal(row, ['Desc. Produto', 'PRODUTO', 'Descrição']) || 'Item Nota';
+      const barras = getVal(row, ['Barras', 'EAN']) || '';
+      const qtdNota = getVal(row, ['Quantidade', 'QTD', 'Qtd Faturada', 'Qtd']) || 0;
+      const codeStr = code.toString().trim();
+
+      const savedQty = localStorage.getItem(`nfcnt_${currentStore}_${numNfStr}_${codeStr}`);
+      productsList.push({
+        code: codeStr,
+        barras: barras ? barras.toString().trim() : '',
+        description: desc.toString().trim(),
+        nfQty: Number(qtdNota),
+        countedQty: savedQty !== null ? savedQty : '',
+        validade: null,
+        daysRemaining: null
+      });
+    }
+
+    const isDuplicate = isClientNfeDuplicate(numNfStr, currentStore, productsList);
+
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: numNfStr, info, products: productsList })
+      })
+      .then(res => {
+        if (res.status === 409) {
+          importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = numNfStr + '_' + currentStore;
+          if (callback) callback('duplicate');
+          else showToast(`A NF-e Nº ${numNfStr} já consta no sistema e foi carregada na galeria.`, 'info');
+          return null;
+        }
+        if (!res.ok) throw new Error('Erro ao salvar no servidor');
+        return res.json();
+      })
+      .then(data => {
+        if (data) {
+          importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
+          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+          activeNfNumber = numNfStr + '_' + currentStore;
+          if (callback) callback('success');
+          else showToast(`NF-e Nº ${numNfStr} importada com sucesso!`, 'sucesso');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        if (callback) callback('error');
+        else showToast('Erro ao sincronizar NF-e com o servidor.', 'erro');
+      });
+    } else {
+      importedNfs[numNfStr + '_' + currentStore] = { info, products: productsList };
+      localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+      activeNfNumber = numNfStr + '_' + currentStore;
+      if (isDuplicate) {
+        if (callback) callback('duplicate');
+        else showToast(`A NF-e Nº ${numNfStr} já foi importada anteriormente e foi recarregada.`, 'info');
+        return;
+      }
+      if (callback) callback('success');
+      else showToast(`NF-e Nº ${numNfStr} importada localmente!`, 'sucesso');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function backToNfGallery() {
+  document.getElementById('nf-work-area').classList.add('hidden');
+  renderNfCardsGallery();
+}
+
+// Notas concluídas ficam visíveis na galeria por alguns dias (para revisão rápida
+// pela loja) e depois somem do menu principal para não poluir a tela com o tempo —
+// mas continuam salvas e consultáveis na tela de "Notas Arquivadas".
+const NF_DIAS_ATE_ARQUIVAR = 3;
+
+function isNfArquivada(nf) {
+  if (!nf || !nf.info || !nf.info.concluidaEm) return false;
+  const concluidaEm = new Date(nf.info.concluidaEm).getTime();
+  if (isNaN(concluidaEm)) return false;
+  const limiteMs = NF_DIAS_ATE_ARQUIVAR * 24 * 60 * 60 * 1000;
+  return (Date.now() - concluidaEm) >= limiteMs;
+}
+
+function renderNfCardsGallery() {
+  const nfKeys = Object.keys(importedNfs).filter(numNF => !isNfArquivada(importedNfs[numNF]));
+
+  document.getElementById('nf-work-area').classList.add('hidden');
+  document.getElementById('nf-cards-gallery-section').classList.remove('hidden');
+
+  // Contagem de notas pendentes por loja, para os badges das abas
+  const contagemPorLoja = { 'todas': nfKeys.length, '9175': 0, '4304': 0, '9201': 0 };
+  nfKeys.forEach(numNF => {
+    const nf = importedNfs[numNF];
+    const loja = (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+    if (contagemPorLoja[loja] !== undefined) contagemPorLoja[loja]++;
+    else contagemPorLoja[loja] = 1;
+  });
+
+  if (!nfGalleryStoreFilter) {
+    nfGalleryStoreFilter = 'todas';
+  }
+
+  // Estiliza e sincroniza as abas de loja (separação física entre equipes)
+  document.querySelectorAll('.nf-store-tab').forEach(tab => {
+    const store = tab.dataset.store;
+    const countEl = tab.querySelector('.nf-store-tab-count');
+    if (countEl) countEl.textContent = `(${contagemPorLoja[store] !== undefined ? contagemPorLoja[store] : 0})`;
+
+    if (store === nfGalleryStoreFilter) {
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-accent-soft text-ink border-accent shadow-md';
+    } else {
+      tab.className = 'nf-store-tab px-4 py-2 rounded-xl text-xs font-bold transition border bg-surface-2 text-ink-muted border-subtle hover:bg-surface-hover hover:text-ink-strong';
+    }
+
+    if (!tab.dataset.listenerAdded) {
+      tab.addEventListener('click', () => {
+        nfGalleryStoreFilter = store;
+        selectedNfNumbers = []; // Clear selection when switching stores
+        updateNfSelectionUI();
+        renderNfCardsGallery();
+      });
+      tab.dataset.listenerAdded = 'true';
+    }
+  });
+
+  const grid = document.getElementById('nf-cards-grid');
+  grid.innerHTML = '';
+
+  const nfKeysDaLoja = nfKeys.filter(numNF => {
+    if (nfGalleryStoreFilter === 'todas') return true;
+    const storeOfNf = (importedNfs[numNF] && importedNfs[numNF].info && importedNfs[numNF].info.targetStore) ? importedNfs[numNF].info.targetStore : currentStore;
+    return storeOfNf === nfGalleryStoreFilter;
+  });
+
+  if (nfKeysDaLoja.length === 0) {
+    const msgLoja = nfGalleryStoreFilter === 'todas' ? 'qualquer loja' : getLojaNomePorCodigo(nfGalleryStoreFilter);
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
+        <i class="fa-solid fa-boxes-packing text-4xl mb-3 block text-ink-strong"></i>
+        Nenhuma Nota Fiscal pendente para ${msgLoja}.
+      </div>
+    `;
+    updateNfSelectionUI();
+    return;
+  }
+
+  nfKeysDaLoja.forEach(numNF => {
+    const nfData = importedNfs[numNF];
+    const totalItens = nfData.products ? nfData.products.length : 0;
+    let conferidosCount = 0;
+    let faltasCount = 0;
+
+    if (nfData.products) {
+      nfData.products.forEach(p => {
+        if (p.countedQty !== '') conferidosCount++;
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+      });
+    }
+
+    let statusText = 'Pendente';
+    let cardBgClass = 'border-subtle bg-surface-2';
+    let statusBadgeClass = 'bg-surface-1 text-ink-muted border-subtle';
+
+    if (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) {
+      statusText = 'ENTRADA OK NO SISTEMA CACAU SHOW';
+      cardBgClass = 'border-success bg-success-soft';
+      statusBadgeClass = 'bg-success-soft text-ink font-extrabold shadow-md';
+    } else if (faltasCount > 0 && conferidosCount > 0) {
+      statusText = `PENDÊNCIA (${faltasCount} Faltas)`;
+      cardBgClass = 'border-warning bg-warning-soft';
+      statusBadgeClass = 'bg-warning-soft text-ink font-extrabold shadow-md animate-pulse';
+    }
+
+    const lojaCodigo = (nfData.info && nfData.info.targetStore) ? nfData.info.targetStore : currentStore;
+    const lojaNome = getLojaNomePorCodigo(lojaCodigo);
+    const lojaAutoDetectada = (nfData.info && nfData.info.storeAutoDetectada !== false);
+
+    const lojaAlertaHtml = lojaAutoDetectada ? '' : `
+      <div class="mb-4">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft text-warning border border-warning animate-pulse" title="Loja não identificada na NF-e — confira antes de conferir">
+          <i class="fa-solid fa-triangle-exclamation"></i> ${lojaNome} (${lojaCodigo}) — não confirmada
+        </span>
+      </div>
+    `;
+
+    const isSelected = selectedNfNumbers.includes(numNF);
+    if (isSelected) {
+      cardBgClass = 'border-strong bg-surface-1 ring-2 ring-accent scale-[1.01]';
+    }
+
+    const selectCheckHtml = isSelected
+      ? `<span class="absolute top-4 right-4 text-success text-lg"><i class="fa-solid fa-circle-check"></i></span>`
+      : `<span class="absolute top-4 right-4 text-accent opacity-30 text-lg hover:opacity-80"><i class="fa-regular fa-circle"></i></span>`;
+
+    const card = document.createElement('div');
+    card.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${cardBgClass}`;
+    card.innerHTML = `
+      ${selectCheckHtml}
+      <div class="flex justify-between items-start mb-3">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass}">${statusText}</span>
+        <span class="text-xs text-ink-muted font-mono font-bold mr-6"><i class="fa-solid fa-box-archive"></i> ${nfData.info ? nfData.info.volumes : 1} CX</span>
+      </div>
+      <div class="${lojaAutoDetectada ? 'mb-3' : 'mb-2'}">
+        <div class="text-[10px] text-ink-muted font-bold uppercase tracking-wider">Nota Fiscal <span class="text-ink-strong text-sm font-mono font-black normal-case">Nº ${nfData.info ? nfData.info.numero : numNF}</span></div>
+        <div class="mt-1">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-surface-1 text-ink-muted border border-subtle">
+            <i class="fa-solid fa-store text-accent"></i> ${lojaNome} (${lojaCodigo})
+          </span>
+        </div>
+      </div>
+      ${lojaAlertaHtml}
+      <button type="button" class="btn-iniciar-direto mt-4 w-full py-2 bg-accent-soft hover:bg-surface-hover text-ink font-bold rounded-xl text-xs text-center transition">
+        <i class="fa-solid fa-camera mr-1"></i> Iniciar Conferência (Câmera Direct)
+      </button>
+    `;
+
+    card.addEventListener('click', (e) => {
+      // Toggle selection unless start button clicked
+      if (e.target.closest('.btn-iniciar-direto')) return;
+      toggleNfSelection(numNF);
+    });
+
+    const directBtn = card.querySelector('.btn-iniciar-direto');
+    if (directBtn) {
+      directBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openNfConferenceDirectScanner(numNF);
+      });
+    }
+
+    grid.appendChild(card);
+  });
+
+  updateNfSelectionUI();
+}
+
+// Abre a tela de consulta de NF-es arquivadas (concluídas há mais de
+// NF_DIAS_ATE_ARQUIVAR dias) — mantidas apenas para consulta histórica por
+// data, número da nota e loja, sem aparecer na galeria principal.
+function abrirModalNfArquivadas() {
+  const modal = document.getElementById('modal-nf-arquivadas');
+  if (!modal) return;
+  const busca = document.getElementById('nf-arquivadas-busca');
+  if (busca) busca.value = '';
+  renderNfArquivadasList('');
+  modal.classList.remove('hidden');
+}
+
+function renderNfArquivadasList(filtro) {
+  const lista = document.getElementById('nf-arquivadas-lista');
+  if (!lista) return;
+
+  const termo = (filtro || '').trim().toLowerCase();
+  const arquivadas = Object.keys(importedNfs)
+    .map(numNF => ({ numNF, nf: importedNfs[numNF] }))
+    .filter(item => isNfArquivada(item.nf))
+    .filter(item => {
+      if (!termo) return true;
+      const numero = String((item.nf.info && item.nf.info.numero) || item.numNF).toLowerCase();
+      const lojaCodigo = (item.nf.info && item.nf.info.targetStore) ? item.nf.info.targetStore : '';
+      const lojaNome = getLojaNomePorCodigo(lojaCodigo).toLowerCase();
+      return numero.includes(termo) || lojaNome.includes(termo);
+    })
+    .sort((a, b) => new Date(b.nf.info.concluidaEm) - new Date(a.nf.info.concluidaEm));
+
+  if (arquivadas.length === 0) {
+    lista.innerHTML = `
+      <div class="col-span-full py-10 text-center text-ink-muted text-sm">
+        <i class="fa-solid fa-box-archive text-3xl mb-2 block text-ink-strong"></i>
+        Nenhuma Nota Fiscal arquivada${termo ? ' para esta busca' : ''}.
+      </div>
+    `;
+    return;
+  }
+
+  lista.innerHTML = arquivadas.map(({ numNF, nf }) => {
+    const numero = (nf.info && nf.info.numero) ? nf.info.numero : numNF;
+    const lojaCodigo = (nf.info && nf.info.targetStore) ? nf.info.targetStore : '';
+    const lojaNome = getLojaNomePorCodigo(lojaCodigo);
+    const dataConclusao = new Date(nf.info.concluidaEm).toLocaleDateString('pt-BR');
+    return `
+      <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-subtle text-xs">
+        <span class="text-ink-muted font-mono">${dataConclusao}</span>
+        <span class="text-ink-strong font-mono font-bold flex-1 text-center">NF Nº ${numero}</span>
+        <span class="text-ink-muted"><i class="fa-solid fa-store mr-1"></i>${lojaNome}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function nomeLoja(codigo) {
+  if (codigo === "9175") return "🟣 Marambaia (9175)";
+  if (codigo === "4304") return "🔵 Icoaraci (4304)";
+  if (codigo === "9201") return "🟢 Mário Covas (9201)";
+  return `Loja ${codigo}`;
+}
+
+// Loja de uma NF-e importada; cai em currentStore quando o XML não trouxe a loja.
+function lojaDaNf(numNF) {
+  const nf = importedNfs[numNF];
+  return (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+}
+
+function toggleNfSelection(numNF) {
+  const index = selectedNfNumbers.indexOf(numNF);
+  if (index > -1) {
+    selectedNfNumbers.splice(index, 1);
+  } else {
+    // As lojas são fisicamente separadas, com equipes diferentes: uma conferência
+    // em lote misturando lojas não corresponde a nenhuma carga real.
+    const lojaSelecao = selectedNfNumbers.length > 0 ? lojaDaNf(selectedNfNumbers[0]) : null;
+    if (lojaSelecao && lojaDaNf(numNF) !== lojaSelecao) {
+      showToast(`Só é possível conferir em lote notas da mesma loja (${nomeLoja(lojaSelecao)}).`, "erro");
+      return;
+    }
+    selectedNfNumbers.push(numNF);
+  }
+  updateNfSelectionUI();
+
+  // Re-render gallery cards to show selected checkmarks
+  const nfKeys = Object.keys(importedNfs).filter(numNF => !isNfArquivada(importedNfs[numNF]));
+  const grid = document.getElementById('nf-cards-grid');
+  const cards = grid.children;
+
+  const nfKeysDaLoja = nfKeys.filter(n => {
+    if (nfGalleryStoreFilter === 'todas') return true;
+    return lojaDaNf(n) === nfGalleryStoreFilter;
+  });
+
+  nfKeysDaLoja.forEach((nKey, idx) => {
+    const cardEl = cards[idx];
+    if (!cardEl) return;
+    const isSelected = selectedNfNumbers.includes(nKey);
+    const checkIcon = cardEl.querySelector('.absolute.top-4.right-4');
+    if (checkIcon) {
+      if (isSelected) {
+        checkIcon.className = "absolute top-4 right-4 text-success text-lg";
+        checkIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+        cardEl.className = cardEl.className.replace(/border-subtle bg-surface-2|border-success bg-success-soft|border-warning bg-warning-soft/g, 'border-strong bg-surface-1 ring-2 ring-accent scale-[1.01]');
+      } else {
+        checkIcon.className = "absolute top-4 right-4 text-accent opacity-30 text-lg hover:opacity-80";
+        checkIcon.innerHTML = `<i class="fa-regular fa-circle"></i>`;
+        // Restore class based on status
+        const nfData = importedNfs[nKey];
+        const total = nfData.products ? nfData.products.length : 0;
+        let conf = 0, faltas = 0;
+        if (nfData.products) {
+          nfData.products.forEach(p => {
+            if (p.countedQty !== '') conf++;
+            const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+            if (counted < p.nfQty) faltas += (p.nfQty - counted);
+          });
+        }
+        let restoreClass = 'border-subtle bg-surface-2';
+        if (conf === total && total > 0 && faltas === 0) restoreClass = 'border-success bg-success-soft';
+        else if (faltas > 0 && conf > 0) restoreClass = 'border-warning bg-warning-soft';
+        
+        cardEl.className = `glass-card p-5 rounded-2xl border hover:scale-[1.02] transform transition-all cursor-pointer shadow-lg relative overflow-hidden ${restoreClass}`;
+      }
+    }
+  });
+}
+
+function updateNfSelectionUI() {
+  const bar = document.getElementById('nf-selection-action-bar');
+  const countEl = document.getElementById('nf-selected-count');
+  if (!bar || !countEl) return;
+
+  const storeEl = document.getElementById('nf-selected-store');
+
+  if (selectedNfNumbers.length > 0) {
+    countEl.textContent = selectedNfNumbers.length;
+    if (storeEl) storeEl.textContent = ` — ${nomeLoja(lojaDaNf(selectedNfNumbers[0]))}`;
+    bar.classList.remove('hidden');
+  } else {
+    if (storeEl) storeEl.textContent = '';
+    bar.classList.add('hidden');
+  }
+}
+
+function openNfConferenceDirectScanner(numNF) {
+  activeNfNumbers = Array.isArray(numNF) ? numNF : [numNF];
+  activeNfNumber = activeNfNumbers[0];
+  document.getElementById('nf-cards-gallery-section').classList.add('hidden');
+  document.getElementById('nf-work-area').classList.remove('hidden');
+  renderNfDashboard();
+
+  // Notificar Bruno e Isabella (Push + Email) sobre início da conferência de cada uma
+  activeNfNumbers.forEach(n => notificarGestaoConferencia('inicio', n));
+
+  // Rede de segurança
+  activeNfNumbers.forEach(n => {
+    if (importedNfs[n]) {
+      verificarPopupConclusaoNf(importedNfs[n], n);
+    }
+  });
+
+  const scannerContainer = document.getElementById('nf-scanner-container');
+  if (scannerContainer && scannerContainer.classList.contains('hidden')) {
+    toggleNfScanner();
+  }
+}
+
+function notificarGestaoConferencia(tipo, numNF) {
+  if (!numNF || !importedNfs[numNF]) return;
+  const nfData = importedNfs[numNF];
+  const lojaNome = getLojaNomePorCodigo(nfData.info.targetStore || currentStore);
+  const operador = currentUser ? currentUser.nome : 'Colaboradora';
+
+  let totalItens = nfData.products ? nfData.products.length : 0;
+  let conferidosCount = 0;
+  let faltasCount = 0;
+
+  if (nfData.products) {
+    nfData.products.forEach(p => {
+      if (p.countedQty !== '') conferidosCount++;
+      const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+      if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+    });
+  }
+
+  let assunto = '';
+  let mensagem = '';
+
+  if (tipo === 'inicio') {
+    assunto = `🚀 Início de Conferência de NF-e - Loja ${lojaNome}`;
+    mensagem = `A colaboradora ${operador} iniciou a conferência física da NF Nº ${nfData.info.numero} (${nfData.info.fornecedor}) na Loja ${lojaNome}. Total de itens: ${totalItens}.`;
+  } else if (tipo === 'conclusao') {
+    const status = (conferidosCount === totalItens && totalItens > 0 && faltasCount === 0) ? '100% OK' : `PENDÊNCIA (${faltasCount} Faltas)`;
+    assunto = `📋 Conferência de NF-e Finalizada (${status}) - Loja ${lojaNome}`;
+    mensagem = `A conferência da NF Nº ${nfData.info.numero} na Loja ${lojaNome} foi concluída por ${operador}.\nStatus: ${status}.\nItens Conferidos: ${conferidosCount}/${totalItens}.`;
+  }
+
+  const destinatarios = getDestinatariosNotificacao('conferencia_nfe');
+  if (destinatarios.length > 0) {
+    const canal = getNotificationChannel('nfe', 'owner');
+    sendNotification(destinatarios, assunto, mensagem, canal);
+  }
+}
+
+function getLojaNomePorCodigo(codigo) {
+  if (codigo === '9175') return 'Marambaia';
+  if (codigo === '4304') return 'Icoaraci';
+  if (codigo === '9201') return 'Mário Covas';
+  return codigo || 'Marambaia';
+}
+
+function notificarWhatsappGestao() {
+  let storeCode = currentStore;
+  if (activeNfNumbers.length > 0 && importedNfs[activeNfNumbers[0]]) {
+    storeCode = importedNfs[activeNfNumbers[0]].info.targetStore || currentStore;
+  }
+  const storeName = getLojaNomePorCodigo(storeCode);
+  const linkGrupo = WHATSAPP_GRUPOS[storeName];
+
+  if (!linkGrupo) {
+    showToast(`Nenhum grupo de WhatsApp configurado para a Loja ${storeName}.`, 'erro');
+    return;
+  }
+
+  let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
+  if (activeNfNumbers.length > 0) {
+    textoMsg += `Notas Fiscais: ${activeNfNumbers.map(n => n.split('_')[0]).join(', ')}\n`;
+    textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n\n`;
+
+    let pendentes = [];
+    let divergencias = [];
+
+    activeNfNumbers.forEach(numNF => {
+      const nfData = importedNfs[numNF];
+      if (nfData && nfData.products) {
+        nfData.products.forEach(p => {
+          if (p.countedQty === '') {
+            pendentes.push({ p, nf: numNF.split('_')[0] });
+          } else {
+            const counted = Number(p.countedQty);
+            if (counted !== p.nfQty) {
+              divergencias.push({
+                p: p,
+                nf: numNF.split('_')[0],
+                diferenca: counted - p.nfQty
+              });
+            }
+          }
+        });
+      }
+    });
+
+    if (pendentes.length === 0 && divergencias.length === 0) {
+      textoMsg += `*Status:* Conferência concluída 100% CONFORME (sem divergências ou pendências).\n`;
+    } else {
+      textoMsg += `*Status:* Conferência finalizada com pendências/divergências:\n`;
+      if (pendentes.length > 0) {
+        textoMsg += `\n*Itens não conferidos (Pendentes) (${pendentes.length}):*\n`;
+        pendentes.forEach(item => {
+          textoMsg += `- NF ${item.nf} | Cód ${item.p.code}: ${item.p.description} (Qtd Esperada: ${item.p.nfQty})\n`;
+        });
+      }
+      if (divergencias.length > 0) {
+        textoMsg += `\n*Divergências encontradas (${divergencias.length}):*\n`;
+        divergencias.forEach(div => {
+          const sinal = div.diferenca > 0 ? '+' : '';
+          const tipo = div.diferenca > 0 ? 'Sobra' : 'Falta';
+          textoMsg += `- NF ${div.nf} | Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} un | Esp: ${div.p.nfQty}, Cont: ${div.p.countedQty})\n`;
+        });
+      }
+    }
+  } else {
+    textoMsg += `Conferências em andamento na loja.\n`;
+  }
+
+  const urlWhatsapp = `${linkGrupo}?text=${encodeURIComponent(textoMsg)}`;
+  window.open(urlWhatsapp, '_blank');
+}
+
+function renderNfDashboard() {
+  if (activeNfNumbers.length === 0) return;
+  const shortNfs = activeNfNumbers.map(n => n.split('_')[0]);
+  document.getElementById('nf-numero').textContent = shortNfs.join(', ');
+  updateNfStats();
+  renderNfTable();
+}
+
+function updateNfStats() {
+  let faltasCount = 0;
+  let totalItens = 0;
+  let itensCompletos = 0;
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (currentNf && currentNf.products) {
+      currentNf.products.forEach(p => {
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
+        totalItens++;
+        if (counted >= p.nfQty) itensCompletos++;
+      });
+    }
+  });
+  const el = document.getElementById('nf-faltas-count');
+  if (el) el.textContent = faltasCount;
+
+  // Mesmos números, versão resumida pro painel de bipagem mobile (ver
+  // renderBipeFeedback) — só existem na casca compacta, por isso os
+  // elementos podem não estar na página; os `if (el)` cobrem isso.
+  const elConferidos = document.getElementById('nf-mobile-conferidos');
+  if (elConferidos) elConferidos.textContent = `${itensCompletos}/${totalItens}`;
+  const elFaltasMobile = document.getElementById('nf-mobile-faltas');
+  if (elFaltasMobile) elFaltasMobile.textContent = faltasCount;
+}
+
+function toggleNfScanner() {
+  const container = document.getElementById('nf-scanner-container');
+  const btnText = document.getElementById('nf-scanner-btn-text');
+  if (container.classList.contains('hidden')) {
+    container.classList.remove('hidden');
+    if (btnText) btnText.textContent = "Desativar Câmera";
+    startNfScanner();
+  } else {
+    container.classList.add('hidden');
+    if (btnText) btnText.textContent = "Ativar Câmera NF";
+    stopNfScanner();
+  }
+}
+
+function startNfScanner(selectedCameraId = null) {
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast("Biblioteca de QR Code não carregada.", "erro");
+    resetNfScannerUI();
+    return;
+  }
+
+  // 1. Check secure context
+  if (!window.isSecureContext) {
+    showToast("Erro: Acesso à câmera requer conexão segura (HTTPS).", "erro");
+    showModal("O acesso à câmera é bloqueado pelo navegador em conexões não seguras (HTTP). Por favor, acesse o sistema usando HTTPS ou pelo localhost.", {
+      icon: "⚠️",
+      title: "Conexão Não Segura",
+      btnText: "Entendi"
+    });
+    resetNfScannerUI();
+    return;
+  }
+
+  if (html5QrCodeNf === null) {
+    html5QrCodeNf = new Html5Qrcode("nf-reader");
+  }
+
+  const config = { fps: 15, qrbox: { width: 300, height: 180 } };
+
+  const isPermissionError = (err) => {
+    if (!err) return false;
+    const str = String(err.name || err.message || err).toLowerCase();
+    return str.includes("notallowederror") || str.includes("permission") || str.includes("dismissed") || str.includes("denied");
+  };
+
+  // If a specific camera ID was selected or passed, use it directly
+  if (selectedCameraId) {
+    html5QrCodeNf.start({ deviceId: { exact: selectedCameraId } }, config, onNfScanSuccess, () => { })
+      .then(() => {
+        // Scanner started successfully
+      })
+      .catch(err => {
+        console.error("Erro ao iniciar com camera ID:", err);
+        if (isPermissionError(err)) {
+          showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+          resetNfScannerUI();
+          return;
+        }
+        showToast("Erro ao abrir a câmera selecionada. Tentando outra...", "erro");
+        fallbackToCameraList();
+      });
+    return;
+  }
+
+  // Otherwise, start with environment camera (rear camera)
+  html5QrCodeNf.start({ facingMode: "environment" }, config, onNfScanSuccess, () => { })
+    .then(() => {
+      setupCameraDropdown();
+    })
+    .catch(err => {
+      console.warn("Erro ao iniciar facingMode environment. Tentando listar câmeras...", err);
+      if (isPermissionError(err)) {
+        showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+        resetNfScannerUI();
+        return;
+      }
+      fallbackToCameraList();
+    });
+
+  function fallbackToCameraList() {
+    Html5Qrcode.getCameras()
+      .then(cameras => {
+        if (!cameras || cameras.length === 0) {
+          showToast("Nenhuma câmera encontrada no aparelho.", "erro");
+          resetNfScannerUI();
+          return;
+        }
+
+        // Try to find a back camera
+        let backCamera = cameras.find(c => {
+          const lbl = c.label.toLowerCase();
+          return lbl.includes("back") || lbl.includes("traseira") || lbl.includes("rear") || lbl.includes("ambiente") || lbl.includes("environment");
+        });
+
+        // Use back camera if found, otherwise use first camera
+        const targetCam = backCamera || cameras[cameras.length - 1] || cameras[0];
+
+        html5QrCodeNf.start({ deviceId: { exact: targetCam.id } }, config, onNfScanSuccess, () => { })
+          .then(() => {
+            setupCameraDropdown(cameras, targetCam.id);
+          })
+          .catch(e => {
+            console.error("Falha total ao iniciar câmera:", e);
+            showToast("Não foi possível acessar a câmera. Verifique as permissões.", "erro");
+            resetNfScannerUI();
+          });
+      })
+      .catch(e => {
+        console.error("Erro ao listar câmeras:", e);
+        if (isPermissionError(e)) {
+          showToast("Permissão de câmera negada ou cancelada. Habilite o acesso no navegador.", "erro");
+        } else {
+          showToast("Permissão negada ou erro ao acessar câmera.", "erro");
+        }
+        resetNfScannerUI();
+      });
+  }
+
+  function setupCameraDropdown(providedCameras = null, activeId = null) {
+    const selectContainer = document.getElementById('nf-camera-select-container');
+    const selectEl = document.getElementById('nf-camera-select');
+    if (!selectContainer || !selectEl) return;
+
+    const populate = (cameras) => {
+      if (cameras.length <= 1) {
+        selectContainer.classList.add('hidden');
+        return;
+      }
+
+      selectEl.innerHTML = '';
+      cameras.forEach(cam => {
+        const opt = document.createElement('option');
+        opt.value = cam.id;
+        opt.textContent = cam.label || `Câmera ${cam.id.substring(0, 8)}`;
+        if (activeId && cam.id === activeId) {
+          opt.selected = true;
+        }
+        selectEl.appendChild(opt);
+      });
+
+      selectContainer.classList.remove('hidden');
+
+      // Add change event listener if not already added
+      if (!selectEl.dataset.listenerAdded) {
+        selectEl.addEventListener('change', (e) => {
+          const newCamId = e.target.value;
+          if (html5QrCodeNf && html5QrCodeNf.isScanning) {
+            html5QrCodeNf.stop()
+              .then(() => {
+                startNfScanner(newCamId);
+              })
+              .catch(err => {
+                console.error("Erro ao parar para trocar câmera:", err);
+                startNfScanner(newCamId);
+              });
+          } else {
+            startNfScanner(newCamId);
+          }
+        });
+        selectEl.dataset.listenerAdded = "true";
+      }
+    };
+
+    if (providedCameras) {
+      populate(providedCameras);
+    } else {
+      Html5Qrcode.getCameras()
+        .then(cameras => {
+          populate(cameras);
+        })
+        .catch(err => console.warn("Erro ao carregar câmeras para dropdown:", err));
+    }
+  }
+}
+
+function resetNfScannerUI() {
+  const container = document.getElementById('nf-scanner-container');
+  const selectContainer = document.getElementById('nf-camera-select-container');
+  const btnText = document.getElementById('nf-scanner-btn-text');
+
+  if (container) container.classList.add('hidden');
+  if (selectContainer) selectContainer.classList.add('hidden');
+  if (btnText) btnText.textContent = "Ativar Câmera NF";
+}
+
+function stopNfScanner() {
+  const selectContainer = document.getElementById('nf-camera-select-container');
+  if (selectContainer) selectContainer.classList.add('hidden');
+  if (html5QrCodeNf && html5QrCodeNf.isScanning) {
+    html5QrCodeNf.stop().catch(err => console.error(err));
+  }
+}
+
+function onNfScanSuccess(decodedText) {
+  const cleanCode = decodedText.trim();
+  let p = null;
+  let matchedNfNumber = null;
+
+  // --- Etapa 1: Buscar nas NF-es ativas ---
+  for (const numNF of activeNfNumbers) {
+    const currentNf = importedNfs[numNF];
+    if (currentNf) {
+      const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
+      const tempP = resultado.produto;
+      if (tempP) {
+        // Priorizar item pendente
+        const currentQty = tempP.countedQty === '' ? 0 : Number(tempP.countedQty);
+        if (currentQty < tempP.nfQty) {
+          p = tempP;
+          matchedNfNumber = numNF;
+          break;
+        } else if (!p) {
+          p = tempP;
+          matchedNfNumber = numNF;
+        }
+      }
+    }
+  }
+
+  // --- Etapa 2: Buscar em outras NF-es importadas (carga misturada) ---
+  if (!p) {
+    for (const numNF of Object.keys(importedNfs)) {
+      if (!activeNfNumbers.includes(numNF)) {
+        const { produto, metodo } = resolverCodigoBipado(importedNfs[numNF].products, cleanCode);
+        if (produto) {
+          p = produto;
+          matchedNfNumber = numNF;
+          activeNfNumbers = [numNF];
+          activeNfNumber = numNF;
+          renderNfDashboard();
+          const metodoInfo = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
+          showToast(`⚡ Carga Misturada: NF Nº ${numNF.split('_')[0]}${metodoInfo}`, "info");
+          break;
+        }
+      }
+    }
+  }
+
+  if (p && matchedNfNumber) {
+    if (navigator.vibrate) navigator.vibrate(150);
+    playBeep('success');
+    const currentQty = p.countedQty === '' ? 0 : Number(p.countedQty);
+    const newQty = currentQty + 1;
+    saveNfQuantity(p.code, newQty.toString(), matchedNfNumber);
+
+    flashScanner("nf-scanner-container");
+    ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
+    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty, code: p.code });
+    nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
+    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
+
+    // Focar no campo de quantidade inventariada do produto bipado — só faz
+    // sentido no desktop, onde a tabela continua visível. Na casca compacta
+    // ela some (ver style.css) em favor do cartão de feedback acima.
+    if (document.documentElement.dataset.density !== "compact") {
+      setTimeout(() => {
+        const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                         || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
+        if (rowInput) {
+          rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          rowInput.focus();
+          rowInput.select();
+        }
+      }, 100);
+    }
+  } else {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    playBeep('error');
+    const nomeCSVNf = codBarraParaDesc[cleanCode] || codProdParaDesc[cleanCode] || null;
+    const msgErroNf = nomeCSVNf
+      ? `"${nomeCSVNf}" não está nas NF-es importadas. Tente o CodProduto da etiqueta da caixa.`
+      : `Código não localizado nas NF-es: ${cleanCode}. Tente bipar o CodProduto da etiqueta da caixa.`;
+    showToast(msgErroNf, 'erro');
+  }
+}
+
+function montarMensagemConclusaoNfe(currentNf) {
+  const numero = currentNf.info.numero;
+  const itensComFalta = [];
+  currentNf.products.forEach(p => {
+    const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+    if (counted < p.nfQty) {
+      itensComFalta.push(`${p.description} (faltou ${p.nfQty - counted})`);
+    }
+  });
+
+  if (itensComFalta.length === 0) {
+    return `✅ Conferência da NF-e Nº ${numero} concluída — sem divergências.`;
+  }
+
+  const LIMITE_ITENS = 3;
+  let listaResumo = itensComFalta.slice(0, LIMITE_ITENS).join('; ');
+  if (itensComFalta.length > LIMITE_ITENS) {
+    listaResumo += `; e mais ${itensComFalta.length - LIMITE_ITENS} item(ns)`;
+  }
+
+  return `⚠️ Conferência da NF-e Nº ${numero} concluída COM DIVERGÊNCIAS:\n${listaResumo}`;
+}
+
+function abrirPopupConclusaoNfe(currentNf, numNF) {
+  abrirPopupConclusaoNfeMulti([numNF]);
+}
+
+function abrirPopupConclusaoNfeMulti(numNFs) {
+  const modal = document.getElementById('modal-nf-conclusao');
+  const statusTexto = document.getElementById('nf-conclusao-status-texto');
+  const textarea = document.getElementById('nf-conclusao-texto');
+  const btnCopiar = document.getElementById('btn-nf-conclusao-copiar');
+  const btnWhatsapp = document.getElementById('btn-nf-conclusao-whatsapp');
+  const btnEnviado = document.getElementById('btn-nf-conclusao-enviado');
+  if (!modal) return;
+
+  let temDivergencia = false;
+  let storeName = 'Marambaia';
+
+  numNFs.forEach(n => {
+    const nf = importedNfs[n];
+    if (nf) {
+      storeName = getLojaNomePorCodigo(nf.info.targetStore || currentStore);
+      if (nf.products) {
+        nf.products.forEach(p => {
+          const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+          if (counted < p.nfQty) temDivergencia = true;
+        });
+      }
+    }
+  });
+
+  statusTexto.textContent = temDivergencia ? 'Conferência concluída com divergências' : 'Conferência concluída';
+
+  let textoMsg = `*Aviso de Conferência de NF-e - Loja ${storeName}*\n`;
+  textoMsg += `Operador: ${currentUser ? currentUser.nome : 'Colaboradora'}\n`;
+  textoMsg += `Notas Fiscais: ${numNFs.map(n => n.split('_')[0]).join(', ')}\n\n`;
+
+  let pendentes = [];
+  let divergencias = [];
+
+  numNFs.forEach(n => {
+    const nf = importedNfs[n];
+    if (nf && nf.products) {
+      nf.products.forEach(p => {
+        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
+        if (p.countedQty === '') {
+          pendentes.push({ p, nf: n.split('_')[0] });
+        } else if (counted !== p.nfQty) {
+          divergencias.push({
+            p: p,
+            nf: n.split('_')[0],
+            diferenca: counted - p.nfQty
+          });
+        }
+      });
+    }
+  });
+
+  if (pendentes.length === 0 && divergencias.length === 0) {
+    textoMsg += `*Status:* Conferência concluída 100% CONFORME (sem divergências ou pendências).\n`;
+  } else {
+    textoMsg += `*Status:* Conferência finalizada com pendências/divergências:\n`;
+    if (pendentes.length > 0) {
+      textoMsg += `\n*Itens não conferidos (Pendentes) (${pendentes.length}):*\n`;
+      pendentes.slice(0, 10).forEach(item => {
+        textoMsg += `- NF ${item.nf} | Cód ${item.p.code}: ${item.p.description} (Qtd Esperada: ${item.p.nfQty})\n`;
+      });
+      if (pendentes.length > 10) {
+        textoMsg += `- ... e mais ${pendentes.length - 10} itens pendentes.\n`;
+      }
+    }
+    if (divergencias.length > 0) {
+      textoMsg += `\n*Divergências encontradas (${divergencias.length}):*\n`;
+      divergencias.slice(0, 10).forEach(div => {
+        const sinal = div.diferenca > 0 ? '+' : '';
+        const tipo = div.diferenca > 0 ? 'Sobra' : 'Falta';
+        textoMsg += `- NF ${div.nf} | Cód ${div.p.code}: ${div.p.description} (${tipo}: ${sinal}${div.diferenca} un | Esp: ${div.p.nfQty}, Cont: ${div.p.countedQty})\n`;
+      });
+      if (divergencias.length > 10) {
+        textoMsg += `- ... e mais ${divergencias.length - 10} divergências.\n`;
+      }
+    }
+  }
+
+  textarea.value = textoMsg;
+
+  const linkGrupo = WHATSAPP_GRUPOS[storeName];
+  btnWhatsapp.href = linkGrupo ? `${linkGrupo}?text=${encodeURIComponent(textoMsg)}` : `https://wa.me/?text=${encodeURIComponent(textoMsg)}`;
+
+  btnCopiar.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      showToast('Mensagem copiada!', 'sucesso');
+    } catch {
+      textarea.select();
+      document.execCommand('copy');
+    }
+  };
+
+  btnEnviado.onclick = () => {
+    numNFs.forEach(n => {
+      const nf = importedNfs[n];
+      if (nf) {
+        nf._mensagemEnviada = true;
+      }
+    });
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+    
+    // Sync each completed status to the backend
+    numNFs.forEach(numNF => {
+      const currentNf = importedNfs[numNF];
+      if (currentNf && API_ONLINE) {
+        fetch(`${API_BASE}/nfs/${numNF}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
+        }).catch(err => console.error('Erro ao sincronizar confirmação de envio:', err));
+      }
+    });
+
+    modal.classList.add('hidden');
+    showToast('Aviso de conclusão enviado. Retornando à galeria.', 'sucesso');
+    backToNfGallery();
+  };
+
+  modal.classList.remove('hidden');
+}
+
+function verificarPopupConclusaoNf(currentNf, numNF) {
+  // Manual conclude is now enforced, no automatic modal popup on every save
+}
+
+function saveNfQuantity(code, value, targetNfNumber = null) {
+  const nfNum = targetNfNumber || (activeNfNumbers.length > 0 ? activeNfNumbers[0] : null);
+  if (!nfNum || !importedNfs[nfNum]) return;
+  const currentNf = importedNfs[nfNum];
+  const p = currentNf.products.find(prod => prod.code === code);
+  if (p) {
+    p.countedQty = value;
+    localStorage.setItem(`nfcnt_${currentStore}_${nfNum}_${code}`, value);
+    
+    // Quantity changed, update stats and table (DO NOT credit inventory until concluded)
+    updateNfStats();
+    renderNfTable();
+
+    // Reset status flags since it has modified content
+    currentNf.info.concluidaEm = null;
+    currentNf._notificadoConclusao = false;
+    currentNf._mensagemEnviada = false;
+
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+    // Envia SÓ este produto (PATCH), com debounce. Antes daqui saía um PUT com
+    // o array inteiro a cada tecla: duas pessoas conferindo a mesma nota
+    // apagavam a contagem uma da outra, porque cada resposta levava junto uma
+    // cópia desatualizada do resto.
+    enviarItemNfComDebounce(nfNum, code, value);
+  }
+}
+
+const _enviosNfPendentes = new Map();
+const DEBOUNCE_NF_MS = 400;
+
+function enviarItemNfComDebounce(nfNum, code, value) {
+  if (currentUser && currentUser.nome && currentUser.nome.includes("Treinamento")) return;
+
+  const chave = `${nfNum}_${code}`;
+  clearTimeout(_enviosNfPendentes.get(chave));
+  _enviosNfPendentes.set(chave, setTimeout(() => {
+    _enviosNfPendentes.delete(chave);
+    enviarItemNf(nfNum, code, value);
+  }, DEBOUNCE_NF_MS));
+}
+
+async function enviarItemNf(nfNum, code, value) {
+  const nf = importedNfs[nfNum];
+  const loja = (nf && nf.info && nf.info.targetStore) ? nf.info.targetStore : currentStore;
+  const corpo = {
+    countedQty: value,
+    usuario: currentUser ? currentUser.nome : '',
+    loja,
+    clientId: (window.RT && window.RT.clientId) || ''
+  };
+
+  if (!API_ONLINE) {
+    addToSyncQueue({ type: 'NF_ITEM', nfNum, code, data: corpo, usuario: corpo.usuario });
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/nfs/${encodeURIComponent(nfNum)}/item/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    console.error('Erro ao sincronizar quantidade da NF-e no servidor:', err);
+    addToSyncQueue({ type: 'NF_ITEM', nfNum, code, data: corpo, usuario: corpo.usuario });
+  }
+}
+
+function concluirConferenciaAtiva() {
+  if (activeNfNumbers.length === 0) {
+    showToast("Nenhuma conferência ativa.", "erro");
+    return;
+  }
+
+  let totalItens = 0;
+  let conferidosCount = 0;
+  activeNfNumbers.forEach(numNF => {
+    const nf = importedNfs[numNF];
+    if (nf && nf.products) {
+      totalItens += nf.products.length;
+      nf.products.forEach(p => {
+        if (p.countedQty !== '') conferidosCount++;
+      });
+    }
+  });
+
+  const msgConfirm = `Deseja concluir a conferência de ${activeNfNumbers.length} nota(s)? (${conferidosCount}/${totalItens} itens informados)`;
+  if (!confirm(msgConfirm)) return;
+
+  // Process and save each active NF
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (!currentNf) return;
+
+    // 1. Mark completed (local + servidor, avisando os outros usuários)
+    currentNf.info.concluidaEm = new Date().toISOString();
+    if (API_ONLINE && !(currentUser && currentUser.nome && currentUser.nome.includes("Treinamento"))) {
+      fetch(`${API_BASE}/nfs/${encodeURIComponent(numNF)}/concluir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: currentUser ? currentUser.nome : '',
+          loja: (currentNf.info && currentNf.info.targetStore) ? currentNf.info.targetStore : currentStore,
+          clientId: (window.RT && window.RT.clientId) || ''
+        })
+      }).catch(err => console.error('Erro ao marcar conferência como concluída no servidor:', err));
+    }
+
+    // 2. Feed inventory with checked products
+    if (currentNf.products) {
+      currentNf.products.forEach(p => {
+        autoCreditNfProductToInventory(currentNf.info, p);
+      });
+    }
+
+    // 2b. Envia os produtos atualizados (com os flags stockCredited*) para o servidor —
+    // sem isso, o próximo merge (mesclarNfs) pode perder esses flags e recreditar o estoque.
+    if (API_ONLINE) {
+      fetch(`${API_BASE}/nfs/${numNF}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ info: currentNf.info, products: currentNf.products })
+      }).catch(err => console.error('Erro ao sincronizar crédito de estoque da conferência:', err));
+    }
+
+    // 3. Notify management of completion
+    if (!currentNf._notificadoConclusao) {
+      currentNf._notificadoConclusao = true;
+      notificarGestaoConferencia('conclusao', numNF);
+    }
+  });
+
+  // Save changes locally
+  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+  // Open WhatsApp report modal
+  abrirPopupConclusaoNfeMulti(activeNfNumbers);
+}
+
+function autoCreditNfProductToInventory(nfInfo, p) {
+  const targetStore = nfInfo.targetStore || currentStore;
+  const countedBoxes = p.countedQty !== '' ? Number(p.countedQty) : 0;
+  if (countedBoxes <= 0) return;
+
+  // Recalcula o multiplicador a partir da descrição na hora do crédito, em vez de
+  // confiar no p.boxMultiplier salvo na importação — cobre NFs importadas por Excel
+  // (nunca setam boxMultiplier) e garante que a regra de sufixo mais recente sempre vale.
+  const multiplier = detectBoxMultiplier(null, p.description || '') || 1;
+  const totalUnits = Math.round(countedBoxes * multiplier);
+
+  // Buscar item existente diretamente do localStorage da loja de destino
+  const key = `cacaushow_db_inventory_${targetStore}_${p.code}`;
+  const localData = localStorage.getItem(key);
+  let invProd = null;
+  if (localData) {
+    try {
+      invProd = JSON.parse(localData);
+    } catch (e) {}
+  }
+
+  if (!invProd) {
+    invProd = {
+      code: p.code,
+      barras: p.barras,
+      description: p.description,
+      validade: p.validade,
+      daysRemaining: p.daysRemaining,
+      countedQty: '',
+      dataEntrada: nfInfo.emissao,
+      qtdEntradaUnidades: totalUnits,
+      qtdEntradaCaixas: countedBoxes
+    };
+  } else {
+    invProd.dataEntrada = nfInfo.emissao;
+    invProd.qtdEntradaUnidades = totalUnits;
+    invProd.qtdEntradaCaixas = countedBoxes;
+  }
+
+  // Credita em QTD Inventariada (countedQty) só a DIFERENÇA entre o total de unidades
+  // desta conferência e o que já foi creditado antes para esta mesma linha de NF — assim
+  // concluir de novo (ex: depois de editar a contagem) nunca soma o total inteiro outra vez.
+  const previamenteCreditado = p.stockCreditedUnits || 0;
+  const deltaUnidades = totalUnits - previamenteCreditado;
+  if (deltaUnidades !== 0) {
+    const estoqueAtual = invProd.countedQty === '' || invProd.countedQty === undefined || invProd.countedQty === null
+      ? 0
+      : Number(invProd.countedQty);
+    invProd.countedQty = String(Math.max(0, estoqueAtual + deltaUnidades));
+    p.stockCreditedUnits = totalUnits;
+    p.stockCreditApplied = true;
+    p.stockCreditedAt = new Date().toISOString();
+  }
+
+  dbBridge.saveInventoryItem(targetStore, invProd);
+
+  // Se a loja de destino for a loja ativa, atualiza também a lista em memória
+  if (targetStore === currentStore) {
+    let existingIndex = products.findIndex(prod => prod.code === p.code);
+    if (existingIndex > -1) {
+      products[existingIndex] = {
+        ...products[existingIndex],
+        countedQty: invProd.countedQty,
+        dataEntrada: invProd.dataEntrada,
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades,
+        qtdEntradaCaixas: invProd.qtdEntradaCaixas
+      };
+    } else {
+      products.push({
+        code: invProd.code,
+        barras: invProd.barras || '',
+        description: invProd.description || 'Produto',
+        validade: invProd.validade ? new Date(invProd.validade) : null,
+        daysRemaining: invProd.daysRemaining,
+        countedQty: invProd.countedQty || '',
+        dataEntrada: invProd.dataEntrada || '',
+        qtdEntradaUnidades: invProd.qtdEntradaUnidades || 0,
+        qtdEntradaCaixas: invProd.qtdEntradaCaixas || 0
+      });
+    }
+    renderTable();
+  }
+}
+
+function renderNfTable() {
+  const tbody = document.getElementById('nf-inventory-tbody');
+  if (!tbody || activeNfNumbers.length === 0) return;
+  tbody.innerHTML = '';
+
+  activeNfNumbers.forEach(numNF => {
+    const currentNf = importedNfs[numNF];
+    if (!currentNf || !currentNf.products) return;
+
+    currentNf.products.forEach(p => {
+      const counted = p.countedQty === '' ? null : Number(p.countedQty);
+      
+      let statusText = 'Pendente';
+      let statusColorClass = 'text-warning font-extrabold bg-warning-soft px-2 py-1 rounded border border-warning';
+      let rowBgClass = 'bg-warning-soft border-warning';
+
+      if (counted !== null) {
+        if (counted === p.nfQty) {
+          statusText = 'Conforme';
+          statusColorClass = 'text-success font-extrabold bg-success-soft px-2 py-1 rounded border border-success';
+          rowBgClass = 'bg-success-soft border-success';
+        } else {
+          statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
+          statusColorClass = 'text-danger font-extrabold bg-danger-soft px-2 py-1 rounded border border-danger';
+          rowBgClass = 'bg-danger-soft border-danger';
+        }
+      }
+
+      const tr = document.createElement('tr');
+      tr.className = `hover:bg-surface-hover transition-all border-b ${rowBgClass}`;
+      
+      const shortNf = numNF.split('_')[0];
+      
+      tr.innerHTML = `
+        <td class="py-3 px-4">
+          <div class="font-semibold text-ink-strong text-xs">${p.description}</div>
+          <div class="text-[10px] text-ink-muted font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''} | <span class="text-ink font-bold bg-surface-1 px-1 py-0.5 rounded border border-subtle">NF: ${shortNf}</span></div>
+        </td>
+        <td class="py-3 px-4 text-center text-xs text-ink">${p.validade ? formatDate(p.validade) : '-'}</td>
+        <td class="py-3 px-4 text-center text-xs text-ink-muted">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
+        <td class="py-3 px-4 text-center font-bold text-xs text-ink-strong">${p.nfQty}</td>
+        <td class="py-3 px-4 text-center">
+          <input type="number" value="${p.countedQty}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-16 text-center bg-surface-2 border border-subtle text-ink rounded py-1 font-bold text-xs" />
+        </td>
+        <td class="py-3 px-4 text-center text-xs">
+          <span class="${statusColorClass}">${statusText}</span>
+        </td>
+      `;
+      const qtyInput = tr.querySelector('.nf-qty-input');
+      qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+function triggerInventoryStartedNotification() {
+  const ano = new Date().getFullYear();
+  const mes = new Date().getMonth();
+  const storageKey = `inv_started_${ano}_${mes}_${currentStore}`;
+  if (!localStorage.getItem(storageKey)) {
+    localStorage.setItem(storageKey, "true");
+    fetch('/api/notificar-gestao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+        assunto: `📋 Inventário Iniciado - Loja ${getLojaNomePorCodigo(currentStore)}`,
+        mensagem: `A colaboradora ${currentUser.nome} iniciou a contagem física do Inventário de Estoque na Loja ${getLojaNomePorCodigo(currentStore)}.`,
+        operador: currentUser.nome
+      })
+    }).catch(err => console.error('Erro na notificação de início de inventário:', err));
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('inventory-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // Update top stats dynamically
+  let totalCount = 0;
+  let redCount = 0;
+  let orangeCount = 0;
+  let greenCount = 0;
+
+  const now = new Date();
+  const dToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  products.forEach(p => {
+    if (p.validade && !isNaN(new Date(p.validade).getTime())) {
+      const valDate = new Date(p.validade);
+      const dVal = new Date(valDate.getFullYear(), valDate.getMonth(), valDate.getDate());
+      const diffTime = dVal.getTime() - dToday.getTime();
+      p.daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } else {
+      p.daysRemaining = null;
+    }
+
+    totalCount++;
+    if (p.daysRemaining !== null) {
+      if (p.daysRemaining <= 20) {
+        redCount++;
+      } else if (p.daysRemaining <= 40) {
+        orangeCount++;
+      } else {
+        greenCount++;
+      }
+    } else {
+      greenCount++;
+    }
+  });
+
+  const statTotal = document.getElementById('stat-total-products');
+  const statRed = document.getElementById('stat-red');
+  const statOrange = document.getElementById('stat-orange');
+  const statGreen = document.getElementById('stat-green');
+
+  if (statTotal) statTotal.textContent = totalCount;
+  if (statRed) statRed.textContent = redCount;
+  if (statOrange) statOrange.textContent = orangeCount;
+  if (statGreen) statGreen.textContent = greenCount;
+
+  // Style active/inactive filter buttons
+  const btnAll = document.getElementById('filter-all');
+  const btnRed = document.getElementById('filter-red');
+  const btnOrange = document.getElementById('filter-orange');
+  const btnGreen = document.getElementById('filter-green');
+
+  // Botões sempre com fundo vivo/sólido (pedido do usuário — o estilo antigo
+  // com fundo escuro translúcido lia como "off-white" apagado). O estado
+  // selecionado agora se mostra por um anel branco, não por mudar a cor.
+  const anelAtivo = "filtro-ativo";
+  if (btnAll) {
+    btnAll.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-accent-soft text-ink shadow-md ${currentFilter === 'all' ? anelAtivo : ''}`;
+  }
+  if (btnRed) {
+    btnRed.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-danger-soft text-ink shadow-md hover:bg-danger-hover ${currentFilter === 'red' ? anelAtivo : ''}`;
+  }
+  if (btnOrange) {
+    btnOrange.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-warning-soft text-ink shadow-md hover:bg-warning-hover ${currentFilter === 'orange' ? anelAtivo : ''}`;
+  }
+  if (btnGreen) {
+    btnGreen.className = `px-3 py-2 rounded-xl text-xs font-bold transition bg-success-soft text-ink shadow-md hover:bg-success-hover ${currentFilter === 'green' ? anelAtivo : ''}`;
+  }
+
+  products.sort((a, b) => {
+    if (a.daysRemaining === null && b.daysRemaining === null) return 0;
+    if (a.daysRemaining === null) return 1;
+    if (b.daysRemaining === null) return -1;
+    return a.daysRemaining - b.daysRemaining;
+  });
+
+  // Filter products based on search query and current filter
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = !searchQuery || 
+      (p.description && p.description.toLowerCase().includes(searchQuery)) ||
+      (p.code && p.code.toLowerCase().includes(searchQuery)) ||
+      (p.barras && p.barras.toLowerCase().includes(searchQuery));
+      
+    if (!matchesSearch) return false;
+
+    if (currentFilter === 'all') return true;
+    if (currentFilter === 'red') {
+      return p.daysRemaining !== null && p.daysRemaining <= 20;
+    } else if (currentFilter === 'orange' || currentFilter === 'yellow') {
+      return p.daysRemaining !== null && p.daysRemaining > 20 && p.daysRemaining <= 40;
+    } else if (currentFilter === 'green') {
+      return p.daysRemaining === null || p.daysRemaining > 40;
+    }
+    return true;
+  });
+
+  filteredProducts.forEach(p => {
+    // Mesma família de cor vivo dos botões de filtro (vermelho/laranja/verde),
+    // não mais o tom escuro/translúcido antigo — pedido explícito pra ficar
+    // intuitivo bater o olho na linha e já saber o status.
+    let rowBorder = 'border-l-4 border-l-green-500 bg-success-soft';
+    let urgentSignal = '';
+
+    if (p.daysRemaining !== null) {
+      if (p.daysRemaining <= 20) {
+        rowBorder = 'border-l-4 border-l-red-500 bg-danger-soft';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-danger-soft text-ink animate-pulse">Crítico</span>`;
+      } else if (p.daysRemaining <= 40) {
+        rowBorder = 'border-l-4 border-l-orange-500 bg-warning-soft';
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-warning-soft text-ink">Alerta</span>`;
+      } else {
+        urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-success-soft text-ink">No Prazo</span>`;
+      }
+    } else {
+      urgentSignal = `<span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-success-soft text-ink-muted">Sem Validade</span>`;
+    }
+
+    // Buscar o COD_PROD de 7 dígitos vindo dos XMLs das NF-e
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = `hover:bg-surface-hover transition-all border-b border-subtle ${rowBorder}`;
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div class="font-mono text-xs text-ink-muted font-extrabold tracking-wider">${cod7}</div>
+      </td>
+      <td class="py-3 px-4 text-ink-strong font-medium text-xs">${p.description}</td>
+      <td class="py-3 px-4 text-center font-mono text-xs text-ink-muted">${p.dataEntrada || '-'}</td>
+      <td class="py-3 px-4 text-center font-bold text-xs text-ink">${p.qtdEntradaCaixas ? `${p.qtdEntradaCaixas} CX` : '-'}</td>
+      <td class="py-3 px-4 text-center">
+        <input type="date" value="${dateToInputVal(p.validade)}" class="validade-input bg-surface-2 border border-subtle rounded px-2 py-1 text-ink text-xs" />
+      </td>
+      <td class="py-3 px-4 text-center text-xs font-bold">${p.daysRemaining !== null ? `${p.daysRemaining} dias` : 'N/A'} ${urgentSignal}</td>
+      <td class="py-3 px-4 text-center">
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input w-20 text-center bg-surface-2 border border-subtle rounded py-1 text-ink font-bold text-sm focus:border-accent focus:ring-2 focus:ring-accent transition-all" />
+      </td>
+    `;
+
+    const qtyInput = tr.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+    });
+
+    const validadeInput = tr.querySelector('.validade-input');
+    validadeInput.addEventListener('change', (e) => {
+      const d = e.target.value ? new Date(e.target.value + 'T12:00:00') : null;
+      p.validade = d;
+      if (d) {
+        const diffTime = d.getTime() - dToday.getTime();
+        p.daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      } else {
+        p.daysRemaining = null;
+      }
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+      renderTable();
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  renderInventoryCards(filteredProducts);
+}
+
+// Lista em cartões de "Inventário de Estoque" — casca compacta only (ver
+// .density-compact .inv-produtos-cards em style.css). Mesma lista já
+// filtrada/ordenada que alimenta #inventory-tbody, e o input de quantidade
+// grava no MESMO objeto `p` que a tabela usa — tocar aqui equivale a editar
+// a linha correspondente na tabela.
+function renderInventoryCards(filteredProducts) {
+  const box = document.getElementById('inv-produtos-cards');
+  if (!box) return;
+  box.innerHTML = '';
+
+  filteredProducts.forEach(p => {
+    let statusClass = 'ok';
+    let statusLabel = 'No Prazo';
+    if (p.daysRemaining === null) {
+      statusClass = 'sem-validade';
+      statusLabel = 'Sem Validade';
+    } else if (p.daysRemaining <= 20) {
+      statusClass = 'critico';
+      statusLabel = 'Crítico';
+    } else if (p.daysRemaining <= 40) {
+      statusClass = 'alerta';
+      statusLabel = 'Alerta';
+    }
+
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const validadeFmt = p.validade && !isNaN(new Date(p.validade).getTime()) ? formatDate(new Date(p.validade)) : '—';
+    const diasTexto = p.daysRemaining !== null ? ` · ${p.daysRemaining} dias` : '';
+
+    const card = document.createElement('div');
+    card.className = `inv-produto-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="inv-produto-card-top">
+        <span class="inv-produto-card-cod">${cod7}</span>
+        <span class="inv-produto-card-status">${statusLabel}</span>
+      </div>
+      <div class="inv-produto-card-nome">${p.description}</div>
+      <div class="inv-produto-card-meta">Validade: ${validadeFmt}${diasTexto}${p.qtdEntradaCaixas ? ` · Entrada: ${p.qtdEntradaCaixas} CX` : ''}</div>
+      <div class="inv-produto-card-qtd">
+        <label>QTD Inventariada</label>
+        <input type="number" value="${p.countedQty}" data-code="${p.code}" placeholder="0" class="qty-input inv-produto-card-input" />
+      </div>
+    `;
+
+    const qtyInput = card.querySelector('.qty-input');
+    qtyInput.addEventListener('input', (e) => {
+      p.countedQty = e.target.value;
+      dbBridge.saveInventoryItem(currentStore, p);
+      triggerInventoryStartedNotification();
+    });
+
+    box.appendChild(card);
+  });
+}
+
+function exportExcel() {
+  if (products.length === 0) {
+    showToast("Nenhum produto cadastrado para exportação de inventário.", "warning");
+    return;
+  }
+
+  // Padrão solicitado: 1 coluna "COD_PROD" (código de 7 dígitos) e 1 coluna "QTDE_INV" (quantidade inventariada)
+  const header = ['COD_PROD', 'QTDE_INV'];
+  const rows = [header];
+
+  products.forEach(p => {
+    // Buscar código de 7 dígitos extraído da NF-e (XML) por EAN/Barras ou Descrição do produto
+    let rawCode = p.code || '';
+    if (p.barras && localStorage.getItem(`nfe_cprod_${p.barras}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_${p.barras}`);
+    } else if (p.description && localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`)) {
+      rawCode = localStorage.getItem(`nfe_cprod_desc_${p.description.trim().toUpperCase()}`);
+    }
+
+    // Formatar código garantindo exatamente 7 dígitos numéricos
+    let cod7 = rawCode.toString().replace(/\D/g, '');
+    if (cod7.length > 0 && cod7.length < 7) {
+      cod7 = cod7.padStart(7, '0');
+    } else if (cod7.length > 7) {
+      cod7 = cod7.slice(-7);
+    } else if (!cod7) {
+      cod7 = (p.code || '0000000').toString().padStart(7, '0').slice(-7);
+    }
+
+    const qtdeInv = p.countedQty === '' ? 0 : Number(p.countedQty);
+    rows.push([cod7, qtdeInv]);
+  });
+
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "INVENTARIO");
+
+  // Nome do arquivo conforme o padrão de 1 por loja (.xls / .xlsx)
+  const filename = `INVENTARIO_LOJA_${currentStore}.xls`;
+  XLSX.writeFile(workbook, filename);
+
+  // Marcar conclusão do inventário da loja atual no localStorage
+  const ano = new Date().getFullYear();
+  const mes = new Date().getMonth();
+  const storeKey = `inv_completed_${ano}_${mes}_${currentStore}`;
+  localStorage.setItem(storeKey, JSON.stringify({
+    concluidoEm: new Date().toISOString(),
+    operador: currentUser.nome,
+    loja: currentStore,
+    totalItens: products.length
+  }));
+
+  const lojasRequeridas = ['9175', '4304', '9201'];
+  const lojasConcluidas = lojasRequeridas.filter(lj => {
+    return localStorage.getItem(`inv_completed_${ano}_${mes}_${lj}`) !== null;
+  });
+
+  showToast(`Inventário da Loja ${currentStore} concluído e exportado com sucesso!`, 'success');
+
+  // Notificar conclusão da loja individual
+  fetch('/api/notificar-gestao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+      assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
+      mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
+      operador: currentUser.nome
+    })
+  }).catch(err => console.error('Erro na notificação de conclusão individual:', err));
+
+  // Se TODAS as lojas concluírem o Inventário Mensal, notificar Bruno, Isabella e Alexandra
+  if (lojasConcluidas.length === lojasRequeridas.length) {
+    const notifTodasConcluidasKey = `inv_notif_todas_lojas_${ano}_${mes}`;
+    if (!localStorage.getItem(notifTodasConcluidasKey)) {
+      localStorage.setItem(notifTodasConcluidasKey, "true");
+
+      const mesNome = new Date().toLocaleString('pt-BR', { month: 'long' });
+      fetch('/api/notificar-gestao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+          assunto: `🎉 INVENTÁRIO MENSAL CONCLUÍDO - TODAS AS LOJAS (${mesNome.toUpperCase()}/${ano})`,
+          mensagem: `Todas as 3 lojas (Marambaia - 9175, Icoaraci - 4304 e Mário Covas - 9201) concluíram o Inventário Mensal Obrigatório! Os arquivos de exportação no padrão COD_PROD / QTDE_INV foram gerados com sucesso.`,
+          operador: currentUser.nome
+        })
+      }).catch(err => console.error('Erro na notificação de conclusão total:', err));
+
+      showModal(
+        `🎉 PARABÉNS!\n\nTodas as lojas (Marambaia, Icoaraci e Mário Covas) concluíram o Inventário Mensal Obrigatório!\n\nNotificação enviada com sucesso para Bruno, Isabella e Alexandra.`,
+        {
+          icon: "🚀",
+          title: "Inventário Mensal Finalizado",
+          btnText: "Excelente",
+          btnClass: "bg-success-soft hover:bg-success-hover text-ink font-bold"
+        }
+      );
+    }
+  }
+}
+
+// ==========================================================================
+// CONFIGURAÇÕES: LÓGICA DE UI E EVENTOS
+// ==========================================================================
+function inicializarPainelConfiguracoes() {
+  if (!currentUser) return;
+
+  renderNotificationTable();
+
+  // Carregar dados do grupo de lojas (subtítulo e e-mail)
+  const inputGrupoSub = document.getElementById("config-grupo-subtitulo");
+  const inputGrupoEmail = document.getElementById("config-grupo-email");
+  if (inputGrupoSub) inputGrupoSub.value = localStorage.getItem("hub_grupo_subtitulo") || "Grupo Cacau Show Belém";
+  if (inputGrupoEmail) inputGrupoEmail.value = localStorage.getItem("hub_grupo_email") || "contato@grupocacaushow.com.br";
+
+  // Atualizar informações do sobre
+  const configUserInfo = document.getElementById("config-user-info");
+  if (configUserInfo) {
+    configUserInfo.textContent = `${currentUser.nome} (${currentUser.role === 'owner' ? 'Administrador' : 'Consultor'})`;
+  }
+  
+  // Status da conexão
+  const connBadge = document.getElementById("config-connection-badge");
+  if (connBadge) {
+    connBadge.textContent = API_ONLINE ? "Conectado" : "Modo Offline";
+    connBadge.className = `px-3 py-1 rounded-full text-[10px] font-bold ${
+      API_ONLINE ? 'bg-success-soft border border-success text-success' : 'bg-danger-soft border border-danger text-danger'
+    }`;
+  }
+
+  // Preencher campos
+  const configTimeoutSelect = document.getElementById("config-timeout-select");
+  if (configTimeoutSelect) configTimeoutSelect.value = config.sessionTimeout !== undefined ? config.sessionTimeout : "1800";
+
+  atualizarBotaoCadastroBiometria();
+}
+
+function salvarConfigGrupo() {
+  const inputSub = document.getElementById("config-grupo-subtitulo");
+  const inputEmail = document.getElementById("config-grupo-email");
+
+  const subtitulo = inputSub ? inputSub.value.trim() : "";
+  const email = inputEmail ? inputEmail.value.trim() : "";
+
+  if (subtitulo) localStorage.setItem("hub_grupo_subtitulo", subtitulo);
+  if (email) localStorage.setItem("hub_grupo_email", email);
+
+  // Atualizar elementos visuais da UI com o novo subtítulo do grupo
+  const headerSubtitles = document.querySelectorAll(".header-grupo-subtitulo, .ponto-grupo-subtitulo");
+  headerSubtitles.forEach(el => el.textContent = subtitulo);
+
+  mostrarToast("Sucesso", "Configurações do Grupo salvas com sucesso!", "success");
+}
+
+  // Mostrar aba do WhatsApp se for owner/administrador
+  const cardWa = document.getElementById("config-card-whatsapp");
+  if (currentUser.role === "owner") {
+    if (cardWa) cardWa.classList.remove("hidden");
+    
+    function getBadgeHtml(value) {
+      const val = (value || "").trim();
+      if (!val) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-warning-soft text-warning"><i class="fa-solid fa-circle-minus"></i> Pendente</span>`;
+      if (val.startsWith("https://chat.whatsapp.com/")) return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-success-soft text-success"><i class="fa-solid fa-circle-check"></i> Configurado</span>`;
+      return `<span class="badge-wa px-2 py-0.5 rounded text-[9px] font-bold bg-danger-soft text-danger"><i class="fa-solid fa-circle-exclamation"></i> Link Inválido</span>`;
+    }
+
+    // Renderizar inputs Cacau Show
+    const containerCacau = document.getElementById("config-wa-cacau-inputs");
+    if (containerCacau) {
+      containerCacau.innerHTML = "";
+      Object.keys(WHATSAPP_GRUPOS).forEach(loja => {
+        const value = WHATSAPP_GRUPOS[loja] || "";
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
+            <span>${opLabel(loja)}</span>
+            <span class="status-badge">${getBadgeHtml(value)}</span>
+          </label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-cacau-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
+        `;
+        containerCacau.appendChild(field);
+        
+        // Validação em tempo real
+        field.querySelector("input").addEventListener("input", (e) => {
+          field.querySelector(".status-badge").innerHTML = getBadgeHtml(e.target.value);
+        });
+      });
+    }
+
+    // Renderizar inputs Faça Amigos
+    const containerFa = document.getElementById("config-wa-fa-inputs");
+    if (containerFa) {
+      containerFa.innerHTML = "";
+      Object.keys(WHATSAPP_GRUPOS_FA).forEach(loja => {
+        const value = WHATSAPP_GRUPOS_FA[loja] || "";
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <label class="block text-[10px] text-muted font-semibold mb-1 flex justify-between items-center">
+            <span>${opLabel(loja)}</span>
+            <span class="status-badge">${getBadgeHtml(value)}</span>
+          </label>
+          <input type="text" class="w-full bg-paper border border-border rounded-lg p-2 text-ink text-xs focus:outline-none focus:border-gold config-wa-fa-input" data-loja="${loja}" value="${value}" placeholder="Link do grupo...">
+        `;
+        containerFa.appendChild(field);
+
+        // Validação em tempo real
+        field.querySelector("input").addEventListener("input", (e) => {
+          field.querySelector(".status-badge").innerHTML = getBadgeHtml(e.target.value);
+        });
+      });
+    }
+  } else {
+    if (cardWa) cardWa.classList.add("hidden");
+  }
+
+  // Mostrar card de Localização/Horário/Meta das Operações para Líder de Operações/Owner
+  const cardOperacoes = document.getElementById("config-card-operacoes");
+  const mostrarOperacoes = currentUser.role === "owner" || currentUser.role === "consultora_dashboard";
+  if (cardOperacoes) cardOperacoes.classList.toggle("hidden", !mostrarOperacoes);
+  if (mostrarOperacoes) {
+    const tbody = document.getElementById("config-operacoes-tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      // Lista fixa de operações conhecidas — nunca Object.keys(LOJAS_GEOLOC)
+      // direto: esse objeto só recebe merges (Object.assign) ao longo do
+      // carregamento e pode acumular chaves indevidas se algum valor salvo
+      // vier malformado, o que faria a tabela exibir linhas de lixo.
+      [...LOJAS, ...LOJAS_FA].forEach(operacao => {
+        const geo = LOJAS_GEOLOC[operacao] || { lat: 0, lng: 0 };
+        const cfg = OPERACOES_CONFIG[operacao] || { abertura: "09:00", fechamento: "22:00" };
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="py-2 px-2 font-bold">${operacao}</td>
+          <td class="py-2 px-2"><input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lat" data-operacao="${operacao}" value="${geo.lat}"></td>
+          <td class="py-2 px-2">
+            <div class="flex items-center gap-1.5">
+              <input type="number" step="0.0001" class="w-24 bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-lng" data-operacao="${operacao}" value="${geo.lng}">
+              <button type="button" class="btn-secondary config-op-escolher-mapa" data-operacao="${operacao}" title="Escolher localização no mapa" style="padding: 6px 8px; font-size: 11px; white-space: nowrap;">
+                <i class="fa-solid fa-map-location-dot"></i>
+              </button>
+            </div>
+          </td>
+          <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-abertura" data-operacao="${operacao}" value="${cfg.abertura}"></td>
+          <td class="py-2 px-2"><input type="time" class="bg-paper border border-border rounded-lg p-1.5 text-ink text-xs config-op-fechamento" data-operacao="${operacao}" value="${cfg.fechamento}"></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll(".config-op-escolher-mapa").forEach(btn => {
+        btn.onclick = () => abrirMapaLocalizacao(btn.dataset.operacao);
+      });
+    }
+  }
+
+  // O raio da cerca virtual mora dentro do próprio card de Operações (ele
+  // delimita justamente as coordenadas da tabela acima).
+  if (mostrarOperacoes) {
+    const inputRaio = document.getElementById("config-geofence-raio");
+    if (inputRaio) inputRaio.value = GEOFENCE_RAIO_METROS;
+  }
+
+  // Card "Dados do Contador" (envio manual da Folha de Ponto) — Owner
+  const cardContador = document.getElementById("config-card-contador");
+  const mostrarContador = currentUser.role === "owner";
+  if (cardContador) cardContador.classList.toggle("hidden", !mostrarContador);
+  if (mostrarContador) {
+    const inputNome = document.getElementById("config-contador-nome");
+    const inputEmail = document.getElementById("config-contador-email");
+    if (inputNome) inputNome.value = config.contadorNome || "";
+    if (inputEmail) inputEmail.value = config.contadorEmail || "";
+  }
+
+  aplicarFiltroConfiguracoes();
+}
+
+// --------------------------------------------------------------------------
+// Busca dentro do painel: filtra os cards pelo texto visível + as palavras-chave
+// em data-config-busca. Cards ocultos por perfil continuam ocultos.
+// --------------------------------------------------------------------------
+function aplicarFiltroConfiguracoes() {
+  const input = document.getElementById("config-busca");
+  const grid = document.getElementById("config-grid");
+  if (!input || !grid) return;
+
+  const termo = input.value.trim().toLowerCase();
+  // Sem acentos, para "operacoes" achar "Operações".
+  const RE_ACENTOS = new RegExp("[\\u0300-\\u036f]", "g");
+  const normalizar = (s) => s.normalize("NFD").replace(RE_ACENTOS, "").toLowerCase();
+  const alvo = normalizar(termo);
+
+  Array.from(grid.children).forEach(card => {
+    // Sem termo: devolve o card ao controle de visibilidade original (perfil).
+    if (!alvo) {
+      if (card.dataset.configOculto === "1") card.classList.add("hidden");
+      else if (card.dataset.configOculto === "0") card.classList.remove("hidden");
+      delete card.dataset.configOculto;
+      return;
+    }
+
+    // Guarda o estado original de visibilidade na primeira filtragem.
+    if (card.dataset.configOculto === undefined) {
+      card.dataset.configOculto = card.classList.contains("hidden") ? "1" : "0";
+    }
+    if (card.dataset.configOculto === "1") return; // oculto por perfil: nunca reaparece na busca
+
+    const texto = normalizar(`${card.dataset.configBusca || ""} ${card.textContent || ""}`);
+    const casa = texto.includes(alvo);
+    card.classList.toggle("hidden", !casa);
+
+    // Card recolhido que deu match: abre sozinho, senão a busca "acha" algo que
+    // continua escondido dentro do card.
+    if (casa) {
+      const toggle = card.querySelector(".config-toggle");
+      if (toggle && toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+    }
+  });
+}
+
+const btnForcarAtualizacao = document.getElementById("config-btn-forcar-atualizacao");
+if (btnForcarAtualizacao) {
+  btnForcarAtualizacao.addEventListener("click", async () => {
+    btnForcarAtualizacao.disabled = true;
+    btnForcarAtualizacao.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Atualizando...';
+    try {
+      // Só limpa Cache Storage (arquivos estáticos) e desregistra o Service
+      // Worker — nunca IndexedDB/localStorage, para não perder registros de
+      // ponto ainda não sincronizados.
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch (e) {
+      console.error("Erro ao forçar atualização do app:", e);
+    }
+    window.location.reload();
+  });
+}
+
+// --- Picker de localização das operações no mapa (Leaflet/OpenStreetMap, sem chave de API) ---
+let mapaLocalizacaoInstance = null;
+let mapaLocalizacaoMarker = null;
+let mapaLocalizacaoOperacaoAtiva = null;
+let mapaLocalizacaoCoordsSelecionadas = null;
+
+// Os ícones padrão do Leaflet apontam para caminhos relativos que só existem
+// quando um bundler copia os assets do pacote — carregando via CDN, o pino
+// fica invisível se não apontarmos essas URLs explicitamente.
+function configurarIconesLeaflet() {
+  if (typeof L === "undefined" || L.Icon.Default.prototype._iconsConfigurados) return;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
+  });
+  L.Icon.Default.prototype._iconsConfigurados = true;
+}
+
+function selecionarPontoMapa(lat, lng, accuracy) {
+  mapaLocalizacaoCoordsSelecionadas = { lat, lng };
+  if (mapaLocalizacaoMarker) {
+    mapaLocalizacaoMarker.setLatLng([lat, lng]);
+  } else {
+    mapaLocalizacaoMarker = L.marker([lat, lng], { draggable: true }).addTo(mapaLocalizacaoInstance);
+    mapaLocalizacaoMarker.on("dragend", () => {
+      const pos = mapaLocalizacaoMarker.getLatLng();
+      selecionarPontoMapa(pos.lat, pos.lng);
+    });
+  }
+  const coordsLabel = document.getElementById("mapa-localizacao-coords");
+  if (coordsLabel) {
+    coordsLabel.textContent = accuracy
+      ? `Selecionado pelo GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)} (precisão: ${Math.round(accuracy)}m)`
+      : `Selecionado: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+  const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+  if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+// Lê o GPS do próprio aparelho de quem está configurando — precisa estar
+// fisicamente dentro da loja para o pino sair mais preciso que clicar no
+// mapa de olho, que é a causa mais comum de cerca virtual desalinhada.
+function usarGpsAtualMapaLocalizacao() {
+  const btn = document.getElementById("btn-mapa-localizacao-gps");
+  if (!navigator.geolocation) {
+    showToast("Este navegador não suporta geolocalização.", "erro");
+    return;
+  }
+  if (!mapaLocalizacaoInstance) return;
+
+  const textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Obtendo localização…';
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      const { latitude, longitude, accuracy } = pos.coords;
+      mapaLocalizacaoInstance.setView([latitude, longitude], 18);
+      selecionarPontoMapa(latitude, longitude, accuracy);
+      if (accuracy > 30) {
+        showToast(`Localização obtida, mas com precisão baixa (${Math.round(accuracy)}m). Se possível, tente de novo perto de uma janela ou área aberta.`, "erro");
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+      console.warn("Erro ao obter GPS no picker de localização:", err);
+      showToast("Não foi possível obter sua localização atual. Verifique a permissão de GPS do navegador.", "erro");
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+function abrirMapaLocalizacao(operacao) {
+  if (typeof L === "undefined") {
+    showToast("Não foi possível carregar o mapa (sem conexão com o CDN). Tente novamente.", "erro");
+    return;
+  }
+  configurarIconesLeaflet();
+
+  const modal = document.getElementById("modal-mapa-localizacao");
+  const tituloOperacao = document.getElementById("mapa-localizacao-operacao");
+  const coordsLabel = document.getElementById("mapa-localizacao-coords");
+  const btnConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+  if (!modal) return;
+
+  mapaLocalizacaoOperacaoAtiva = operacao;
+  mapaLocalizacaoCoordsSelecionadas = null;
+  if (tituloOperacao) tituloOperacao.textContent = operacao;
+  if (coordsLabel) coordsLabel.textContent = "Nenhum ponto selecionado ainda.";
+  if (btnConfirmar) btnConfirmar.disabled = true;
+
+  const latInput = document.querySelector(`.config-op-lat[data-operacao="${operacao}"]`);
+  const lngInput = document.querySelector(`.config-op-lng[data-operacao="${operacao}"]`);
+  const latAtual = latInput ? parseFloat(latInput.value) || 0 : 0;
+  const lngAtual = lngInput ? parseFloat(lngInput.value) || 0 : 0;
+  const temCoordenadas = latAtual !== 0 || lngAtual !== 0;
+  // Centro padrão quando a operação ainda não tem coordenadas: Belém/PA, onde
+  // ficam as lojas.
+  const centro = temCoordenadas ? [latAtual, lngAtual] : [-1.4558, -48.4902];
+
+  modal.classList.remove("hidden");
+
+  // O mapa precisa existir no DOM e estar visível antes de medir seu tamanho
+  // (Leaflet calcula dimensões na criação) — por isso o setTimeout após tirar
+  // o "hidden" do modal.
+  setTimeout(() => {
+    if (!mapaLocalizacaoInstance) {
+      mapaLocalizacaoInstance = L.map("mapa-localizacao-mapa");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(mapaLocalizacaoInstance);
+      mapaLocalizacaoInstance.on("click", (e) => selecionarPontoMapa(e.latlng.lat, e.latlng.lng));
+    }
+    mapaLocalizacaoInstance.setView(centro, temCoordenadas ? 17 : 13);
+    mapaLocalizacaoInstance.invalidateSize();
+
+    if (mapaLocalizacaoMarker) {
+      mapaLocalizacaoInstance.removeLayer(mapaLocalizacaoMarker);
+      mapaLocalizacaoMarker = null;
+    }
+    if (temCoordenadas) selecionarPontoMapa(latAtual, lngAtual);
+  }, 50);
+}
+
+const btnMapaLocalizacaoGps = document.getElementById("btn-mapa-localizacao-gps");
+if (btnMapaLocalizacaoGps) {
+  btnMapaLocalizacaoGps.addEventListener("click", usarGpsAtualMapaLocalizacao);
+}
+
+const btnMapaLocalizacaoCancelar = document.getElementById("btn-mapa-localizacao-cancelar");
+if (btnMapaLocalizacaoCancelar) {
+  btnMapaLocalizacaoCancelar.addEventListener("click", () => {
+    document.getElementById("modal-mapa-localizacao").classList.add("hidden");
+  });
+}
+
+const btnMapaLocalizacaoConfirmar = document.getElementById("btn-mapa-localizacao-confirmar");
+if (btnMapaLocalizacaoConfirmar) {
+  btnMapaLocalizacaoConfirmar.addEventListener("click", () => {
+    if (!mapaLocalizacaoCoordsSelecionadas || !mapaLocalizacaoOperacaoAtiva) return;
+    const latInput = document.querySelector(`.config-op-lat[data-operacao="${mapaLocalizacaoOperacaoAtiva}"]`);
+    const lngInput = document.querySelector(`.config-op-lng[data-operacao="${mapaLocalizacaoOperacaoAtiva}"]`);
+    if (latInput) latInput.value = mapaLocalizacaoCoordsSelecionadas.lat.toFixed(6);
+    if (lngInput) lngInput.value = mapaLocalizacaoCoordsSelecionadas.lng.toFixed(6);
+    document.getElementById("modal-mapa-localizacao").classList.add("hidden");
+    showToast('Localização escolhida no mapa. Clique em "Salvar Localização e Horários" para confirmar.', "sucesso");
+  });
+}
+
+// --- Self-enrollment biométrico (Configurações) ---
+
+function atualizarBotaoCadastroBiometria() {
+  const btn = document.getElementById("config-btn-cadastrar-biometria");
+  const status = document.getElementById("config-biometria-status");
+  if (!btn || !status || !currentUser) return;
+
+  if (currentUser.hasBiometricEnrolled) {
+    btn.classList.add("hidden");
+    status.textContent = "Biometria facial já cadastrada.";
+    status.classList.remove("hidden");
+  } else {
+    btn.classList.remove("hidden");
+    btn.disabled = false;
+    status.classList.add("hidden");
+  }
+}
+
+function abrirCadastroBiometria() {
+  const btn = document.getElementById("config-btn-cadastrar-biometria");
+  const status = document.getElementById("config-biometria-status");
+
+  CameraUniversal.open("enrollment", {
+    usuario: currentUser.nome,
+    onCapture: async (result) => {
+      if (result.status === "ENROLLED") {
+        currentUser.hasBiometricEnrolled = true;
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+        await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+        atualizarBotaoCadastroBiometria();
+      } else if (result.status === "REJECTED_RETRYABLE") {
+        showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+      } else if (result.status === "TEMPORARILY_BLOCKED") {
+        showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+        if (status) {
+          status.textContent = "Cadastro bloqueado temporariamente. Procure o RH/Administrador.";
+          status.classList.remove("hidden");
+        }
+        if (btn) btn.disabled = true;
+      } else {
+        showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+      }
+    },
+    onCancel: (err) => {
+      if (err) {
+        console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+        showToast("Não foi possível acessar a câmera.", "erro");
+      }
+    }
+  });
+}
+
+// Oferece a captura biométrica opcional logo após o cadastro de um
+// colaborador (manual ou via DISC), reaproveitando o mesmo fluxo do
+// self-enrollment de Configurações. Se o colaborador pular, o auto-enroll
+// na primeira batida de ponto continua funcionando normalmente.
+async function oferecerCadastroBiometriaColaborador(nomeColaborador) {
+  if (!API_ONLINE || !nomeColaborador) return;
+
+  const aceitou = await showConfirm(
+    `Deseja cadastrar a biometria facial de "${nomeColaborador}" agora? Isso ajuda a validar as futuras marcações de ponto.`,
+    { icon: "🧑‍💻", title: "Cadastrar biometria agora?", confirmText: "Cadastrar agora", cancelText: "Pular por enquanto" }
+  );
+  if (!aceitou) return;
+
+  CameraUniversal.open("enrollment", {
+    usuario: nomeColaborador,
+    onCapture: async (result) => {
+      if (result.status === "ENROLLED") {
+        await showModal(`Biometria de "${nomeColaborador}" cadastrada com sucesso!`, { icon: "✅", title: "Biometria cadastrada" });
+      } else if (result.status === "REJECTED_RETRYABLE") {
+        showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+      } else if (result.status === "TEMPORARILY_BLOCKED") {
+        showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+      } else {
+        showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+      }
+    },
+    onCancel: (err) => {
+      if (err) {
+        console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+        showToast("Não foi possível acessar a câmera.", "erro");
+      }
+    }
+  });
+}
+
+// Configurações: Ouvir eventos após o carregamento da página
+document.addEventListener("DOMContentLoaded", () => {
+  // Card "Módulos ativos" (Fase 3 do plano de arquitetura SaaS) — criado uma
+  // vez aqui para que a wiring genérica de ".config-toggle" logo abaixo
+  // alcance o botão dele também; o conteúdo (lista de módulos) é preenchido
+  // depois, quando currentUser/bootstrap estiverem prontos (ver
+  // atualizarCardModulosTenant, chamada de dentro de aplicarVisibilidadeModulosTenant).
+  criarCardModulosTenant();
+  criarCardUnidadesTenant();
+
+  // Alteração do Timeout
+  const timeoutSelect = document.getElementById("config-timeout-select");
+  if (timeoutSelect) {
+    timeoutSelect.addEventListener("change", (e) => {
+      const val = parseInt(e.target.value);
+      config.sessionTimeout = val;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      
+      if (val === 0) {
+        sessionTimeoutMs = 0;
+      } else {
+        sessionTimeoutMs = val * 1000;
+      }
+      resetSessionTimer();
+      showToast("Tempo limite de sessão atualizado!", "sucesso");
+    });
+  }
+
+  // Atalhos de Segurança
+  const btnChangePin = document.getElementById("config-btn-change-pin");
+  if (btnChangePin) {
+    btnChangePin.addEventListener("click", () => {
+      const btnTrocarPin = document.getElementById("btn-trocar-pin");
+      if (btnTrocarPin) btnTrocarPin.click();
+    });
+  }
+
+  const btnLogout = document.getElementById("config-btn-logout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", () => {
+      const btnTrocarUser = document.getElementById("btn-trocar-usuario");
+      if (btnTrocarUser) btnTrocarUser.click();
+    });
+  }
+
+  const btnCadastrarBiometria = document.getElementById("config-btn-cadastrar-biometria");
+  if (btnCadastrarBiometria) {
+    btnCadastrarBiometria.addEventListener("click", abrirCadastroBiometria);
+  }
+
+  // Salvar links do WhatsApp (Owner)
+  const btnSaveWa = document.getElementById("config-btn-save-whatsapp");
+  if (btnSaveWa) {
+    btnSaveWa.addEventListener("click", () => {
+      const cacauInputs = document.querySelectorAll(".config-wa-cacau-input");
+      const faInputs = document.querySelectorAll(".config-wa-fa-input");
+      
+      config.whatsappGrupos = config.whatsappGrupos || {};
+      cacauInputs.forEach(input => {
+        const loja = input.dataset.loja;
+        config.whatsappGrupos[loja] = input.value.trim();
+        WHATSAPP_GRUPOS[loja] = input.value.trim();
+      });
+
+      config.whatsappGruposFa = config.whatsappGruposFa || {};
+      faInputs.forEach(input => {
+        const loja = input.dataset.loja;
+        config.whatsappGruposFa[loja] = input.value.trim();
+        WHATSAPP_GRUPOS_FA[loja] = input.value.trim();
+      });
+
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      showToast("Links de WhatsApp salvos com sucesso!", "sucesso");
+    });
+  }
+
+  const btnSaveOperacoes = document.getElementById("config-btn-save-operacoes");
+  if (btnSaveOperacoes) {
+    btnSaveOperacoes.addEventListener("click", async () => {
+      const novoGeoloc = {};
+      const novoConfig = {};
+
+      document.querySelectorAll(".config-op-lat").forEach(input => {
+        const operacao = input.dataset.operacao;
+        const lat = parseFloat(input.value) || 0;
+        const lngInput = document.querySelector(`.config-op-lng[data-operacao="${operacao}"]`);
+        const lng = lngInput ? (parseFloat(lngInput.value) || 0) : 0;
+        novoGeoloc[operacao] = { lat, lng };
+      });
+
+      document.querySelectorAll(".config-op-abertura").forEach(input => {
+        const operacao = input.dataset.operacao;
+        const abertura = input.value || "09:00";
+        const fechamentoInput = document.querySelector(`.config-op-fechamento[data-operacao="${operacao}"]`);
+        const fechamento = fechamentoInput ? (fechamentoInput.value || "22:00") : "22:00";
+        novoConfig[operacao] = { abertura, fechamento };
+      });
+
+      const semCoordenadas = Object.keys(novoGeoloc).filter(op => novoGeoloc[op].lat === 0 && novoGeoloc[op].lng === 0);
+
+      // O raio da cerca virtual agora é salvo junto (mesmo card).
+      const inputRaio = document.getElementById("config-geofence-raio");
+      const raio = inputRaio ? parseInt(inputRaio.value) : NaN;
+      if (Number.isNaN(raio) || raio < 10 || raio > 500) {
+        showToast("Informe um raio de cerca entre 10 e 500 metros.", "erro");
+        return;
+      }
+
+      btnSaveOperacoes.disabled = true;
+      // Persiste no backend (tabela `configuracoes`, cadastro centralizado — vale
+      // para todos os dispositivos/colaboradoras, não só para quem salvou), com
+      // fallback local se a API estiver offline no momento do salvamento.
+      const okGeoloc = await salvarConfigAPI("operacoesGeoloc", JSON.stringify(novoGeoloc));
+      const okConfig = await salvarConfigAPI("operacoesConfig", JSON.stringify(novoConfig));
+      const okRaio = await salvarConfigAPI("geofenceRaioMetros", raio);
+      btnSaveOperacoes.disabled = false;
+
+      Object.assign(LOJAS_GEOLOC, novoGeoloc);
+      Object.assign(OPERACOES_CONFIG, novoConfig);
+      GEOFENCE_RAIO_METROS = raio;
+      config.operacoesGeoloc = novoGeoloc;
+      config.operacoesConfig = novoConfig;
+      config.geofenceRaioMetros = raio;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+
+      if (okGeoloc && okConfig && okRaio) {
+        if (semCoordenadas.length > 0) {
+          showToast(`Salvo! Atenção: ${semCoordenadas.join(", ")} ainda ${semCoordenadas.length > 1 ? "estão" : "está"} com coordenadas 0,0 — a cerca virtual vai bloquear a marcação de ponto até isso ser corrigido.`, "erro");
+        } else {
+          showToast("Localização e horários das operações salvos para todos os dispositivos!", "sucesso");
+        }
+      } else {
+        showToast("Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar para valer nas demais colaboradoras.", "erro");
+      }
+    });
+  }
+
+  // Busca do painel (filtra os cards conforme se digita)
+  const inputBuscaConfig = document.getElementById("config-busca");
+  if (inputBuscaConfig) {
+    inputBuscaConfig.addEventListener("input", aplicarFiltroConfiguracoes);
+  }
+
+  // Cards recolhíveis do painel (Operações, WhatsApp, Contador)
+  document.querySelectorAll(".config-toggle").forEach(botao => {
+    botao.addEventListener("click", () => {
+      const corpo = document.getElementById(botao.getAttribute("aria-controls"));
+      if (!corpo) return;
+      const abrindo = corpo.classList.contains("hidden");
+      corpo.classList.toggle("hidden", !abrindo);
+      botao.setAttribute("aria-expanded", String(abrindo));
+      const icone = botao.querySelector(".config-toggle-icon");
+      if (icone) icone.style.transform = abrindo ? "rotate(180deg)" : "";
+    });
+  });
+
+  const btnSaveContador = document.getElementById("config-btn-save-contador");
+  if (btnSaveContador) {
+    btnSaveContador.addEventListener("click", async () => {
+      const inputNome = document.getElementById("config-contador-nome");
+      const inputEmail = document.getElementById("config-contador-email");
+      const nomeContador = inputNome ? inputNome.value.trim() : "";
+      const emailContador = inputEmail ? inputEmail.value.trim() : "";
+
+      if (!emailContador) {
+        showToast("Informe ao menos um e-mail do contador.", "erro");
+        return;
+      }
+
+      btnSaveContador.disabled = true;
+      const okNome = await salvarConfigAPI("contadorNome", nomeContador);
+      const okEmail = await salvarConfigAPI("contadorEmail", emailContador);
+      btnSaveContador.disabled = false;
+
+      config.contadorNome = nomeContador;
+      config.contadorEmail = emailContador;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+
+      showToast((okNome && okEmail)
+        ? "Dados do contador salvos!"
+        : "Sem conexão com o servidor: salvo apenas neste dispositivo. Salve novamente quando a conexão voltar.", (okNome && okEmail) ? "sucesso" : "erro");
+    });
+  }
+
+  // Exportar Backup JSON
+  const btnExport = document.getElementById("config-btn-export");
+  if (btnExport) {
+    btnExport.addEventListener("click", () => {
+      try {
+        const backupData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          backupData[key] = localStorage.getItem(key);
+        }
+        
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `backup_hub_operacoes_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Backup exportado com sucesso!", "sucesso");
+      } catch (e) {
+        showToast("Erro ao exportar backup.", "erro");
+      }
+    });
+  }
+
+  // Importar Backup
+  const btnImportTrigger = document.getElementById("config-btn-import-trigger");
+  const importFile = document.getElementById("config-import-file");
+  if (btnImportTrigger && importFile) {
+    btnImportTrigger.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          
+          const confirmar = await showConfirm(
+            "Isso substituirá os dados atuais do navegador pelos dados do arquivo. Deseja prosseguir?",
+            { title: "Confirmar Importação", icon: "⚠️", confirmBtnText: "Importar", confirmBtnClass: "btn-primary" }
+          );
+          
+          if (!confirmar) return;
+
+          Object.keys(imported).forEach(key => {
+            localStorage.setItem(key, imported[key]);
+          });
+          
+          showToast("Dados importados! Reiniciando aplicação...", "sucesso");
+          setTimeout(() => window.location.reload(), 1500);
+        } catch (e) {
+          showToast("Arquivo de backup inválido.", "erro");
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Limpar Tudo (Reset)
+  const btnClear = document.getElementById("config-btn-clear");
+  if (btnClear) {
+    btnClear.addEventListener("click", async () => {
+      const confirm1 = await showConfirm(
+        "Tem certeza que deseja limpar TODOS os dados locais deste dispositivo? Isso removerá PINs locais e preferências.",
+        { title: "Limpeza de Cache Local", icon: "⚠️", confirmBtnText: "Sim, limpar", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirm1) return;
+
+      const confirm2 = await showConfirm(
+        "Esta ação é irreversível no navegador atual. Deseja mesmo continuar?",
+        { title: "ATENÇÃO - Ação Crítica", icon: "🔥", confirmBtnText: "Apagar tudo", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirm2) return;
+
+      localStorage.clear();
+      showToast("Dados apagados! Reiniciando...", "sucesso");
+      setTimeout(() => window.location.reload(), 1500);
+    });
+  }
+
+  inicializarNotificacoesListeners();
+  inicializarRhListeners();
+});
+
+// =========================================================================
+// --- MÓDULO RH: GESTÃO DE PESSOAS & PERFIL DISC (EXCLUSIVO OWNER) ---
+// =========================================================================
+
+// Mesma paleta das var() em style.css (:root) — duplicada em hex aqui porque
+// os gráficos são SVG gerados via string, mais simples que ler getComputedStyle
+// pra cada desenho.
+// Duas escalas: DISC_COLORS pinta objetos gráficos (SVG, barras, discos) e
+// respeita o piso de 3:1 da WCAG 1.4.11 sobre fundo claro; DISC_INK é usada
+// sempre que a cor da letra vira TEXTO, onde o piso é 7:1 (AAA).
+const DISC_COLORS = { d: "#DC2626", i: "#B45309", s: "#047857", c: "#4338CA" };
+const DISC_INK    = { d: "#8C1220", i: "#7C2D12", s: "#0B5138", c: "#312E81" };
+const DISC_LABELS = { d: "Dominância", i: "Influência", s: "Estabilidade", c: "Conformidade" };
+const DISC_PERFIL_POR_LETRA = { d: "Dominante", i: "Influenciador", s: "Estável", c: "Conforme" };
+
+// Heurística de aptidão comercial: em vendas consultivas de varejo (a
+// realidade das lojas Cacau Show/FaçaAmigos), Influência (rapport, simpatia,
+// venda de adicionais) pesa mais, seguida de Dominância (iniciativa pra
+// abordar e fechar). Estabilidade e Conformidade contribuem menos pro
+// impulso comercial, mas não são descartadas (consistência de atendimento e
+// aderência a processos/promoções também importam). NÃO é um veredito
+// científico absoluto — é um apoio de leitura rápida pro Owner, sempre
+// cruzar com desempenho real de vendas antes de decidir.
+function calcularAptidaoVendas(prof) {
+  const score = Math.round((prof.i || 0) * 0.40 + (prof.d || 0) * 0.30 + (prof.s || 0) * 0.15 + (prof.c || 0) * 0.15);
+  if (score >= 68) return { score, nivel: "alto", label: "Alto Potencial Comercial" };
+  if (score >= 50) return { score, nivel: "moderado", label: "Potencial Comercial Moderado" };
+  return { score, nivel: "baixo", label: "Perfil de Suporte/Backoffice" };
+}
+
+// Gráfico Azimutal (radar de 4 eixos D-I-S-C), SVG puro sem dependência
+// externa. Retorna uma string HTML pronta pra innerHTML.
+function gerarSvgRadarDisc(valores, size = 260) {
+  const cx = size / 2, cy = size / 2;
+  const raioMax = size / 2 - 44;
+  const eixos = [
+    { key: "d", label: "D", angulo: -90 },
+    { key: "i", label: "I", angulo: 0 },
+    { key: "s", label: "S", angulo: 90 },
+    { key: "c", label: "C", angulo: 180 }
+  ];
+  const paraXY = (angGraus, r) => {
+    const rad = (angGraus * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+
+  const grades = [0.25, 0.5, 0.75, 1].map(frac => {
+    const pontos = eixos.map(e => paraXY(e.angulo, raioMax * frac).join(",")).join(" ");
+    return `<polygon points="${pontos}" fill="none" stroke="#D7DEE9" stroke-width="1"/>`;
+  }).join("");
+
+  const linhasEixo = eixos.map(e => {
+    const [x, y] = paraXY(e.angulo, raioMax);
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#D7DEE9" stroke-width="1"/>`;
+  }).join("");
+
+  const pontosPerfil = eixos.map(e => {
+    const v = Math.max(0, Math.min(100, valores[e.key] || 0));
+    const [x, y] = paraXY(e.angulo, raioMax * (v / 100));
+    return { x, y, v, ...e };
+  });
+
+  const poligonoPerfil = pontosPerfil.map(p => `${p.x},${p.y}`).join(" ");
+
+  const marcadores = pontosPerfil.map(p =>
+    `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${DISC_COLORS[p.key]}" stroke="#FFFFFF" stroke-width="1.5"/>`
+  ).join("");
+
+  const rotulos = eixos.map(e => {
+    const [x, y] = paraXY(e.angulo, raioMax + 26);
+    const v = Math.round(valores[e.key] || 0);
+    return `
+      <text x="${x}" y="${y - 6}" text-anchor="middle" font-size="13" font-weight="800" fill="${DISC_COLORS[e.key]}">${e.label}</text>
+      <text x="${x}" y="${y + 9}" text-anchor="middle" font-size="10" font-weight="700" fill="#3A4759">${v}%</text>
+    `;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;">
+      ${grades}
+      ${linhasEixo}
+      <polygon points="${poligonoPerfil}" fill="#4A7FD340" stroke="#4A7FD3" stroke-width="2"/>
+      ${marcadores}
+      ${rotulos}
+    </svg>
+  `;
+}
+
+// Donut de distribuição: quantas pessoas têm cada letra como predominante.
+function gerarSvgDistribuicaoDisc(counts, size = 190) {
+  const total = (counts.d || 0) + (counts.i || 0) + (counts.s || 0) + (counts.c || 0);
+  if (total === 0) {
+    return `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+  const cx = size / 2, cy = size / 2, r = size / 2 - 16, circ = 2 * Math.PI * r;
+  const ordem = [["d", "Dominante"], ["i", "Influenciador"], ["s", "Estável"], ["c", "Conforme"]];
+  let acumulado = 0;
+  const arcos = ordem.map(([key]) => {
+    const val = counts[key] || 0;
+    if (val === 0) return "";
+    const comprimento = (val / total) * circ;
+    const arco = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${DISC_COLORS[key]}" stroke-width="24" stroke-dasharray="${comprimento} ${circ - comprimento}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    acumulado += comprimento;
+    return arco;
+  }).join("");
+
+  const legenda = ordem.map(([key, label]) => {
+    const val = counts[key] || 0;
+    const pct = Math.round((val / total) * 100);
+    return `
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-muted);">
+        <span style="width:10px;height:10px;border-radius:3px;background:${DISC_COLORS[key]};display:inline-block;flex-shrink:0;"></span>
+        <span>${label}: <strong style="color:var(--ink-strong)">${val}</strong> <span style="color:var(--ink-muted)">(${pct}%)</span></span>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
+      <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+        ${arcos}
+        <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="900" fill="#0B1220">${total}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="9" font-weight="700" fill="#3A4759" letter-spacing="1">PESSOAS</text>
+      </svg>
+      <div style="display:flex;flex-direction:column;gap:8px;">${legenda}</div>
+    </div>
+  `;
+}
+
+// Mapa de Talentos: cada colaborador(a) plotado por ritmo (eixo Y: rápido/
+// assertivo D+I no topo × cauteloso/reflexivo S+C embaixo) e foco (eixo X:
+// tarefa D+C à esquerda × pessoas I+S à direita) — os 4 quadrantes resultam
+// exatamente nas 4 letras do DISC. Clicar num ponto abre o perfil completo.
+function gerarSvgMapaTalentos(pessoas, size = 360) {
+  if (!pessoas.length) {
+    return `<div class="rh-empty-state"><i class="fa-solid fa-map-location-dot"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+  const pad = 26;
+  const area = size - pad * 2;
+  const meio = area / 2;
+  const cx = size / 2, cy = size / 2;
+
+  const quadrantes = [
+    { x: pad, y: pad, cor: DISC_COLORS.d, letra: "D" },
+    { x: pad + meio, y: pad, cor: DISC_COLORS.i, letra: "I" },
+    { x: pad + meio, y: pad + meio, cor: DISC_COLORS.s, letra: "S" },
+    { x: pad, y: pad + meio, cor: DISC_COLORS.c, letra: "C" }
+  ];
+  const fundos = quadrantes.map(q => `<rect x="${q.x}" y="${q.y}" width="${meio}" height="${meio}" fill="${q.cor}14"/>`).join("");
+  const letrasQuadrante = quadrantes.map(q =>
+    `<text x="${q.x + meio / 2}" y="${q.y + meio / 2}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="900" fill="${q.cor}33">${q.letra}</text>`
+  ).join("");
+
+  const eixos = `
+    <line x1="${pad}" y1="${cy}" x2="${size - pad}" y2="${cy}" stroke="#C7CEDC" stroke-width="1"/>
+    <line x1="${cx}" y1="${pad}" x2="${cx}" y2="${size - pad}" stroke="#C7CEDC" stroke-width="1"/>
+  `;
+
+  const rotulosExtremos = `
+    <text x="${pad}" y="${cy - 8}" font-size="9" font-weight="800" fill="#3A4759">◀ Foco em Tarefa</text>
+    <text x="${size - pad}" y="${cy - 8}" text-anchor="end" font-size="9" font-weight="800" fill="#3A4759">Foco em Pessoas ▶</text>
+    <text x="${cx}" y="${pad + 12}" text-anchor="middle" font-size="9" font-weight="800" fill="#3A4759">▲ Ritmo Rápido/Assertivo</text>
+    <text x="${cx}" y="${size - pad - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#3A4759">Ritmo Cauteloso/Reflexivo ▼</text>
+  `;
+
+  // Distribui pontos que caem muito próximos (mesmo perfil arredondado) num
+  // pequeno leque, pra não ficarem um em cima do outro e sumirem.
+  const posicoesUsadas = [];
+  const pontos = pessoas.map(p => {
+    const diffX = (p.i + p.s) - (p.d + p.c);
+    const diffY = (p.d + p.i) - (p.s + p.c);
+    const xNorm = (diffX + 200) / 400;
+    const yNorm = (diffY + 200) / 400;
+    let px = pad + xNorm * area;
+    let py = pad + (1 - yNorm) * area;
+
+    const colisao = posicoesUsadas.find(pos => Math.hypot(pos.px - px, pos.py - py) < 14);
+    if (colisao) {
+      colisao.n = (colisao.n || 1) + 1;
+      const ang = colisao.n * 2.4;
+      px += Math.cos(ang) * 10;
+      py += Math.sin(ang) * 10;
+    } else {
+      posicoesUsadas.push({ px, py, n: 1 });
+    }
+
+    const cor = DISC_COLORS[p.dominante] || "#94A3B8";
+    return `<circle class="rh-talent-dot" cx="${px}" cy="${py}" r="7" fill="${cor}" stroke="#F3F5F9" stroke-width="2" data-nome="${p.nome.replace(/"/g, '&quot;')}"><title>${p.nome} — ${DISC_LABELS[p.dominante] || "Equilibrado"} (D${p.d} I${p.i} S${p.s} C${p.c})</title></circle>`;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="100%" height="${size}" style="max-width:${size}px;display:block;margin:0 auto;" id="rh-talentos-svg">
+      <rect x="0" y="0" width="${size}" height="${size}" rx="14" fill="#EDF1F7"/>
+      ${fundos}
+      ${letrasQuadrante}
+      ${eixos}
+      ${rotulosExtremos}
+      ${pontos}
+    </svg>
+  `;
+}
+
+const DISC_PROFILES_KEY = "cacaushow_disc_profiles_v1";
+
+const DEFAULT_DISC_PROFILES = {
+  "Bruno": { userName: "Bruno", d: 85, i: 70, s: 40, c: 60, perfilPredominante: "Dominante", dataAtualizacao: "2026-07-22" },
+  "Isabella": { userName: "Isabella", d: 60, i: 80, s: 65, c: 75, perfilPredominante: "Influenciador", dataAtualizacao: "2026-07-22" },
+  "Alexandra": { userName: "Alexandra", d: 50, i: 75, s: 70, c: 80, perfilPredominante: "Conforme", dataAtualizacao: "2026-07-22" }
+};
+
+function loadDiscProfiles() {
+  const saved = localStorage.getItem(DISC_PROFILES_KEY);
+  if (!saved) return DEFAULT_DISC_PROFILES;
+  try {
+    return JSON.parse(saved);
+  } catch (e) {
+    return DEFAULT_DISC_PROFILES;
+  }
+}
+
+function saveDiscProfiles(profiles) {
+  localStorage.setItem(DISC_PROFILES_KEY, JSON.stringify(profiles));
+  if (API_ONLINE) {
+    salvarConfigAPI("disc_profiles_config", JSON.stringify(profiles)).catch(err => console.error("Erro ao salvar DISC na API:", err));
+  }
+}
+
+function obterListaColaboradores() {
+  if (Array.isArray(USERS) && USERS.length > 0) {
+    return USERS;
+  }
+  return [
+    { nome: "Alexandra", role: "consultora_dashboard" },
+    { nome: "Bruno", role: "owner" },
+    { nome: "Isabella", role: "owner" }
+  ];
+}
+
+function renderRhModulo() {
+  if (!currentUser || currentUser.role !== "owner") {
+    showToast("Acesso restrito ao perfil Owner.", "erro");
+    return;
+  }
+
+  const profiles = loadDiscProfiles();
+  const colabs = obterListaColaboradores();
+
+  // Preencher dropdown de seleção de colaboradores para o upload (apenas colaboradores ativos no RH)
+  const selectUpload = document.getElementById("disc-upload-user-select");
+  if (selectUpload) {
+    const valorAtual = selectUpload.value;
+    selectUpload.innerHTML = '<option value="">Detecção Automática ou Escolher Colaborador...</option>';
+    colabs.filter(c => !(profiles[c.nome] && profiles[c.nome].excludedFromRh)).forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.nome;
+      opt.textContent = `${c.nome} (${c.role === 'owner' ? 'Owner' : c.role === 'consultora_dashboard' ? 'Líder Operacional' : 'Consultor(a)'})`;
+      selectUpload.appendChild(opt);
+    });
+    if (valorAtual) selectUpload.value = valorAtual;
+  }
+
+  renderRhTable();
+  renderRhDashboard();
+  renderRhInsights();
+}
+
+function getStoreForColab(nome) {
+  const profiles = loadDiscProfiles();
+  if (profiles[nome] && profiles[nome].store) {
+    return profiles[nome].store;
+  }
+  if (nome === "Bruno" || nome === "Isabella") return "all";
+  if (nome === "Alexandra") return "9201";
+  return "9175";
+}
+
+function renderRhTable() {
+  const profiles = loadDiscProfiles();
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const tbody = document.getElementById("rh-disc-table-body");
+  if (!tbody) return;
+
+  const colabs = obterListaColaboradores();
+  let count = 0;
+  tbody.innerHTML = "";
+
+  colabs.forEach(c => {
+    const prof = profiles[c.nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
+    if (prof.excludedFromRh) return; // Ocultar do Módulo RH
+
+    const store = getStoreForColab(c.nome);
+    if (filterStore !== "all" && store !== "all" && store !== filterStore) {
+      return;
+    }
+
+    count++;
+    
+    let badgeClass = "disc-badge-c";
+    if (prof.perfilPredominante === "Dominante") badgeClass = "disc-badge-d";
+    else if (prof.perfilPredominante === "Influenciador") badgeClass = "disc-badge-i";
+    else if (prof.perfilPredominante === "Estável") badgeClass = "disc-badge-s";
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-surface-hover transition";
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-bold text-ink-strong flex items-center gap-2">
+        <i class="fa-solid fa-user-circle text-ink-muted"></i> ${c.nome}
+      </td>
+      <td class="py-3 px-4">
+        <select class="rh-colab-store-select bg-surface-1 text-ink-strong border border-subtle rounded px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-accent cursor-pointer" data-user="${c.nome}">
+          <option value="all" ${store === 'all' ? 'selected' : ''}>Todas as Lojas (Geral)</option>
+          <optgroup label="Cacau Show">
+            <option value="9175" ${store === '9175' ? 'selected' : ''}>🟣 9175 - Marambaia</option>
+            <option value="9201" ${store === '9201' ? 'selected' : ''}>🟢 9201 - Mário Covas</option>
+            <option value="4304" ${store === '4304' ? 'selected' : ''}>🔵 4304 - Icoaraci</option>
+          </optgroup>
+          <optgroup label="Faça Amigos">
+            <option value="fa-parque" ${store === 'fa-parque' ? 'selected' : ''}>🔴 FaçaAmigos Circuito</option>
+            <option value="fa-playground" ${store === 'fa-playground' ? 'selected' : ''}>🟡 Faça Amigos - Playground</option>
+            <option value="fa-grao-para" ${store === 'fa-grao-para' ? 'selected' : ''}>🟤 Faça Amigos - Grão-Pará</option>
+          </optgroup>
+        </select>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <span class="disc-badge ${badgeClass}">${prof.perfilPredominante}</span>
+      </td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-danger">${prof.d}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-warning">${prof.i}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-success">${prof.s}%</td>
+      <td class="py-3 px-4 text-center font-mono font-bold text-info">${prof.c}%</td>
+      <td class="py-3 px-4 text-right flex items-center justify-end gap-1.5">
+        <a href="https://api.whatsapp.com/send?text=Voc%C3%AA%20foi%20convidado%20para%20preencher%20o%20seu%20invent%C3%A1rio%20comportamental,%20%C3%A9%20s%C3%B3%20clicar%20no%20link%20a%20seguir:%20https://disc.etalent.com.br/grpqlPC5VYC50_7gFdn8f5W9w" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-success-soft hover:bg-success-hover border border-success text-success text-[10px] font-bold inline-flex items-center gap-1" title="Enviar convite via WhatsApp">
+          <i class="fa-brands fa-whatsapp"></i> Convidar
+        </a>
+        <button class="px-2 py-1 rounded bg-surface-1 hover:bg-surface-hover border border-subtle text-ink text-[10px] font-bold btn-ver-perfil-disc" data-user="${c.nome}" title="Ver radar e aptidão comercial">
+          <i class="fa-solid fa-chart-simple"></i> Perfil
+        </button>
+        <button class="px-2 py-1 rounded bg-info-soft hover:bg-info-hover border border-info text-info text-[10px] font-bold btn-edit-disc" data-user="${c.nome}" title="Ajustar valores DISC">
+          <i class="fa-solid fa-pen"></i> Ajustar
+        </button>
+        <button class="px-2 py-1 rounded bg-danger-soft hover:bg-danger-hover border border-danger text-danger text-[10px] font-bold btn-remove-rh-disc" data-user="${c.nome}" title="Desconsiderar colaborador do RH">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const countBadge = document.getElementById("rh-colab-count-badge");
+  if (countBadge) countBadge.textContent = `${count} colaborador(es)`;
+
+  // Opção de Restaurar Colaboradores Excluídos
+  const excludedColabs = colabs.filter(c => profiles[c.nome] && profiles[c.nome].excludedFromRh);
+  const containerRestaurar = document.getElementById("rh-restore-container");
+  if (containerRestaurar) {
+    if (excludedColabs.length > 0) {
+      containerRestaurar.innerHTML = `
+        <button id="btn-restore-rh-colab" class="px-2.5 py-1 rounded-lg bg-info-soft hover:bg-info-hover border border-info text-info text-xs font-bold transition">
+          <i class="fa-solid fa-rotate-left"></i> Restaurar Removidos (${excludedColabs.length})
+        </button>
+      `;
+      containerRestaurar.classList.remove("hidden");
+      document.getElementById("btn-restore-rh-colab").addEventListener("click", async () => {
+        const nomesExcluidos = excludedColabs.map(c => c.nome).join(", ");
+        const selected = prompt(`Qual colaborador deseja restaurar no Módulo RH?\nOcultos no RH: ${nomesExcluidos}`, excludedColabs[0].nome);
+        if (!selected) return;
+        const target = excludedColabs.find(c => c.nome.toLowerCase() === selected.trim().toLowerCase());
+        if (target) {
+          profiles[target.nome].excludedFromRh = false;
+          saveDiscProfiles(profiles);
+          showToast(`${target.nome} restaurado(a) no Módulo RH!`, "sucesso");
+          renderRhModulo();
+        } else {
+          showToast("Colaborador não encontrado na lista de removidos.", "erro");
+        }
+      });
+    } else {
+      containerRestaurar.innerHTML = "";
+      containerRestaurar.classList.add("hidden");
+    }
+  }
+
+  // Listeners para trocar a loja do colaborador
+  document.querySelectorAll(".rh-colab-store-select").forEach(select => {
+    select.addEventListener("change", (e) => {
+      const userName = e.target.dataset.user;
+      const newStore = e.target.value;
+      const profiles = loadDiscProfiles();
+      if (!profiles[userName]) {
+        profiles[userName] = { userName, d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado", dataAtualizacao: new Date().toISOString().split("T")[0] };
+      }
+      profiles[userName].store = newStore;
+      saveDiscProfiles(profiles);
+      showToast(`Unidade/Loja de ${userName} atualizada!`, "sucesso");
+      renderRhModulo();
+    });
+  });
+
+  // Event Listeners para botões de ajuste manual
+  document.querySelectorAll(".btn-edit-disc").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const u = btn.dataset.user;
+      abrirModalEditDisc(u);
+    });
+  });
+
+  // Event Listeners para abrir o perfil individual (radar + aptidão comercial)
+  document.querySelectorAll(".btn-ver-perfil-disc").forEach(btn => {
+    btn.addEventListener("click", () => abrirPerfilIndividualRh(btn.dataset.user));
+  });
+
+  // Event Listeners para remoção do Módulo RH
+  document.querySelectorAll(".btn-remove-rh-disc").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const userName = btn.dataset.user;
+      const confirmRemove = await showConfirm(
+        `Tem certeza que deseja desconsiderar ${userName} do Módulo RH? Isso removerá o perfil apenas dos relatórios de RH, sem afetar o cadastro geral ou registros de caixa do sistema.`,
+        { title: "Remover Perfil do RH", icon: "⚠️", confirmBtnText: "Sim, remover", confirmBtnClass: "btn-danger" }
+      );
+      if (!confirmRemove) return;
+
+      const profiles = loadDiscProfiles();
+      if (!profiles[userName]) profiles[userName] = {};
+      profiles[userName].excludedFromRh = true;
+      saveDiscProfiles(profiles);
+
+      showToast(`${userName} desconsiderado(a) do Módulo RH.`, "sucesso");
+      renderRhModulo();
+    });
+  });
+}
+
+const RH_STORE_TITULOS = {
+  "all": "Geral (Todas as Unidades)",
+  "9175": "Loja 9175 — 🟣 Marambaia",
+  "9201": "Loja 9201 — 🟢 Mário Covas",
+  "4304": "Loja 4304 — 🔵 Icoaraci",
+  "fa-parque": "FaçaAmigos — 🔴 Parque Circuito",
+  "fa-playground": "FaçaAmigos — 🟡 Playground",
+  "fa-grao-para": "FaçaAmigos — 🟤 Grão-Pará"
+};
+
+// Funil único de leitura dos dados pro Dashboard/Insights/Mapa de Talentos —
+// aplica o mesmo filtro de loja e exclusão que a tabela usa, então tudo que
+// consome essa lista fica automaticamente sincronizado quando um perfil é
+// adicionado/editado/removido (todo caminho de escrita chama renderRhModulo()
+// no final, que rechama renderRhDashboard()/renderRhInsights()).
+function obterPessoasFiltradasRh() {
+  const profiles = loadDiscProfiles();
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const colabs = obterListaColaboradores();
+  const letraPorPerfil = { "Dominante": "d", "Influenciador": "i", "Estável": "s", "Conforme": "c" };
+
+  return colabs.reduce((acc, c) => {
+    const prof = profiles[c.nome];
+    if (prof && prof.excludedFromRh) return acc;
+
+    const store = getStoreForColab(c.nome);
+    if (filterStore !== "all" && store !== "all" && store !== filterStore) return acc;
+
+    const d = prof ? (prof.d || 0) : 25;
+    const i = prof ? (prof.i || 0) : 25;
+    const s = prof ? (prof.s || 0) : 25;
+    const cVal = prof ? (prof.c || 0) : 25;
+    const perfilPredominante = prof ? prof.perfilPredominante : "Equilibrado";
+
+    acc.push({
+      nome: c.nome,
+      d, i, s, c: cVal,
+      perfilPredominante,
+      dominante: letraPorPerfil[perfilPredominante] || null,
+      store,
+      temLaudo: !!prof && prof.dataAtualizacao !== undefined
+    });
+    return acc;
+  }, []);
+}
+
+function renderRhDashboard() {
+  const pessoas = obterPessoasFiltradasRh();
+  const total = pessoas.length;
+
+  const somaD = pessoas.reduce((s, p) => s + p.d, 0);
+  const somaI = pessoas.reduce((s, p) => s + p.i, 0);
+  const somaS = pessoas.reduce((s, p) => s + p.s, 0);
+  const somaC = pessoas.reduce((s, p) => s + p.c, 0);
+  const avgD = total ? Math.round(somaD / total) : 0;
+  const avgI = total ? Math.round(somaI / total) : 0;
+  const avgS = total ? Math.round(somaS / total) : 0;
+  const avgC = total ? Math.round(somaC / total) : 0;
+
+  const elD = document.getElementById("stat-disc-d");
+  const elI = document.getElementById("stat-disc-i");
+  const elS = document.getElementById("stat-disc-s");
+  const elC = document.getElementById("stat-disc-c");
+  if (elD) elD.textContent = `${avgD}%`;
+  if (elI) elI.textContent = `${avgI}%`;
+  if (elS) elS.textContent = `${avgS}%`;
+  if (elC) elC.textContent = `${avgC}%`;
+
+  // Gráfico Azimutal — perfil médio da seleção atual
+  const radarContainer = document.getElementById("rh-radar-container");
+  if (radarContainer) {
+    radarContainer.innerHTML = total
+      ? gerarSvgRadarDisc({ d: avgD, i: avgI, s: avgS, c: avgC })
+      : `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+  }
+
+  // Distribuição de perfis predominantes
+  const distContainer = document.getElementById("rh-distribuicao-container");
+  if (distContainer) {
+    const counts = { d: 0, i: 0, s: 0, c: 0 };
+    pessoas.forEach(p => { if (p.dominante) counts[p.dominante]++; });
+    distContainer.innerHTML = gerarSvgDistribuicaoDisc(counts);
+  }
+
+  // Mapa de Talentos
+  const talentosContainer = document.getElementById("rh-talentos-container");
+  if (talentosContainer) {
+    talentosContainer.innerHTML = gerarSvgMapaTalentos(pessoas);
+    talentosContainer.querySelectorAll(".rh-talent-dot").forEach(dot => {
+      dot.addEventListener("click", () => abrirPerfilIndividualRh(dot.dataset.nome));
+    });
+  }
+
+  // Ranking de Aptidão Comercial
+  const rankingContainer = document.getElementById("rh-ranking-vendas-container");
+  if (rankingContainer) {
+    if (!total) {
+      rankingContainer.innerHTML = `<div class="rh-empty-state"><i class="fa-solid fa-inbox"></i><br>Sem perfis cadastrados ainda.</div>`;
+    } else {
+      const ranking = pessoas
+        .map(p => ({ ...p, aptidao: calcularAptidaoVendas(p) }))
+        .sort((a, b) => b.aptidao.score - a.aptidao.score);
+
+      rankingContainer.innerHTML = ranking.map((p, idx) => `
+        <div class="rh-ranking-row" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:var(--surface-2);cursor:pointer;" data-nome="${p.nome.replace(/"/g, '&quot;')}">
+          <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-muted);">${idx + 1}º</span>
+          <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-3);border:1.5px solid ${DISC_COLORS[p.dominante] || 'var(--edge-strong)'};display:flex;align-items:center;justify-content:center;color:${DISC_INK[p.dominante] || 'var(--ink)'};font-weight:800;font-size:11px;flex-shrink:0;">${(p.dominante || '?').toUpperCase()}</span>
+          <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</span>
+          <div style="flex:2;min-width:60px;">
+            <div style="width:100%;background:var(--surface-4);border-radius:999px;height:8px;overflow:hidden;">
+              <div style="width:${p.aptidao.score}%;height:100%;background:${p.aptidao.nivel === 'alto' ? '#047857' : p.aptidao.nivel === 'moderado' ? '#B45309' : '#78869E'};border-radius:999px;"></div>
+            </div>
+          </div>
+          <span class="rh-sales-badge rh-sales-badge-${p.aptidao.nivel}">${p.aptidao.score}%</span>
+        </div>
+      `).join("");
+
+      rankingContainer.querySelectorAll(".rh-ranking-row").forEach(row => {
+        row.addEventListener("click", () => abrirPerfilIndividualRh(row.dataset.nome));
+      });
+    }
+  }
+}
+
+// Gera texto de insight variando com os números reais da seleção atual —
+// nada aqui é hardcoded, tudo recalcula a cada chamada (loja filtrada, novo
+// perfil importado, edição manual etc.), porque renderRhModulo() sempre
+// rechama esta função depois de qualquer escrita nos dados.
+function renderRhInsights() {
+  const container = document.getElementById("rh-insights-container");
+  if (!container) return;
+
+  const filterStore = document.getElementById("rh-store-filter")?.value || "all";
+  const storeTitle = RH_STORE_TITULOS[filterStore] || "Seleção Atual";
+  const pessoas = obterPessoasFiltradasRh();
+  const total = pessoas.length;
+
+  if (!total) {
+    container.innerHTML = `
+      <div class="glass-card p-6 rounded-2xl border border-subtle bg-surface-2 md:col-span-3 text-center">
+        <i class="fa-solid fa-user-plus text-2xl text-info mb-2"></i>
+        <p class="text-xs text-ink-muted">Nenhum colaborador com perfil DISC nesta seleção ainda. Importe um laudo em PDF ou envie o convite por WhatsApp na aba "Perfis &amp; Upload" para começar a ver os insights aqui.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const somaD = pessoas.reduce((s, p) => s + p.d, 0);
+  const somaI = pessoas.reduce((s, p) => s + p.i, 0);
+  const somaS = pessoas.reduce((s, p) => s + p.s, 0);
+  const somaC = pessoas.reduce((s, p) => s + p.c, 0);
+  const medias = { d: somaD / total, i: somaI / total, s: somaS / total, c: somaC / total };
+
+  const counts = { d: 0, i: 0, s: 0, c: 0 };
+  pessoas.forEach(p => { if (p.dominante) counts[p.dominante]++; });
+
+  const letraMaisComum = Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a, "d");
+  const letraMenosComum = Object.keys(medias).reduce((a, b) => medias[b] < medias[a] ? b : a, "d");
+
+  const ranking = pessoas.map(p => ({ ...p, aptidao: calcularAptidaoVendas(p) })).sort((a, b) => b.aptidao.score - a.aptidao.score);
+  const mediaAptidao = Math.round(ranking.reduce((s, p) => s + p.aptidao.score, 0) / total);
+  const topVendas = ranking[0];
+  const precisaCoaching = ranking.filter(p => p.aptidao.nivel === "baixo");
+
+  // --- Card 1: Diagnóstico de Composição ---
+  const cardDiagnostico = `
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_INK[letraMaisComum]}">
+        <i class="fa-solid fa-bullseye text-base"></i> Diagnóstico de Composição
+      </div>
+      <div class="text-xs text-ink font-bold">${storeTitle} · ${total} pessoa${total > 1 ? "s" : ""}</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        O traço predominante da equipe é <strong style="color:${DISC_INK[letraMaisComum]}">${DISC_LABELS[letraMaisComum]} (${letraMaisComum.toUpperCase()})</strong>,
+        presente em ${counts[letraMaisComum]} de ${total} pessoa${total > 1 ? "s" : ""}. A média geral é
+        D ${Math.round(medias.d)}% · I ${Math.round(medias.i)}% · S ${Math.round(medias.s)}% · C ${Math.round(medias.c)}%.
+      </p>
+      <div class="p-2.5 rounded-lg bg-success-soft border border-success text-success text-[11px]">
+        <i class="fa-solid fa-circle-check"></i> <strong>Ponto forte:</strong> equipe com perfil predominante bem definido facilita treinamentos direcionados em vez de genéricos.
+      </div>
+    </div>
+  `;
+
+  // --- Card 2: Lacuna / oportunidade de contratação ---
+  const cardLacuna = `
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 font-bold text-sm" style="color:${DISC_INK[letraMenosComum]}">
+        <i class="fa-solid fa-triangle-exclamation text-base"></i> Lacuna de Perfil
+      </div>
+      <div class="text-xs text-ink font-bold">Traço menos presente: ${DISC_LABELS[letraMenosComum]} (${letraMenosComum.toUpperCase()})</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        A média de <strong style="color:${DISC_INK[letraMenosComum]}">${DISC_LABELS[letraMenosComum]}</strong> é a mais baixa do grupo (${Math.round(medias[letraMenosComum])}%).
+        ${letraMenosComum === "d" ? "Times com pouco D tendem a demorar mais pra tomar decisão em horário de pico ou vitrine promocional." : ""}
+        ${letraMenosComum === "i" ? "Times com pouco I abordam menos o cliente de forma proativa, perdendo venda de adicionais." : ""}
+        ${letraMenosComum === "s" ? "Times com pouco S tendem a ter mais variação de humor/ritmo no atendimento ao longo do dia." : ""}
+        ${letraMenosComum === "c" ? "Times com pouco C tendem a ter mais divergência de caixa/inventário por falta de rigor em processo." : ""}
+      </p>
+      <div class="p-2.5 rounded-lg bg-warning-soft border border-warning text-warning text-[11px]">
+        <i class="fa-solid fa-lightbulb"></i> <strong>Sugestão:</strong> priorize esse traço na próxima contratação, ou reforce com treinamento situacional quem já está na equipe.
+      </div>
+    </div>
+  `;
+
+  // --- Card 3: Prontidão comercial ---
+  const cardVendas = `
+    <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3">
+      <div class="flex items-center gap-2 text-success font-bold text-sm">
+        <i class="fa-solid fa-chart-line text-base"></i> Prontidão Comercial
+      </div>
+      <div class="text-xs text-ink font-bold">Aptidão comercial média: ${mediaAptidao}%</div>
+      <p class="text-xs text-ink-muted leading-relaxed">
+        ${topVendas ? `<strong style="color:${DISC_INK[topVendas.dominante] || 'var(--ink)'}">${topVendas.nome}</strong> lidera o ranking de aptidão comercial (${topVendas.aptidao.score}%) — considere pra referência de mentoria de venda de adicionais.` : ""}
+        ${precisaCoaching.length > 0 ? ` ${precisaCoaching.length} pessoa${precisaCoaching.length > 1 ? "s" : ""} com perfil mais voltado a suporte/backoffice do que abordagem comercial direta — pode ser melhor aproveitada em conferência, estoque ou apoio de caixa.` : " Toda a equipe atual tem algum grau de aptidão comercial pelo perfil DISC."}
+      </p>
+      <div class="p-2.5 rounded-lg bg-info-soft border border-info text-info text-[11px]">
+        <i class="fa-solid fa-award"></i> <strong>Fit ideal p/ próxima vaga de vendas:</strong> priorize candidatas com <strong>I</strong> alto e <strong>D</strong> moderado — combinação associada a mais iniciativa comercial nesta heurística.
+      </div>
+    </div>
+  `;
+
+  const cards = [cardDiagnostico, cardLacuna, cardVendas];
+
+  // --- Card 4 (só aparece com "Todas as Lojas"): comparativo entre unidades ---
+  if (filterStore === "all") {
+    const porLoja = {};
+    pessoas.forEach(p => {
+      if (p.store === "all") return; // pessoas sem loja fixa (ex.: Owner) não entram no comparativo
+      if (!porLoja[p.store]) porLoja[p.store] = [];
+      porLoja[p.store].push(p);
+    });
+    const lojasComGente = Object.keys(porLoja).filter(k => porLoja[k].length > 0);
+
+    if (lojasComGente.length >= 2) {
+      const comparativo = lojasComGente.map(lojaKey => {
+        const grupo = porLoja[lojaKey];
+        const aptidoes = grupo.map(p => calcularAptidaoVendas(p).score);
+        const media = Math.round(aptidoes.reduce((a, b) => a + b, 0) / grupo.length);
+        return { lojaKey, media, qtd: grupo.length };
+      }).sort((a, b) => b.media - a.media);
+
+      const melhor = comparativo[0];
+      const pior = comparativo[comparativo.length - 1];
+
+      cards.push(`
+        <div class="glass-card p-5 rounded-2xl border border-subtle bg-surface-2 space-y-3 md:col-span-3">
+          <div class="flex items-center gap-2 text-info font-bold text-sm">
+            <i class="fa-solid fa-store text-base"></i> Comparativo entre Unidades — Prontidão Comercial
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${comparativo.map(c => `
+              <div class="p-3 rounded-xl bg-surface-1 border border-subtle text-center">
+                <div class="text-[10px] text-ink-muted uppercase font-bold tracking-wide">${(RH_STORE_TITULOS[c.lojaKey] || c.lojaKey).replace(/^Loja \d+ — /, "").replace(/^FaçaAmigos — /, "FA · ")}</div>
+                <div class="text-xl font-black mt-1" style="color:${c.lojaKey === melhor.lojaKey ? '#0B5138' : c.lojaKey === pior.lojaKey ? '#7C2D12' : 'var(--ink)'}">${c.media}%</div>
+                <div class="text-[10px] text-accent">${c.qtd} pessoa${c.qtd > 1 ? "s" : ""}</div>
+              </div>
+            `).join("")}
+          </div>
+          <p class="text-xs text-ink-muted leading-relaxed">
+            <strong style="color:#0B5138">${RH_STORE_TITULOS[melhor.lojaKey] || melhor.lojaKey}</strong> tem a composição mais orientada a vendas (${melhor.media}%).
+            <strong style="color:#7C2D12">${RH_STORE_TITULOS[pior.lojaKey] || pior.lojaKey}</strong> é a que mais se beneficiaria de reforço em Influência/Dominância na equipe (${pior.media}%).
+          </p>
+        </div>
+      `);
+    }
+  }
+
+  container.innerHTML = cards.join("");
+}
+
+// Modal com o perfil individual completo (radar + aptidão comercial) —
+// aberto a partir de um clique no Mapa de Talentos ou no Ranking Comercial.
+function abrirPerfilIndividualRh(nome) {
+  const profiles = loadDiscProfiles();
+  const prof = profiles[nome] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Equilibrado" };
+  const aptidao = calcularAptidaoVendas(prof);
+  const letraPorPerfil = { "Dominante": "d", "Influenciador": "i", "Estável": "s", "Conforme": "c" };
+  const letra = letraPorPerfil[prof.perfilPredominante];
+  const cor = DISC_COLORS[letra] || "#4A5568";
+
+  const existente = document.getElementById("rh-perfil-modal-overlay");
+  if (existente) existente.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "rh-perfil-modal-overlay";
+  overlay.className = "rh-perfil-modal-overlay";
+  overlay.innerHTML = `
+    <div class="rh-perfil-modal">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div>
+          <h3 style="font-size:1rem;font-weight:800;color:var(--ink-strong);display:flex;align-items:center;gap:8px;">
+            <span style="width:34px;height:34px;border-radius:50%;background:${cor};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${(letra || "?").toUpperCase()}</span>
+            ${nome}
+          </h3>
+          <span class="disc-badge disc-badge-${letra || 'c'}" style="margin-top:6px;">${prof.perfilPredominante}</span>
+        </div>
+        <button id="rh-perfil-modal-fechar" style="background:var(--surface-3);border:none;color:var(--ink-muted);width:28px;height:28px;border-radius:50%;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>
+      <div id="rh-perfil-modal-radar"></div>
+      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface-2);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--ink-muted);font-weight:700;">Aptidão Comercial (heurística DISC)</span>
+        <span class="rh-sales-badge rh-sales-badge-${aptidao.nivel}">${aptidao.label} · ${aptidao.score}%</span>
+      </div>
+      <p style="font-size:10.5px;color:var(--ink-muted);margin-top:10px;line-height:1.5;">
+        Estimativa com base no perfil DISC (peso maior pra Influência e Dominância, típico de vendas consultivas de varejo). Não substitui avaliação de desempenho real — use como apoio de leitura rápida.
+      </p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById("rh-perfil-modal-radar").innerHTML = gerarSvgRadarDisc({ d: prof.d, i: prof.i, s: prof.s, c: prof.c }, 220);
+
+  const fechar = () => overlay.remove();
+  document.getElementById("rh-perfil-modal-fechar").addEventListener("click", fechar);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) fechar(); });
+}
+
+// Modal de edição manual de DISC
+async function abrirModalEditDisc(userName) {
+  const profiles = loadDiscProfiles();
+  const prof = profiles[userName] || { d: 25, i: 25, s: 25, c: 25, perfilPredominante: "Dominante" };
+
+  const promptD = prompt(`Dominância (D) para ${userName} (%):`, prof.d);
+  if (promptD === null) return;
+  const promptI = prompt(`Influência (I) para ${userName} (%):`, prof.i);
+  if (promptI === null) return;
+  const promptS = prompt(`Estabilidade (S) para ${userName} (%):`, prof.s);
+  if (promptS === null) return;
+  const promptC = prompt(`Conformidade (C) para ${userName} (%):`, prof.c);
+  if (promptC === null) return;
+
+  const d = parseInt(promptD) || 0;
+  const i = parseInt(promptI) || 0;
+  const s = parseInt(promptS) || 0;
+  const c = parseInt(promptC) || 0;
+
+  let perfilPredominante = "Dominante";
+  let max = d;
+  if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+  if (s > max) { max = s; perfilPredominante = "Estável"; }
+  if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+  profiles[userName] = {
+    userName,
+    d, i, s, c,
+    perfilPredominante,
+    dataAtualizacao: new Date().toISOString().split("T")[0]
+  };
+
+  saveDiscProfiles(profiles);
+  showToast(`Perfil DISC de ${userName} atualizado!`, "sucesso");
+  renderRhModulo();
+}
+
+// Processamento em lote ou individual de arquivos PDF DISC
+async function handleDiscPdfs(files, selectedUser) {
+  if (!files || files.length === 0) return;
+
+  if (!window.pdfjsLib) {
+    showToast("Biblioteca de PDF não carregada no navegador.", "erro");
+    return;
+  }
+
+  const containerInfo = document.getElementById("disc-file-info");
+  const progressBar = document.getElementById("disc-progress-bar");
+  const progressLabel = document.getElementById("disc-progress-label");
+
+  if (containerInfo) containerInfo.classList.remove("hidden");
+
+  const colabs = obterListaColaboradores();
+  const profiles = loadDiscProfiles();
+  let processados = 0;
+
+  for (let idx = 0; idx < files.length; idx++) {
+    const file = files[idx];
+    const pct = Math.round(((idx + 1) / files.length) * 100);
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (progressLabel) progressLabel.textContent = `Processando arquivo ${idx + 1} de ${files.length}: ${file.name}`;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let textContent = "";
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(" ");
+        textContent += pageText + " ";
+      }
+
+      const textUpper = textContent.toUpperCase();
+      const fileNameUpper = file.name.toUpperCase();
+
+      // Extrair os valores DISC do texto do PDF
+      const { d, i, s, c, perfilPredominante } = extrairValoresDisc(textContent);
+
+
+      // Tentar identificar o colaborador pelo nome no texto do PDF ou no nome do arquivo
+      let targetUser = selectedUser;
+      if (!targetUser || files.length > 1) {
+        const colabEncontrado = colabs.find(c => {
+          const cNome = c.nome.toUpperCase();
+          return textUpper.includes(cNome) || fileNameUpper.includes(cNome);
+        });
+        if (colabEncontrado) targetUser = colabEncontrado.nome;
+      }
+
+      if (!targetUser) {
+        // Tentar extrair o nome do PDF ou do nome do arquivo
+        const nomeExtraido = extrairNomeDoPdf(textContent, file.name);
+        
+        // Chamar modal de cadastro e aguardar preenchimento
+        const dadosCadastro = await obterConfirmacaoCadastroDisc(nomeExtraido, d, i, s, c, perfilPredominante);
+        if (dadosCadastro) {
+          const { nome, unidade, perfil } = dadosCadastro;
+          
+          if (API_ONLINE) {
+            try {
+              const res = await fetch(`${API_BASE}/colaboradores`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome, role: perfil })
+              });
+              const data = await res.json();
+              if (data.error) {
+                showToast(`Erro ao cadastrar: ${data.error}`, "erro");
+                continue;
+              }
+              // Salvar PIN padrão 0000
+              await salvarPinAPI(nome, "0000");
+              pins[nome] = '****';
+              localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+            } catch (err) {
+              showToast("Erro de comunicação ao salvar colaborador.", "erro");
+              continue;
+            }
+          } else {
+            const idx = USERS.findIndex(u => u.nome === nome);
+            if (idx >= 0) USERS[idx].role = perfil;
+            else USERS.push({ nome, role: perfil });
+            localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
+            pins[nome] = "0000";
+            localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+          }
+          
+          targetUser = nome;
+          await carregarColaboradores();
+          await oferecerCadastroBiometriaColaborador(nome);
+
+          profiles[targetUser] = {
+            userName: targetUser,
+            d, i, s, c,
+            perfilPredominante,
+            store: unidade,
+            dataAtualizacao: new Date().toISOString().split("T")[0]
+          };
+          processados++;
+        } else {
+          console.warn(`Cadastro cancelado para o arquivo: ${file.name}`);
+          continue;
+        }
+      } else {
+        // Se já existe, mantém a loja existente
+        const lojaExistente = getStoreForColab(targetUser);
+        profiles[targetUser] = {
+          userName: targetUser,
+          d, i, s, c,
+          perfilPredominante,
+          store: lojaExistente,
+          dataAtualizacao: new Date().toISOString().split("T")[0]
+        };
+        processados++;
+      }
+    } catch (err) {
+      console.error(`Erro ao processar PDF ${file.name}:`, err);
+    }
+  }
+
+  saveDiscProfiles(profiles);
+
+  if (progressBar) progressBar.style.width = "100%";
+  if (progressLabel) progressLabel.textContent = "Concluído!";
+
+  setTimeout(() => {
+    if (containerInfo) containerInfo.classList.add("hidden");
+    if (processados > 0) {
+      showToast(`Sucesso! ${processados} laudo(s) DISC em PDF processado(s) e cadastrado(s)/salvo(s).`, "sucesso");
+      renderRhModulo();
+      renderizarColaboradores();
+    } else {
+      showToast("Nenhum laudo DISC foi associado.", "erro");
+    }
+  }, 600);
+}
+
+// Extrai nome do candidato/colaborador a partir do texto ou nome do arquivo
+function extrairNomeDoPdf(textContent, fileName) {
+  const textUpper = textContent.toUpperCase();
+  
+  const patterns = [
+    /NOME\s*DOS?\s*AVALIADOS?[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /NOME\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /NOME\s*DO\s*CLIENTE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /RELATÓRIO\s*DE[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /CANDIDATO\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /COLABORADOR\s*[:\s]+([A-ZÀ-Ú\s]{3,40})/i,
+    /ANÁLISE\s*EXECUTIVA\s+([A-ZÀ-Ú\s]{3,40})/i,
+    /SUMÁRIO\s+([A-ZÀ-Ú\s]{3,40})/i,
+    /VISÃO\s*GERAL\s+([A-ZÀ-Ú\s]{3,40})/i
+  ];
+  
+  for (const regex of patterns) {
+    const match = textContent.match(regex);
+    if (match && match[1]) {
+      const nomeLimpo = match[1].replace(/\r?\n|\r/g, " ").trim();
+      const partes = nomeLimpo.split(/\s+/).filter(p => p.length > 1);
+      if (partes.length >= 2) {
+        return partes.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+      }
+    }
+  }
+
+  let cleanName = fileName.replace(/\.pdf$/i, "");
+  cleanName = cleanName.replace(/disc/gi, "");
+  cleanName = cleanName.replace(/[_\-+]/g, " ").trim();
+  const partesFile = cleanName.split(/\s+/).filter(p => p.length > 1);
+  if (partesFile.length >= 2) {
+    return partesFile.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  }
+
+  return "";
+}
+
+// Extrai valores do perfil DISC (D, I, S, C e Perfil Predominante) a partir do texto do PDF
+function extrairValoresDisc(textContent) {
+  let d = 25, i = 25, s = 25, c = 25;
+  
+  // Tenta extrair a partir do Gráfico Resultante primeiro
+  let targetText = textContent;
+  const idxResultante = textContent.toLowerCase().indexOf("gráfico resultante");
+  if (idxResultante !== -1) {
+    targetText = textContent.substring(idxResultante);
+  } else {
+    // Se não achar Resultante, tenta Estrutural
+    const idxEstrutural = textContent.toLowerCase().indexOf("gráfico estrutural");
+    if (idxEstrutural !== -1) {
+      targetText = textContent.substring(idxEstrutural);
+    }
+  }
+
+  const dMatch = targetText.match(/(\d+)%\s*Dominância/i);
+  const iMatch = targetText.match(/(\d+)%\s*Influência/i);
+  const sMatch = targetText.match(/(\d+)%\s*Estabilidade/i);
+  const cMatch = targetText.match(/(\d+)%\s*Conformidade/i);
+
+  if (dMatch) d = parseInt(dMatch[1]);
+  if (iMatch) i = parseInt(iMatch[1]);
+  if (sMatch) s = parseInt(sMatch[1]);
+  if (cMatch) c = parseInt(cMatch[1]);
+
+  // Se algum não foi encontrado, tenta na string inteira como fallback
+  if (!dMatch && textContent.match(/(\d+)%\s*Dominância/i)) d = parseInt(textContent.match(/(\d+)%\s*Dominância/i)[1]);
+  if (!iMatch && textContent.match(/(\d+)%\s*Influência/i)) i = parseInt(textContent.match(/(\d+)%\s*Influência/i)[1]);
+  if (!sMatch && textContent.match(/(\d+)%\s*Estabilidade/i)) s = parseInt(textContent.match(/(\d+)%\s*Estabilidade/i)[1]);
+  if (!cMatch && textContent.match(/(\d+)%\s*Conformidade/i)) c = parseInt(textContent.match(/(\d+)%\s*Conformidade/i)[1]);
+
+  let perfilPredominante = "Dominante";
+  let max = d;
+  if (i > max) { max = i; perfilPredominante = "Influenciador"; }
+  if (s > max) { max = s; perfilPredominante = "Estável"; }
+  if (c > max) { max = c; perfilPredominante = "Conforme"; }
+
+  return { d, i, s, c, perfilPredominante };
+}
+
+
+// Abre o modal de cadastro via DISC e retorna os dados preenchidos ou null
+function obterConfirmacaoCadastroDisc(nomeDetectado, d, i, s, c, perfilPredominante) {
+  return new Promise(resolve => {
+    const modal = document.getElementById("modal-cadastro-disc");
+    if (!modal) {
+      resolve(null);
+      return;
+    }
+
+    document.getElementById("disc-colab-nome").value = nomeDetectado || "";
+    document.getElementById("disc-colab-unidade").value = "";
+    document.getElementById("disc-colab-perfil").value = "";
+    document.getElementById("disc-preview-d").textContent = d;
+    document.getElementById("disc-preview-i").textContent = i;
+    document.getElementById("disc-preview-s").textContent = s;
+    document.getElementById("disc-preview-c").textContent = c;
+    document.getElementById("disc-preview-predominante").textContent = perfilPredominante;
+
+    modal.classList.remove("hidden");
+
+    const btnConfirmar = document.getElementById("disc-cadastro-confirmar");
+    const btnCancelar = document.getElementById("disc-cadastro-cancelar");
+
+    btnConfirmar.onclick = () => {
+      const nome = document.getElementById("disc-colab-nome").value.trim();
+      const unidade = document.getElementById("disc-colab-unidade").value;
+      const perfil = document.getElementById("disc-colab-perfil").value;
+
+      if (!nome) {
+        showToast("Por favor, insira o nome do colaborador.", "erro");
+        return;
+      }
+      if (!unidade) {
+        showToast("Por favor, selecione a unidade/loja.", "erro");
+        return;
+      }
+      if (!perfil) {
+        showToast("Por favor, selecione o perfil de acesso.", "erro");
+        return;
+      }
+
+      modal.classList.add("hidden");
+      resolve({ nome, unidade, perfil });
+    };
+
+    btnCancelar.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(null);
+    };
+  });
+}
+
+function inicializarRhListeners() {
+  // Filtro de Loja
+  const selectStoreFilter = document.getElementById("rh-store-filter");
+  if (selectStoreFilter) {
+    selectStoreFilter.addEventListener("change", () => {
+      renderRhModulo();
+    });
+  }
+
+  // Navegação de Sub-abas RH
+  const btnPerfis = document.getElementById("rh-subtab-btn-perfis");
+  const btnDashboard = document.getElementById("rh-subtab-btn-dashboard");
+  const btnInsights = document.getElementById("rh-subtab-btn-insights");
+
+  const panelPerfis = document.getElementById("rh-subtab-perfis");
+  const panelDashboard = document.getElementById("rh-subtab-dashboard");
+  const panelInsights = document.getElementById("rh-subtab-insights");
+
+  if (btnPerfis && btnDashboard && btnInsights) {
+    btnPerfis.addEventListener("click", () => {
+      btnPerfis.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+
+      panelPerfis.classList.remove("hidden");
+      panelDashboard.classList.add("hidden");
+      panelInsights.classList.add("hidden");
+    });
+
+    btnDashboard.addEventListener("click", () => {
+      btnDashboard.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnInsights.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+
+      panelDashboard.classList.remove("hidden");
+      panelPerfis.classList.add("hidden");
+      panelInsights.classList.add("hidden");
+      renderRhDashboard();
+    });
+
+    btnInsights.addEventListener("click", () => {
+      btnInsights.className = "rh-subtab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+      btnPerfis.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+      btnDashboard.className = "rh-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+
+      panelInsights.classList.remove("hidden");
+      panelPerfis.classList.add("hidden");
+      panelDashboard.classList.add("hidden");
+      renderRhInsights();
+    });
+  }
+
+  // Upload PDF DISC Listener (Múltiplos ou Único)
+  const discFileInput = document.getElementById("disc-pdf-file");
+  const userSelect = document.getElementById("disc-upload-user-select");
+
+  if (discFileInput) {
+    discFileInput.addEventListener("change", (e) => {
+      const files = Array.from(e.target.files);
+      const userName = userSelect ? userSelect.value : "";
+      if (!files || files.length === 0) return;
+      handleDiscPdfs(files, userName);
+      discFileInput.value = "";
+    });
+  }
+}
+
+// ==========================================================================
+// MÓDULO DE CONTROLE DE PONTO PWA - CLT-COMPLIANT
+// ==========================================================================
+
+let pontoDb = null;
+let pontoStream = null;
+let pontoGpsCoords = null;
+let pontoGpsAccuracy = null;
+// Operação ativa no Ponto — independente de currentStore (compartilhado com
+// NF-e/Inventário) para não recarregar essas telas ao trocar de operação aqui.
+let pontoOperacaoAtiva = null;
+let pontoGpsWatchId = null;
+
+// Biometria facial
+let modelosFaciaisCarregados = false;
+let pontoFaceVerificada = false;
+let pontoFaceEmbeddingSalvo = null; // null = ainda não checou; false = usuário sem cadastro; number[] = embedding salvo
+let pontoFaceDetectInterval = null;
+// LOJAS_GEOLOC e OPERACOES_CONFIG estão declarados no topo do arquivo (perto de
+// WHATSAPP_GRUPOS), pois carregarConfiguracoes() precisa deles antes deste ponto.
+
+function inicializarPontoDb() {
+  if (pontoDb) return;
+  pontoDb = new Dexie("PontoEletronicoDB");
+  // v1: schema original
+  pontoDb.version(1).stores({
+    time_records: "id, timestamp, tipo, syncStatus",
+    offline_queue: "id, action, timestamp",
+    attachments: "id"
+  });
+  // Schema update: adiciona índice `usuario` em time_records, necessário para
+  // .where("usuario").equals(...) usado em atualizarHistoricoPonto e sincronização.
+  pontoDb.version(2).stores({
+    time_records: "id, timestamp, tipo, syncStatus, usuario",
+    offline_queue: "id, action, timestamp",
+    attachments: "id"
+  });
+}
+
+// Código de unidade do cadastro (colaboradores.unidade, ver
+// renderizarColaboradores) → nome de operação usado no seletor de Ponto.
+// Só lojas Cacau Show: o módulo de Ponto é exclusivo do Cacau Show (FaçaAmigos
+// bate ponto em outro sistema, ver ajustarCardsModulos/iniciarModuloBase).
+// "all" (Líder/Owner) e códigos não mapeados voltam null de propósito: quem
+// não tem uma unidade fixa cai no fallback antigo (loja Cacau Show ativa).
+function unidadeCadastroParaOperacaoPonto(codigo) {
+  const mapa = {
+    "9175": "Marambaia",
+    "9201": "Mário Covas",
+    "4304": "Icoaraci"
+  };
+  return mapa[codigo] || null;
+}
+
+function inicializarAbaPonto() {
+  inicializarPontoDb();
+
+  // Seletor de operação: pré-seleciona pela Unidade/Loja cadastrada da
+  // colaboradora (Configurações → Colaboradores), pra evitar bater ponto
+  // marcado na loja errada. Sem unidade fixa (Líder/Owner com "all"), cai na
+  // loja Cacau Show ativa. Trocar reinicia o rastreio de GPS para a nova
+  // operação.
+  const operacaoSelector = document.getElementById("ponto-operacao-selector");
+  if (operacaoSelector) {
+    const operacaoDaUnidade = currentUser && unidadeCadastroParaOperacaoPonto(currentUser.unidade);
+    pontoOperacaoAtiva = operacaoDaUnidade || getLojaNomePorCodigo(currentStore);
+    operacaoSelector.value = pontoOperacaoAtiva;
+    aplicarCorOperacaoSelect(operacaoSelector);
+    operacaoSelector.onchange = (e) => {
+      pontoOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(operacaoSelector);
+      ativarGPSPonto();
+    };
+  }
+
+  // Setup listeners
+  document.getElementById("btn-ponto-ativar-cam").onclick = ativarCameraPonto;
+  
+  const btnPontoCadastrar = document.getElementById("btn-ponto-cadastrar-biometria");
+  if (btnPontoCadastrar) {
+    // O botão usa cor inline com !important, então o estado :disabled do
+    // navegador não o "apaga" sozinho — precisamos refletir isso no estilo.
+    const desativarBtnCadastrar = () => {
+      btnPontoCadastrar.disabled = true;
+      btnPontoCadastrar.style.opacity = "0.5";
+      btnPontoCadastrar.style.cursor = "not-allowed";
+    };
+    if (currentUser && currentUser.hasBiometricEnrolled) desativarBtnCadastrar();
+    btnPontoCadastrar.onclick = () => {
+      CameraUniversal.open("enrollment", {
+        usuario: currentUser.nome,
+        onCapture: async (result) => {
+          if (result.status === "ENROLLED") {
+            currentUser.hasBiometricEnrolled = true;
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+            await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+
+            // Oculta o banner de biometria pendente, desativa o botão de captura e atualiza a aba de config
+            const alertBanner = document.getElementById("ponto-biometria-alert");
+            if (alertBanner) alertBanner.classList.add("hidden");
+            desativarBtnCadastrar();
+            atualizarBotaoCadastroBiometria();
+          } else if (result.status === "REJECTED_RETRYABLE") {
+            showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          } else if (result.status === "TEMPORARILY_BLOCKED") {
+            showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          } else {
+            showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+          }
+        },
+        onCancel: (err) => {
+          if (err) {
+            console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+            showToast("Não foi possível acessar a câmera.", "erro");
+          }
+        }
+      });
+    };
+  }
+
+  document.getElementById("btn-ponto-entrada").onclick = () => registrarMarcacaoPonto("ENTRADA");
+  document.getElementById("btn-ponto-saida-int").onclick = () => registrarMarcacaoPonto("SAIDA_INTERVALO");
+  document.getElementById("btn-ponto-retorno-int").onclick = () => registrarMarcacaoPonto("RETORNO_INTERVALO");
+  document.getElementById("btn-ponto-saida").onclick = () => registrarMarcacaoPonto("SAIDA");
+  
+  // Adjustment Form
+  document.getElementById("form-ponto-ajuste").onsubmit = enviarSolicitacaoAjuste;
+  
+  // File input compression display
+  const fileInput = document.getElementById("ponto-ajuste-file");
+  if (fileInput) {
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      const filenameLabel = document.getElementById("ponto-ajuste-filename");
+      if (file && filenameLabel) {
+        filenameLabel.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      }
+    };
+  }
+
+  // PDF report listener
+  document.getElementById("btn-ponto-pdf").onclick = exportarEspelhoPontoPDF;
+  const btnPontoEmailContador = document.getElementById("btn-ponto-email-contador");
+  if (btnPontoEmailContador) btnPontoEmailContador.onclick = enviarFolhaPontoPorEmailContador;
+
+  // Relatório por Operação (Líder de Operações/Owner)
+  const relatorioTabs = document.querySelectorAll(".ponto-relatorio-tab");
+  if (relatorioTabs.length > 0) {
+    relatorioTabs.forEach(tab => {
+      tab.onclick = () => {
+        relatorioTabs.forEach(t => t.classList.remove("bg-accent-soft", "text-ink", "border-accent"));
+        tab.classList.add("bg-accent-soft", "text-ink", "border-accent");
+        carregarRelatorioPontoOperacao(tab.dataset.operacao);
+      };
+    });
+  }
+
+  // Start continuous GPS tracking
+  ativarGPSPonto();
+
+  // Load history from Dexie & Server
+  atualizarHistoricoPonto();
+
+  // Run initial sync worker
+  processarFilaOfflinePonto();
+  window.addEventListener("online", processarFilaOfflinePonto);
+
+  // Configurar clique do banner de biometria pendente
+  const btnCadastrarBanner = document.getElementById("btn-ponto-cadastrar-biometria-banner");
+  if (btnCadastrarBanner) {
+    btnCadastrarBanner.onclick = () => {
+      CameraUniversal.open("enrollment", {
+        usuario: currentUser.nome,
+        onCapture: async (result) => {
+          if (result.status === "ENROLLED") {
+            currentUser.hasBiometricEnrolled = true;
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+            await showModal("Biometria cadastrada com sucesso!", { icon: "✅", title: "Biometria cadastrada" });
+            
+            // Oculta o banner de biometria pendente
+            const alertBanner = document.getElementById("ponto-biometria-alert");
+            if (alertBanner) alertBanner.classList.add("hidden");
+
+            // Atualiza o botão na aba de configurações se necessário
+            atualizarBotaoCadastroBiometria();
+          } else if (result.status === "REJECTED_RETRYABLE") {
+            showToast(`Qualidade insuficiente. Tentativas restantes: ${result.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          } else if (result.status === "TEMPORARILY_BLOCKED") {
+            showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          } else {
+            showToast("Não foi possível cadastrar a biometria. Tente novamente.", "erro");
+          }
+        },
+        onCancel: (err) => {
+          if (err) {
+            console.error("Erro ao abrir câmera para cadastro biométrico:", err);
+            showToast("Não foi possível acessar a câmera.", "erro");
+          }
+        }
+      });
+    };
+  }
+
+  // Verificar status para exibição do banner
+  atualizarStatusBiometriaPonto();
+}
+
+async function atualizarStatusBiometriaPonto() {
+  const alertBanner = document.getElementById("ponto-biometria-alert");
+  if (!alertBanner || !currentUser) return;
+
+  if (currentUser.hasBiometricEnrolled) {
+    alertBanner.classList.add("hidden");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/ponto/biometria/${encodeURIComponent(currentUser.nome)}`);
+    const data = await res.json();
+    if (data && data.embedding) {
+      currentUser.hasBiometricEnrolled = true;
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+      alertBanner.classList.add("hidden");
+    } else {
+      alertBanner.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Erro ao verificar status da biometria no banner:", err);
+    if (!currentUser.hasBiometricEnrolled) {
+      alertBanner.classList.remove("hidden");
+    }
+  }
+}
+
+function ativarCameraPonto() {
+  const video = document.getElementById("ponto-video");
+  const placeholder = document.getElementById("ponto-camera-placeholder");
+  const btn = document.getElementById("btn-ponto-ativar-cam");
+  const overlay = document.getElementById("ponto-face-overlay");
+
+  if (pontoStream) {
+    // Desativar
+    pararDeteccaoFacial();
+    pontoStream.getTracks().forEach(track => track.stop());
+    pontoStream = null;
+    video.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+    overlay.classList.add("hidden");
+    esconderBannerFacial();
+    btn.innerHTML = `<i class="fa-solid fa-video mr-1"></i> Ativar Câmera`;
+    return;
+  }
+
+  // Pede resolução ideal 3:4 (retrato) para casar com o viewport vertical do
+  // card — sem isso a webcam manda o padrão paisagem e o object-fit:cover
+  // crop fica mais agressivo (perde parte do rosto nas laterais).
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } } })
+    .then(async stream => {
+      pontoStream = stream;
+      video.srcObject = stream;
+      video.classList.remove("hidden");
+      placeholder.classList.add("hidden");
+      overlay.classList.remove("hidden");
+      btn.innerHTML = `<i class="fa-solid fa-video-slash mr-1"></i> Desativar Câmera`;
+
+      mostrarBannerFacial("buscando", "Carregando reconhecimento facial…");
+      await carregarModelosFaciais();
+      await verificarBiometriaCadastrada();
+      iniciarDeteccaoFacial();
+    })
+    .catch(err => {
+      console.error("Erro ao acessar câmera:", err);
+      showToast("Não foi possível acessar a câmera do dispositivo.", "erro");
+    });
+}
+
+async function carregarModelosFaciais() {
+  if (modelosFaciaisCarregados) return;
+  // face-api.js-models reorganizou os pesos em subpastas por modelo, quebrando
+  // a URL "flat" antiga (404). O repo principal face-api.js ainda serve os
+  // mesmos pesos em /weights, todos no mesmo nível — ver camera-universal.js.
+  const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ]);
+  modelosFaciaisCarregados = true;
+}
+
+async function verificarBiometriaCadastrada() {
+  try {
+    const res = await fetch(`${API_BASE}/ponto/biometria/${encodeURIComponent(currentUser.nome)}`);
+    const data = await res.json();
+    pontoFaceEmbeddingSalvo = data.embedding || false;
+  } catch (err) {
+    console.error("Erro ao checar biometria cadastrada:", err);
+    pontoFaceEmbeddingSalvo = false;
+  }
+}
+
+function mostrarBannerFacial(estado, texto) {
+  const banner = document.getElementById("ponto-face-banner");
+  const icone = document.getElementById("ponto-face-banner-icon");
+  const textoEl = document.getElementById("ponto-face-banner-texto");
+  const estilos = {
+    buscando: { cls: "bg-surface-1 border-subtle text-ink", icon: "fa-camera" },
+    sucesso: { cls: "bg-success-soft border-success text-success", icon: "fa-circle-check" },
+    erro: { cls: "bg-danger-soft border-danger text-danger", icon: "fa-triangle-exclamation" },
+  };
+  const estilo = estilos[estado] || estilos.buscando;
+  banner.className = `w-full mb-4 p-2.5 rounded-xl border text-[11px] font-bold text-center transition ${estilo.cls}`;
+  icone.className = `fa-solid ${estilo.icon} mr-1`;
+  textoEl.textContent = texto;
+  banner.classList.remove("hidden");
+}
+
+function esconderBannerFacial() {
+  document.getElementById("ponto-face-banner").classList.add("hidden");
+}
+
+function iniciarDeteccaoFacial() {
+  pararDeteccaoFacial();
+
+  mostrarBannerFacial("buscando", pontoFaceEmbeddingSalvo === false
+    ? "Coleta de padrão biométrico inicial"
+    : "Posicione o rosto para reconhecimento");
+
+  const video = document.getElementById("ponto-video");
+  pontoFaceDetectInterval = setInterval(async () => {
+    if (!pontoStream) return;
+
+    const deteccao = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true)
+      .withFaceDescriptor();
+
+    if (!deteccao || deteccao.detection.score < FACE_DETECTION_MIN_CONFIDENCE) return;
+
+    const descriptor = Array.from(deteccao.descriptor);
+
+    if (pontoFaceEmbeddingSalvo === false) {
+      // Enrollment: primeiro cadastro do rosto desta pessoa
+      clearInterval(pontoFaceDetectInterval);
+      pontoFaceDetectInterval = null;
+      try {
+        const res = await fetch(`${API_BASE}/ponto/biometria`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario: currentUser.nome, embedding: descriptor, detectionScore: deteccao.detection.score })
+        });
+        const data = await res.json();
+
+        if (data.status === "ENROLLED") {
+          pontoFaceEmbeddingSalvo = descriptor;
+          pontoFaceVerificada = true;
+          mostrarBannerFacial("sucesso", "Rosto reconhecido");
+          await showModal("Biometria cadastrada com sucesso", { icon: "✅", title: "Biometria cadastrada" });
+        } else if (data.status === "TEMPORARILY_BLOCKED") {
+          pontoFaceVerificada = false;
+          mostrarBannerFacial("erro", "Cadastro bloqueado temporariamente");
+          showToast("Muitas tentativas sem sucesso. Procure o RH/Administrador para liberar novas tentativas.", "erro");
+          // loop não reiniciado: tentar de novo é inútil durante o bloqueio de 24h
+        } else {
+          // REJECTED_RETRYABLE (ou status inesperado): qualidade insuficiente, libera nova tentativa
+          pontoFaceVerificada = false;
+          mostrarBannerFacial("erro", "Qualidade insuficiente, tente novamente");
+          showToast(`Qualidade insuficiente. Tentativas restantes: ${data.attemptsRemaining}. Pode capturar novamente.`, "erro");
+          iniciarDeteccaoFacial();
+        }
+      } catch (err) {
+        console.error("Erro ao salvar biometria:", err);
+        showToast("Não foi possível salvar a biometria facial. Tente novamente.", "erro");
+        iniciarDeteccaoFacial();
+      }
+      return;
+    }
+
+    // Verificação: compara o rosto ao vivo com o embedding já cadastrado
+    const distancia = faceapi.euclideanDistance(descriptor, pontoFaceEmbeddingSalvo);
+    if (distancia < FACE_MATCH_MAX_DISTANCE) {
+      pontoFaceVerificada = true;
+      mostrarBannerFacial("sucesso", "Rosto reconhecido");
+    } else {
+      pontoFaceVerificada = false;
+      mostrarBannerFacial("erro", "Rosto não reconhecido");
+    }
+  }, 400);
+}
+
+function pararDeteccaoFacial() {
+  if (pontoFaceDetectInterval) {
+    clearInterval(pontoFaceDetectInterval);
+    pontoFaceDetectInterval = null;
+  }
+  pontoFaceVerificada = false;
+}
+
+function ativarGPSPonto() {
+  const gpsStatus = document.getElementById("ponto-gps-status");
+  const gpsCoords = document.getElementById("ponto-gps-coords");
+  const gpsAcc = document.getElementById("ponto-gps-accuracy");
+  const gpsDist = document.getElementById("ponto-gps-distance");
+
+  if (!navigator.geolocation) {
+    gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Insuportável`;
+    return;
+  }
+
+  // Reinicia o rastreio ao trocar de operação, em vez de acumular watchers.
+  if (pontoGpsWatchId !== null) {
+    navigator.geolocation.clearWatch(pontoGpsWatchId);
+  }
+
+  pontoGpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      pontoGpsCoords = pos.coords;
+      pontoGpsAccuracy = pos.coords.accuracy;
+
+      gpsCoords.textContent = `Coordenadas: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      gpsAcc.textContent = `Precisão: ${pos.coords.accuracy.toFixed(1)}m`;
+
+      // Check distance to active operation
+      const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
+      const storeLoc = LOJAS_GEOLOC[storeName] || LOJAS_GEOLOC["Marambaia"];
+      const dist = calcularDistanciaHaversine(pos.coords.latitude, pos.coords.longitude, storeLoc.lat, storeLoc.lng);
+
+      gpsDist.textContent = `Distância da Loja: ${dist.toFixed(1)}m`;
+
+      // Verificação de GPS/geofencing desativada: status é apenas informativo,
+      // não bloqueia a marcação de ponto.
+      gpsStatus.className = "text-success font-black";
+      gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> OK`;
+    },
+    (err) => {
+      console.warn("Erro ao obter GPS:", err);
+      gpsStatus.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Erro`;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // in meters
+}
+
+// Recorta o frame do vídeo pro aspect-ratio 3:4 (retrato) igual ao que o
+// object-fit:cover já faz na tela — sem isso a foto salva vinha na orientação
+// nativa da webcam (geralmente paisagem), mesmo com o quadro exibido em pé.
+function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  const aspectAtual = vw / vh;
+  if (aspectAtual > aspectAlvo) {
+    // Vídeo mais largo que o alvo: corta as laterais.
+    sw = vh * aspectAlvo;
+    sx = (vw - sw) / 2;
+  } else if (aspectAtual < aspectAlvo) {
+    // Vídeo mais alto/estreito que o alvo: corta topo/base.
+    sh = vw / aspectAlvo;
+    sy = (vh - sh) / 2;
+  }
+
+  const targetWidth = 480;
+  canvas.width = targetWidth;
+  canvas.height = Math.round(targetWidth / aspectAlvo);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
+// Sequência esperada de marcações no dia: ENTRADA -> SAIDA_INTERVALO -> RETORNO_INTERVALO -> SAIDA -> (novo dia) ENTRADA
+const PONTO_PROXIMO_TIPO_ESPERADO = {
+  null: "ENTRADA",
+  ENTRADA: "SAIDA_INTERVALO",
+  SAIDA_INTERVALO: "RETORNO_INTERVALO",
+  RETORNO_INTERVALO: "SAIDA",
+  SAIDA: "ENTRADA" // dia fechado; próxima marcação é a entrada do novo dia
+};
+
+const PONTO_TIPO_LABEL = {
+  ENTRADA: "Entrada",
+  SAIDA_INTERVALO: "Saída para intervalo",
+  RETORNO_INTERVALO: "Retorno do intervalo",
+  SAIDA: "Saída"
+};
+
+// Retorna o último tipo de marcação já registrado hoje (fuso local), ou null se nenhum.
+async function obterUltimoTipoHoje() {
+  const hojeStr = pontoDataLocal(new Date().toISOString());
+  const registrosHoje = await pontoDb.time_records
+    .filter(r => r.usuario === currentUser.nome && pontoDataLocal(r.timestamp) === hojeStr)
+    .toArray();
+  if (registrosHoje.length === 0) return null;
+  registrosHoje.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return registrosHoje[registrosHoje.length - 1].tipo;
+}
+
+let pontoMarcacaoEmAndamento = false;
+
+async function registrarMarcacaoPonto(tipo) {
+  if (pontoMarcacaoEmAndamento) return;
+
+  const storeName = pontoOperacaoAtiva || getLojaNomePorCodigo(currentStore);
+
+  // Verificação de GPS/geofencing desativada para todos os usuários
+  // (operadores, líderes de operação e administradores): a localização,
+  // quando disponível, é apenas registrada para fins de auditoria e não
+  // bloqueia mais a marcação de ponto.
+
+  // Biometria facial: obrigatória sempre que a câmera está ativa
+  if (pontoStream && !pontoFaceVerificada) {
+    showToast("Reconhecimento facial pendente. Posicione o rosto na câmera.", "erro");
+    return;
+  }
+
+  pontoMarcacaoEmAndamento = true;
+  const botoesPonto = ["btn-ponto-entrada", "btn-ponto-saida-int", "btn-ponto-retorno-int", "btn-ponto-saida"]
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  botoesPonto.forEach(btn => { btn.disabled = true; btn.classList.add("opacity-50", "pointer-events-none"); });
+
+  try {
+    // Validação de sequência: impede pular etapas (ex.: Saída sem Entrada, Entrada em duplicidade)
+    const ultimoTipo = await obterUltimoTipoHoje();
+    const esperado = PONTO_PROXIMO_TIPO_ESPERADO[ultimoTipo];
+    if (tipo !== esperado) {
+      const labelEsperado = PONTO_TIPO_LABEL[esperado] || esperado;
+      showToast(`Marcação fora de ordem. A próxima marcação esperada é: ${labelEsperado}.`, "erro");
+      return;
+    }
+
+    // Photo Capture
+    let photoBase64 = null;
+    const video = document.getElementById("ponto-video");
+    const canvas = document.getElementById("ponto-canvas");
+
+    if (pontoStream && video && canvas) {
+      photoBase64 = capturarFrameRetrato(video, canvas);
+      if (!photoBase64) {
+        showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+        return;
+      }
+    } else {
+      showToast("A foto de identificação facial é obrigatória para bater ponto.", "erro");
+      return;
+    }
+
+    // Chained Integrity Hash SHA-256
+    const lastRecord = await pontoDb.time_records.orderBy("timestamp").last();
+    const prevHash = lastRecord ? lastRecord.hash : "0000000000000000000000000000000000000000000000000000000000000000";
+    const timestamp = new Date().toISOString();
+    const rawString = `${currentUser.nome}_${timestamp}_${tipo}_${pontoGpsCoords?.latitude ?? ""}_${pontoGpsCoords?.longitude ?? ""}_${prevHash}`;
+    const currentHash = await calcularHashSha256(rawString);
+
+    const newRecord = {
+      id: `${currentUser.nome}_${Date.now()}`,
+      usuario: currentUser.nome,
+      timestamp,
+      tipo,
+      operacao: storeName,
+      gps: pontoGpsCoords ? `${pontoGpsCoords.latitude.toFixed(5)},${pontoGpsCoords.longitude.toFixed(5)}` : null,
+      accuracy: pontoGpsAccuracy,
+      photo: photoBase64,
+      hash: currentHash,
+      syncStatus: "PENDING"
+    };
+
+    await pontoDb.time_records.put(newRecord);
+    await pontoDb.offline_queue.put({
+      id: newRecord.id,
+      action: "SYNC_PUNCH",
+      timestamp: Date.now()
+    });
+
+    showToast("Ponto registrado localmente com sucesso!", "sucesso");
+
+    // Recalculate daily worked segments
+    atualizarHistoricoPonto();
+    processarFilaOfflinePonto();
+  } catch (err) {
+    console.error("Erro ao registrar marcação de ponto:", err);
+    showToast("Não foi possível registrar o ponto. Tente novamente.", "erro");
+  } finally {
+    pontoMarcacaoEmAndamento = false;
+    botoesPonto.forEach(btn => { btn.disabled = false; btn.classList.remove("opacity-50", "pointer-events-none"); });
+  }
+}
+
+async function calcularHashSha256(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function processarFilaOfflinePonto() {
+  if (!navigator.onLine) {
+    document.getElementById("ponto-offline-badge").classList.remove("hidden");
+    return;
+  }
+
+  inicializarPontoDb();
+  const pendingItems = await pontoDb.time_records.where("syncStatus").equals("PENDING").toArray();
+  if (pendingItems.length === 0) {
+    document.getElementById("ponto-offline-badge").classList.add("hidden");
+    return;
+  }
+
+  document.getElementById("ponto-offline-badge").classList.remove("hidden");
+
+  // Send batch to server
+  fetch(`${API_BASE}/ponto/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records: pendingItems })
+  })
+  .then(res => res.json())
+  .then(async (data) => {
+    if (data.success) {
+      for (const item of pendingItems) {
+        await pontoDb.time_records.update(item.id, { syncStatus: "SYNCED" });
+      }
+      await pontoDb.offline_queue.clear();
+      document.getElementById("ponto-offline-badge").classList.add("hidden");
+      showToast("Fila de pontos offline sincronizada!", "sucesso");
+      atualizarHistoricoPonto();
+    }
+  })
+  .catch(err => {
+    console.error("Erro na sincronização de ponto:", err);
+  });
+}
+
+async function enviarSolicitacaoAjuste(e) {
+  e.preventDefault();
+  
+  const data = document.getElementById("ponto-ajuste-data").value;
+  const tipo = document.getElementById("ponto-ajuste-tipo").value;
+  const motivo = document.getElementById("ponto-ajuste-motivo").value;
+  const fileInput = document.getElementById("ponto-ajuste-file");
+  
+  let comprovanteBase64 = null;
+
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    comprovanteBase64 = await comprimirImagemClientSide(file);
+  }
+
+  const payload = {
+    id: `${currentUser.nome}_ajuste_${Date.now()}`,
+    usuario: currentUser.nome,
+    data,
+    tipo,
+    motivo,
+    comprovante: comprovanteBase64
+  };
+
+  fetch(`${API_BASE}/ponto/ajuste`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("Solicitação de ajuste enviada com sucesso!", "sucesso");
+      document.getElementById("form-ponto-ajuste").reset();
+      document.getElementById("ponto-ajuste-filename").textContent = "Nenhum arquivo selecionado";
+      atualizarHistoricoPonto();
+    } else {
+      showToast("Erro ao enviar solicitação.", "erro");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast("Erro de conexão ao enviar ajuste.", "erro");
+  });
+}
+
+function comprimirImagemClientSide(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const MAX_WIDTH = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compress WebP or JPEG to <300KB
+        const compressed = canvas.toDataURL("image/jpeg", 0.8);
+        resolve(compressed);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function atualizarHistoricoPonto() {
+  if (!currentUser) return;
+  inicializarPontoDb();
+  
+  // Get local records from Dexie
+  const localRecords = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+  
+  // Parse and display
+  renderizarTabelaPonto(localRecords);
+
+  // Fetch server records if online to update Dexie
+  if (navigator.onLine) {
+    fetch(`${API_BASE}/ponto/historico?usuario=${encodeURIComponent(currentUser.nome)}`)
+      .then(res => res.json())
+      .then(async (data) => {
+        if (data && data.registros) {
+          // Merge to Dexie
+          for (const sRec of data.registros) {
+            sRec.syncStatus = "SYNCED";
+            await pontoDb.time_records.put(sRec);
+          }
+          const updatedLocal = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+          renderizarTabelaPonto(updatedLocal);
+        }
+      })
+      .catch(err => console.warn("Erro ao buscar histórico de ponto do servidor:", err));
+  }
+}
+
+// Converte um timestamp ISO para a data local (fuso do dispositivo, YYYY-MM-DD).
+// Usar timestamp.split("T")[0] agrupa pela data em UTC, o que faz marcações
+// feitas à noite (horário do Brasil, UTC-3) "virarem" o dia seguinte errado.
+function pontoDataLocal(timestampIso) {
+  const dt = new Date(timestampIso);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function renderizarTabelaPonto(records) {
+  const tbody = document.getElementById("ponto-historico-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  // Group records by date (YYYY-MM-DD, fuso local)
+  const grouped = {};
+  records.forEach(r => {
+    const dStr = pontoDataLocal(r.timestamp);
+    if (!grouped[dStr]) grouped[dStr] = {};
+    grouped[dStr][r.tipo] = r.timestamp;
+  });
+
+  const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  let totalWorkedMsToday = 0;
+  const dTodayStr = pontoDataLocal(new Date().toISOString());
+
+  dates.forEach(d => {
+    const day = grouped[d];
+    const ent = day["ENTRADA"] ? new Date(day["ENTRADA"]) : null;
+    const sInt = day["SAIDA_INTERVALO"] ? new Date(day["SAIDA_INTERVALO"]) : null;
+    const rInt = day["RETORNO_INTERVALO"] ? new Date(day["RETORNO_INTERVALO"]) : null;
+    const sai = day["SAIDA"] ? new Date(day["SAIDA"]) : null;
+
+    let workedMs = 0;
+    if (ent && sInt) workedMs += (sInt - ent);
+    if (rInt && sai) workedMs += (sai - rInt);
+    else if (rInt && !sai && d === dTodayStr) {
+      workedMs += (new Date() - rInt);
+    } else if (ent && !sInt && d === dTodayStr) {
+      workedMs += (new Date() - ent);
+    }
+
+    if (d === dTodayStr) {
+      totalWorkedMsToday = workedMs;
+    }
+
+    const tHours = Math.floor(workedMs / 3600000);
+    const tMins = Math.floor((workedMs % 3600000) / 60000);
+    const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-surface-hover transition-all border-b border-subtle";
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-mono font-bold">${formatDate(new Date(d + "T12:00:00"))}</td>
+      <td class="py-3 px-4 text-center font-semibold">${ent ? formatTime(ent) : "-"}</td>
+      <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
+      <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
+      <td class="py-3 px-4 text-center font-semibold">${sai ? formatTime(sai) : "-"}</td>
+      <td class="py-3 px-4 text-center font-mono font-bold ${workedMs > 28800000 ? 'text-success' : 'text-ink-muted'}">${saldoText}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Update real time metrics
+  const hToday = Math.floor(totalWorkedMsToday / 3600000);
+  const mToday = Math.floor((totalWorkedMsToday % 3600000) / 60000);
+  document.getElementById("ponto-balance-today").textContent = `${hToday}h ${mToday}m`;
+  
+  const pct = Math.min(100, (totalWorkedMsToday / 28800000) * 100);
+  const bar = document.getElementById("ponto-balance-progress");
+  if (bar) {
+    bar.style.width = `${pct}%`;
+    if (pct >= 100) bar.className = "bg-success-soft h-3.5 rounded-full transition-all duration-500";
+    else bar.className = "bg-accent-soft h-3.5 rounded-full transition-all duration-500";
+  }
+
+  // CLT 2h overtime limit check
+  const alertClt = document.getElementById("ponto-clt-alert");
+  if (alertClt) {
+    if (totalWorkedMsToday >= 36000000) { // 10 hours total (8h + 2h extras)
+      alertClt.classList.remove("hidden");
+    } else {
+      alertClt.classList.add("hidden");
+    }
+  }
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ==========================================================================
+// IMPORTAÇÃO DE METAS DIÁRIAS (XLSX) — alimenta o Meta Hora a Hora
+// ==========================================================================
+// Lê a planilha de exportação de metas da loja (coluna "$ Meta Total" por
+// dia) e importa em lote via POST /api/metas-lojas/importar. A função existia
+// só como chamada solta em DOMContentLoaded (nunca foi implementada) — o
+// input de arquivo em #metas-xlsx-file ficava sem nenhum listener.
+function inicializarMetasImportTab() {
+  const inputArquivo = document.getElementById("metas-xlsx-file");
+  const seletorLoja = document.getElementById("metas-loja-selector");
+  const infoEl = document.getElementById("metas-import-info");
+  if (!inputArquivo) return;
+
+  inputArquivo.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const codigoLoja = seletorLoja ? seletorLoja.value : "9175";
+    processarMetasXLSX(file, codigoLoja, infoEl);
+    inputArquivo.value = "";
+  });
+}
+
+function processarMetasXLSX(file, codigoLoja, infoEl) {
+  const loja = getLojaNomePorCodigo(codigoLoja);
+
+  const mostrarInfo = (texto) => {
+    if (!infoEl) return;
+    infoEl.textContent = texto;
+    infoEl.classList.remove("hidden");
+  };
+
+  mostrarInfo("Lendo planilha...");
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array", cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      let headerRowIndex = -1;
+      let headers = [];
+      for (let r = 0; r < Math.min(10, rawRows.length); r++) {
+        const row = rawRows[r] || [];
+        const temColunaMeta = row.some(v => typeof v === "string" && v.toLowerCase().replace(/\s+/g, " ").includes("meta total"));
+        if (temColunaMeta) {
+          headerRowIndex = r;
+          headers = row;
+          break;
+        }
+      }
+      if (headerRowIndex === -1) {
+        mostrarInfo('Não encontramos a coluna "$ Meta Total" nessa planilha. Confira o arquivo exportado.');
+        return;
+      }
+
+      const colMap = {};
+      headers.forEach((h, idx) => {
+        if (h) colMap[h.toString().trim().toLowerCase()] = idx;
+      });
+      const indiceCol = (candidatos) => {
+        for (const nome of candidatos) {
+          const idx = colMap[nome];
+          if (idx !== undefined) return idx;
+        }
+        return -1;
+      };
+      const idxData = indiceCol(["data", "dia", "data referência"]);
+      const idxMeta = indiceCol(["$ meta total", "meta total", "valor meta"]);
+
+      if (idxData === -1 || idxMeta === -1) {
+        mostrarInfo('Não encontramos as colunas de Data e "$ Meta Total" nessa planilha.');
+        return;
+      }
+
+      const paraDataISO = (valor) => {
+        if (valor instanceof Date && !isNaN(valor)) {
+          const ano = valor.getFullYear();
+          const mes = String(valor.getMonth() + 1).padStart(2, "0");
+          const dia = String(valor.getDate()).padStart(2, "0");
+          return `${ano}-${mes}-${dia}`;
+        }
+        if (typeof valor === "string") {
+          const m = valor.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+          if (m) {
+            const [, d, mo, a] = m;
+            const ano = a.length === 2 ? `20${a}` : a;
+            return `${ano}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+          }
+        }
+        return null;
+      };
+
+      const linhas = [];
+      for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+        const row = rawRows[r];
+        if (!row || row.length === 0) continue;
+
+        const dataISO = paraDataISO(row[idxData]);
+        if (!dataISO) continue; // pula linhas de total/rodapé sem data válida
+
+        const valorBruto = row[idxMeta];
+        const valor = typeof valorBruto === "number" ? valorBruto : parseFloat(String(valorBruto || "0").replace(/[^\d,.-]/g, "").replace(",", "."));
+        if (isNaN(valor)) continue;
+
+        linhas.push({ data: dataISO, valor, origem: "diaria" });
+      }
+
+      if (linhas.length === 0) {
+        mostrarInfo("Nenhuma linha com data e meta válidas foi encontrada nessa planilha.");
+        return;
+      }
+
+      mostrarInfo(`Importando ${linhas.length} dia(s) de meta para ${loja}...`);
+
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loja, linhas })
+      });
+      const resultado = await res.json();
+      if (!res.ok || resultado.error) throw new Error(resultado.error || `HTTP ${res.status}`);
+
+      mostrarInfo(`${resultado.count} dia(s) de meta importados para ${loja}.`);
+      showToast(`Metas diárias importadas para ${loja}!`, "sucesso");
+
+      if (metaOperacaoAtiva === loja && typeof carregarMetaHoraHora === "function") {
+        carregarMetaHoraHora();
+      }
+    } catch (err) {
+      console.error("Erro ao importar metas diárias:", err);
+      mostrarInfo("Erro ao importar a planilha: " + err.message);
+      showToast("Erro ao importar metas diárias.", "erro");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function inicializarMetaHoraHora() {
+  const selector = document.getElementById("meta-operacao-selector");
+
+  // consultora só tem uma loja — a dela, currentUser.unidade — e não vê o
+  // seletor na tela "Hoje". Usar currentStore aqui (contexto do seletor de
+  // Inventário/NF-e, uma tela totalmente à parte) faria "Hoje" mostrar a
+  // meta de qualquer loja que por acaso esteja selecionada lá, não a da
+  // própria colaboradora. Líder/Owner continuam pelo seletor, porque
+  // acompanham várias lojas e o currentUser.unidade delas é "all".
+  const lojaPropria = currentUser && currentUser.role === "consultora" && currentUser.unidade
+    ? getLojaNomePorCodigo(currentUser.unidade)
+    : null;
+
+  if (lojaPropria) {
+    metaOperacaoAtiva = lojaPropria;
+    if (selector) {
+      selector.value = metaOperacaoAtiva;
+      aplicarCorOperacaoSelect(selector);
+      selector.onchange = null; // consultora não troca de loja aqui
+    }
+  } else if (selector) {
+    metaOperacaoAtiva = getLojaNomePorCodigo(currentStore);
+    selector.value = metaOperacaoAtiva;
+    aplicarCorOperacaoSelect(selector);
+    selector.onchange = (e) => {
+      metaOperacaoAtiva = e.target.value;
+      aplicarCorOperacaoSelect(selector);
+      carregarMetaHoraHora();
+    };
+  }
+
+  carregarMetaHoraHora();
+}
+
+// ==========================================================================
+// ANTI-BANIMENTO — compartilhado por qualquer tela que dispare WhatsApp em
+// sequência (Pós-visita, Aniversários): intervalo aleatório (nunca fixo)
+// entre cada disparo, e uma pausa longa a cada bloco de mensagens, pra
+// reduzir o padrão repetitivo que o WhatsApp usa pra detectar disparo em
+// massa e evitar o número ser bloqueado.
+// ==========================================================================
+const ENVIO_COOLDOWN_MIN_MS = 10000;
+const ENVIO_COOLDOWN_MAX_MS = 20000;
+const ENVIO_PAUSA_LONGA_MIN_MS = 8 * 60 * 1000;
+const ENVIO_PAUSA_LONGA_MAX_MS = 12 * 60 * 1000;
+
+function envioSortearMs(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function novoEstadoAntiBanimento() {
+  return { envios: 0, proximaPausaEm: 20 + Math.floor(Math.random() * 11) }; // bloco de 20 a 30
+}
+
+// Habilita o botão do próximo card da lista depois de um intervalo (curto,
+// aleatório) ou de uma pausa longa (a cada bloco de 20-30 envios), mostrando
+// uma contagem regressiva no elemento de mensagem correspondente.
+function habilitarProximoComAntiBanimento(cardAtual, estado, seletorBtn, seletorMsg) {
+  const proximo = cardAtual.nextElementSibling;
+  if (!proximo) return;
+  const proximoBtn = proximo.querySelector(seletorBtn);
+  const cooldownMsg = proximo.querySelector(seletorMsg);
+  if (!proximoBtn || proximoBtn.disabled === false) return;
+
+  const ehPausaLonga = estado.envios >= estado.proximaPausaEm;
+  const duracaoMs = ehPausaLonga
+    ? envioSortearMs(ENVIO_PAUSA_LONGA_MIN_MS, ENVIO_PAUSA_LONGA_MAX_MS)
+    : envioSortearMs(ENVIO_COOLDOWN_MIN_MS, ENVIO_COOLDOWN_MAX_MS);
+
+  if (ehPausaLonga) {
+    estado.envios = 0;
+    estado.proximaPausaEm = 20 + Math.floor(Math.random() * 11);
+  }
+
+  let restanteMs = duracaoMs;
+  cooldownMsg.classList.remove("hidden");
+
+  const formatar = (ms) => {
+    const totalSeg = Math.ceil(ms / 1000);
+    if (totalSeg <= 60) return `Aguarde ${totalSeg}s...`;
+    const min = Math.floor(totalSeg / 60);
+    const seg = totalSeg % 60;
+    return `Pausa de segurança: ${min}min ${String(seg).padStart(2, "0")}s...`;
+  };
+  cooldownMsg.textContent = formatar(restanteMs);
+
+  const passo = 1000;
+  const intervalo = setInterval(() => {
+    restanteMs -= passo;
+    if (restanteMs <= 0) {
+      clearInterval(intervalo);
+      proximoBtn.disabled = false;
+      cooldownMsg.classList.add("hidden");
+    } else {
+      cooldownMsg.textContent = formatar(restanteMs);
+    }
+  }, passo);
+}
+
+// ==========================================================================
+// PÓS-VISITA (FaçaAmigos) — importação manual do relatório operacional do
+// dia anterior (CSV) e fila de disparo de WhatsApp para os responsáveis.
+// ==========================================================================
+let posVisitaEstadoAntiBan = novoEstadoAntiBanimento();
+// Fila em tela, guardada para repor o buffer de mensagens da IA conforme os
+// envios avançam (ver preBuscarMensagemIA).
+let posVisitaFilaAtual = [];
+
+// Badge piscante ao lado de "PÓS-VISITA" no menu: mostra quantas mensagens
+// ainda estão pendentes de envio. Atualiza no login (pra aparecer mesmo sem
+// abrir a aba) e vai debitando a cada envio.
+async function buscarContagemPosVisitaPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgePosVisita((registros || []).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de pós-visita pendentes:", err);
+  }
+}
+
+function atualizarBadgePosVisita(quantidade) {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgePosVisita() {
+  const badge = document.getElementById("pv-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgePosVisita(atual);
+}
+
+function renderPosVisita() {
+  const btnAtualizar = document.getElementById("pv-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => {
+      carregarPosVisita();
+      carregarRelatorioPosVisita();
+      carregarIndicacoes();
+    };
+  }
+
+  const inputData = document.getElementById("pv-import-data");
+  if (inputData && !inputData.value) {
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    inputData.value = ontem.toISOString().slice(0, 10);
+  }
+
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  if (inputArquivo && !inputArquivo.dataset.bound) {
+    inputArquivo.dataset.bound = "1";
+    inputArquivo.onchange = importarCsvPosVisita;
+  }
+
+  inicializarSubTabsPosVisita();
+
+  carregarPosVisita();
+  carregarRelatorioPosVisita();
+  carregarIndicacoes();
+}
+
+// ==========================================================================
+// SUB-ABAS DA PÓS-VISITA: "Fila de mensagens" e "Indicações"
+// ==========================================================================
+// A fila é o trabalho do dia; as indicações são o acompanhamento da Ação 2
+// (Pós-Venda Multiplicador), que vive em outro ritmo — o amigo indicado pode
+// aparecer semanas depois. Separar evita poluir a fila de disparo.
+let pvSubTabAtiva = "fila";
+
+function inicializarSubTabsPosVisita() {
+  const btnFila = document.getElementById("pv-subtab-btn-fila");
+  const btnInd = document.getElementById("pv-subtab-btn-indicacoes");
+  if (!btnFila || !btnInd || btnFila.dataset.bound) return;
+  btnFila.dataset.bound = "1";
+
+  btnFila.onclick = () => ativarSubTabPosVisita("fila");
+  btnInd.onclick = () => ativarSubTabPosVisita("indicacoes");
+  ativarSubTabPosVisita(pvSubTabAtiva);
+}
+
+function ativarSubTabPosVisita(nome) {
+  pvSubTabAtiva = nome;
+  const ATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-info-soft text-ink shadow";
+  const INATIVO = "pv-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-surface-2 text-ink-muted hover:text-ink-strong";
+
+  const btnFila = document.getElementById("pv-subtab-btn-fila");
+  const btnInd = document.getElementById("pv-subtab-btn-indicacoes");
+  const painelFila = document.getElementById("pv-subtab-fila");
+  const painelInd = document.getElementById("pv-subtab-indicacoes");
+  if (!btnFila || !btnInd || !painelFila || !painelInd) return;
+
+  const ehFila = nome === "fila";
+  btnFila.className = ehFila ? ATIVO : INATIVO;
+  // O botão de Indicações carrega um badge dentro dele; recriar a classe não
+  // mexe no conteúdo, então o badge sobrevive à troca de aba.
+  btnInd.className = ehFila ? INATIVO : ATIVO;
+  painelFila.classList.toggle("hidden", !ehFila);
+  painelInd.classList.toggle("hidden", ehFila);
+
+  if (!ehFila) carregarIndicacoes();
+}
+
+// Dispara assim que o operador escolhe o arquivo — sem botão extra, sem
+// clique a mais. A lista de pendentes já aparece atualizada logo em seguida.
+async function importarCsvPosVisita() {
+  const inputArquivo = document.getElementById("pv-import-arquivo");
+  const inputData = document.getElementById("pv-import-data");
+  const msg = document.getElementById("pv-import-msg");
+
+  const arquivo = inputArquivo.files[0];
+  if (!arquivo) return;
+  if (!inputData.value) {
+    msg.textContent = "Informe a data do relatório antes de escolher o arquivo.";
+    inputArquivo.value = "";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+  formData.append("dataSessao", inputData.value);
+
+  inputArquivo.disabled = true;
+  msg.textContent = "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/importar-csv`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    msg.textContent = `${json.inseridos} de ${json.linhasNoArquivo} linha(s) importada(s).`;
+    showToast("Relatório importado com sucesso!", "sucesso");
+    inputArquivo.value = "";
+    carregarPosVisita();
+    carregarRelatorioPosVisita();
+  } catch (err) {
+    console.error("Erro ao importar CSV da Pós-visita:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o CSV.", "erro");
+  } finally {
+    inputArquivo.disabled = false;
+  }
+}
+
+async function carregarRelatorioPosVisita() {
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/relatorio`);
+    if (!res.ok) throw new Error("Falha ao carregar relatório");
+    const relatorio = await res.json();
+
+    document.getElementById("pv-relatorio-importados").textContent = relatorio.importados;
+    document.getElementById("pv-relatorio-enviados").textContent = relatorio.enviados;
+    const label = document.getElementById("pv-relatorio-data");
+    if (label && relatorio.mes) {
+      const [ano, mesNum] = relatorio.mes.split("-");
+      const nomeMes = new Date(Number(ano), Number(mesNum) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      label.textContent = `(${nomeMes})`;
+    }
+  } catch (err) {
+    console.error("Erro ao carregar relatório de pós-visita:", err);
+  }
+}
+
+async function carregarPosVisita() {
+  const lista = document.getElementById("pv-lista");
+  const vazio = document.getElementById("pv-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/pendentes`);
+    if (!res.ok) throw new Error("Falha ao carregar fila");
+    const { registros } = await res.json();
+
+    lista.innerHTML = "";
+    atualizarBadgePosVisita((registros || []).length);
+    if (!registros || registros.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    registros.forEach((registro, index) => {
+      lista.appendChild(criarCardPosVisita(registro, index === 0));
+    });
+
+    // Personalização por IA (item 5): busca as primeiras em segundo plano.
+    posVisitaFilaAtual = registros;
+    abastecerBufferMensagensIA(registros, r => ({
+      tipo: "pos-visita",
+      nomeResponsavel: r.cliente,
+      nomeCrianca: r.crianca,
+      tempoTotalMinutos: r.tempoTotalMinutos
+    }));
+  } catch (err) {
+    console.error("Erro ao carregar fila de pós-visita:", err);
+    showToast("Erro ao carregar a fila de pós-visita.", "erro");
+  }
+}
+
+// ==========================================================================
+// MENSAGENS PERSONALIZADAS POR IA (item 5 — ver docs/IA.md)
+// ==========================================================================
+// O envio abre o WhatsApp com window.open DENTRO do clique. Se a mensagem
+// fosse pedida à IA no momento do clique, o `await` quebraria o gesto do
+// usuário e o navegador bloquearia o popup. Por isso a mensagem é buscada
+// ANTES, em segundo plano, e guardada no próprio registro.
+//
+// A pré-busca é limitada a um pequeno buffer à frente: a fila do servidor
+// serializa as chamadas e a cota gratuita é limitada — disparar 50 pré-buscas
+// ao abrir a tela gastaria a cota do dia sem necessidade.
+// ==========================================================================
+const IA_MSG_BUFFER = 3;
+
+function preBuscarMensagemIA(registro, corpo) {
+  if (registro._iaMensagem !== undefined) return Promise.resolve(); // já buscada ou em curso
+  registro._iaMensagem = null;
+
+  return fetch(`${API_BASE}/ia/mensagem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo)
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.mensagem) registro._iaMensagem = data.mensagem;
+    })
+    .catch(err => {
+      // Silencioso de propósito: sem mensagem da IA, o envio usa o template
+      // sorteado e o usuário não percebe diferença de fluxo.
+      console.warn("Pré-busca de mensagem por IA falhou:", err.message);
+    });
+}
+
+// Mantém o buffer abastecido conforme a fila anda.
+function abastecerBufferMensagensIA(registros, montarCorpo) {
+  (registros || [])
+    .filter(r => r._iaMensagem === undefined)
+    .slice(0, IA_MSG_BUFFER)
+    .forEach(r => preBuscarMensagemIA(r, montarCorpo(r)));
+}
+
+function criarCardPosVisita(registro, habilitado) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const dataFormatada = formatarDataBr(registro.dataSessao);
+  const avisoDuplicidade = registro.jaContactadoAntes
+    ? `<p class="text-[11px] text-amber-400 mt-1 font-bold" data-tip="Esse responsável e essa criança já receberam mensagem em outro dia — confira antes de enviar de novo">⚠️ Já contactado(a) anteriormente</p>`
+    : '';
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🧩 ${registro.crianca}</p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.cliente}</p>
+      <p class="text-[11px] text-brand-400 mt-0.5">${dataFormatada} · ${registro.tempoTotalMinutos} min no playground</p>
+      ${avisoDuplicidade}
+    </div>
+    <div class="flex flex-col gap-1">
+      <button type="button" class="pv-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${habilitado ? "" : "disabled"} data-tip="Abre o WhatsApp com uma mensagem carinhosa já pronta para esse responsável">
+        <i class="fa-brands fa-whatsapp"></i> Enviar mensagem
+      </button>
+      <span class="pv-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
+    </div>
+  `;
+
+  // Sem atalho para o controle de indicações aqui de propósito: este card some
+  // no dia seguinte, e uma ficha criada por ele ficaria em 0/2 para sempre. A
+  // ficha nasce quando o primeiro amigo indicado chega ao balcão.
+  const btn = card.querySelector(".pv-btn-enviar");
+  btn.onclick = () => dispararMensagemPosVisita(registro, card);
+
+  return card;
+}
+
+function dispararMensagemPosVisita(registro, card) {
+  const btn = card.querySelector(".pv-btn-enviar");
+  // Mensagem personalizada pela IA. Sem fallback de template local (removido
+  // junto com mensagens-pos-visita.js) — se a IA ainda não respondeu, pede
+  // pra tentar de novo em vez de mandar uma mensagem vazia/quebrada.
+  if (!registro._iaMensagem) {
+    showToast("Mensagem ainda não está pronta, aguarde alguns segundos e tente novamente.", "info");
+    return;
+  }
+  const mensagem = registro._iaMensagem;
+  const url = `https://wa.me/${registro.numeroCliente}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Mensagem encaminhada';
+
+  posVisitaEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, posVisitaEstadoAntiBan, ".pv-btn-enviar", ".pv-cooldown-msg");
+
+  // Repõe o buffer: a fila andou, então a próxima ainda sem mensagem entra
+  // na pré-busca agora, com folga até chegar a vez dela.
+  abastecerBufferMensagensIA(posVisitaFilaAtual, r => ({
+    tipo: "pos-visita",
+    nomeResponsavel: r.cliente,
+    nomeCrianca: r.crianca,
+    tempoTotalMinutos: r.tempoTotalMinutos
+  }));
+
+  decrementarBadgePosVisita();
+
+  fetch(`${API_BASE}/pos-visita/marcar-enviada`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).then(() => carregarRelatorioPosVisita())
+    .catch(err => console.error("Erro ao marcar mensagem como enviada:", err));
+
+  // Deixa a confirmação visível por um instante e então some da fila.
+  setTimeout(() => {
+    card.remove();
+    const lista = document.getElementById("pv-lista");
+    const vazio = document.getElementById("pv-vazio");
+    if (lista && vazio && lista.children.length === 0) {
+      vazio.classList.remove("hidden");
+    }
+  }, 1500);
+}
+
+// ==========================================================================
+// INDICAÇÕES (Ação 2 — Pós-Venda Multiplicador)
+// ==========================================================================
+// A mensagem de pós-visita promete 15 minutos VIP no Circuito para quem
+// indicar 2 amigos NOVOS. O controle roda de trás para frente: quem chega
+// diz "vim por indicação do Enzo" e informa o nome e o WhatsApp de quem
+// indicou. A ficha nasce nessa primeira indicação e é encontrada pelo
+// TELEFONE na segunda — que libera o botão do voucher.
+//
+// Nada depende do card da fila de mensagens, que some no dia seguinte: o
+// controle vive por conta própria e a operadora preenche tudo na mão.
+// ==========================================================================
+const BRINDES_CIRCUITO = ["LandRover Branca", "Lamborghini Amarela", "Caminhão de Bombeiro"];
+
+// Lista completa em memória para o filtro de busca não precisar ir ao
+// servidor a cada tecla.
+let indicacoesFilaAtual = [];
+
+async function carregarIndicacoes() {
+  const lista = document.getElementById("pv-ind-lista");
+  const vazio = document.getElementById("pv-ind-vazio");
+  if (!lista) return;
+
+  const btnAdicionar = document.getElementById("pv-ind-btn-adicionar");
+  if (btnAdicionar && !btnAdicionar.dataset.bound) {
+    btnAdicionar.dataset.bound = "1";
+    btnAdicionar.onclick = registrarIndicacaoRecebida;
+    // Enter em qualquer campo do formulário registra — o balcão é rápido e a
+    // operadora está digitando com a família na frente.
+    ["pv-ind-responsavel", "pv-ind-telefone", "pv-ind-amigo", "pv-ind-crianca"].forEach(id => {
+      const campo = document.getElementById(id);
+      if (campo) campo.onkeydown = (e) => { if (e.key === "Enter") registrarIndicacaoRecebida(); };
+    });
+  }
+
+  const busca = document.getElementById("pv-ind-busca");
+  if (busca && !busca.dataset.bound) {
+    busca.dataset.bound = "1";
+    busca.oninput = () => renderizarListaIndicacoes();
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes`);
+    if (!res.ok) throw new Error("Falha ao carregar indicações");
+    const { registros, resumo } = await res.json();
+
+    document.getElementById("pv-ind-total").textContent = resumo.total;
+    document.getElementById("pv-ind-andamento").textContent = resumo.emAndamento;
+    document.getElementById("pv-ind-aguardando").textContent = resumo.aguardandoVoucher;
+    document.getElementById("pv-ind-entregues").textContent = resumo.entregues;
+    document.getElementById("pv-ind-amigos").textContent = resumo.amigosNovos;
+
+    // O badge do menu mostra só o que exige ação: voucher conquistado e ainda
+    // não entregue.
+    const badge = document.getElementById("pv-badge-indicacoes");
+    if (badge) {
+      badge.textContent = resumo.aguardandoVoucher;
+      badge.classList.toggle("hidden", resumo.aguardandoVoucher <= 0);
+    }
+
+    indicacoesFilaAtual = registros || [];
+    renderizarListaIndicacoes();
+  } catch (err) {
+    console.error("Erro ao carregar indicações:", err);
+    showToast("Erro ao carregar as indicações.", "erro");
+  }
+}
+
+function renderizarListaIndicacoes() {
+  const lista = document.getElementById("pv-ind-lista");
+  const vazio = document.getElementById("pv-ind-vazio");
+  if (!lista || !vazio) return;
+
+  const termo = (document.getElementById("pv-ind-busca")?.value || "").trim().toLowerCase();
+  // Busca também pelo telefone só com dígitos: a operadora digita "(91) 9…"
+  // e o banco guarda "5591…".
+  const digitos = termo.replace(/\D/g, "");
+
+  const filtrados = indicacoesFilaAtual.filter(r => {
+    if (!termo) return true;
+    const campos = [r.responsavel, r.crianca, r.amigo1Nome, r.amigo2Nome]
+      .filter(Boolean).join(" ").toLowerCase();
+    return campos.includes(termo) || (digitos && String(r.telefone || "").includes(digitos));
+  });
+
+  lista.innerHTML = "";
+  if (filtrados.length === 0) {
+    vazio.classList.remove("hidden");
+    vazio.querySelector("p").textContent = termo
+      ? "Nenhum indicador encontrado para essa busca."
+      : "Nenhuma indicação registrada ainda.";
+    return;
+  }
+  vazio.classList.add("hidden");
+  filtrados.forEach(r => lista.appendChild(criarCardIndicacao(r)));
+}
+
+// (91) 99999-8888 a partir de 5591999998888 — o número cru é ilegível no card.
+function formatarTelefoneBr(telefone) {
+  const d = String(telefone || "").replace(/\D/g, "");
+  const local = d.startsWith("55") ? d.slice(2) : d;
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  return telefone || "";
+}
+
+function criarCardIndicacao(registro) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const feitas = registro.indicacoesFeitas;
+  const amigos = [
+    { nome: registro.amigo1Nome, em: registro.amigo1Em },
+    { nome: registro.amigo2Nome, em: registro.amigo2Em }
+  ].filter(a => a.nome);
+
+  const listaAmigos = amigos.length
+    ? `<ul class="mt-2 text-[11px] text-brand-300 space-y-0.5">${amigos
+        .map(a => `<li><i class="fa-solid fa-check text-success"></i> ${a.nome} <span class="text-ink-faint">· ${formatarDataBr(a.em)}</span></li>`)
+        .join("")}</ul>`
+    : `<p class="mt-2 text-[11px] text-ink-faint">Nenhum amigo indicado ainda.</p>`;
+
+  let statusHtml;
+  if (registro.voucherEntregue) {
+    statusHtml = `<p class="text-[11px] text-success font-bold mt-1"><i class="fa-solid fa-trophy"></i> Voucher usado${registro.brindeEscolhido ? ` — ${registro.brindeEscolhido}` : ""} · ${formatarDataBr(registro.voucherEntregueEm)}</p>`;
+  } else if (registro.voucherLiberado) {
+    statusHtml = `<p class="text-[11px] text-warning font-bold mt-1"><i class="fa-solid fa-gift"></i> Voucher VIP liberado! ${registro.voucherEnviadoEm ? "Parabéns já enviado." : "Avise a família."}</p>`;
+  } else {
+    statusHtml = `<p class="text-[11px] text-info font-bold mt-1"><i class="fa-solid fa-hourglass-half"></i> Faltam ${2 - feitas} amigo(s) novo(s)</p>`;
+  }
+
+  const opcoesBrinde = BRINDES_CIRCUITO
+    .map(b => `<option value="${b}" ${registro.brindeEscolhido === b ? "selected" : ""}>${b}</option>`)
+    .join("");
+
+  // O indicador é identificado pelo WhatsApp — é a chave do controle e o que
+  // a operadora confere quando a família volta. O nome da criança é opcional
+  // e por isso aparece como um complemento editável, não como título.
+  const linhaCrianca = registro.crianca
+    ? `<p class="text-[11px] text-ink-muted mt-0.5">🧩 ${registro.crianca}</p>`
+    : `<button type="button" class="pvi-btn-crianca text-[11px] text-ink-faint hover:text-ink underline mt-0.5" data-tip="Informe o nome da criança para personalizar a mensagem do voucher">+ nome da criança</button>`;
+
+  card.innerHTML = `
+    <div>
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <p class="text-sm font-bold text-ink-strong">${registro.responsavel}</p>
+          <p class="text-xs text-ink-muted mt-0.5"><i class="fa-brands fa-whatsapp"></i> ${formatarTelefoneBr(registro.telefone)}</p>
+          ${linhaCrianca}
+        </div>
+        <span class="px-2 py-1 rounded-lg text-xs font-extrabold border ${feitas >= 2 ? "bg-success-soft border-success text-success" : "bg-surface-3 border-subtle text-ink"}">${feitas}/2</span>
+      </div>
+      ${statusHtml}
+      ${listaAmigos}
+    </div>
+    <div class="flex flex-col gap-1">
+      ${feitas < 2 ? `
+        <button type="button" class="pvi-btn-amigo w-full px-4 py-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Atalho para quando a ficha já está na tela: registra a 2ª indicação sem digitar o WhatsApp de novo">
+          <i class="fa-solid fa-user-plus"></i> Registrar 2ª indicação
+        </button>` : ""}
+      ${feitas >= 2 && !registro.voucherEntregue ? `
+        <button type="button" class="pvi-btn-parabens w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2" data-tip="Abre o WhatsApp com a mensagem de voucher liberado já pronta">
+          <i class="fa-brands fa-whatsapp"></i> Enviar parabéns do voucher
+        </button>
+        <div class="flex gap-1 mt-1">
+          <select class="pvi-brinde flex-1 text-[11px] rounded-lg bg-surface-2 border border-subtle text-ink px-2 py-1.5" data-tip="Veículo escolhido pela criança no Circuito">
+            <option value="">Veículo escolhido…</option>
+            ${opcoesBrinde}
+          </select>
+          <button type="button" class="pvi-btn-entregue px-3 py-1.5 bg-warning-soft border border-warning text-warning font-extrabold text-[11px] rounded-lg transition" data-tip="Dá baixa: a criança já usou os 15 minutos VIP no Circuito">
+            <i class="fa-solid fa-check"></i> Usou
+          </button>
+        </div>` : ""}
+      <button type="button" class="pvi-btn-remover w-full px-4 py-1.5 text-ink-muted hover:text-danger font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-2" data-tip="Remove essa família do controle de indicações">
+        <i class="fa-solid fa-trash"></i> Remover
+      </button>
+    </div>
+  `;
+
+  const btnAmigo = card.querySelector(".pvi-btn-amigo");
+  if (btnAmigo) btnAmigo.onclick = () => registrarAmigoIndicado(registro);
+
+  const btnCrianca = card.querySelector(".pvi-btn-crianca");
+  if (btnCrianca) btnCrianca.onclick = () => definirCriancaIndicador(registro);
+
+  const btnParabens = card.querySelector(".pvi-btn-parabens");
+  if (btnParabens) btnParabens.onclick = () => enviarParabensVoucher(registro, btnParabens);
+
+  const btnEntregue = card.querySelector(".pvi-btn-entregue");
+  if (btnEntregue) {
+    btnEntregue.onclick = () => marcarVoucherEntregue(registro, card.querySelector(".pvi-brinde").value);
+  }
+
+  card.querySelector(".pvi-btn-remover").onclick = () => removerIndicador(registro);
+
+  return card;
+}
+
+// Entrada principal: quem chegou + quem indicou. O servidor acha a ficha pelo
+// WhatsApp e decide se é a 1ª ou a 2ª indicação.
+async function registrarIndicacaoRecebida() {
+  const campoResp = document.getElementById("pv-ind-responsavel");
+  const campoTel = document.getElementById("pv-ind-telefone");
+  const campoAmigo = document.getElementById("pv-ind-amigo");
+  const campoCrianca = document.getElementById("pv-ind-crianca");
+  const msg = document.getElementById("pv-ind-msg");
+  const btn = document.getElementById("pv-ind-btn-adicionar");
+
+  const responsavel = campoResp.value.trim();
+  const telefone = campoTel.value.trim();
+  const amigoNome = campoAmigo.value.trim();
+  const crianca = campoCrianca.value.trim();
+
+  if (!responsavel || !telefone || !amigoNome) {
+    msg.textContent = "Preencha quem indicou (nome e WhatsApp) e quem chegou agora.";
+    return;
+  }
+  // Um número de verdade tem 10 ou 11 dígitos com DDD. Barrar aqui evita criar
+  // uma ficha órfã que nunca mais será encontrada na segunda indicação.
+  if (telefone.replace(/\D/g, "").length < 10) {
+    msg.textContent = "WhatsApp incompleto — informe com DDD.";
+    return;
+  }
+
+  btn.disabled = true;
+  msg.textContent = "Registrando...";
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ responsavel, telefone, amigoNome, crianca })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao registrar indicação");
+
+    if (json.voucherLiberado) {
+      showToast(`2/2! Voucher VIP de ${responsavel} liberado 🎉`, "sucesso");
+      msg.textContent = `Voucher liberado — envie os parabéns no card de ${responsavel}.`;
+    } else {
+      showToast(`Indicação 1/2 registrada para ${responsavel}.`, "sucesso");
+      msg.textContent = "Registrado! Falta 1 amigo novo para o voucher.";
+    }
+
+    [campoResp, campoTel, campoAmigo, campoCrianca].forEach(c => { c.value = ""; });
+    campoResp.focus();
+    setTimeout(() => { msg.textContent = ""; }, 6000);
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao registrar indicação:", err);
+    msg.textContent = err.message || "Erro ao registrar indicação.";
+    showToast(err.message || "Erro ao registrar indicação.", "erro");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Atalho do card: a ficha já está na tela, então só falta o nome de quem
+// chegou — não faz sentido pedir o WhatsApp de novo.
+async function registrarAmigoIndicado(registro) {
+  const nomeAmigo = prompt(`Quem chegou por indicação de ${registro.responsavel}?\n\nDigite o nome de quem está sendo atendido:`);
+  if (!nomeAmigo || !nomeAmigo.trim()) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/registrar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        responsavel: registro.responsavel,
+        telefone: registro.telefone,
+        amigoNome: nomeAmigo.trim()
+      })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao registrar indicação");
+
+    showToast(
+      json.voucherLiberado
+        ? `2/2! Voucher VIP de ${registro.responsavel} liberado 🎉`
+        : `Indicação ${json.indicacoesFeitas}/2 registrada.`,
+      "sucesso"
+    );
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao registrar indicação:", err);
+    showToast(err.message || "Erro ao registrar indicação.", "erro");
+  }
+}
+
+async function definirCriancaIndicador(registro) {
+  const crianca = prompt(`Nome da criança de ${registro.responsavel}:`);
+  if (crianca === null) return;
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/atualizar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: registro.id, crianca: crianca.trim() })
+    });
+    if (!res.ok) throw new Error("Falha ao salvar o nome da criança");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao salvar nome da criança:", err);
+    showToast("Erro ao salvar o nome da criança.", "erro");
+  }
+}
+
+function enviarParabensVoucher(registro, btn) {
+  // window.open precisa continuar dentro do gesto do clique — nada de await
+  // antes dele.
+  const mensagem = gerarMensagemVoucherLiberado(registro.responsavel, registro.crianca);
+  window.open(`https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns enviado';
+
+  fetch(`${API_BASE}/pos-visita/indicacoes/voucher-enviado`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar parabéns como enviado:", err));
+}
+
+async function marcarVoucherEntregue(registro, brindeEscolhido) {
+  if (!brindeEscolhido) {
+    showToast("Escolha o veículo antes de dar baixa no voucher.", "erro");
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/voucher-entregue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: registro.id, brindeEscolhido })
+    });
+    if (!res.ok) throw new Error("Falha ao dar baixa no voucher");
+    showToast(`Voucher de ${registro.responsavel} baixado — ${brindeEscolhido}. 🏎️`, "sucesso");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao dar baixa no voucher:", err);
+    showToast("Erro ao dar baixa no voucher.", "erro");
+  }
+}
+
+async function removerIndicador(registro) {
+  if (!confirm(`Remover a ficha de ${registro.responsavel} do controle de indicações?`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/pos-visita/indicacoes/${encodeURIComponent(registro.id)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Falha ao remover");
+    carregarIndicacoes();
+  } catch (err) {
+    console.error("Erro ao remover indicador:", err);
+    showToast("Erro ao remover indicador.", "erro");
+  }
+}
+
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "";
+  const [ano, mes, dia] = String(dataIso).slice(0, 10).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
+
+// ==========================================================================
+// ANIVERSÁRIOS (FaçaAmigos) — importação do cadastro de crianças (PDF) e
+// disparo de parabéns no WhatsApp para quem faz aniversário hoje.
+// ==========================================================================
+let aniversarioEstadoAntiBan = novoEstadoAntiBanimento();
+let aniversariosFilaAtual = [];
+
+// Badge piscante ao lado de "ANIVERSÁRIOS" no menu: mostra quantos
+// aniversariantes de hoje ainda não foram parabenizados. Atualiza no login
+// (pra aparecer mesmo sem abrir a aba) e vai debitando a cada envio.
+async function buscarContagemAniversariosPendentes() {
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) return;
+    const { registros } = await res.json();
+    atualizarBadgeAniversarios((registros || []).filter(r => !r.jaEnviadoEsteAno).length);
+  } catch (err) {
+    console.error("Erro ao buscar contagem de aniversariantes pendentes:", err);
+  }
+}
+
+function atualizarBadgeAniversarios(quantidade) {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  badge.textContent = quantidade;
+  badge.classList.toggle("hidden", quantidade <= 0);
+}
+
+function decrementarBadgeAniversarios() {
+  const badge = document.getElementById("an-badge");
+  if (!badge) return;
+  const atual = Math.max(0, parseInt(badge.textContent, 10) - 1);
+  atualizarBadgeAniversarios(atual);
+}
+
+function renderAniversarios() {
+  const btnAtualizar = document.getElementById("an-btn-atualizar");
+  if (btnAtualizar && !btnAtualizar.dataset.bound) {
+    btnAtualizar.dataset.bound = "1";
+    btnAtualizar.onclick = () => carregarAniversarios();
+  }
+
+  const dropzone = document.getElementById("an-dropzone");
+  const inputArquivo = document.getElementById("an-input-arquivo");
+  if (dropzone && !dropzone.dataset.bound) {
+    dropzone.dataset.bound = "1";
+    dropzone.addEventListener("click", () => inputArquivo.click());
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("border-brand-500");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("border-brand-500"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("border-brand-500");
+      if (e.dataTransfer.files.length) importarPdfsAniversario(e.dataTransfer.files);
+    });
+    inputArquivo.addEventListener("change", () => {
+      if (inputArquivo.files.length) importarPdfsAniversario(inputArquivo.files);
+    });
+  }
+
+  const btnConferir = document.getElementById("an-btn-conferir");
+  if (btnConferir && !btnConferir.dataset.bound) {
+    btnConferir.dataset.bound = "1";
+    btnConferir.onclick = alternarConferenciaAniversarios;
+  }
+
+  carregarAniversarios();
+}
+
+// Mostra/esconde a tabela com tudo que foi lido do PDF, pro operador
+// conferir se os dados vieram certos (nome, data e telefone).
+async function alternarConferenciaAniversarios() {
+  const painel = document.getElementById("an-conferencia");
+  const corpo = document.getElementById("an-conferencia-corpo");
+  if (!painel || !corpo) return;
+
+  if (!painel.classList.contains("hidden")) {
+    painel.classList.add("hidden");
+    return;
+  }
+
+  painel.classList.remove("hidden");
+  corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Carregando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/cadastrados`);
+    if (!res.ok) throw new Error("Falha ao carregar cadastros");
+    const { registros } = await res.json();
+
+    if (!registros || registros.length === 0) {
+      corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-brand-400">Nenhum cadastro importado ainda.</td></tr>`;
+      return;
+    }
+
+    corpo.innerHTML = registros.map(r => `
+      <tr class="border-t border-brand-900/60">
+        <td class="py-1 pr-3 font-semibold">${r.nomeCrianca}</td>
+        <td class="py-1 pr-3">${formatarDataBr(r.dataNascimento)}</td>
+        <td class="py-1 pr-3">${r.nomeResponsavel}</td>
+        <td class="py-1">${r.telefone}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Erro ao carregar conferência de cadastros:", err);
+    corpo.innerHTML = `<tr><td colspan="4" class="py-2 text-red-400">Erro ao carregar os cadastros.</td></tr>`;
+  }
+}
+
+// Aceita um ou vários PDFs de uma vez (FileList do input ou do drag & drop).
+async function importarPdfsAniversario(arquivos) {
+  const msg = document.getElementById("an-import-msg");
+  const formData = new FormData();
+  Array.from(arquivos).forEach(arquivo => formData.append("arquivos", arquivo));
+
+  msg.textContent = arquivos.length > 1 ? `Importando ${arquivos.length} arquivos...` : "Importando...";
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/importar-pdf`, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao importar");
+
+    const arquivosTexto = arquivos.length > 1 ? ` de ${json.arquivosProcessados} arquivo(s)` : "";
+    msg.textContent = `${json.importados} registro(s) importado(s)${arquivosTexto}` +
+      (json.duvidosos ? ` (${json.duvidosos} com nomes incertos — confira)` : "") +
+      (json.arquivosComErro && json.arquivosComErro.length ? ` — ${json.arquivosComErro.length} arquivo(s) com erro` : "") + ".";
+    showToast("Cadastro de aniversários importado!", "sucesso");
+    document.getElementById("an-input-arquivo").value = "";
+    carregarAniversarios();
+
+    // Se a conferência já estava aberta, recarrega pra mostrar o que entrou.
+    const conferencia = document.getElementById("an-conferencia");
+    if (conferencia && !conferencia.classList.contains("hidden")) {
+      conferencia.classList.add("hidden");
+      alternarConferenciaAniversarios();
+    }
+  } catch (err) {
+    console.error("Erro ao importar PDF(s) de aniversários:", err);
+    msg.textContent = err.message || "Erro ao importar.";
+    showToast("Erro ao importar o(s) PDF(s).", "erro");
+  }
+}
+
+async function carregarAniversarios() {
+  const lista = document.getElementById("an-lista");
+  const vazio = document.getElementById("an-vazio");
+  if (!lista) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/aniversarios/hoje`);
+    if (!res.ok) throw new Error("Falha ao carregar aniversariantes");
+    const { registros, totalCadastrados } = await res.json();
+
+    const doDia = registros || [];
+    const totalEl = document.getElementById("an-total-cadastrados");
+    const hojeEl = document.getElementById("an-total-hoje");
+    if (totalEl) totalEl.textContent = totalCadastrados || 0;
+    if (hojeEl) hojeEl.textContent = doDia.length;
+
+    // Fora do bloco condicional de propósito: com a fila vazia o badge
+    // precisa ser zerado, e não manter o número da carga anterior.
+    atualizarBadgeAniversarios(doDia.filter(r => !r.jaEnviadoEsteAno).length);
+
+    lista.innerHTML = "";
+    if (doDia.length === 0) {
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    let primeiroHabilitavelJaEncontrado = false;
+    doDia.forEach(registro => {
+      const habilitado = !registro.jaEnviadoEsteAno && !primeiroHabilitavelJaEncontrado;
+      if (!registro.jaEnviadoEsteAno) primeiroHabilitavelJaEncontrado = true;
+      lista.appendChild(criarCardAniversario(registro, habilitado));
+    });
+
+    // Personalização por IA (item 5): só para quem ainda não recebeu.
+    aniversariosFilaAtual = doDia.filter(r => !r.jaEnviadoEsteAno);
+    abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+      tipo: "aniversario",
+      nomeResponsavel: r.nomeResponsavel,
+      nomeCrianca: r.nomeCrianca,
+      idade: r.idade
+    }));
+  } catch (err) {
+    console.error("Erro ao carregar aniversariantes:", err);
+    showToast("Erro ao carregar os aniversariantes de hoje.", "erro");
+  }
+}
+
+function criarCardAniversario(registro, habilitado) {
+  const card = document.createElement("div");
+  card.className = "glass-card p-4 rounded-2xl border border-brand-900 bg-brand-950/40 shadow-lg flex flex-col justify-between gap-3";
+  card.dataset.id = registro.id;
+
+  const jaEnviado = registro.jaEnviadoEsteAno;
+
+  card.innerHTML = `
+    <div>
+      <p class="text-sm font-bold text-white">🎂 ${registro.nomeCrianca} <span class="text-brand-400 font-normal">— completa ${registro.idade} anos</span></p>
+      <p class="text-xs text-brand-300 mt-0.5">Responsável: ${registro.nomeResponsavel}</p>
+    </div>
+    <div class="flex flex-col gap-1">
+      <button type="button" class="an-btn-enviar w-full px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2" ${(jaEnviado || !habilitado) ? "disabled" : ""} data-tip="Abre o WhatsApp com uma mensagem de parabéns já pronta para esse responsável">
+        <i class="fa-brands fa-whatsapp"></i> ${jaEnviado ? "Parabéns já enviado" : "Enviar Parabéns no WhatsApp"}
+      </button>
+      <span class="an-cooldown-msg text-[10px] text-brand-400 hidden text-center"></span>
+    </div>
+  `;
+
+  if (!jaEnviado) {
+    const btn = card.querySelector(".an-btn-enviar");
+    btn.onclick = () => dispararParabensAniversario(registro, card);
+  }
+
+  return card;
+}
+
+function dispararParabensAniversario(registro, card) {
+  const btn = card.querySelector(".an-btn-enviar");
+  // Ver dispararMensagemPosVisita: a mensagem da IA é usada só se já estiver
+  // pronta, para não quebrar o gesto do clique que abre o WhatsApp.
+  const mensagem = registro._iaMensagem || gerarMensagemAniversario(registro.nomeResponsavel, registro.nomeCrianca, registro.idade);
+  const url = `https://wa.me/${registro.telefone}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Parabéns já enviado';
+
+  aniversarioEstadoAntiBan.envios += 1;
+  habilitarProximoComAntiBanimento(card, aniversarioEstadoAntiBan, ".an-btn-enviar", ".an-cooldown-msg");
+
+  abastecerBufferMensagensIA(aniversariosFilaAtual, r => ({
+    tipo: "aniversario",
+    nomeResponsavel: r.nomeResponsavel,
+    nomeCrianca: r.nomeCrianca,
+    idade: r.idade
+  }));
+
+  decrementarBadgeAniversarios();
+
+  fetch(`${API_BASE}/aniversarios/marcar-enviado`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: registro.id })
+  }).catch(err => console.error("Erro ao marcar parabéns como enviado:", err));
+}
+
+async function confirmarIntervaloMeta(horaSlot, valor) {
+  try {
+    const res = await fetch(`${API_BASE}/vendas/registrar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operacao: metaOperacaoAtiva,
+        usuario: currentUser.nome,
+        data: dataHojeStr(),
+        horaSlot,
+        valor
+      })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Falha ao confirmar intervalo");
+
+    showToast(`Intervalo ${horaSlot} confirmado!`, "sucesso");
+    carregarMetaHoraHora();
+  } catch (err) {
+    console.error("Erro ao confirmar intervalo do Meta Hora a Hora:", err);
+    showToast(err.message || "Erro ao confirmar. Tente novamente.", "erro");
+  }
+}
+
+// Salva uma linha de meta diária, com uma segunda tentativa antes de desistir
+// — em rede móvel uma única falha passageira não pode virar "Erro ao salvar
+// a meta" pro Líder de Operações, que só tem essa tela pra corrigir a meta
+// de cada loja no dia.
+async function salvarMetaLojaComRetry(loja, data, valor) {
+  const payload = JSON.stringify({ loja, linhas: [{ data, valor, origem: "manual" }] });
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const res = await fetch(`${API_BASE}/metas-lojas/importar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      if (tentativa === 1) console.error("Erro ao salvar meta diária:", err);
+    }
+  }
+  return false;
+}
+
+// Quando não há meta importada para o dia, o Líder de Operações (ou owner)
+// pode digitar a meta manualmente — as colaboradoras não veem esse campo.
+function prepararMetaManual(data) {
+  const box = document.getElementById("meta-manual-box");
+  if (!box) return;
+
+  const podeDefinir = currentUser &&
+    (currentUser.role === "owner" || currentUser.role === "consultora_dashboard");
+  box.classList.toggle("hidden", !podeDefinir);
+  if (!podeDefinir) return;
+
+  const btn = document.getElementById("btn-meta-manual-salvar");
+  const input = document.getElementById("meta-manual-valor");
+  if (!btn || !input) return;
+
+  btn.onclick = async () => {
+    const valor = parseFloat(input.value);
+    if (Number.isNaN(valor) || valor <= 0) {
+      showToast("Informe um valor de meta válido.", "erro");
+      return;
+    }
+    const salvo = await salvarMetaLojaComRetry(metaOperacaoAtiva, data, valor);
+    if (salvo) {
+      input.value = "";
+      showToast("Meta de hoje definida!", "sucesso");
+      carregarMetaHoraHora();
+    } else {
+      showToast("Erro ao salvar a meta. Tente novamente.", "erro");
+    }
+  };
+}
+
+// Meta já lançada (planilha ou manual): permite que Líder de Operações/Owner
+// a corrija sem precisar esperar a lógica de "sem meta ainda" (prepararMetaManual).
+function prepararEdicaoMeta(loja, data, valorAtual) {
+  const btnEditar = document.getElementById("btn-meta-editar");
+  const box = document.getElementById("meta-editar-box");
+  const input = document.getElementById("meta-editar-valor");
+  const btnSalvar = document.getElementById("btn-meta-editar-salvar");
+  const btnCancelar = document.getElementById("btn-meta-editar-cancelar");
+  if (!btnEditar || !box || !input || !btnSalvar || !btnCancelar) return;
+
+  const podeEditar = currentUser &&
+    (currentUser.role === "owner" || currentUser.role === "consultora_dashboard");
+  btnEditar.classList.toggle("hidden", !podeEditar);
+  box.classList.add("hidden");
+  if (!podeEditar) return;
+
+  btnEditar.onclick = () => {
+    input.value = valorAtual;
+    box.classList.remove("hidden");
+    input.focus();
+  };
+  btnCancelar.onclick = () => box.classList.add("hidden");
+  btnSalvar.onclick = async () => {
+    const valor = parseFloat(input.value);
+    if (Number.isNaN(valor) || valor <= 0) {
+      showToast("Informe um valor de meta válido.", "erro");
+      return;
+    }
+    const salvo = await salvarMetaLojaComRetry(loja, data, valor);
+    if (salvo) {
+      showToast("Meta de hoje atualizada!", "sucesso");
+      box.classList.add("hidden");
+      carregarMetaHoraHora();
+    } else {
+      showToast("Erro ao salvar a meta. Tente novamente.", "erro");
+    }
+  };
+}
+
+async function carregarMetaHoraHora() {
+  if (!metaOperacaoAtiva) return;
+
+  const hoje = dataHojeStr();
+  const avisoEl = document.getElementById("meta-sem-dados-aviso");
+  const conteudoEl = document.getElementById("meta-conteudo-dia");
+
+  const metaHoje = await buscarMetaDiaLoja(metaOperacaoAtiva, hoje);
+
+  // Só valem metas do próprio dia: 'diaria' vem da planilha e 'manual' foi
+  // digitada pelo Líder de Operações. 'mensal' (total do mês inteiro, sem
+  // detalhamento por dia) ou ausência de dado não alimentam a tela.
+  const METAS_VALIDAS = ["diaria", "manual"];
+  if (!metaHoje || !METAS_VALIDAS.includes(metaHoje.origem)) {
+    if (avisoEl) avisoEl.classList.remove("hidden");
+    if (conteudoEl) conteudoEl.classList.add("hidden");
+    prepararMetaManual(hoje);
+    atualizarPainelHoje(null);
+    return;
+  }
+  if (avisoEl) avisoEl.classList.add("hidden");
+  if (conteudoEl) conteudoEl.classList.remove("hidden");
+
+  const metaDiaria = metaHoje.valor || 0;
+  prepararEdicaoMeta(metaOperacaoAtiva, hoje, metaDiaria);
+  const cfg = OPERACOES_CONFIG[metaOperacaoAtiva] || { abertura: "09:00", fechamento: "22:00" };
+  const aberturaMin = minutosDoDiaPorHora(cfg.abertura);
+  const fechamentoMin = minutosDoDiaPorHora(cfg.fechamento);
+
+  // Checkpoints: o primeiro sempre 1h depois da abertura, um por hora até o fechamento.
+  const checkpoints = [];
+  for (let slot = aberturaMin + 60; slot <= fechamentoMin; slot += 60) {
+    checkpoints.push(slot);
+  }
+
+  // Algoritmo de Desagregação Ponderada de Metas (Curva de Pareto + Sazonalidade Semanal)
+  //
+  // Regra observada no fluxo da loja: os últimos 20% do período de abertura
+  // respondem por 80% da venda do dia. Em vez de uma tabela fixa por hora do
+  // relógio (que não fazia sentido igual pra lojas com horários diferentes),
+  // o peso agora é uma densidade em degrau sobre a POSIÇÃO RELATIVA do slot
+  // dentro da janela abertura→fechamento: 0.25/unidade de tempo nos primeiros
+  // 80% do período, 4.0/unidade nos 20% finais (proporção 4:1 que reproduz o
+  // 80/20 quando integrada nos dois trechos).
+  const PARETO_CORTE_TEMPO = 0.8;  // 80% do tempo de operação...
+  const PARETO_CORTE_VENDA = 0.2;  // ...responde só por 20% da venda do dia
+
+  const obterPesoHoraMeta = (slotMin, diaSemana) => {
+    const duracaoTotal = fechamentoMin - aberturaMin;
+    const posicao = duracaoTotal > 0
+      ? Math.min(1, Math.max(0, (slotMin - aberturaMin) / duracaoTotal))
+      : 0;
+    const pesoBase = posicao < PARETO_CORTE_TEMPO
+      ? PARETO_CORTE_VENDA / PARETO_CORTE_TEMPO
+      : (1 - PARETO_CORTE_VENDA) / (1 - PARETO_CORTE_TEMPO);
+    const diasPico = ["Sexta-feira", "Sábado", "Domingo"];
+    const fatorSazonalidade = diasPico.includes(diaSemana) ? 1.6 : 1.0;
+    return pesoBase * fatorSazonalidade;
+  };
+
+  const calcularMetaProporcionalSlot = (slotMin, meta, checks, diaSemana) => {
+    if (meta <= 0 || checks.length === 0) return 0;
+    const pesosDia = checks.map(s => obterPesoHoraMeta(s, diaSemana));
+    const somaPesos = pesosDia.reduce((a, b) => a + b, 0);
+    if (somaPesos <= 0) return meta / checks.length;
+    const pesoSlot = obterPesoHoraMeta(slotMin, diaSemana);
+    return (pesoSlot / somaPesos) * meta;
+  };
+
+  const diaSemanaHoje = nomeDiaSemanaPorData(hoje);
+
+  // Meta de amanhã, para preparação
+  const metaAmanha = await buscarMetaDiaLoja(metaOperacaoAtiva, amanhaStr(hoje));
+  const amanhaCard = document.getElementById("meta-amanha-card");
+  if (amanhaCard) {
+    if (metaAmanha && METAS_VALIDAS.includes(metaAmanha.origem)) {
+      amanhaCard.classList.remove("hidden");
+      document.getElementById("meta-amanha-valor").textContent = formatBRL(metaAmanha.valor);
+    } else {
+      amanhaCard.classList.add("hidden");
+    }
+  }
+
+  let vendas = [];
+  try {
+    const res = await fetch(`${API_BASE}/vendas/hoje?operacao=${encodeURIComponent(metaOperacaoAtiva)}&data=${encodeURIComponent(hoje)}`);
+    const data = await res.json();
+    vendas = (data && data.vendas) || [];
+  } catch (err) {
+    console.error("Erro ao carregar check-ins do dia:", err);
+  }
+  const vendasPorSlot = {};
+  vendas.forEach(v => { vendasPorSlot[v.horaSlot] = v; });
+
+  // O valor digitado em cada intervalo é o TOTAL acumulado de vendas do dia
+  // até aquele horário (não o valor vendido só naquela hora) — por isso o
+  // total do dia é o valor do intervalo mais recente confirmado, nunca a
+  // soma de todos os intervalos (o que multiplicaria a mesma venda várias vezes).
+  const vendasOrdenadas = [...vendas].sort(
+    (a, b) => minutosDoDiaPorHora(a.horaSlot) - minutosDoDiaPorHora(b.horaSlot)
+  );
+  const totalHoje = vendasOrdenadas.length > 0
+    ? (vendasOrdenadas[vendasOrdenadas.length - 1].valor || 0)
+    : 0;
+  const now = new Date();
+  const agoraMin = now.getHours() * 60 + now.getMinutes();
+
+  // Acumulador Ponderado Esperado até Agora
+  let esperadoAteAgora = 0;
+  checkpoints.forEach(slotMin => {
+    const metaSlot = calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+    if (agoraMin >= slotMin) {
+      esperadoAteAgora += metaSlot;
+    } else if (agoraMin > slotMin - 60) {
+      const pctHora = (agoraMin - (slotMin - 60)) / 60;
+      esperadoAteAgora += metaSlot * pctHora;
+    }
+  });
+
+  // Meta acumulada até cada checkpoint (para comparar com o valor acumulado
+  // que o(a) colaborador(a) digita em cada intervalo).
+  const metaAcumuladaPorSlot = {};
+  let acumuladoMeta = 0;
+  checkpoints.forEach(slotMin => {
+    acumuladoMeta += calcularMetaProporcionalSlot(slotMin, metaDiaria, checkpoints, diaSemanaHoje);
+    metaAcumuladaPorSlot[slotMin] = acumuladoMeta;
+  });
+
+  // Tela "Hoje" (mobile, operador): mesma leitura dos números acima, sem
+  // fetch próprio — ver o comentário no topo de atualizarPainelHoje.
+  atualizarPainelHoje({
+    loja: metaOperacaoAtiva, metaDiaria, totalHoje, esperadoAteAgora,
+    checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot
+  });
+
+  // Progresso do dia — anel (mesmo raio/circunferência do anel "Hoje" em
+  // atualizarPainelHoje: CIRC = 2·π·84 ≈ 527.8). A cor do arco segue o
+  // ritmo — verde quando bate/supera o esperado até agora, laranja quando
+  // está atrás — mesma regra que antes decidia a cor da barra linear.
+  const pct = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
+  const CIRC_META = 527.8;
+  const ring = document.getElementById("meta-progresso-ring");
+  if (ring) {
+    ring.style.strokeDashoffset = String(CIRC_META * (1 - pct / 100));
+    ring.style.stroke = totalHoje >= esperadoAteAgora
+      ? "var(--tone-success-line)"
+      : "var(--tone-warning-line)";
+  }
+  const ringPct = document.getElementById("meta-progresso-ring-pct");
+  if (ringPct) ringPct.textContent = `${Math.round(pct)}%`;
+  const label = document.getElementById("meta-progresso-label");
+  if (label) label.textContent = `${formatBRL(totalHoje)} / ${formatBRL(metaDiaria)}`;
+
+  // Mensagem motivacional
+  const msgEl = document.getElementById("meta-mensagem-motivacional");
+  if (msgEl) {
+    if (totalHoje >= metaDiaria && metaDiaria > 0) {
+      msgEl.textContent = "🎉 Meta do dia batida! Você é incrível!";
+      msgEl.style.color = "#10b981";
+    } else if (totalHoje >= esperadoAteAgora) {
+      msgEl.textContent = "💪 No ritmo certo! Continue assim!";
+      msgEl.style.color = "#f59e0b";
+    } else {
+      msgEl.textContent = "⏰ Um pouco atrás do esperado — vamos acelerar!";
+      msgEl.style.color = "#f87171";
+    }
+  }
+
+  // Streak: intervalos consecutivos que bateram a meta
+  const streakEl = document.getElementById("meta-streak-label");
+  if (streakEl) {
+    const encerrados = checkpoints.filter(slot => agoraMin >= slot);
+    let streak = 0;
+    for (let i = encerrados.length - 1; i >= 0; i--) {
+      const slotMin = encerrados[i];
+      const slotStr = horaStrPorMinutos(slotMin);
+      const venda = vendasPorSlot[slotStr];
+      if (venda && venda.valor >= metaAcumuladaPorSlot[slotMin]) streak++;
+      else break;
+    }
+    if (streak >= 2) {
+      streakEl.textContent = `🔥 ${streak} intervalos seguidos batendo a meta hoje!`;
+      streakEl.classList.remove("hidden");
+    } else {
+      streakEl.classList.add("hidden");
+    }
+  }
+
+  // Venda é ACUMULADA: um intervalo não pode ficar menor que um anterior já
+  // confirmado nem maior que um posterior já confirmado (normalmente sinal
+  // de erro de digitação). Usado tanto para dar a dica no input quanto para
+  // validar antes de enviar ao servidor (que também valida, por segurança).
+  const limitesParaSlot = slotMin => {
+    let minPermitido = 0;
+    let maxPermitido = Infinity;
+    vendasOrdenadas.forEach(v => {
+      const vMin = minutosDoDiaPorHora(v.horaSlot);
+      if (vMin < slotMin && v.valor > minPermitido) minPermitido = v.valor;
+      if (vMin > slotMin && v.valor < maxPermitido) maxPermitido = v.valor;
+    });
+    return { minPermitido, maxPermitido };
+  };
+
+  // Grade hora a hora: check-in por intervalo, com trava de 30min
+  const tbody = document.getElementById("meta-hora-a-hora-tbody");
+  if (tbody) {
+    tbody.innerHTML = "";
+    checkpoints.forEach(slotMin => {
+      const slotStr = horaStrPorMinutos(slotMin);
+      const inicioIntervalo = horaStrPorMinutos(slotMin - 60);
+      const venda = vendasPorSlot[slotStr];
+
+      let statusHtml, acaoHtml;
+      if (venda) {
+        statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-success-soft text-success border border-success">✅ Total do dia: ${formatBRL(venda.valor)}</span>`;
+        acaoHtml = "—";
+      } else {
+        const dentroDaJanela = agoraMin >= slotMin - META_JANELA_ABERTURA_ANTES_MIN
+          && agoraMin <= slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+
+        if (agoraMin < slotMin - META_JANELA_ABERTURA_ANTES_MIN) {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-1 text-ink-muted border border-subtle">🔒 Aguardando o horário</span>`;
+        } else if (dentroDaJanela) {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning border border-warning">🟡 Aberto até ${horaStrPorMinutos(slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN)}</span>`;
+        } else {
+          statusHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-danger-soft text-danger border border-danger">⛔ Intervalo perdido</span>`;
+        }
+
+        // Campo sempre visível (passado, presente e futuro) para o operador
+        // já poder digitar antes da hora — o botão só fica ativo dentro da
+        // janela de confirmação (5min antes a 20min depois), que o servidor
+        // também valida.
+        const inputId = `meta-slot-input-${slotMin}`;
+        const desabilitado = dentroDaJanela ? "" : "disabled";
+        const classeBotao = dentroDaJanela
+          ? "px-2 py-1 bg-success-soft hover:bg-success-hover text-ink font-bold text-[10px] rounded-lg transition"
+          : "px-2 py-1 bg-success-soft text-success font-bold text-[10px] rounded-lg cursor-not-allowed opacity-60";
+        const tituloBotao = dentroDaJanela
+          ? "Confirmar o total acumulado deste intervalo"
+          : `Só é possível confirmar de ${META_JANELA_ABERTURA_ANTES_MIN}min antes a ${META_JANELA_FECHAMENTO_DEPOIS_MIN}min depois do horário`;
+        const { minPermitido } = limitesParaSlot(slotMin);
+        const tituloInput = minPermitido > 0
+          ? `Venda ACUMULADA do dia até agora, não o valor desta hora. Não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior.`
+          : "Venda ACUMULADA do dia até agora, não o valor desta hora";
+        acaoHtml = `
+          <div class="flex items-center justify-end gap-1.5">
+            <input type="number" id="${inputId}" step="0.01" min="0" placeholder="Total do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="w-24 bg-surface-1 border border-subtle text-ink rounded-lg px-2 py-1 text-xs">
+            <button type="button" ${desabilitado} title="${tituloBotao}" class="${classeBotao}" data-confirmar-slot="${slotStr}">Confirmar</button>
+          </div>
+        `;
+      }
+
+      // Meta ACUMULADA até este intervalo — é isso que se compara com o
+      // valor acumulado que o(a) colaborador(a) digita, não a meta da hora isolada.
+      const metaSlot = metaAcumuladaPorSlot[slotMin];
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="py-2 px-4 font-mono font-bold">${inicioIntervalo}–${slotStr}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatBRL(metaSlot)}</td>
+        <td class="py-2 px-4 text-center">${statusHtml}</td>
+        <td class="py-2 px-4 text-right">${acaoHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("[data-confirmar-slot]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const slotStr = btn.dataset.confirmarSlot;
+        const slotMin = minutosDoDiaPorHora(slotStr);
+        const input = document.getElementById(`meta-slot-input-${slotMin}`);
+        // Aceita vírgula como separador decimal (formato brasileiro digitado
+        // por engano em um campo numérico) para não descartar o valor digitado.
+        const valorDigitado = (input ? input.value : "").replace(",", ".");
+        const valor = parseFloat(valorDigitado);
+        if (Number.isNaN(valor) || valor < 0) {
+          showToast("Informe um valor válido para o intervalo.", "erro");
+          return;
+        }
+
+        const { minPermitido, maxPermitido } = limitesParaSlot(slotMin);
+        if (valor < minPermitido) {
+          showToast(`O valor não pode ser menor que ${formatBRL(minPermitido)}, já confirmado em um intervalo anterior, pois a venda é acumulada e só pode aumentar ao longo do dia.`, "erro");
+          return;
+        }
+        if (valor > maxPermitido) {
+          showToast(`O valor não pode ser maior que ${formatBRL(maxPermitido)}, já confirmado em um intervalo posterior. Confira se não houve erro de digitação.`, "erro");
+          return;
+        }
+
+        confirmarIntervaloMeta(slotStr, valor);
+      });
+    });
+  }
+}
+
+// ==========================================================================
+// TELA "HOJE" (mobile, operador) — resumo do dia de uma loja só
+// --------------------------------------------------------------------------
+// Sem fetch próprio: carregarMetaHoraHora() já busca meta do dia + vendas
+// confirmadas para alimentar a tabela detalhada (Líder/Owner); estas três
+// funções só leem os mesmos números pra desenhar o anel, o check-in do
+// intervalo aberto e as pendências. Um único carregamento, duas superfícies
+// — evita "Hoje" e "Meta Hora a Hora" mostrarem totais diferentes por terem
+// buscado em momentos ligeiramente distintos.
+// ==========================================================================
+function atualizarPainelHoje(ctx) {
+  const semMetaEl = document.getElementById("hoje-sem-meta");
+  const conteudoEl = document.getElementById("hoje-conteudo");
+  // Nenhum dos dois existe fora da aba "Hoje" — não vale gastar o resto da
+  // função quando quem chamou foi a tabela de Meta Hora a Hora sozinha.
+  if (!semMetaEl && !conteudoEl) return;
+
+  const lojaEl = document.getElementById("hoje-loja-nome");
+  if (lojaEl && metaOperacaoAtiva) lojaEl.textContent = metaOperacaoAtiva;
+
+  if (!ctx) {
+    if (semMetaEl) semMetaEl.classList.remove("hidden");
+    if (conteudoEl) conteudoEl.classList.add("hidden");
+    return;
+  }
+  if (semMetaEl) semMetaEl.classList.add("hidden");
+  if (conteudoEl) conteudoEl.classList.remove("hidden");
+
+  const { loja, metaDiaria, totalHoje, esperadoAteAgora, checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot } = ctx;
+  const pctNum = metaDiaria > 0 ? Math.min(100, (totalHoje / metaDiaria) * 100) : 0;
+
+  // Anel: SVG de raio 84 (mesmo do design mobile publicado) — circunferência
+  // 2·π·84 ≈ 527.8. offset 0 = anel cheio, offset = circunferência = vazio.
+  const CIRC = 527.8;
+  const ring = document.getElementById("hoje-ring-fill");
+  if (ring) ring.style.strokeDashoffset = String(CIRC * (1 - pctNum / 100));
+
+  const pctEl = document.getElementById("hoje-ring-pct");
+  if (pctEl) pctEl.textContent = `${Math.round(pctNum)}%`;
+  const vendidoEl = document.getElementById("hoje-vendido");
+  if (vendidoEl) vendidoEl.textContent = formatBRL(totalHoje);
+  const metaEl = document.getElementById("hoje-meta");
+  if (metaEl) metaEl.textContent = `de ${formatBRL(metaDiaria)}`;
+
+  const ritmoEl = document.getElementById("hoje-ritmo");
+  if (ritmoEl) {
+    const noRitmo = totalHoje >= esperadoAteAgora;
+    ritmoEl.textContent = pctNum >= 100 ? "Meta batida" : noRitmo ? "No ritmo" : "Abaixo do ritmo";
+  }
+
+  atualizarCheckinHoje({ checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot });
+  atualizarPendenciasHoje(loja);
+}
+
+// Card de check-in: acha o intervalo mais relevante pro momento (o que está
+// com a janela aberta agora; senão, o próximo a abrir; senão, o último do
+// dia, já fechado) e desenha um dos três estados — confirmado, aguardando
+// horário, ou aberto para digitar.
+function atualizarCheckinHoje(ctx) {
+  const card = document.getElementById("hoje-checkin-card");
+  if (!card) return;
+
+  const { checkpoints, agoraMin, vendasPorSlot, metaAcumuladaPorSlot } = ctx;
+  if (!checkpoints || checkpoints.length === 0) { card.innerHTML = ""; return; }
+
+  let alvo = checkpoints.find(slotMin =>
+    agoraMin >= slotMin - META_JANELA_ABERTURA_ANTES_MIN && agoraMin <= slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN
+  );
+  if (!alvo) alvo = checkpoints.find(slotMin => agoraMin < slotMin - META_JANELA_ABERTURA_ANTES_MIN);
+  if (!alvo) alvo = checkpoints[checkpoints.length - 1];
+
+  const slotStr = horaStrPorMinutos(alvo);
+  const inicioStr = horaStrPorMinutos(alvo - 60);
+  const venda = vendasPorSlot[slotStr];
+  const dentroDaJanela = agoraMin >= alvo - META_JANELA_ABERTURA_ANTES_MIN && agoraMin <= alvo + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+
+  if (venda) {
+    card.innerHTML = `
+      <div class="glass-card rounded-2xl border border-success bg-success-soft p-4 flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-success text-xl"></i>
+        <div class="flex flex-col gap-1">
+          <span class="font-bold text-sm text-ink-strong">Check-in das ${slotStr} registrado</span>
+          <span class="text-xs text-ink-muted">Total do dia: ${formatBRL(venda.valor)}</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (!dentroDaJanela) {
+    const perdido = agoraMin > alvo + META_JANELA_FECHAMENTO_DEPOIS_MIN;
+    card.innerHTML = `
+      <div class="glass-card rounded-2xl border border-subtle p-4 flex items-center gap-3">
+        <i class="fa-regular fa-clock text-ink-muted text-xl"></i>
+        <div class="flex flex-col gap-1">
+          <span class="font-bold text-sm text-ink">${perdido ? "Intervalo das " + slotStr + " perdido" : "Próximo check-in às " + slotStr}</span>
+          <span class="text-xs text-ink-muted">${perdido ? "A janela de confirmação já fechou" : `Janela abre ${META_JANELA_ABERTURA_ANTES_MIN}min antes`}</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const meta = metaAcumuladaPorSlot ? metaAcumuladaPorSlot[alvo] : 0;
+  card.innerHTML = `
+    <div class="glass-card rounded-2xl p-4 flex flex-col gap-3" style="border: 1.5px solid var(--edge-accent);">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-col gap-1">
+          <span class="font-display" style="font-size: 18px;">Check-in das ${slotStr}</span>
+          <span class="text-xs text-ink-muted">Intervalo ${inicioStr}–${slotStr} · meta acumulada ${formatBRL(meta || 0)}</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-accent-soft border border-accent text-accent uppercase tracking-widest">Aberto</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-ink-muted" style="flex: none;">Vendi</span>
+        <input type="number" id="hoje-checkin-valor" step="0.01" min="0" placeholder="Total acumulado do dia" title="Venda ACUMULADA do dia até agora, não o valor desta hora" class="bg-surface-2 border border-subtle text-ink rounded-xl px-3 py-2.5 text-base font-bold flex-1 focus:outline-none focus:border-accent">
+      </div>
+      <button type="button" id="hoje-checkin-confirmar" class="btn-primary" style="min-height: 48px; font-weight: 700;">Confirmar venda da hora</button>
+    </div>`;
+
+  const btn = document.getElementById("hoje-checkin-confirmar");
+  if (btn) {
+    btn.onclick = () => {
+      const input = document.getElementById("hoje-checkin-valor");
+      const valorDigitado = (input && input.value ? input.value : "").replace(",", ".");
+      const valor = parseFloat(valorDigitado);
+      if (Number.isNaN(valor) || valor < 0) {
+        showToast("Informe um valor válido para o intervalo.", "erro");
+        return;
+      }
+      confirmarIntervaloMeta(slotStr, valor);
+    };
+  }
+}
+
+// Pendências do dia: navegação real para as três telas que mais geram
+// atraso operacional se esquecidas, sem inventar contadores que a tela
+// ainda não tem como calcular com segurança (NF-e e Inventário mostram
+// texto fixo; só o Fechamento de caixa é checado de verdade, porque
+// `registros` já está carregado no cliente e dá pra saber com certeza se
+// hoje foi enviado ou não).
+function atualizarPendenciasHoje(loja) {
+  const box = document.getElementById("hoje-pendencias");
+  if (!box) return;
+
+  const hojeIso = new Date().toISOString();
+  const fechamentoFeito = (registros || []).some(r =>
+    r.loja === loja && r.tipoOperacao === "Fechamento" && mesmoDia(r.dataOperacao, hojeIso)
+  );
+
+  const itens = [
+    fechamentoFeito ? null : {
+      tab: "registro", icon: "fa-box-open", bg: "var(--tone-warning-soft)", fg: "var(--tone-warning-ink)",
+      titulo: "Fechamento de caixa não enviado", sub: `Registre o fechamento de hoje em ${loja}`
+    },
+    { tab: "conferencia-nfe", icon: "fa-file-lines", bg: "var(--tone-info-soft)", fg: "var(--tone-info-ink)",
+      titulo: "Conferência de NF-e", sub: "Confira os produtos recebidos contra a nota" },
+    { tab: "inventario-estoque", icon: "fa-barcode", bg: "var(--tone-success-soft)", fg: "var(--tone-success-ink)",
+      titulo: "Inventário", sub: "Contagem de estoque desta loja" }
+  ].filter(Boolean);
+
+  box.innerHTML = itens.map(item => `
+    <button type="button" data-hoje-ir="${item.tab}" class="glass-card rounded-2xl border border-subtle p-4 flex items-center gap-3 text-left" style="cursor: pointer;">
+      <span style="width: 40px; height: 40px; border-radius: 999px; background: ${item.bg}; display: flex; align-items: center; justify-content: center; flex: none;">
+        <i class="fa-solid ${item.icon}" style="color: ${item.fg}; font-size: 15px;"></i>
+      </span>
+      <span class="flex flex-col gap-1" style="min-width: 0;">
+        <span class="font-bold text-sm text-ink-strong">${item.titulo}</span>
+        <span class="text-xs text-ink-muted">${item.sub}</span>
+      </span>
+      <i class="fa-solid fa-chevron-right" style="color: var(--ink-faint); font-size: 12px; margin-left: auto; flex: none;"></i>
+    </button>
+  `).join("");
+
+  box.querySelectorAll("[data-hoje-ir]").forEach(btn => {
+    btn.addEventListener("click", () => ativarTab(btn.dataset.hojeIr));
+  });
+}
+
+// ==========================================================================
+// TELA "AVISOS" — central de pendências, uma página por perfil
+// --------------------------------------------------------------------------
+// Substitui o antigo dropdown do sino (que só existia para o Owner e só
+// mostrava envelopes) por uma aba cheia, alcançável por todos os perfis:
+//   · Owner/Líder de Operações veem envelopes aguardando retirada de TODAS
+//     as unidades — o mesmo público que já recebia e-mail/push desse aviso
+//     (ver getDestinatariosNotificacao, que agrupa os dois papéis).
+//   · Operador (consultora/consultora_fa) vê só os envelopes da própria
+//     loja — o recorte que interessa a quem opera uma unidade só.
+// O estado de "lido" continua em localStorage (notificacoes_lidas), como
+// antes: é por dispositivo, não por conta, mas é o que já existia e migrar
+// pra um estado no servidor é fora do escopo desta tela.
+// ==========================================================================
+function obterAvisosPendentes() {
+  if (!currentUser) return [];
+
+  const todos = [
+    ...(registros || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+      .map(r => ({ id: r.id, loja: r.loja, valor: Number(r.valorEnvelope) || 0, data: r.dataOperacao, consultor: r.consultor, origem: "Cacau Show" })),
+    ...(registrosFA || []).filter(r => r.status === "aguardando_retirada" && (Number(r.valorEnvelope) || 0) > 0)
+      .map(r => ({ id: r.id, loja: r.loja, valor: Number(r.valorEnvelope) || 0, data: r.dataOperacao, consultor: r.consultor, origem: "Faça Amigos" }))
+  ];
+
+  const vePerfilCompleto = currentUser.role === "owner" || currentUser.role === "consultora_dashboard";
+  const filtrados = vePerfilCompleto
+    ? todos
+    // Operador: só a própria loja — currentUser.unidade é o código (ex.
+    // "9175"), r.loja é o nome ("Marambaia"); getLojaNomePorCodigo converte.
+    : todos.filter(p => p.loja === getLojaNomePorCodigo(currentUser.unidade) || p.consultor === currentUser.nome);
+
+  return filtrados.sort((a, b) => new Date(b.data) - new Date(a.data));
+}
+
+function renderAvisos() {
+  const lista = document.getElementById("avisos-lista");
+  if (!lista) return;
+
+  atualizarNotificacoes(); // sincroniza o badge do sino com o que a página mostra
+  const pendentes = obterAvisosPendentes();
+  let lidas = [];
+  try { lidas = JSON.parse(localStorage.getItem("notificacoes_lidas")) || []; } catch (e) { lidas = []; }
+
+  if (pendentes.length === 0) {
+    lista.innerHTML = `
+      <div class="glass-card rounded-2xl border border-subtle p-8 flex flex-col items-center gap-2 text-center">
+        <i class="fa-regular fa-bell-slash text-ink-faint text-2xl"></i>
+        <span class="text-sm font-bold text-ink">Nenhuma pendência agora</span>
+        <span class="text-xs text-ink-muted">Avisos de envelopes aguardando retirada aparecem aqui.</span>
+      </div>`;
+    return;
+  }
+
+  // Monta com createElement + closures, não innerHTML+dataset: o id do
+  // registro é numérico, e ida-e-volta por atributo HTML (dataset) o
+  // transformaria em string — `lidas.includes(id)` pararia de bater e um
+  // aviso marcado como lido voltaria a aparecer como novo a cada render.
+  lista.innerHTML = "";
+  pendentes.forEach(p => {
+    const naoLida = !lidas.includes(p.id);
+    let dataFormatada = p.data;
+    try { dataFormatada = new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); } catch (e) {}
+    const origemFg = p.origem === "Cacau Show" ? "var(--tone-accent-ink)" : "#c0396b";
+    const origemBg = p.origem === "Cacau Show" ? "var(--tone-accent-soft)" : "#ffe3ee";
+
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "glass-card rounded-2xl p-4 flex items-start gap-3 text-left";
+    item.style.cursor = "pointer";
+    item.style.border = `1.5px solid ${naoLida ? "var(--edge-accent)" : "var(--edge-subtle)"}`;
+    item.style.background = naoLida ? "var(--surface-1)" : "var(--surface-2)";
+    item.innerHTML = `
+      <span style="width: 38px; height: 38px; border-radius: 999px; background: var(--tone-warning-soft); display: flex; align-items: center; justify-content: center; flex: none;">
+        <i class="fa-solid fa-box-open" style="color: var(--tone-warning-ink); font-size: 15px;"></i>
+      </span>
+      <span class="flex flex-col gap-1" style="min-width: 0; flex: 1;">
+        <span class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest" style="background: ${origemBg}; color: ${origemFg};">${p.origem}</span>
+          <span class="text-[11px] text-ink-faint">${dataFormatada}</span>
+        </span>
+        <span class="font-bold text-sm text-ink-strong">${p.loja}</span>
+        <span class="text-xs text-ink-muted">${formatBRL(p.valor)} · registrado por ${p.consultor}</span>
+      </span>`;
+    item.addEventListener("click", () => {
+      if (naoLida) marcarComoLida(p.id);
+      renderAvisos();
+    });
+    lista.appendChild(item);
+  });
+}
+
+
+// Relatório de Ponto por Operação (Líder de Operações/Owner): agrega os
+// registros de todas as colaboradoras, agrupados por colaboradora + dia.
+async function carregarRelatorioPontoOperacao(operacao) {
+  const tbody = document.getElementById("ponto-relatorio-tbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr class="text-ink-muted text-center"><td colspan="7" class="py-8">Carregando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/ponto/relatorio?operacao=${encodeURIComponent(operacao)}`);
+    const data = await res.json();
+    const registros = (data && data.registros) || [];
+
+    if (registros.length === 0) {
+      tbody.innerHTML = `<tr class="text-ink-muted text-center"><td colspan="7" class="py-8">Nenhum registro encontrado para esta operação.</td></tr>`;
+      return;
+    }
+
+    // Agrupar por colaboradora + dia (YYYY-MM-DD)
+    const grouped = {};
+    registros.forEach(r => {
+      const dStr = pontoDataLocal(r.timestamp);
+      const key = `${r.usuario}_${dStr}`;
+      if (!grouped[key]) grouped[key] = { usuario: r.usuario, operacao: r.operacao, data: dStr };
+      grouped[key][r.tipo] = r.timestamp;
+    });
+
+    const linhas = Object.values(grouped).sort((a, b) => b.data.localeCompare(a.data) || a.usuario.localeCompare(b.usuario));
+
+    tbody.innerHTML = "";
+    linhas.forEach(linha => {
+      const ent = linha["ENTRADA"] ? new Date(linha["ENTRADA"]) : null;
+      const sInt = linha["SAIDA_INTERVALO"] ? new Date(linha["SAIDA_INTERVALO"]) : null;
+      const rInt = linha["RETORNO_INTERVALO"] ? new Date(linha["RETORNO_INTERVALO"]) : null;
+      const sai = linha["SAIDA"] ? new Date(linha["SAIDA"]) : null;
+
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-surface-hover transition-all border-b border-subtle";
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-bold">${linha.usuario}</td>
+        <td class="py-3 px-4">${linha.operacao || "—"}</td>
+        <td class="py-3 px-4 font-mono">${formatDate(new Date(linha.data + "T12:00:00"))}</td>
+        <td class="py-3 px-4 text-center">${ent ? formatTime(ent) : "-"}</td>
+        <td class="py-3 px-4 text-center text-ink-muted">${sInt ? formatTime(sInt) : "-"}</td>
+        <td class="py-3 px-4 text-center text-ink-muted">${rInt ? formatTime(rInt) : "-"}</td>
+        <td class="py-3 px-4 text-center">${sai ? formatTime(sai) : "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar relatório de ponto por operação:", err);
+    tbody.innerHTML = `<tr class="text-danger text-center"><td colspan="7" class="py-8">Erro ao carregar o relatório.</td></tr>`;
+  }
+}
+
+// Mesmos códigos do cadastro de Colaboradores (ver renderizarColaboradores),
+// sem emoji: fonte Helvetica do jsPDF não renderiza esses glifos no PDF.
+// Só lojas Cacau Show: o Espelho de Ponto é exclusivo desse módulo.
+const UNIDADE_LABEL_TEXTO = {
+  "9175": "9175 - Marambaia",
+  "9201": "9201 - Mário Covas",
+  "4304": "4304 - Icoaraci",
+  "all": "Todas as Lojas"
+};
+
+// Monta o PDF do Espelho de Ponto e devolve o `doc` do jsPDF (sem salvar) —
+// reaproveitado tanto pelo download direto quanto pelo envio por e-mail ao
+// contador, pra não duplicar o layout em dois lugares.
+async function gerarDocEspelhoPontoPDF() {
+  const { jsPDF } = window.jspdf;
+
+  inicializarPontoDb();
+  const records = await pontoDb.time_records.where("usuario").equals(currentUser.nome).toArray();
+
+  const doc = new jsPDF();
+
+  // Colors & Styles
+  doc.setFillColor(74, 18, 26); // Burgundy primary color
+  doc.rect(0, 0, 210, 40, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("ESPELHO DE PONTO ELETRÔNICO", 15, 18);
+
+  doc.setFontSize(10);
+  doc.setFont("Helvetica", "normal");
+  doc.text(`Portaria 671/2021 MTP - Identificação e Controle de Jornada`, 15, 28);
+  doc.text(`Emissão: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`, 150, 28);
+
+  // Colaborador Info — a Unidade/Loja aqui é a do CADASTRO (a quem o
+  // trabalhador pertence), não a operação de cada batida individual.
+  doc.setTextColor(51, 51, 51);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("DADOS DO TRABALHADOR", 15, 52);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Nome do Colaborador: ${currentUser.nome}`, 15, 60);
+  doc.text(`Unidade/Loja: ${UNIDADE_LABEL_TEXTO[currentUser.unidade] || "Não informado"}`, 110, 60);
+  doc.text(`Cargo / Função: ${currentUser.role.toUpperCase()}`, 15, 66);
+  doc.text(`CPF: ${currentUser.cpf || "Não informado"}`, 15, 72);
+  if (currentUser.dataAdmissao) {
+    doc.text(`Data de Admissão: ${formatDate(new Date(currentUser.dataAdmissao + "T12:00:00"))}`, 110, 72);
+  }
+
+  // Table header
+  doc.setFillColor(240, 240, 240);
+  doc.rect(15, 82, 180, 8, "F");
+  doc.setFont("Helvetica", "bold");
+  doc.text("Data", 17, 87);
+  doc.text("Entrada", 52, 87);
+  doc.text("Almoço", 82, 87);
+  doc.text("Retorno", 112, 87);
+  doc.text("Saída", 142, 87);
+  doc.text("Saldo", 172, 87);
+
+  // Group records by date
+  const grouped = {};
+  records.forEach(r => {
+    const dStr = pontoDataLocal(r.timestamp);
+    if (!grouped[dStr]) grouped[dStr] = {};
+    grouped[dStr][r.tipo] = r.timestamp;
+  });
+
+  const dates = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+  
+  doc.setFont("Helvetica", "normal");
+  let y = 96;
+  
+  dates.forEach(d => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+    const day = grouped[d];
+    const ent = day["ENTRADA"] ? new Date(day["ENTRADA"]) : null;
+    const sInt = day["SAIDA_INTERVALO"] ? new Date(day["SAIDA_INTERVALO"]) : null;
+    const rInt = day["RETORNO_INTERVALO"] ? new Date(day["RETORNO_INTERVALO"]) : null;
+    const sai = day["SAIDA"] ? new Date(day["SAIDA"]) : null;
+
+    let workedMs = 0;
+    if (ent && sInt) workedMs += (sInt - ent);
+    if (rInt && sai) workedMs += (sai - rInt);
+
+    const tHours = Math.floor(workedMs / 3600000);
+    const tMins = Math.floor((workedMs % 3600000) / 60000);
+    const saldoText = `${tHours.toString().padStart(2, '0')}:${tMins.toString().padStart(2, '0')}`;
+
+    doc.text(formatDate(new Date(d + "T12:00:00")), 17, y);
+    doc.text(ent ? formatTime(ent) : "-", 52, y);
+    doc.text(sInt ? formatTime(sInt) : "-", 82, y);
+    doc.text(rInt ? formatTime(rInt) : "-", 112, y);
+    doc.text(sai ? formatTime(sai) : "-", 142, y);
+    doc.text(saldoText, 172, y);
+
+    // separator line
+    doc.setDrawColor(230, 230, 230);
+    doc.line(15, y+2, 195, y+2);
+    y += 8;
+  });
+
+  // Footer & Signature conformidade Portaria 671
+  if (y > 240) {
+    doc.addPage();
+    y = 30;
+  }
+
+  y += 10;
+  doc.setFont("Helvetica", "bold");
+  doc.text("ASSINATURA DO COLABORADOR E CERTIFICAÇÃO DIGITAL", 15, y);
+  
+  y += 8;
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(8);
+  const cryptoHash = await calcularHashSha256(records.map(r => r.hash).join(""));
+  doc.text(`Hash de Integridade (Portaria 671): ${cryptoHash}`, 15, y);
+  
+  y += 20;
+  doc.line(15, y, 100, y);
+  doc.line(110, y, 195, y);
+  y += 4;
+  doc.text("Assinatura do Colaborador(a)", 40, y);
+  doc.text("Assinatura Cacau Show / Gestor", 135, y);
+
+  const nomeArquivo = `Espelho_Ponto_${currentUser.nome}_${new Date().getMonth() + 1}.pdf`;
+  return { doc, nomeArquivo };
+}
+
+async function exportarEspelhoPontoPDF() {
+  if (!currentUser) return;
+  const { doc, nomeArquivo } = await gerarDocEspelhoPontoPDF();
+  doc.save(nomeArquivo);
+}
+
+// Gera a mesma Folha de Ponto e manda por e-mail pro contador cadastrado em
+// Configurações — clique manual, sem agendamento automático no servidor.
+async function enviarFolhaPontoPorEmailContador() {
+  if (!currentUser) return;
+
+  const emailContador = (config && config.contadorEmail) || "";
+  if (!emailContador) {
+    showModal("Nenhum e-mail de contador cadastrado ainda. Configure em Configurações → Dados do Contador antes de enviar.", { icon: "⚠️", title: "Contador não configurado" });
+    return;
+  }
+
+  const btn = document.getElementById("btn-ponto-email-contador");
+  const textoOriginal = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Enviando...`;
+  }
+
+  try {
+    const { doc, nomeArquivo } = await gerarDocEspelhoPontoPDF();
+    const pdfBase64 = doc.output("datauristring");
+    const mesReferencia = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    const res = await fetch(`${API_BASE}/ponto/folha-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailContador,
+        assunto: `Folha de Ponto — ${currentUser.nome} — ${mesReferencia}`,
+        mensagem: `Olá! Segue em anexo a folha de ponto de ${currentUser.nome} referente a ${mesReferencia}.`,
+        pdfBase64,
+        nomeArquivo,
+        remetente: currentUser.nome
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+
+    showToast(`Folha de ponto enviada para ${emailContador}!`, "sucesso");
+  } catch (err) {
+    console.error("Erro ao enviar folha de ponto por e-mail:", err);
+    showToast("Não foi possível enviar por e-mail. Verifique o e-mail do contador em Configurações.", "erro");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal;
+    }
+  }
+}
+
+
+// ==========================================================================
+// IMPORTAÇÃO DA META DO ANO
+// Estrutura pronta para receber a importação — o modelo de arquivo ainda
+// será definido; por ora o painel lista as metas já importadas via API.
+// ==========================================================================
+async function renderImportarMeta() {
+  const lista = document.getElementById("metas-importadas-lista");
+  if (!lista) return;
+  lista.innerHTML = '<span class="text-muted">Carregando…</span>';
+  try {
+    const res = await fetch(`${API_BASE}/metas`);
+    const metas = await res.json();
+    if (!Array.isArray(metas) || metas.length === 0) {
+      lista.innerHTML = '<span class="text-muted">Nenhuma meta importada ainda.</span>';
+      return;
+    }
+    lista.innerHTML = metas.map(m => `
+      <div class="flex justify-between items-center py-2.5 border-b border-border last:border-0">
+        <div>
+          <strong class="text-sm text-ink">${m.loja} — ${m.ano}</strong>
+          <div class="text-[11px] text-muted">Meta anual: ${m.metaAnual != null ? formatBRL(m.metaAnual) : "—"} · Importado em ${formatDataHora(m.importadoEm)}</div>
+        </div>
+        <button type="button" class="btn-mini-outline" onclick="excluirMetaImportada(${m.id})" aria-label="Excluir meta"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    `).join("");
+  } catch (e) {
+    lista.innerHTML = '<span class="text-muted">Não foi possível carregar as metas importadas.</span>';
+  }
+}
+
+async function excluirMetaImportada(id) {
+  const ok = await showConfirm("Excluir esta meta importada?", { confirmText: "Excluir", confirmClass: "btn-danger" });
+  if (!ok) return;
+  try {
+    await fetch(`${API_BASE}/metas/${id}`, { method: "DELETE" });
+    showToast("Meta removida.", "sucesso");
+    renderImportarMeta();
+  } catch (e) {
+    showToast("Erro ao remover meta.", "erro");
+  }
+}
+
+/* ==========================================================================
+   SINCRONIZAÇÃO EM TEMPO REAL
+   ==========================================================================
+   O canal (webapp/realtime.js) entrega aqui tudo que qualquer usuário logado
+   grava. Este bloco decide o que fazer com cada evento.
+
+   Regra que vale para a tela inteira: NUNCA sobrescrever um campo que a pessoa
+   está digitando. Se o valor mudou por causa de outra pessoa e o cursor está
+   naquele campo, avisamos com um toast e aplicamos quando ela sair dali.
+   ========================================================================== */
+
+let _rtTabAtual = null;
+
+// Guarda qual aba está aberta, para só atualizar o que está à vista.
+if (typeof ativarTab === "function") {
+  const _ativarTabOriginal = ativarTab;
+  ativarTab = function (tabName) {
+    _rtTabAtual = tabName;
+    return _ativarTabOriginal.apply(this, arguments);
+  };
+}
+
+function _rtPiscar(el) {
+  if (!el) return;
+  const fundoAnterior = el.style.backgroundColor;
+  el.style.transition = "background-color .35s";
+  el.style.backgroundColor = "#065f46";
+  setTimeout(() => { el.style.backgroundColor = fundoAnterior || ""; }, 1200);
+}
+
+function _rtAlgumCampoEmEdicao(container) {
+  const ativo = document.activeElement;
+  if (!ativo || !container) return false;
+  const editavel = ativo.tagName === "INPUT" || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT";
+  return editavel && container.contains(ativo);
+}
+
+/**
+ * Aplica no input um valor que veio de outra pessoa.
+ * Se o campo está em edição, respeita a digitação em curso: avisa quem alterou
+ * e só aplica o valor quando o campo perde o foco.
+ */
+function _rtAplicarValorNoInput(input, valor, aviso) {
+  if (!input) return;
+
+  if (document.activeElement === input) {
+    input.dataset.valorRemoto = valor;
+    if (aviso) showToast(aviso, "info");
+
+    if (!input.dataset.rtEsperandoSaida) {
+      input.dataset.rtEsperandoSaida = "1";
+
+      // Não dependemos só do evento blur: em celular o campo pode perder o
+      // foco de formas que não disparam blur (teclado fechando, aba trocando,
+      // linha redesenhada). A verificação periódica garante que o valor da
+      // outra pessoa entra assim que a pessoa sai do campo.
+      const aplicar = () => {
+        if (!input.isConnected || input.dataset.valorRemoto === undefined) {
+          delete input.dataset.rtEsperandoSaida;
+          return;
+        }
+        if (document.activeElement === input) {
+          setTimeout(aplicar, 1000);
+          return;
+        }
+        input.value = input.dataset.valorRemoto;
+        delete input.dataset.valorRemoto;
+        delete input.dataset.rtEsperandoSaida;
+        _rtPiscar(input);
+      };
+
+      input.addEventListener("blur", aplicar);
+      setTimeout(aplicar, 1000);
+    }
+    return;
+  }
+
+  input.value = valor;
+  _rtPiscar(input);
+  if (aviso) showToast(aviso, "info");
+}
+
+// Renderiza a tabela inteira só quando ninguém estiver com um campo aberto —
+// um innerHTML no meio da contagem mataria o foco e a posição da rolagem.
+const _rtRendersAguardando = new Set();
+
+function _rtQuandoLivre(idTbody, render) {
+  const tentar = () => {
+    const tbody = document.getElementById(idTbody);
+    if (!tbody) {
+      _rtRendersAguardando.delete(idTbody);
+      return;
+    }
+    if (_rtAlgumCampoEmEdicao(tbody)) {
+      // Um único laço de espera por tabela — vários eventos seguidos não podem
+      // virar vários timers concorrentes.
+      _rtRendersAguardando.add(idTbody);
+      setTimeout(tentar, 1500);
+      return;
+    }
+    _rtRendersAguardando.delete(idTbody);
+    render();
+  };
+
+  if (_rtRendersAguardando.has(idTbody)) return;
+  tentar();
+}
+
+// -------------------------------------------------------------- INVENTÁRIO
+
+async function sincronizarInventarioDaLoja(loja) {
+  const alvo = loja || currentStore;
+  const itens = await dbBridge.carregarDoServidor(alvo);
+  if (!itens) return false;
+  if (String(alvo) !== String(currentStore)) return true;
+
+  loadInventoryForCurrentStore();
+  _rtQuandoLivre("inventory-tbody", () => renderTable());
+  return true;
+}
+
+async function iniciarSincronizacaoDoInventario() {
+  await dbBridge.migrarLocalParaServidor();
+  await sincronizarInventarioDaLoja(currentStore);
+}
+
+function _rtAplicarItemInventario(loja, item, quem) {
+  dbBridge.aplicarItemRemoto(loja, item);
+  if (String(loja) !== String(currentStore)) return;
+
+  const validadeNova = item.validade ? new Date(item.validade) : null;
+  const anterior = products.find(p => String(p.code) === String(item.code));
+  const validadeMudou = !anterior ||
+    String(anterior.validade || "") !== String(validadeNova || "");
+
+  const normalizado = {
+    code: item.code,
+    barras: item.barras || "",
+    description: item.description || (anterior ? anterior.description : "Produto"),
+    validade: validadeNova,
+    daysRemaining: anterior ? anterior.daysRemaining : null,
+    countedQty: item.countedQty === undefined || item.countedQty === null ? "" : item.countedQty,
+    dataEntrada: item.dataEntrada || "",
+    qtdEntradaUnidades: item.qtdEntradaUnidades || 0,
+    qtdEntradaCaixas: item.qtdEntradaCaixas || 0
+  };
+
+  if (anterior) {
+    Object.assign(anterior, normalizado);
+  } else {
+    products.push(normalizado);
+  }
+
+  const tbody = document.getElementById("inventory-tbody");
+  if (!tbody) return;
+
+  const input = tbody.querySelector(`.qty-input[data-code="${normalizado.code}"]`);
+  if (input && !validadeMudou) {
+    const nome = normalizado.description.length > 28 ? normalizado.description.slice(0, 28) + "…" : normalizado.description;
+    _rtAplicarValorNoInput(input, normalizado.countedQty, `${quem || "Outro usuário"} contou ${normalizado.countedQty || 0} UN — ${nome}`);
+    return;
+  }
+
+  // Produto novo na lista ou validade alterada: precisa redesenhar a linha
+  // inteira (dias restantes, cor do alerta, filtros).
+  _rtQuandoLivre("inventory-tbody", () => renderTable());
+}
+
+// ------------------------------------------------------------- CONFERÊNCIA
+
+function _rtChaveNf(numero, loja) {
+  const direta = `${numero}_${loja}`;
+  if (importedNfs[direta]) return direta;
+  return Object.keys(importedNfs).find(k => k.split("_")[0] === String(numero)) || null;
+}
+
+function _rtAplicarItemNf(payload, quem) {
+  const chave = _rtChaveNf(payload.numero, payload.loja);
+  if (!chave) return; // nota que este aparelho ainda não importou
+
+  const nf = importedNfs[chave];
+  const produto = (nf.products || []).find(p => String(p.code) === String(payload.code));
+  if (!produto) return;
+
+  produto.countedQty = payload.countedQty;
+  produto.conferidoPor = payload.conferidoPor || null;
+  if (nf.info) {
+    nf.info.concluidaEm = null;
+    nf._mensagemEnviada = false;
+    nf._notificadoConclusao = false;
+  }
+  localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+
+  const input = document.querySelector(`.nf-qty-input[data-code="${payload.code}"][data-nf="${chave}"]`);
+  if (input) {
+    const nome = (produto.description || "").length > 28 ? produto.description.slice(0, 28) + "…" : (produto.description || "");
+    _rtAplicarValorNoInput(input, payload.countedQty, `${quem || "Outro usuário"} conferiu ${payload.countedQty || 0} — ${nome}`);
+  }
+
+  if (typeof updateNfStats === "function") updateNfStats();
+  // A coluna de status (Conforme/Falta/Sobra) é recalculada no render.
+  _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+  if (typeof renderNfCardsGallery === "function" && _rtTabAtual === "conferencia-nfe") renderNfCardsGallery();
+}
+
+function _rtNfConcluida(payload, quem) {
+  const chave = _rtChaveNf(payload.numero, payload.loja);
+  if (!chave) return;
+  const nf = importedNfs[chave];
+  if (nf && nf.info) {
+    nf.info.concluidaEm = payload.concluidaEm;
+    nf.info.concluidaPor = payload.concluidaPor || null;
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+  }
+  showToast(`${quem || "Outro usuário"} concluiu a conferência da NF ${payload.numero}.`, "info");
+  if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
+  _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+}
+
+async function _rtRecarregarNfs() {
+  if (!API_ONLINE) return;
+  try {
+    const res = await fetch(`${API_BASE}/nfs`);
+    if (!res.ok) return;
+    const dados = await res.json();
+    const doServidor = {};
+    dados.forEach(nf => {
+      if (!nf || !nf.numero) return;
+      if (!nf.info) nf.info = {};
+      if (nf.info.rawEmissaoDate) nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+      if (Array.isArray(nf.products)) {
+        nf.products.forEach(p => { if (p.validade) p.validade = new Date(p.validade); });
+      }
+      const loja = nf.info.targetStore ? nf.info.targetStore.toString() : "9175";
+      nf.info.targetStore = loja;
+      doServidor[`${nf.numero.toString().trim()}_${loja}`] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
+    });
+    importedNfs = mesclarNfs(importedNfs, doServidor);
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+    if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
+    if (_rtTabAtual === "faturamento-nfe" && typeof renderFaturamentoNfe === "function") renderFaturamentoNfe();
+    _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
+  } catch (e) {
+    console.error("[RT] Falha ao recarregar NF-es:", e);
+  }
+}
+
+// ---------------------------------------------------------------- REGISTROS
+
+function _rtRenderRegistrosCacau() {
+  try {
+    if (_rtTabAtual === "dashboard") renderDashboard();
+    else if (_rtTabAtual === "historico") renderHistorico();
+    else if (_rtTabAtual === "mensal") renderMensal();
+  } catch (e) {
+    console.error("[RT] Erro ao atualizar a tela de registros:", e);
+  }
+}
+
+function _rtRenderRegistrosFa() {
+  try {
+    if (_rtTabAtual === "faca-amigos") ativarFaSubTab(faSubTabAtiva);
+  } catch (e) {
+    console.error("[RT] Erro ao atualizar a tela do FaçaAmigos:", e);
+  }
+}
+
+// A foto do envelope não trafega no canal (base64 pesado). Quando chega um
+// registro novo que tem foto, buscamos a imagem só daquele registro.
+async function _rtBuscarFoto(rota, registro) {
+  if (!registro || !registro.temFoto || !API_ONLINE) return;
+  try {
+    const res = await fetch(`${API_BASE}/${rota}/${encodeURIComponent(registro.id)}/foto`);
+    if (!res.ok) return;
+    const dados = await res.json();
+    if (dados && dados.fotoEnvelope) {
+      registro.fotoEnvelope = dados.fotoEnvelope;
+      if (rota === "registros") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+        _rtRenderRegistrosCacau();
+      } else {
+        localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+        _rtRenderRegistrosFa();
+      }
+    }
+  } catch (e) { /* foto é acessório: sem ela a linha ainda aparece */ }
+}
+
+function _rtRegistroCriado(lista, chaveStorage, rota, reg, quem, render) {
+  if (!reg || !reg.id) return;
+  if (lista.some(r => r.id === reg.id)) return;
+  lista.unshift(reg);
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+  showToast(`${quem || reg.consultor || "Outro usuário"} registrou ${reg.tipoOperacao || "uma operação"} na loja ${reg.loja || ""}.`, "info");
+  _rtBuscarFoto(rota, reg);
+}
+
+function _rtRegistroAlterado(lista, chaveStorage, rota, payload, render) {
+  const reg = lista.find(r => r.id === payload.id);
+  if (!reg) return;
+  const campos = payload.campos || {};
+  Object.keys(campos).forEach(k => {
+    if (k === "temFoto") return;
+    reg[k] = campos[k];
+  });
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+  if (campos.temFoto && !reg.fotoEnvelope) _rtBuscarFoto(rota, { id: reg.id, temFoto: true });
+}
+
+function _rtRegistroExcluido(lista, chaveStorage, id, render) {
+  const idx = lista.findIndex(r => r.id === id);
+  if (idx === -1) return;
+  lista.splice(idx, 1);
+  localStorage.setItem(chaveStorage, JSON.stringify(lista));
+  render();
+}
+
+// ---------------------------------------------------------------- REGISTRO
+
+function _rtRegistrarHandlers() {
+  RT.on("inventario.item", (payload, evento) => {
+    _rtAplicarItemInventario(payload.loja, payload.item, evento.usuario);
+  });
+
+  RT.on("inventario.bulk", (payload, evento) => {
+    (payload.itens || []).forEach(item => _rtAplicarItemInventario(payload.loja, item, evento.usuario));
+  });
+
+  RT.on("inventario.recarregar", (payload) => {
+    sincronizarInventarioDaLoja(payload.loja);
+  });
+
+  RT.on("inventario.excluido", (payload) => {
+    localStorage.removeItem(`cacaushow_db_inventory_${payload.loja}_${payload.code}`);
+    if (String(payload.loja) !== String(currentStore)) return;
+    const idx = products.findIndex(p => String(p.code) === String(payload.code));
+    if (idx > -1) products.splice(idx, 1);
+    _rtQuandoLivre("inventory-tbody", () => renderTable());
+  });
+
+  RT.on("nf.item", (payload, evento) => _rtAplicarItemNf(payload, evento.usuario));
+  RT.on("nf.concluida", (payload, evento) => _rtNfConcluida(payload, evento.usuario));
+  RT.on("nf.importada", (payload, evento) => {
+    showToast(`${evento.usuario || "Outro usuário"} importou a NF ${payload.numero}.`, "info");
+    _rtRecarregarNfs();
+  });
+  RT.on("nf.excluida", () => _rtRecarregarNfs());
+
+  RT.on("registro.criado", (payload, evento) =>
+    _rtRegistroCriado(registros, STORAGE_KEY, "registros", payload, evento.usuario, _rtRenderRegistrosCacau));
+  RT.on("registro.alterado", (payload) =>
+    _rtRegistroAlterado(registros, STORAGE_KEY, "registros", payload, _rtRenderRegistrosCacau));
+  RT.on("registro.excluido", (payload) =>
+    _rtRegistroExcluido(registros, STORAGE_KEY, payload.id, _rtRenderRegistrosCacau));
+
+  RT.on("registroFa.criado", (payload, evento) =>
+    _rtRegistroCriado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, evento.usuario, _rtRenderRegistrosFa));
+  RT.on("registroFa.alterado", (payload) =>
+    _rtRegistroAlterado(registrosFA, STORAGE_KEY_FA, "registros-fa", payload, _rtRenderRegistrosFa));
+  RT.on("registroFa.excluido", (payload) =>
+    _rtRegistroExcluido(registrosFA, STORAGE_KEY_FA, payload.id, _rtRenderRegistrosFa));
+
+  // Autorização remota de retirada: abre o modal sozinho na tela do owner.
+  RT.on("retirada.solicitada", (payload) => {
+    enfileirarSolicitacaoRetirada(payload);
+  });
+  RT.on("retirada.autorizada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já autorizada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showToast(`Sua retirada foi autorizada por ${payload.autorizadoPor}!`, "sucesso");
+    }
+  });
+  RT.on("retirada.recusada", (payload) => {
+    removerSolicitacaoDaFila(payload.id, `Solicitação já recusada por ${payload.autorizadoPor}.`);
+    if (currentUser && currentUser.nome === payload.solicitadoPor) {
+      showModal(`Sua solicitação de retirada foi recusada por ${payload.autorizadoPor}.${payload.motivo ? " Motivo: " + payload.motivo : ""}`, { icon: "🚫", title: "Retirada recusada" });
+    }
+  });
+
+  ["venda.horaria", "meta.checkin", "metaLoja.importada"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
+    });
+  });
+
+  RT.on("meta.importada", () => {
+    if (_rtTabAtual === "importar-meta" && typeof renderImportarMeta === "function") renderImportarMeta();
+  });
+  RT.on("meta.excluida", () => {
+    if (_rtTabAtual === "importar-meta" && typeof renderImportarMeta === "function") renderImportarMeta();
+  });
+
+  RT.on("fa.bonificacao", () => {
+    if (_rtTabAtual === "faca-amigos") _rtRenderRegistrosFa();
+  });
+
+  ["ponto.registro", "ponto.ajuste"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (_rtTabAtual !== "controle-ponto") return;
+      // A operação em exibição é a aba destacada no filtro do relatório.
+      const abaAtiva = document.querySelector(".ponto-relatorio-tab.bg-accent-soft");
+      if (abaAtiva && typeof carregarRelatorioPontoOperacao === "function") {
+        carregarRelatorioPontoOperacao(abaAtiva.dataset.operacao);
+      }
+    });
+  });
+}
+
+// ==========================================================================
+// MÓDULO: CONFERÊNCIA NFE (EXCLUSIVO OWNER)
+// ==========================================================================
+
+let nfeLista = [];
+
+function isUsuarioOwner() {
+  if (!currentUser) return false;
+  const role = (currentUser.role || "").toLowerCase();
+  const nome = (currentUser.nome || "").toLowerCase();
+  return role === "owner" || nome === "bruno" || nome === "isabella";
+}
+
+function inicializarModuloNfeOwner() {
+  const btnTab = document.getElementById("tab-btn-nfe-owner");
+  if (btnTab) {
+    btnTab.classList.toggle("hidden", !isUsuarioOwner());
+  }
+
+  const btnNovaNfe = document.getElementById("btn-nova-nfe-modal");
+  const modalNfe = document.getElementById("modal-nfe");
+  const btnFecharModal = document.getElementById("btn-fechar-modal-nfe");
+  const btnCancelar = document.getElementById("btn-cancelar-nfe");
+  const formNfe = document.getElementById("form-nfe");
+  const btnFiltrar = document.getElementById("nfe-btn-filtrar");
+
+  if (btnNovaNfe) {
+    btnNovaNfe.addEventListener("click", () => {
+      if (modalNfe) {
+        formNfe.reset();
+        document.getElementById("nfe-form-data").value = new Date().toISOString().split("T")[0];
+        modalNfe.classList.remove("hidden");
+        modalNfe.classList.add("flex");
+      }
+    });
+  }
+
+  const fecharModal = () => {
+    if (modalNfe) {
+      modalNfe.classList.add("hidden");
+      modalNfe.classList.remove("flex");
+    }
+  };
+
+  if (btnFecharModal) btnFecharModal.addEventListener("click", fecharModal);
+  if (btnCancelar) btnCancelar.addEventListener("click", fecharModal);
+
+  if (formNfe) {
+    formNfe.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const loja = document.getElementById("nfe-form-loja").value;
+      const numeroNfe = document.getElementById("nfe-form-numero").value;
+      const valor = document.getElementById("nfe-form-valor").value;
+      const dataEmissao = document.getElementById("nfe-form-data").value;
+      const observacoes = document.getElementById("nfe-form-obs").value;
+
+      try {
+        const res = await fetch(`${API_BASE}/nfe?usuario=${encodeURIComponent(currentUser ? currentUser.nome : 'Owner')}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loja, numeroNfe, valor, dataEmissao, observacoes })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("NFE registrada com sucesso!", "sucesso");
+          fecharModal();
+          carregarNfesOwner();
+        } else {
+          showToast(data.error || "Erro ao registrar NFE", "erro");
+        }
+      } catch (err) {
+        console.error("Erro ao salvar NFE:", err);
+        showToast("Erro ao conectar com o servidor.", "erro");
+      }
+    });
+  }
+
+  if (btnFiltrar) {
+    btnFiltrar.addEventListener("click", () => {
+      carregarNfesOwner();
+    });
+  }
+
+  // Ouvir eventos realtime de NFE
+  if (window.RT) {
+    window.RT.on("nfe.criado", () => carregarNfesOwner());
+    window.RT.on("nfe.alterado", () => carregarNfesOwner());
+    window.RT.on("nfe.excluido", () => carregarNfesOwner());
+  }
+}
+
+async function carregarNfesOwner() {
+  if (!isUsuarioOwner()) return;
+
+  const loja = document.getElementById("nfe-filtro-loja") ? document.getElementById("nfe-filtro-loja").value : "";
+  const status = document.getElementById("nfe-filtro-status") ? document.getElementById("nfe-filtro-status").value : "";
+
+  let url = `${API_BASE}/nfe?1=1`;
+  if (loja) url += `&loja=${encodeURIComponent(loja)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    nfeLista = data || [];
+    renderizarNfesOwner();
+  } catch (err) {
+    console.error("Erro ao carregar NFEs:", err);
+  }
+}
+
+function renderizarNfesOwner() {
+  const tbody = document.getElementById("nfe-tabela-corpo");
+  if (!tbody) return;
+
+  let totalFaturado = 0;
+  let countPendente = 0;
+  let countConferido = 0;
+  let countDivergente = 0;
+
+  nfeLista.forEach(item => {
+    const val = Number(item.valor) || 0;
+    totalFaturado += val;
+    if (item.status === "conferido") countConferido++;
+    else if (item.status === "divergente") countDivergente++;
+    else countPendente++;
+  });
+
+  const statTotal = document.getElementById("nfe-stat-total");
+  const statPendente = document.getElementById("nfe-stat-pendente");
+  const statConferido = document.getElementById("nfe-stat-conferido");
+  const statDivergente = document.getElementById("nfe-stat-divergente");
+
+  if (statTotal) statTotal.textContent = formatBRL(totalFaturado);
+  if (statPendente) statPendente.textContent = countPendente;
+  if (statConferido) statConferido.textContent = countConferido;
+  if (statDivergente) statDivergente.textContent = countDivergente;
+
+  if (nfeLista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-muted">Nenhuma nota fiscal registrada.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = nfeLista.map(item => {
+    const valFmt = formatBRL(item.valor);
+    const dataFmt = item.dataEmissao ? item.dataEmissao.split('-').reverse().join('/') : '-';
+    
+    let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">Pendente</span>`;
+    if (item.status === "conferido") {
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">Conferido</span>`;
+    } else if (item.status === "divergente") {
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">Divergente</span>`;
+    }
+
+    return `
+      <tr class="hover:bg-paper/50 transition">
+        <td class="py-3 px-3 font-bold">${escapeHtml(item.loja)}</td>
+        <td class="py-3 px-3">${escapeHtml(item.numeroNfe || 'S/N')}</td>
+        <td class="py-3 px-3">${dataFmt}</td>
+        <td class="py-3 px-3 font-extrabold">${valFmt}</td>
+        <td class="py-3 px-3">${statusBadge}</td>
+        <td class="py-3 px-3 text-muted">${escapeHtml(item.conferidoPor || '-')}</td>
+        <td class="py-3 px-3 text-right space-x-1">
+          ${item.status !== 'conferido' ? `<button onclick="atualizarStatusNfe('${item.id}', 'conferido')" title="Marcar como Conferido" class="px-2 py-1 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] font-bold"><i class="fa-solid fa-check"></i></button>` : ''}
+          ${item.status !== 'divergente' ? `<button onclick="atualizarStatusNfe('${item.id}', 'divergente')" title="Marcar como Divergente" class="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[11px] font-bold"><i class="fa-solid fa-triangle-exclamation"></i></button>` : ''}
+          <button onclick="excluirNfe('${item.id}')" title="Excluir NFE" class="px-2 py-1 bg-surface-2 hover:bg-rose-950 text-muted hover:text-rose-400 rounded text-[11px]"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function atualizarStatusNfe(id, novoStatus) {
+  const usuario = currentUser ? currentUser.nome : "Owner";
+  try {
+    const res = await fetch(`${API_BASE}/nfe/${id}/status?usuario=${encodeURIComponent(usuario)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: novoStatus, conferidoPor: usuario })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Status da NFE alterado para ${novoStatus}.`, "sucesso");
+      carregarNfesOwner();
+    } else {
+      showToast(data.error || "Erro ao atualizar NFE", "erro");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar NFE:", err);
+    showToast("Erro ao conectar com o servidor.", "erro");
+  }
+}
+
+async function excluirNfe(id) {
+  if (!confirm("Deseja realmente excluir este registro de NFE?")) return;
+  const usuario = currentUser ? currentUser.nome : "Owner";
+  try {
+    const res = await fetch(`${API_BASE}/nfe/${id}?usuario=${encodeURIComponent(usuario)}`, {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast("Registro de NFE excluído.", "sucesso");
+      carregarNfesOwner();
+    } else {
+      showToast(data.error || "Erro ao excluir NFE", "erro");
+    }
+  } catch (err) {
+    console.error("Erro ao excluir NFE:", err);
+    showToast("Erro ao conectar com o servidor.", "erro");
+  }
+}
+
+window.atualizarStatusNfe = atualizarStatusNfe;
+window.excluirNfe = excluirNfe;
+
+// ==========================================================================
+// MÓDULO: FATURAMENTO NFE (EXCLUSIVO OWNER)
+// --------------------------------------------------------------------------
+// Apresentação amigável, por NF-e, de tudo que já é extraído do XML no
+// upload (ver parseXmlNfe): loja/operação, produtos com descrição/quantidade/
+// valor, vencimento (duplicatas do boleto) e campanha (marcador PDI_CLI nas
+// Informações Complementares). Não duplica dado nenhum — lê o mesmo
+// `importedNfs` que já alimenta a Conferência de Notas, só que sem o fluxo de
+// bipagem: aqui é somente leitura, pensado para o Owner olhar o faturamento
+// entrando pela notificação push de "produto novo" (ver config/notifications.js).
+// ==========================================================================
+
+function inicializarModuloFaturamentoNfe() {
+  const filtroLoja = document.getElementById("faturamento-nfe-filtro-loja");
+  const busca = document.getElementById("faturamento-nfe-busca");
+  if (filtroLoja) filtroLoja.addEventListener("change", renderFaturamentoNfe);
+  if (busca) busca.addEventListener("input", renderFaturamentoNfe);
+}
+
+function renderFaturamentoNfe() {
+  const container = document.getElementById("faturamento-nfe-lista");
+  if (!container) return;
+
+  const filtroLoja = document.getElementById("faturamento-nfe-filtro-loja")?.value || "";
+  const busca = (document.getElementById("faturamento-nfe-busca")?.value || "").trim().toLowerCase();
+
+  // Códigos de produto já apresentados nesta tela alguma vez neste aparelho —
+  // usado só para o selo visual "Novo" no card (o push em si é decidido no
+  // servidor, na hora do upload, e vale para todo mundo).
+  const VISTOS_KEY = "cacaushow_faturamento_nfe_codigos_vistos";
+  let vistosSet;
+  try { vistosSet = new Set(JSON.parse(localStorage.getItem(VISTOS_KEY) || "[]")); } catch (e) { vistosSet = new Set(); }
+
+  const entradas = Object.keys(importedNfs || {})
+    .map(chave => ({ chave, nf: importedNfs[chave] }))
+    .filter(({ nf }) => nf && nf.info)
+    .filter(({ nf }) => !filtroLoja || String(nf.info.targetStore) === filtroLoja)
+    .filter(({ nf, chave }) => {
+      if (!busca) return true;
+      const alvo = `${nf.info.numero || ""} ${chave} ${nf.info.campanha || ""} ${(nf.products || []).map(p => p.description).join(" ")}`.toLowerCase();
+      return alvo.includes(busca);
+    })
+    .sort((a, b) => new Date(b.nf.info.rawEmissaoDate || 0) - new Date(a.nf.info.rawEmissaoDate || 0));
+
+  const totalFaturado = entradas.reduce((soma, { nf }) => soma + (Number(nf.info.valorTotal) || 0), 0);
+  const elTotal = document.getElementById("faturamento-nfe-stat-total");
+  const elQtd = document.getElementById("faturamento-nfe-stat-qtd");
+  if (elTotal) elTotal.textContent = `R$ ${totalFaturado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  if (elQtd) elQtd.textContent = entradas.length;
+
+  if (entradas.length === 0) {
+    container.innerHTML = `<div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
+      <i class="fa-solid fa-file-invoice-dollar text-4xl mb-3 block text-ink-strong"></i>
+      Nenhuma NF-e encontrada. Assim que um XML for importado em Importações, o faturamento aparece aqui automaticamente.
+    </div>`;
+    return;
+  }
+
+  const codigosDesteRender = new Set();
+  const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+  container.innerHTML = entradas.map(({ nf }) => {
+    const info = nf.info || {};
+    const produtos = nf.products || [];
+    const lojaNome = getLojaNomePorCodigo(info.targetStore);
+
+    const vencimentosHtml = (info.duplicatas && info.duplicatas.length)
+      ? info.duplicatas.map(d => `<span class="px-2 py-1 rounded-lg bg-surface-2 border border-subtle text-[11px] font-bold text-ink-strong whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i>${d.vencimento || "-"} · ${fmtMoeda(d.valor)}</span>`).join("")
+      : `<span class="text-[11px] text-ink-muted">Vencimento não identificado na NF-e</span>`;
+
+    const produtosHtml = produtos.map(p => {
+      const codigo = p.code ? String(p.code) : "";
+      const isNovo = codigo && !vistosSet.has(codigo);
+      if (codigo) codigosDesteRender.add(codigo);
+      const valorItem = p.valorTotal !== undefined ? Number(p.valorTotal) : 0;
+      const valorUnitItem = p.valorUnitario !== undefined ? Number(p.valorUnitario) : 0;
+      return `
+        <div class="flex items-center justify-between gap-3 py-2 border-b border-subtle last:border-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-bold text-ink truncate flex items-center gap-1.5">
+              <span class="truncate">${p.description || "Produto"}</span>
+              ${isNovo ? '<span class="shrink-0 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-extrabold uppercase">Novo</span>' : ""}
+            </div>
+            <div class="text-[11px] text-ink-muted">Cód. ${p.code || "-"}${valorUnitItem ? " · " + fmtMoeda(valorUnitItem) + "/un" : ""}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-xs font-extrabold text-ink">${Number(p.nfQty || 0)} un</div>
+            <div class="text-[11px] text-ink-muted">${fmtMoeda(valorItem)}</div>
+          </div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="glass-card rounded-2xl border border-subtle bg-surface-2 shadow-md overflow-hidden">
+        <div class="p-4 flex flex-wrap items-start justify-between gap-2 border-b border-subtle bg-surface-1">
+          <div class="min-w-0">
+            <div class="text-xs font-extrabold text-ink-strong flex items-center gap-1.5 flex-wrap">
+              <i class="fa-solid fa-store text-ink-muted"></i> ${lojaNome}
+              <span class="text-ink-muted font-normal">· NF-e nº ${info.numero || "-"}</span>
+            </div>
+            <div class="text-[11px] text-ink-muted mt-0.5">Emissão: ${info.emissao || "-"} · Fornecedor: ${info.fornecedor || "-"}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-sm font-extrabold text-ink">${fmtMoeda(info.valorTotal)}</div>
+            ${info.campanha
+              ? `<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-accent-soft text-ink-strong text-[10px] font-extrabold uppercase">🎯 ${info.campanha}</span>`
+              : '<span class="inline-block mt-1 text-[10px] text-ink-muted">Sem campanha identificada</span>'}
+          </div>
+        </div>
+        <div class="p-4 flex flex-wrap gap-2 border-b border-subtle">${vencimentosHtml}</div>
+        <details class="group">
+          <summary class="cursor-pointer px-4 py-2.5 text-xs font-bold text-ink-muted flex items-center justify-between hover:bg-surface-1 transition list-none">
+            <span><i class="fa-solid fa-boxes-stacked mr-1.5"></i>${produtos.length} produto${produtos.length === 1 ? "" : "s"}</span>
+            <i class="fa-solid fa-chevron-down text-[10px] transition group-open:rotate-180"></i>
+          </summary>
+          <div class="px-4 pb-3">${produtosHtml || '<div class="text-xs text-ink-muted py-2">Sem produtos nesta nota.</div>'}</div>
+        </details>
+      </div>`;
+  }).join("");
+
+  try {
+    localStorage.setItem(VISTOS_KEY, JSON.stringify([...new Set([...vistosSet, ...codigosDesteRender])]));
+  } catch (e) {}
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  inicializarModuloNfeOwner();
+  inicializarModuloFaturamentoNfe();
+});
+
+// Quando o canal não está disponível (rede que bloqueia conexão longa) ou
+// depois de um período longo em segundo plano, buscamos os dados na mão.
+function _rtRecarregarTudoQueEstaAberto() {
+  sincronizarInventarioDaLoja(currentStore);
+  _rtRecarregarNfs();
+  if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
+  if (_rtTabAtual === "nfe-owner") carregarNfesOwner();
+}
+
+if (typeof window.RT !== "undefined") {
+  _rtRegistrarHandlers();
+  RT.iniciar({
+    getApiBase: () => API_BASE,
+    getUsuario: () => (currentUser ? currentUser.nome : ""),
+    getLoja: () => currentStore,
+    onFallback: _rtRecarregarTudoQueEstaAberto,
+    onReconectar: _rtRecarregarTudoQueEstaAberto
+  });
+} else {
+  console.warn("[RT] realtime.js não foi carregado — o app continua funcionando, mas sem atualização em tempo real.");
+}
