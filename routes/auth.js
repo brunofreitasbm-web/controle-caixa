@@ -457,7 +457,7 @@ router.post('/recuperar-pin', (req, res) => {
 
           // Disparar e-mail com o novo PIN
           const { enviarEmailGenerico } = require('../config/notifications');
-          const APP_URL = process.env.APP_URL || 'https://hub-de-operacoes.netlify.app';
+          const APP_URL = process.env.APP_URL || 'https://hub-operacoes-theta.vercel.app';
           const loginLink = `${APP_URL}/webapp.html`;
           const assunto = '🔑 Seu Novo PIN de Acesso — HubOperações';
           const texto = `Olá ${colab.nome}!\n\nSeu novo PIN de acesso é: ${novoPin}\n\nAcesse em: ${loginLink}`;

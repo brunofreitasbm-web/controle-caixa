@@ -5,7 +5,7 @@ const { dbRunAsync } = require('../config/database');
 const { enviarEmailGenerico } = require('../config/notifications');
 
 // URL Base da aplicação para links nos e-mails
-const APP_URL = process.env.APP_URL || 'https://hub-de-operacoes.netlify.app';
+const APP_URL = process.env.APP_URL || 'https://hub-operacoes-theta.vercel.app';
 
 /**
  * Função utilitária para montar o template HTML oficial do HubOperações
