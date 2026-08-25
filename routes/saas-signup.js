@@ -55,7 +55,7 @@ router.post('/trial-signup', async (req, res) => {
     }
 
     // Link oficial de acesso ao app
-    const loginLink = `${APP_URL}/webapp/index.html`;
+    const loginLink = `${APP_URL}/webapp.html`;
 
     // 3. Montar E-mail em HTML de Boas-Vindas com o PIN e credenciais
     const assunto = `🚀 Seu Acesso de 7 Dias Grátis ao HubOperações está Liberado!`;
@@ -180,7 +180,7 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
     }
 
     // Link oficial de acesso ao app
-    const loginLink = `${APP_URL}/webapp/index.html`;
+    const loginLink = `${APP_URL}/webapp.html`;
 
     // Montar E-mail de Boas-Vindas com o PIN
     const assunto = `🎉 Seu Acesso ao HubOperações foi Liberado! (Pagamento Confirmado)`;
