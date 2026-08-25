@@ -176,7 +176,7 @@ async function enviarBackupMensalSilencioso() {
   const mesNome = agora.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
   await transporter.sendMail({
-    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    from: `"HubOperações" <${user}>`,
     to: BACKUP_EMAIL_DESTINO,
     subject: `📦 Backup Mensal Automático — Controle de Caixa (${mesNome})`,
     text: `Backup automático mensal gerado em ${agora.toLocaleString('pt-BR')}.\n\nRegistros incluídos:\n${resumo}\n\nO arquivo em anexo contém todos os dados em formato JSON.`,

@@ -176,7 +176,7 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
     const totalPendenteNum = Number(totalPendente) || 0;
 
     const mailOptions = {
-      from: `"Controle de Caixa Cacau Show" <${user}>`,
+      from: `"HubOperações" <${user}>`,
       to: targetEmails.join(', '),
       subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${lojaSafe}`,
       text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValorNum.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendenteNum.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
@@ -225,7 +225,7 @@ function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml, attachme
 
   const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
   const mailOptions = {
-    from: `"Controle de Caixa Cacau Show" <${user}>`,
+    from: `"HubOperações" <${user}>`,
     to: targetEmails.join(', '),
     subject,
     text: bodyText,

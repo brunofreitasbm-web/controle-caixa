@@ -81,7 +81,7 @@ router.post('/divergencia', (req, res) => {
     });
     
     transporter.sendMail({
-      from: `"Controle de Caixa Cacau Show" <${user}>`,
+      from: `"HubOperações" <${user}>`,
       to: targetEmails.join(', '),
       subject: `⚠️ Divergência de Fundo de Caixa - Loja ${lojaSafe}`,
       html: `<p>Olá,</p>

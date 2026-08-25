@@ -361,7 +361,7 @@ router.post('/notificar-gestao', (req, res) => {
       });
 
       const mailOptions = {
-        from: `"Controle de Caixa Cacau Show" <${user}>`,
+        from: `"HubOperações" <${user}>`,
         to: targetEmails.join(', '),
         subject: assunto,
         text: mensagem,
