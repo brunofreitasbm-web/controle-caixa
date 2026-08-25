@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 const webPush = require('web-push');
-const { db, TENANT_ZERO_ID } = require('./database');
+const { db } = require('./database');
 
 function escapeHtml(str) {
   if (typeof str !== 'string') return String(str || '');
@@ -11,12 +11,8 @@ function escapeHtml(str) {
 // Enquanto não estiver explicitamente ativada em Configurações, nenhum alerta é enviado.
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
 
-// Disparadores de notificação (cron, rotas legadas sem sessão) ainda não
-// carregam qual organização estão servindo — TENANT_ZERO_ID aqui é o mesmo
-// "soft default" usado em toda a Fase 1/2 (ver resolveTenantSession), não
-// uma limitação nova desta função.
 function notificacoesEventosAtivas(callback) {
-  db.get('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, CHAVE_NOTIF_ATIVAS], (err, row) => {
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', [CHAVE_NOTIF_ATIVAS], (err, row) => {
     if (err || !row || !row.valor) return callback(false);
     const valor = String(row.valor).trim().toLowerCase();
     callback(valor === '1' || valor === 'true');
@@ -93,7 +89,7 @@ function regrasDoTipoNotificacao(rulesBrutas, notificationType) {
 }
 
 function obterEmailsDestinatarios(notificationType, callback) {
-  db.get('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, 'notificacoes_config'], (errConfig, rowConfig) => {
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
     let rulesBrutas = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {
@@ -176,7 +172,7 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
     const totalPendenteNum = Number(totalPendente) || 0;
 
     const mailOptions = {
-      from: `"HubOperações" <${user}>`,
+      from: `"Controle de Caixa Cacau Show" <${user}>`,
       to: targetEmails.join(', '),
       subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${lojaSafe}`,
       text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValorNum.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendenteNum.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
@@ -225,7 +221,7 @@ function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml, attachme
 
   const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
   const mailOptions = {
-    from: `"HubOperações" <${user}>`,
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
     to: targetEmails.join(', '),
     subject,
     text: bodyText,
@@ -444,7 +440,7 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   // um push leva a pessoa direto para a tela certa em vez da tela inicial.
   const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png', url: url || undefined });
   
-  db.get('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, 'notificacoes_config'], (errConfig, rowConfig) => {
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
     let rulesBrutas = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
       try {

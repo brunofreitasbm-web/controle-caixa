@@ -13,7 +13,6 @@ const { iaHabilitada, PROVEDOR } = require('../services/ia');
 const { gerarBriefing } = require('../services/ia-briefing');
 const { mensagemAniversario, mensagemPosVisita } = require('../services/ia-mensagens');
 const { gerarAvisoCopiloto } = require('../services/ia-copiloto');
-const { organizationIdDe } = require('./middleware/tenantContext');
 
 // Diagnóstico: permite conferir se a chave está configurada no ambiente sem
 // expor o valor dela.
@@ -37,7 +36,7 @@ router.get('/ia/briefing', async (req, res) => {
   }
 
   try {
-    const resultado = await gerarBriefing({ dataRef: data || null, forcar: forcar === 'true', organizationId: organizationIdDe(req) });
+    const resultado = await gerarBriefing({ dataRef: data || null, forcar: forcar === 'true' });
     res.json(resultado);
   } catch (err) {
     console.error('[IA Briefing] Erro:', err);
@@ -112,8 +111,7 @@ router.get('/ia/copiloto', async (req, res) => {
     const resultado = await gerarAvisoCopiloto({
       loja,
       data: data || agoraBrasilMeta().data,
-      horaSlot,
-      organizationId: organizationIdDe(req)
+      horaSlot
     });
     res.json(resultado);
   } catch (err) {
