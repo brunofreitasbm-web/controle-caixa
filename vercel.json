@@ -6,22 +6,6 @@
       "destination": "/api"
     },
     {
-      "source": "/",
-      "destination": "/webapp/index.html"
-    },
-    {
-      "source": "/webapp.html",
-      "destination": "/webapp/index.html"
-    },
-    {
-      "source": "/login.html",
-      "destination": "/webapp/index.html"
-    },
-    {
-      "source": "/app",
-      "destination": "/webapp/index.html"
-    },
-    {
       "source": "/(.*)",
       "destination": "/webapp/$1"
     }

@@ -9,7 +9,7 @@ const fs = require('fs');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 
-const { initDb, dbAllAsync, dbGetAsync, dbRunAsync, TENANT_ZERO_ID } = require('./config/database');
+const { initDb, dbAllAsync, dbGetAsync, dbRunAsync } = require('./config/database');
 const {
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
@@ -26,9 +26,7 @@ const {
   enviarNotificacaoVisao19h
 } = require('./config/notifications');
 
-const resolveTenantSession = require('./routes/middleware/resolveTenantSession');
 const authRoutes = require('./routes/auth');
-const tenantRoutes = require('./routes/tenant');
 const caixaRoutes = require('./routes/caixa');
 const financeiroRoutes = require('./routes/financeiro');
 const pontoRoutes = require('./routes/ponto');
@@ -49,32 +47,8 @@ const nfeRoutes = require('./routes/nfe');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS_ALLOWED_ORIGINS (opcional, lista separada por vírgula): sem essa
-// variável, mantém o comportamento de sempre (cors() sem restrição), para
-// não quebrar quem hoje depende de cross-origin (ex.: abrir webapp/index.html
-// como arquivo local, Origin "null"). Definir a variável liga a allowlist —
-// pré-requisito de segurança antes de expor a API a um domínio de um
-// segundo tenant.
-const corsOrigensPermitidas = (process.env.CORS_ALLOWED_ORIGINS || '')
-  .split(',')
-  .map(o => o.trim())
-  .filter(Boolean);
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || corsOrigensPermitidas.length === 0 || corsOrigensPermitidas.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error('Origem não permitida por CORS.'));
-  }
-}));
+app.use(cors());
 app.use(express.json({ limit: '15mb' }));
-
-// Resolve req.tenant (organização) a partir do token de sessão, quando
-// presente — ver routes/middleware/resolveTenantSession.js. Fica antes de
-// TODAS as rotas /api para que qualquer rota já rewireada para tenant possa
-// simplesmente ler req.tenant.organizationId.
-app.use('/api', resolveTenantSession);
 
 // Auditoria de performance: não havia nenhuma instrumentação de tempo de
 // resposta antes disso — só dava pra inferir custo olhando o lado do banco
@@ -102,7 +76,6 @@ app.use('/api', realtimeRoutes);
 app.use('/api', inventarioRoutes);
 app.use('/api', iaRoutes);
 app.use('/api', authRoutes);
-app.use('/api/tenant', tenantRoutes);
 app.use('/api', caixaRoutes);
 app.use('/api', retiradasRoutes);
 app.use('/api', financeiroRoutes);
@@ -116,7 +89,6 @@ app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 app.use('/api/nfe', nfeRoutes);
-app.use('/api/saas', require('./routes/saas-signup'));
 
 // ==========================================================================
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
@@ -155,10 +127,7 @@ async function enviarBackupMensalSilencioso() {
   const agora = new Date();
   const referencia = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
 
-  // Backup é da instância inteira (todas as tabelas, ver BACKUP_TABELAS),
-  // não de uma organização — TENANT_ZERO_ID aqui é só onde a linha de
-  // controle mora fisicamente no schema (mesmo padrão de 'vapid_keys').
-  const jaEnviado = await dbGetAsync('SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?', [TENANT_ZERO_ID, 'ultimoBackupMensalEnviado']);
+  const jaEnviado = await dbGetAsync('SELECT valor FROM configuracoes WHERE chave = ?', ['ultimoBackupMensalEnviado']);
   if (jaEnviado && jaEnviado.valor === referencia) {
     return { enviado: false, motivo: 'ja_enviado_este_mes', referencia };
   }
@@ -176,7 +145,7 @@ async function enviarBackupMensalSilencioso() {
   const mesNome = agora.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
   await transporter.sendMail({
-    from: `"HubOperações" <${user}>`,
+    from: `"Controle de Caixa Cacau Show" <${user}>`,
     to: BACKUP_EMAIL_DESTINO,
     subject: `📦 Backup Mensal Automático — Controle de Caixa (${mesNome})`,
     text: `Backup automático mensal gerado em ${agora.toLocaleString('pt-BR')}.\n\nRegistros incluídos:\n${resumo}\n\nO arquivo em anexo contém todos os dados em formato JSON.`,
@@ -190,8 +159,8 @@ async function enviarBackupMensalSilencioso() {
   });
 
   await dbRunAsync(
-    "INSERT INTO configuracoes (chave, valor, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, chave) DO UPDATE SET valor = ?",
-    ['ultimoBackupMensalEnviado', referencia, TENANT_ZERO_ID, referencia]
+    "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?",
+    ['ultimoBackupMensalEnviado', referencia, referencia]
   );
 
   console.log(`[Backup Mensal] Enviado com sucesso para ${BACKUP_EMAIL_DESTINO} (referência ${referencia}).`);

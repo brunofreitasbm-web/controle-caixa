@@ -19,7 +19,7 @@ router.get('/events', (req, res) => {
   });
   if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
-  const client = addClient(res, { usuario, clientId, loja, organizationId: req.tenant && req.tenant.organizationId });
+  const client = addClient(res, { usuario, clientId, loja });
 
   // Sugere ao navegador reconectar em 3s se a conexão cair
   res.write('retry: 3000\n\n');
