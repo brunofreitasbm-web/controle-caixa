@@ -124,9 +124,9 @@ router.post('/trial-signup', async (req, res) => {
     // Criar Colaborador Owner
     try {
       await dbRunAsync(
-        `INSERT INTO colaboradores (nome, role, pinHash, ativo, email, organizationId) 
-         VALUES (?, 'owner', ?, 1, ?, ?)`,
-        [nomeClean, pinHash, emailClean, orgId]
+        `INSERT INTO colaboradores (nome, role, criadoEm, organizationId, email) 
+         VALUES (?, 'owner', ?, ?, ?)`,
+        [nomeClean, agora, orgId, emailClean]
       );
       await dbRunAsync(
         `INSERT INTO pins (usuario, pin, organizationId) VALUES (?, ?, ?)
@@ -224,9 +224,9 @@ router.post('/confirmar-sessao-stripe', async (req, res) => {
 
     try {
       await dbRunAsync(
-        `INSERT INTO colaboradores (nome, role, pinHash, ativo, email, organizationId) 
-         VALUES (?, 'owner', ?, 1, ?, ?)`,
-        [nomeClean, pinHash, emailClean, orgId]
+        `INSERT INTO colaboradores (nome, role, criadoEm, organizationId, email) 
+         VALUES (?, 'owner', ?, ?, ?)`,
+        [nomeClean, agoraStripe, orgId, emailClean]
       );
       await dbRunAsync(
         `INSERT INTO pins (usuario, pin, organizationId) VALUES (?, ?, ?)
