@@ -1,40 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const { db, normalizeRow, TENANT_ZERO_ID } = require('../config/database');
+const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
 
 const BCRYPT_ROUNDS = 10;
-
-// Sessão emitida após PIN correto (ver POST /auth/verify). 12h cobre um
-// turno de trabalho inteiro sem forçar login de novo no meio do dia — hoje
-// não existe token nenhum, então qualquer TTL é uma melhoria de segurança.
-const SESSAO_TTL_MS = 12 * 60 * 60 * 1000;
-
-function organizationIdDaRequisicao(req) {
-  return (req.tenant && req.tenant.organizationId) || TENANT_ZERO_ID;
-}
-
-function emitirSessao(organizationId, usuario, cb) {
-  db.get('SELECT role, capacidades FROM colaboradores WHERE organizationId = ? AND nome = ?', [organizationId, usuario], (err, row) => {
-    if (err || !row) return cb(null);
-    const token = crypto.randomUUID();
-    const agora = new Date();
-    const expiraEm = new Date(agora.getTime() + SESSAO_TTL_MS).toISOString();
-    let capacidades = [];
-    try { capacidades = JSON.parse(row.capacidades || '[]'); } catch (e) { capacidades = []; }
-    db.run(
-      'INSERT INTO sessions (token, organizationId, colaboradorNome, role, capacidades, criadoEm, expiraEm) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [token, organizationId, usuario, row.role, JSON.stringify(capacidades), agora.toISOString(), expiraEm],
-      (err2) => {
-        if (err2) return cb(null);
-        cb({ token, role: row.role, organizationId, expiraEm, capacidades });
-      }
-    );
-  });
-}
 
 // 0. Obter logs (apenas Owners e Alexandra)
 router.get('/logs', (req, res) => {
@@ -52,8 +23,7 @@ router.get('/logs', (req, res) => {
 
 // 1. Obter todas as configurações
 router.get('/config', (req, res) => {
-  const organizationId = organizationIdDaRequisicao(req);
-  db.all('SELECT * FROM configuracoes WHERE organizationId = ?', [organizationId], (err, rows) => {
+  db.all('SELECT * FROM configuracoes', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const config = {};
     rows.forEach(r => config[r.chave] = r.valor);
@@ -64,10 +34,9 @@ router.get('/config', (req, res) => {
 // Salvar configuração
 router.post('/config', (req, res) => {
   const { chave, valor } = req.body;
-  const organizationId = organizationIdDaRequisicao(req);
   db.run(
-    'INSERT INTO configuracoes (chave, valor, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, chave) DO UPDATE SET valor = ?',
-    [chave, valor, organizationId, valor],
+    'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
+    [chave, valor, valor],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true });
@@ -111,8 +80,7 @@ router.post('/subscribe', (req, res) => {
 
 // 2. Obter PINs (retorna apenas quais usuários têm PIN — NUNCA retorna os PINs reais)
 router.get('/pins', (req, res) => {
-  const organizationId = organizationIdDaRequisicao(req);
-  db.all('SELECT usuario FROM pins WHERE organizationId = ?', [organizationId], (err, rows) => {
+  db.all('SELECT usuario FROM pins', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const pins = {};
     (rows || []).forEach(r => pins[r.usuario] = '****');
@@ -136,54 +104,26 @@ function checkVerifyRateLimit(key) {
   return true;
 }
 
-// Verificar PIN (autenticação segura — compara hash) e, em caso de sucesso,
-// emitir um token de sessão escopado à organização (ver emitirSessao acima).
-// O token é adicional: o frontend atual ainda não o envia de volta (isso é
-// Fase 2), então a resposta {valid, hasPin} de antes continua igual — só
-// ganha os campos novos (token/role/organizationId) por cima.
-//
-// organizationId no corpo (opcional): login é o ÚNICO lugar em que o corpo
-// pode dizer "qual organização" — antes de autenticar não existe sessão que
-// resolva isso sozinha (ver resolveTenantSession, modo "soft"). Nenhuma
-// outra rota deve aceitar organizationId do cliente; todas as demais só leem
-// req.tenant.organizationId, resolvido do token validado no banco.
-router.post('/auth/verify', async (req, res) => {
+// Verificar PIN (autenticação segura — compara hash)
+router.post('/auth/verify', (req, res) => {
   const { usuario, pin } = req.body;
-  let organizationId = organizationIdDaRequisicao(req);
-  if (req.body.organizationId && !(req.tenant && req.tenant.viaSessao)) {
-    const org = await new Promise(resolve => {
-      db.get('SELECT id FROM organizations WHERE id = ?', [req.body.organizationId], (err, row) => resolve(err ? null : row));
-    });
-    if (org) organizationId = org.id;
-  }
   if (!usuario || !pin) return res.status(400).json({ valid: false, error: 'Usuário e PIN são obrigatórios.' });
 
-  const clientKey = `${req.ip}_${organizationId}_${String(usuario).trim().toLowerCase()}`;
+  const clientKey = `${req.ip}_${String(usuario).trim().toLowerCase()}`;
   if (!checkVerifyRateLimit(clientKey)) {
     return res.status(429).json({ valid: false, error: 'Muitas tentativas de login. Aguarde 1 minuto.' });
   }
 
-  db.get('SELECT pin FROM pins WHERE organizationId = ? AND usuario = ?', [organizationId, usuario], (err, row) => {
+  db.get('SELECT pin FROM pins WHERE usuario = ?', [usuario], (err, row) => {
     if (err) return res.status(500).json({ valid: false, error: err.message });
     if (!row) return res.json({ valid: false, hasPin: false });
-
-    const responderComSessao = (match) => {
-      if (!match) return res.json({ valid: false, hasPin: true });
-      emitirSessao(organizationId, usuario, (sessao) => {
-        res.json({
-          valid: true,
-          hasPin: true,
-          ...(sessao ? { token: sessao.token, role: sessao.role, organizationId: sessao.organizationId, expiraEm: sessao.expiraEm, capacidades: sessao.capacidades } : {})
-        });
-      });
-    };
 
     // Suporte a PINs antigos (texto puro) e novos (hash bcrypt)
     if (row.pin.startsWith('$2a$') || row.pin.startsWith('$2b$')) {
       // PIN já é hash bcrypt
       bcrypt.compare(pin, row.pin, (err2, match) => {
         if (err2) return res.status(500).json({ valid: false, error: err2.message });
-        responderComSessao(match);
+        res.json({ valid: match, hasPin: true });
       });
     } else {
       // PIN antigo em texto puro — verifica e migra para hash
@@ -191,11 +131,11 @@ router.post('/auth/verify', async (req, res) => {
       if (match) {
         bcrypt.hash(pin, BCRYPT_ROUNDS, (hashErr, hash) => {
           if (!hashErr) {
-            db.run('UPDATE pins SET pin = ? WHERE organizationId = ? AND usuario = ?', [hash, organizationId, usuario]);
+            db.run('UPDATE pins SET pin = ? WHERE usuario = ?', [hash, usuario]);
           }
         });
       }
-      responderComSessao(match);
+      res.json({ valid: match, hasPin: true });
     }
   });
 });
@@ -203,12 +143,11 @@ router.post('/auth/verify', async (req, res) => {
 // Criar/atualizar PIN (salva com hash bcrypt)
 router.post('/pins', async (req, res) => {
   const { usuario, pin } = req.body;
-  const organizationId = organizationIdDaRequisicao(req);
   try {
     const hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
     db.run(
-      'INSERT INTO pins (usuario, pin, organizationId) VALUES (?, ?, ?) ON CONFLICT(organizationId, usuario) DO UPDATE SET pin = ?',
-      [usuario, hash, organizationId, hash],
+      'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
+      [usuario, hash, hash],
       function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
@@ -222,8 +161,7 @@ router.post('/pins', async (req, res) => {
 // Deletar / Resetar PIN de usuário
 router.delete('/pins/:usuario', (req, res) => {
   const { usuario } = req.params;
-  const organizationId = organizationIdDaRequisicao(req);
-  db.run('DELETE FROM pins WHERE organizationId = ? AND usuario = ?', [organizationId, usuario], function(err) {
+  db.run('DELETE FROM pins WHERE usuario = ?', [usuario], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
@@ -231,16 +169,14 @@ router.delete('/pins/:usuario', (req, res) => {
 
 // --- Endpoints de Colaboradores ---
 router.get('/colaboradores', (req, res) => {
-  const organizationId = organizationIdDaRequisicao(req);
-  db.all('SELECT * FROM colaboradores WHERE organizationId = ? ORDER BY nome ASC', [organizationId], (err, rows) => {
+  db.all('SELECT * FROM colaboradores ORDER BY nome ASC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json((rows || []).map(normalizeRow));
   });
 });
 
 router.post('/colaboradores', (req, res) => {
-  const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, email } = req.body;
-  const organizationId = organizationIdDaRequisicao(req);
+  const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao } = req.body;
   if (!nome || !role) {
     return res.status(400).json({ error: 'Nome e Perfil (role) são obrigatórios.' });
   }
@@ -248,17 +184,16 @@ router.post('/colaboradores', (req, res) => {
   const criadoEm = new Date().toISOString();
 
   db.run(
-    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, email, criadoEm, organizationId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(organizationId, nome) DO UPDATE SET
+    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, criadoEm)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(nome) DO UPDATE SET
        role = excluded.role,
        unidade = excluded.unidade,
        cpf = excluded.cpf,
        dataNascimento = excluded.dataNascimento,
        telefone = excluded.telefone,
-       dataAdmissao = excluded.dataAdmissao,
-       email = COALESCE(excluded.email, colaboradores.email)`,
-    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, email || null, criadoEm, organizationId],
+       dataAdmissao = excluded.dataAdmissao`,
+    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, nome: nomeTrim, role });
@@ -301,13 +236,12 @@ router.post('/colaboradores/reset-biometria-todos', requireOwner, (req, res) => 
 
 router.delete('/colaboradores/:nome', (req, res) => {
   const { nome } = req.params;
-  const organizationId = organizationIdDaRequisicao(req);
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
-  db.run('DELETE FROM colaboradores WHERE organizationId = ? AND nome = ?', [organizationId, nome], function(err) {
+  db.run('DELETE FROM colaboradores WHERE nome = ?', [nome], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     // Deleta também o PIN do colaborador
-    db.run('DELETE FROM pins WHERE organizationId = ? AND usuario = ?', [organizationId, nome], (errPin) => {
+    db.run('DELETE FROM pins WHERE usuario = ?', [nome], (errPin) => {
       if (errPin) console.error('Erro ao deletar PIN do colaborador:', errPin.message);
       res.json({ success: true });
     });
@@ -317,7 +251,6 @@ router.delete('/colaboradores/:nome', (req, res) => {
 // Notificação para a Gestão (Push + Email)
 router.post('/notificar-gestao', (req, res) => {
   const { destinatarios, assunto, mensagem } = req.body;
-  const organizationId = organizationIdDaRequisicao(req);
   if (!destinatarios || !Array.isArray(destinatarios)) {
     return res.status(400).json({ error: 'Lista de destinatários é obrigatória.' });
   }
@@ -329,7 +262,7 @@ router.post('/notificar-gestao', (req, res) => {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-
+  
   // A chave mestra de notificações de eventos precisa estar ativada em Configurações
   notificacoesEventosAtivas((ativas) => {
    if (!ativas) {
@@ -338,20 +271,17 @@ router.post('/notificar-gestao', (req, res) => {
    }
 
    if (host && user && pass) {
-    // Fase 4: e-mail vem do cadastro do colaborador (colaboradores.email),
-    // não mais de um EMAIL_MAP hardcoded no código — editável em
-    // Configurações > Colaboradores, sem precisar de deploy pra trocar.
-    const placeholders = destinatarios.map(() => '?').join(',');
-    db.all(
-      `SELECT email FROM colaboradores WHERE organizationId = ? AND LOWER(nome) IN (${placeholders}) AND email IS NOT NULL AND email <> ''`,
-      [organizationId, ...destinatarios.map(d => String(d).trim().toLowerCase())],
-      (errEmails, rows) => {
-        if (errEmails) {
-          console.error('Erro ao buscar e-mails dos destinatários:', errEmails.message);
-          return;
-        }
-        const targetEmails = (rows || []).map(r => r.email).filter(Boolean);
-        if (targetEmails.length > 0) {
+    const EMAIL_MAP = {
+      'bruno': 'brunofreitasbm@gmail.com',
+      'isabella': 'isabella.vgoncalves@gmail.com',
+      'alexandra': 'alexandracabral733@gmail.com'
+    };
+
+    const targetEmails = destinatarios
+      .map(d => EMAIL_MAP[d.trim().toLowerCase()])
+      .filter(Boolean);
+
+    if (targetEmails.length > 0) {
       const nodemailer = require('nodemailer');
       const transporter = nodemailer.createTransport({
         host,
@@ -361,7 +291,7 @@ router.post('/notificar-gestao', (req, res) => {
       });
 
       const mailOptions = {
-        from: `"HubOperações" <${user}>`,
+        from: `"Controle de Caixa Cacau Show" <${user}>`,
         to: targetEmails.join(', '),
         subject: assunto,
         text: mensagem,
@@ -375,129 +305,11 @@ router.post('/notificar-gestao', (req, res) => {
           console.log('E-mail de notificação de gestão enviado com sucesso:', info.response);
         }
       });
-        }
-      }
-    );
+    }
    }
   });
 
   res.json({ success: true });
-});
-
-// 6. Login via E-mail + PIN (4 dígitos)
-router.post('/login-email-pin', (req, res) => {
-  const { email, pin } = req.body;
-  if (!email || !pin) {
-    return res.status(400).json({ error: 'E-mail e PIN de 4 dígitos são obrigatórios.' });
-  }
-
-  const emailClean = email.trim().toLowerCase();
-  const pinClean = String(pin).trim();
-
-  db.get(
-    'SELECT * FROM colaboradores WHERE LOWER(email) = ? AND ativo = 1',
-    [emailClean],
-    async (err, colabRow) => {
-      if (err) return res.status(500).json({ error: 'Erro no servidor.' });
-      if (!colabRow) {
-        return res.status(401).json({ error: 'E-mail não cadastrado ou inativo.' });
-      }
-
-      const colab = normalizeRow(colabRow);
-
-      // Validar PIN de 4 dígitos usando bcrypt
-      const pinToCompare = colab.pinHash || colab.pinhash || colab.pin;
-      if (!pinToCompare) {
-        return res.status(401).json({ error: 'PIN não cadastrado para esta conta.' });
-      }
-
-      const match = await bcrypt.compare(pinClean, pinToCompare);
-      if (!match) {
-        return res.status(401).json({ error: 'PIN incorreto. Verifique seu e-mail.' });
-      }
-
-      // Emitir sessão para o colaborador
-      const orgId = colab.organizationId || TENANT_ZERO_ID;
-      emitirSessao(orgId, colab.nome, (sessao) => {
-        if (!sessao) {
-          return res.status(500).json({ error: 'Erro ao emitir token de sessão.' });
-        }
-        res.json({
-          success: true,
-          token: sessao.token,
-          usuario: colab.nome,
-          role: colab.role,
-          organizationId: orgId,
-          expiraEm: sessao.expiraEm
-        });
-      });
-    }
-  );
-});
-
-// 7. Recuperação / Reenvio de PIN por E-mail
-router.post('/recuperar-pin', (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'E-mail é obrigatório.' });
-  }
-
-  const emailClean = email.trim().toLowerCase();
-
-  db.get(
-    'SELECT * FROM colaboradores WHERE LOWER(email) = ? AND ativo = 1',
-    [emailClean],
-    async (err, colab) => {
-      if (err || !colab) {
-        return res.status(404).json({ error: 'E-mail não encontrado no sistema.' });
-      }
-
-      // Gerar novo PIN de 4 dígitos
-      const novoPin = Math.floor(1000 + Math.random() * 9000).toString();
-      const novoPinHash = await bcrypt.hash(novoPin, 10);
-
-      db.run(
-        'UPDATE colaboradores SET pinHash = ? WHERE id = ?',
-        [novoPinHash, colab.id],
-        async (errUpdate) => {
-          if (errUpdate) return res.status(500).json({ error: 'Erro ao atualizar PIN.' });
-
-          // Disparar e-mail com o novo PIN
-          const { enviarEmailGenerico } = require('../config/notifications');
-          const APP_URL = process.env.APP_URL || 'https://hub-operacoes-theta.vercel.app';
-          const loginLink = `${APP_URL}/webapp.html`;
-          const assunto = '🔑 Seu Novo PIN de Acesso — HubOperações';
-          const texto = `Olá ${colab.nome}!\n\nSeu novo PIN de acesso é: ${novoPin}\n\nAcesse em: ${loginLink}`;
-          const htmlBody = `
-            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#fffdf8; border:1px solid #e7dbc3; border-radius:16px; font-family:Arial, sans-serif; margin:0 auto; padding:24px;">
-              <tbody>
-                <tr><td><h2 style="color:#7a3f1c; font-family:'Trebuchet MS', sans-serif;">🔑 Seu Novo PIN de Acesso</h2></td></tr>
-                <tr><td style="color:#4a453e; font-size:15px; line-height:22px;">Olá, <strong>${colab.nome}</strong>! Foi gerado um novo PIN de 4 dígitos para o seu acesso ao HubOperações:</td></tr>
-                <tr><td style="padding:16px 0;">
-                  <span style="display:inline-block; background-color:#f7f0e2; border:1px solid #d8c9a8; border-radius:10px; padding:12px 20px; font-family:monospace; font-size:24px; font-weight:bold; color:#7a3f1c; letter-spacing:4px;">${novoPin}</span>
-                </td></tr>
-                <tr><td align="center" style="padding:20px 0 10px;">
-                  <a href="${loginLink}" target="_blank" style="display:inline-block; padding:14px 36px; background-color:#c67139; color:#ffffff; font-weight:bold; font-size:15px; text-decoration:none; border-radius:999px;">🚀 Entrar no HubOperações</a>
-                </td></tr>
-              </tbody>
-            </table>
-          `;
-
-          try {
-            await enviarEmailGenerico([emailClean], assunto, texto, htmlBody);
-          } catch (e) {
-            console.warn('[Recuperar PIN] Erro ao enviar e-mail:', e.message);
-          }
-
-          res.json({
-            success: true,
-            mensagem: 'Novo PIN de 4 dígitos gerado e enviado para o seu e-mail!',
-            pinSimuladoDev: novoPin
-          });
-        }
-      );
-    }
-  );
 });
 
 module.exports = router;

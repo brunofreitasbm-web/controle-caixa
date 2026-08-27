@@ -14,7 +14,7 @@
 //      provedor. Quem monta o prompt é responsável por isso; ver anonimizar().
 // ==========================================================================
 
-const { dbGetAsync, dbRunAsync, TENANT_ZERO_ID } = require('../config/database');
+const { dbGetAsync, dbRunAsync } = require('../config/database');
 
 const PROVEDOR = (process.env.IA_PROVIDER || 'gemini').toLowerCase();
 
@@ -196,28 +196,10 @@ function enfileirar(tarefa) {
 }
 
 // --------------------------------------------------------------------------
-// Medição de uso por organização (Fase 4 — base para cobrança/alerta de
-// quota por tenant; a chave/quota do provedor continua compartilhada da
-// plataforma). Falha ao registrar nunca derruba a chamada de IA em si.
-// --------------------------------------------------------------------------
-async function registrarUsoIA(organizationId) {
-  try {
-    const hoje = new Date().toISOString().slice(0, 10);
-    await dbRunAsync(
-      `INSERT INTO ia_uso (organizationId, data, chamadas) VALUES (?, ?, 1)
-       ON CONFLICT(organizationId, data) DO UPDATE SET chamadas = chamadas + 1`,
-      [organizationId || TENANT_ZERO_ID, hoje]
-    );
-  } catch (err) {
-    console.warn('[IA] Falha ao registrar uso:', err.message);
-  }
-}
-
-// --------------------------------------------------------------------------
 // Chamada de baixo nível, com retry exponencial. 429 (cota) e 5xx são
 // retentáveis; 4xx de payload/credencial não são — retentar só queimaria cota.
 // --------------------------------------------------------------------------
-async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura, organizationId }) {
+async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura }) {
   const a = adaptador();
   if (!a.chave()) throw new IAIndisponivelError(`chave de API não configurada para "${PROVEDOR}"`);
 
@@ -268,7 +250,6 @@ async function chamarProvedor(prompt, { sistema, json, maxTokens, temperatura, o
 
       const conteudo = a.extrair(dados);
       if (!conteudo) throw new IAIndisponivelError('resposta vazia do provedor');
-      await registrarUsoIA(organizationId);
       return conteudo;
 
     } catch (err) {
@@ -292,10 +273,9 @@ async function gerarTexto(prompt, opcoes = {}) {
   const {
     sistema = null,
     maxTokens = 1024,
-    temperatura = 0.7,
-    organizationId = null
+    temperatura = 0.7
   } = opcoes;
-  return enfileirar(() => chamarProvedor(prompt, { sistema, json: false, maxTokens, temperatura, organizationId }));
+  return enfileirar(() => chamarProvedor(prompt, { sistema, json: false, maxTokens, temperatura }));
 }
 
 // --------------------------------------------------------------------------
@@ -308,8 +288,7 @@ async function gerarJSON(prompt, opcoes = {}) {
     sistema = null,
     maxTokens = 2048,
     temperatura = 0.3,
-    formato = null,
-    organizationId = null
+    formato = null
   } = opcoes;
 
   const promptFinal = formato
@@ -317,7 +296,7 @@ async function gerarJSON(prompt, opcoes = {}) {
     : prompt;
 
   const bruto = await enfileirar(() =>
-    chamarProvedor(promptFinal, { sistema, json: true, maxTokens, temperatura, organizationId })
+    chamarProvedor(promptFinal, { sistema, json: true, maxTokens, temperatura })
   );
 
   try {
@@ -343,27 +322,12 @@ async function gerarJSON(prompt, opcoes = {}) {
 // caros e mudam pouco dentro da janela — gerar uma vez e reusar preserva a
 // cota gratuita. A chave deve incluir tudo que muda o resultado (data, loja,
 // usuário), senão dois contextos diferentes compartilham a mesma resposta.
-//
-// organizationId (opcional): escopa a chave física gravada em ia_cache por
-// organização. `ia_cache.chave` era uma PK global sem nenhum escopo — com
-// uma segunda organização real, duas chamadas iguais ("briefing:2026-08-24")
-// de organizações diferentes colidiriam e uma leria o conteúdo gerado pra
-// outra. Falta ainda tornar os chamadores (routes/ia.js, os cron dispatchers
-// de server.js) cientes de qual organização estão servindo — hoje só existe
-// a organização zero, então o default abaixo preserva o comportamento atual
-// byte a byte; passar {organizationId} é o único passo que falta por
-// chamador para isolar de verdade.
 // --------------------------------------------------------------------------
-function chaveEscopada(chave, organizationId) {
-  return `${organizationId || TENANT_ZERO_ID}:${chave}`;
-}
-
-async function comCache(chave, ttlSegundos, produtor, opcoes = {}) {
-  const chaveFisica = chaveEscopada(chave, opcoes.organizationId);
+async function comCache(chave, ttlSegundos, produtor) {
   const agora = Date.now();
 
   try {
-    const linha = await dbGetAsync('SELECT valor, expiraem FROM ia_cache WHERE chave = ?', [chaveFisica]);
+    const linha = await dbGetAsync('SELECT valor, expiraem FROM ia_cache WHERE chave = ?', [chave]);
     if (linha && linha.valor) {
       const expiraEm = Number(linha.expiraem ?? linha.expiraEm);
       if (Number.isFinite(expiraEm) && expiraEm > agora) {
@@ -383,7 +347,7 @@ async function comCache(chave, ttlSegundos, produtor, opcoes = {}) {
     await dbRunAsync(
       `INSERT INTO ia_cache (chave, valor, criadoEm, expiraEm) VALUES (?, ?, ?, ?)
        ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm`,
-      [chaveFisica, JSON.stringify(resultado), new Date().toISOString(), expiraEm]
+      [chave, JSON.stringify(resultado), new Date().toISOString(), expiraEm]
     );
   } catch (err) {
     console.warn('[IA] Falha ao gravar cache:', err.message);
@@ -405,11 +369,10 @@ async function comCache(chave, ttlSegundos, produtor, opcoes = {}) {
 // pingador externo rodando a cada alguns minutos.
 // Ver server.js (rota /api/cron/ia-tick) e docs/IA.md.
 // --------------------------------------------------------------------------
-async function marcarSeNovo(chave, ttlSegundos, opcoes = {}) {
-  const chaveFisica = chaveEscopada(chave, opcoes.organizationId);
+async function marcarSeNovo(chave, ttlSegundos) {
   const agora = Date.now();
   try {
-    const existente = await dbGetAsync('SELECT expiraem FROM ia_cache WHERE chave = ?', [chaveFisica]);
+    const existente = await dbGetAsync('SELECT expiraem FROM ia_cache WHERE chave = ?', [chave]);
     if (existente) {
       const expiraEm = Number(existente.expiraem ?? existente.expiraEm);
       if (Number.isFinite(expiraEm) && expiraEm > agora) return false; // já marcado e ainda válido
@@ -417,7 +380,7 @@ async function marcarSeNovo(chave, ttlSegundos, opcoes = {}) {
     await dbRunAsync(
       `INSERT INTO ia_cache (chave, valor, criadoEm, expiraEm) VALUES (?, ?, ?, ?)
        ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm`,
-      [chaveFisica, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000]
+      [chave, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000]
     );
     return true;
   } catch (err) {

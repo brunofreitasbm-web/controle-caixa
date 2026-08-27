@@ -154,31 +154,6 @@ async function boletosPorLoja() {
   return porLoja;
 }
 
-function conciliarEVerificarDivergencia({ fundoAbertura = 0, faturadoDinheiro = 0, sangriaTotal = 0, envelopeDeclarado = 0 }) {
-  const fundo = Number(fundoAbertura) || 0;
-  const faturado = Number(faturadoDinheiro) || 0;
-  const sangria = Number(sangriaTotal) || 0;
-  const declarado = Number(envelopeDeclarado) || 0;
-
-  const esperadoNoCaixa = fundo + faturado - sangria;
-  const diferenca = Number((declarado - esperadoNoCaixa).toFixed(2));
-  const diferencaAbs = Math.abs(diferenca);
-
-  let status = 'ok';
-  if (diferenca > 0.01) {
-    status = 'sobra';
-  } else if (diferenca < -0.01) {
-    status = 'falta';
-  }
-
-  return {
-    esperadoNoCaixa,
-    diferenca,
-    diferencaAbs,
-    status
-  };
-}
-
 module.exports = {
   LOJAS_CACAU,
   CODIGO_PARA_LOJA,
@@ -191,6 +166,5 @@ module.exports = {
   diasEntre,
   vendaDiariaPorLoja,
   faturamentoMensalPorLoja,
-  boletosPorLoja,
-  conciliarEVerificarDivergencia
+  boletosPorLoja
 };

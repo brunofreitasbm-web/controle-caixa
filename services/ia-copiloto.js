@@ -13,7 +13,7 @@
 // com os mesmos números. O lembrete nunca deixa de sair.
 // ==========================================================================
 
-const { dbAllAsync, dbGetAsync, TENANT_ZERO_ID } = require('../config/database');
+const { dbAllAsync, dbGetAsync } = require('../config/database');
 const { gerarTexto, comCache, iaHabilitada, IAIndisponivelError } = require('./ia');
 const { OPERACOES_CONFIG_META, checkpointsDoDiaMeta } = require('../config/notifications');
 
@@ -108,10 +108,7 @@ async function apurarRitmo({ loja, data, horaSlot }) {
   };
 }
 
-// Fase 4: mesmo padrão de services/ia-briefing.js — persona configurável por
-// organização (configuracoes.iaSistemaCopiloto), com este texto como default
-// de fábrica (idêntico ao que já existia hardcoded).
-const SISTEMA_COPILOTO_PADRAO = `Você escreve o aviso de Meta Hora a Hora que aparece como notificação no celular da consultora de uma loja Cacau Show em Belém/PA.
+const SISTEMA_COPILOTO = `Você escreve o aviso de Meta Hora a Hora que aparece como notificação no celular da consultora de uma loja Cacau Show em Belém/PA.
 
 Formato: UMA frase, no máximo 180 caracteres, sem quebra de linha. É uma notificação de celular — texto longo é cortado pelo sistema.
 
@@ -123,18 +120,6 @@ Regras inegociáveis:
 - Não use nomes de campos técnicos, aspas nem emojis (o app já coloca o ícone).
 - Não repita o nome da loja: quem recebe já sabe onde trabalha.
 - NUNCA sugira um produto específico ("ofereça as trufas", "empurre os bombons"). Você não recebe o estoque da loja e recomendar o que pode estar em falta destrói a confiança no aviso. Fale de ação de venda: abordar mais clientes, oferecer a segunda unidade, sugerir complemento na hora do fechamento.`;
-
-async function obterSistemaCopiloto(organizationId) {
-  try {
-    const row = await dbGetAsync(
-      'SELECT valor FROM configuracoes WHERE organizationId = ? AND chave = ?',
-      [organizationId || TENANT_ZERO_ID, 'iaSistemaCopiloto']
-    );
-    return (row && row.valor) ? row.valor : SISTEMA_COPILOTO_PADRAO;
-  } catch (err) {
-    return SISTEMA_COPILOTO_PADRAO;
-  }
-}
 
 function copilotoFallback(r) {
   if (!r.temMeta) {
@@ -150,14 +135,12 @@ function copilotoFallback(r) {
 }
 
 // --------------------------------------------------------------------------
-async function gerarAvisoCopiloto({ loja, data, horaSlot, organizationId = null }) {
-  const orgId = organizationId || TENANT_ZERO_ID;
+async function gerarAvisoCopiloto({ loja, data, horaSlot }) {
   const chave = `copiloto:${loja}:${data}:${horaSlot}`;
-  return comCache(chave, TTL_CACHE_COPILOTO_SEGUNDOS, () => produzirAvisoCopiloto({ loja, data, horaSlot, organizationId: orgId }), { organizationId: orgId });
+  return comCache(chave, TTL_CACHE_COPILOTO_SEGUNDOS, () => produzirAvisoCopiloto({ loja, data, horaSlot }));
 }
 
-async function produzirAvisoCopiloto({ loja, data, horaSlot, organizationId = null }) {
-  const orgId = organizationId || TENANT_ZERO_ID;
+async function produzirAvisoCopiloto({ loja, data, horaSlot }) {
   let r;
   try {
     r = await apurarRitmo({ loja, data, horaSlot });
@@ -195,7 +178,7 @@ async function produzirAvisoCopiloto({ loja, data, horaSlot, organizationId = nu
 
     const texto = await gerarTexto(
       `Escreva o aviso do intervalo das ${r.horaSlot}.\n\n${linhas.join('\n')}`,
-      { sistema: await obterSistemaCopiloto(orgId), temperatura: 0.7, maxTokens: 2000, organizationId: orgId }
+      { sistema: SISTEMA_COPILOTO, temperatura: 0.7, maxTokens: 2000 }
     );
 
     let limpo = String(texto || '').trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
