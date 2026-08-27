@@ -338,7 +338,7 @@ function initDb(onSuccess) {
         )`,
         `CREATE TABLE IF NOT EXISTS colaboradores (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          nome TEXT UNIQUE NOT NULL,
+          nome TEXT NOT NULL,
           role TEXT NOT NULL,
           criadoEm TEXT
         )`,
@@ -990,6 +990,29 @@ function initDb(onSuccess) {
         });
       });
 
+      // No PostgreSQL, se a tabela colaboradores foi criada antigamente com `nome TEXT UNIQUE`,
+      // o constraint de chave única era apenas em `nome` (colaboradores_nome_key).
+      // Para o ON CONFLICT(organizationId, nome) funcionar no Postgres, removemos o constraint antigo
+      // e garantimos o índice único composto por (organizationId, nome).
+      if (isPostgres) {
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run('ALTER TABLE colaboradores DROP CONSTRAINT IF EXISTS colaboradores_nome_key', [], () => resolve());
+          });
+        });
+        promise = promise.then(() => {
+          return new Promise(resolve => {
+            db.run('ALTER TABLE colaboradores DROP CONSTRAINT IF EXISTS colaboradores_nome_unique', [], () => resolve());
+          });
+        });
+      }
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_colaboradores_org_nome ON colaboradores(organizationId, nome)', [], () => resolve());
+        });
+      });
+
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE ponto_registros ADD COLUMN operacao TEXT', [], () => resolve());
@@ -1205,10 +1228,14 @@ function initDb(onSuccess) {
           dataNascimento TEXT,
           telefone TEXT,
           dataAdmissao TEXT,
+          email TEXT,
+          pinHash TEXT,
+          ativo INTEGER DEFAULT 1,
+          capacidades TEXT,
           organizationId TEXT NOT NULL DEFAULT '${TENANT_ZERO_ID}',
           UNIQUE(organizationId, nome)
         )`,
-        ['id', 'nome', 'role', 'criadoEm', 'hasBiometricEnrolled', 'unidade', 'cpf', 'dataNascimento', 'telefone', 'dataAdmissao', 'organizationId']
+        ['id', 'nome', 'role', 'criadoEm', 'hasBiometricEnrolled', 'unidade', 'cpf', 'dataNascimento', 'telefone', 'dataAdmissao', 'email', 'pinHash', 'ativo', 'capacidades', 'organizationId']
       ).catch(err => console.error('Erro ao reconstruir colaboradores com escopo de organização:', err.message)));
 
       promise = promise.then(() => rebuildTableWithOrgScope(

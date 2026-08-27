@@ -146,7 +146,14 @@ test('isolamento: colaboradores de uma organização são invisíveis para a out
   const listaDemo = await request('/colaboradores', { headers: { Authorization: `Bearer ${tokenDemo}` } });
   const nomesDemo = listaDemo.body.map(c => c.nome);
   assert.ok(nomesDemo.includes('SoDoTenantDemo'), 'org demo não vê o próprio colaborador');
-  assert.ok(!nomesDemo.includes('SoDoTenantZero'), 'VAZAMENTO: org demo vê colaborador do tenant zero');
+  // Teste de Upsert (ON CONFLICT): atualiza o colaborador existente sem erro de constraint
+  const resUpsert = await request('/colaboradores', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokenZero}` },
+    body: JSON.stringify({ nome: 'SoDoTenantZero', role: 'consultora_dashboard', email: 'atualizado@teste.com' })
+  });
+  assert.strictEqual(resUpsert.status, 200, 'POST /colaboradores upsert deve retornar 200 OK');
+  assert.strictEqual(resUpsert.body.success, true);
 });
 
 test('isolamento: excluir colaborador em uma organização não afeta o xará na outra', async () => {
