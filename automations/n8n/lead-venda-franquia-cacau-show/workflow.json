@@ -1,0 +1,324 @@
+{
+  "name": "Lead - Venda de Franquia Cacau Show (gestaomarambaia@gmail.com)",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "trigger-gmail",
+      "name": "Gatilho: Novo E-mail de Lead",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "simple": true,
+        "filters": {
+          "q": "is:unread (subject:lead OR subject:franquia OR label:leads-franquia)"
+        },
+        "pollTimes": {
+          "item": [
+            { "mode": "everyMinute" }
+          ]
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail - gestaomarambaia"
+        }
+      }
+    },
+    {
+      "id": "code-preparar-email",
+      "name": "Preparar Dados do E-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst html = item.html || '';\nconst text = item.text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ') : '') || item.snippet || '';\n\nreturn {\n  json: {\n    messageId: item.id,\n    threadId: item.threadId,\n    from: item.from,\n    subject: item.subject,\n    date: item.date,\n    emailText: text.trim(),\n  },\n};"
+      }
+    },
+    {
+      "id": "code-prompt-extracao",
+      "name": "Prompt: Extração de Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst systemPrompt = `Você é um assistente que extrai dados estruturados de e-mails de leads interessados em comprar franquias/lojas da Cacau Show em Belém-PA, Brasil.\n\nLeia o e-mail abaixo (remetente, assunto, data e corpo) e devolva APENAS um objeto JSON válido, sem markdown e sem texto antes ou depois, contendo exatamente estas chaves: nome, email, telefone, cidade, estado, empresa, cnpj, capital_disponivel, experiencia_empreendedorismo, motivacao, origem_provavel, mensagem_resumo, urgencia_percebida.\n\nRegras: cnpj deve conter apenas dígitos (sem pontuação) ou null se não houver. origem_provavel deve ser um destes valores: Facebook/Instagram Ads, Google Ads, Site Cacau Show, Indicação, Portal de Franquias, Outro. urgencia_percebida deve ser: alta, media ou baixa. Nunca invente dado que não esteja no e-mail; use null quando não souber. Responda somente com o JSON.`;\n\nconst userContent = 'De: ' + item.from + '\\nAssunto: ' + item.subject + '\\nData: ' + item.date + '\\n\\nCorpo do e-mail:\\n' + item.emailText;\n\nreturn {\n  json: {\n    ...item,\n    systemPrompt,\n    userContent,\n  },\n};"
+      }
+    },
+    {
+      "id": "http-ia-extrair",
+      "name": "IA: Extrair Dados do Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 1024, system: $json.systemPrompt, messages: [{ role: 'user', content: $json.userContent }] }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "code-parse-extracao",
+      "name": "Parsear JSON da IA (Extração)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "parameters": {
+        "jsCode": "const resp = $input.item.json;\nconst raw = (resp.content && resp.content[0] && resp.content[0].text) || '{}';\nconst cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n\nlet lead;\ntry {\n  lead = JSON.parse(cleaned);\n} catch (e) {\n  lead = { erro_parse: true, raw_resposta_ia: raw };\n}\n\nconst prev = $('Prompt: Extração de Lead').item.json;\n\nreturn {\n  json: {\n    ...lead,\n    messageId: prev.messageId,\n    threadId: prev.threadId,\n    from: prev.from,\n    subject: prev.subject,\n    emailText: prev.emailText,\n  },\n};"
+      }
+    },
+    {
+      "id": "if-tem-cnpj",
+      "name": "Tem CNPJ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-cnpj",
+              "leftValue": "={{ $json.cnpj }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http-brasilapi-cnpj",
+      "name": "BrasilAPI: Consultar CNPJ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, -120],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://brasilapi.com.br/api/cnpj/v1/' + $json.cnpj.replace(/\\D/g, '') }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "code-consolidar",
+      "name": "Consolidar Dados Enriquecidos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 0],
+      "parameters": {
+        "jsCode": "const leadBase = $('Parsear JSON da IA (Extração)').item.json;\nconst current = $input.item.json;\n\nlet cnpjData = null;\nif (current && current.razao_social) {\n  cnpjData = {\n    razao_social: current.razao_social || null,\n    nome_fantasia: current.nome_fantasia || null,\n    situacao_cadastral: current.descricao_situacao_cadastral || null,\n    atividade_principal: current.cnae_fiscal_descricao || null,\n    municipio: current.municipio || null,\n    uf: current.uf || null,\n    data_abertura: current.data_inicio_atividade || null,\n    capital_social: current.capital_social || null,\n  };\n}\n\nreturn {\n  json: {\n    ...leadBase,\n    cnpjData,\n  },\n};"
+      }
+    },
+    {
+      "id": "code-prompt-briefing",
+      "name": "Prompt: Briefing de Venda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 0],
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst systemPrompt = `Você é consultor de vendas para o Bruno, franqueado de lojas Cacau Show em Belém-PA que está avaliando vender uma ou mais de suas franquias. Você recebeu os dados enriquecidos de um lead interessado em comprar. Use o perfil das lojas abaixo como referência (números podem estar desatualizados, nunca cite valores exatos ao lead sem confirmar antes com o Bruno).\n\nPerfil das lojas à venda:\n- Marambaia (código 9175, loja de rua): a de maior faturamento da rede, mas carrega um acordo de dívida em renegociação e histórico de atraso em boletos. Pitch: maior receita absoluta e ativo mais valioso da rede; o comprador precisa negociar a assunção ou quitação da dívida.\n- Icoaraci (código 4304, loja de rua): a melhor margem da rede, sem dívida em aberto, despesa fixa proporcionalmente menor. Pitch: loja mais saudável e eficiente, menor risco, ótima porta de entrada para quem nunca teve uma franquia Cacau Show.\n- Mário Covas (código 9201, dentro de supermercado): a menor loja e a única com resultado no vermelho hoje. Pitch: ticket de entrada mais baixo, mas só faz sentido para um comprador disposto a investir em giro/tráfego ou testar o modelo antes de crescer; seja transparente sobre o resultado atual.\n\nCom base no JSON do lead a seguir, devolva APENAS um objeto JSON válido, sem markdown, contendo exatamente estas chaves: score, score_motivo, perfil_provavel, loja_recomendada, argumentos_de_venda, pontos_de_atencao, proximo_passo, rascunho_resposta_email.\n\nRegras: score deve ser quente, morno ou frio. argumentos_de_venda e pontos_de_atencao devem ser listas de strings. loja_recomendada deve ser Marambaia, Icoaraci, Mário Covas ou 'depende do orçamento — apresentar as 3'. rascunho_resposta_email deve ser um rascunho pronto, cordial, em português, confirmando o interesse e propondo um próximo passo concreto (ex.: uma call), sem citar números financeiros sensíveis da loja. Responda somente com o JSON.`;\n\nconst userContent = JSON.stringify(item, null, 2);\n\nreturn {\n  json: {\n    ...item,\n    briefingSystemPrompt: systemPrompt,\n    briefingUserContent: userContent,\n  },\n};"
+      }
+    },
+    {
+      "id": "http-ia-briefing",
+      "name": "IA: Gerar Briefing de Venda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 1536, system: $json.briefingSystemPrompt, messages: [{ role: 'user', content: $json.briefingUserContent }] }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "code-parse-briefing",
+      "name": "Parsear Briefing da IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 0],
+      "parameters": {
+        "jsCode": "const resp = $input.item.json;\nconst raw = (resp.content && resp.content[0] && resp.content[0].text) || '{}';\nconst cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n\nlet briefing;\ntry {\n  briefing = JSON.parse(cleaned);\n} catch (e) {\n  briefing = { erro_parse: true, raw_resposta_ia: raw };\n}\n\nconst lead = $('Consolidar Dados Enriquecidos').item.json;\n\nreturn {\n  json: {\n    lead,\n    briefing,\n  },\n};"
+      }
+    },
+    {
+      "id": "code-montar-email",
+      "name": "Montar E-mail Interno (HTML)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, -120],
+      "parameters": {
+        "jsCode": "const data = $input.item.json;\nconst lead = data.lead || {};\nconst b = data.briefing || {};\n\nconst scoreEmoji = b.score === 'quente' ? '🔥' : b.score === 'morno' ? '🌤️' : '❄️';\n\nconst listItems = (arr) => Array.isArray(arr) ? arr.map((a) => '<li>' + a + '</li>').join('') : '';\n\nconst html = `\n  <h2>${scoreEmoji} Novo lead de franquia — ${lead.nome || 'Nome não identificado'} (${b.score || 'sem score'})</h2>\n  <p><strong>Motivo do score:</strong> ${b.score_motivo || '-'}</p>\n  <p><strong>Perfil provável:</strong> ${b.perfil_provavel || '-'}</p>\n  <p><strong>Loja recomendada:</strong> ${b.loja_recomendada || '-'}</p>\n  <h3>Argumentos de venda</h3>\n  <ul>${listItems(b.argumentos_de_venda)}</ul>\n  <h3>Pontos de atenção</h3>\n  <ul>${listItems(b.pontos_de_atencao)}</ul>\n  <p><strong>Próximo passo:</strong> ${b.proximo_passo || '-'}</p>\n  <hr>\n  <h3>Dados do lead</h3>\n  <ul>\n    <li><strong>Nome:</strong> ${lead.nome || '-'}</li>\n    <li><strong>E-mail:</strong> ${lead.email || '-'}</li>\n    <li><strong>Telefone:</strong> ${lead.telefone || '-'}</li>\n    <li><strong>Cidade/UF:</strong> ${(lead.cidade || '-') + '/' + (lead.estado || '-')}</li>\n    <li><strong>Empresa:</strong> ${lead.empresa || '-'}</li>\n    <li><strong>CNPJ:</strong> ${lead.cnpj || '-'}</li>\n    <li><strong>Capital disponível:</strong> ${lead.capital_disponivel || '-'}</li>\n    <li><strong>Experiência prévia:</strong> ${lead.experiencia_empreendedorismo || '-'}</li>\n    <li><strong>Origem provável:</strong> ${lead.origem_provavel || '-'}</li>\n    <li><strong>Urgência percebida:</strong> ${lead.urgencia_percebida || '-'}</li>\n  </ul>\n  <h3>Resumo da mensagem original</h3>\n  <p>${lead.mensagem_resumo || '-'}</p>\n  ${lead.cnpjData ? '<h3>Dados públicos da empresa (Receita Federal via BrasilAPI)</h3><ul>' +\n    '<li><strong>Razão social:</strong> ' + (lead.cnpjData.razao_social || '-') + '</li>' +\n    '<li><strong>Nome fantasia:</strong> ' + (lead.cnpjData.nome_fantasia || '-') + '</li>' +\n    '<li><strong>Situação cadastral:</strong> ' + (lead.cnpjData.situacao_cadastral || '-') + '</li>' +\n    '<li><strong>Atividade principal:</strong> ' + (lead.cnpjData.atividade_principal || '-') + '</li>' +\n    '<li><strong>Município/UF:</strong> ' + (lead.cnpjData.municipio || '-') + '/' + (lead.cnpjData.uf || '-') + '</li>' +\n    '<li><strong>Data de abertura:</strong> ' + (lead.cnpjData.data_abertura || '-') + '</li>' +\n    '<li><strong>Capital social:</strong> ' + (lead.cnpjData.capital_social || '-') + '</li>' +\n    '</ul>' : ''}\n  <hr>\n  <h3>Rascunho de resposta sugerido</h3>\n  <p>${(b.rascunho_resposta_email || '').replace(/\\n/g, '<br>')}</p>\n`;\n\nreturn {\n  json: {\n    ...data,\n    htmlBody: html,\n    emailSubject: `${scoreEmoji} Novo lead de franquia — ${lead.nome || 'sem nome'} (${(b.score || '').toUpperCase()})`,\n  },\n};"
+      }
+    },
+    {
+      "id": "gmail-enviar-briefing",
+      "name": "Enviar Briefing Interno",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2640, -120],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "gestaomarambaia@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.htmlBody }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail - gestaomarambaia"
+        }
+      }
+    },
+    {
+      "id": "if-tem-email-lead",
+      "name": "Tem E-mail do Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2420, 120],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-email",
+              "leftValue": "={{ $json.lead.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "gmail-criar-rascunho",
+      "name": "Criar Rascunho de Resposta ao Lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2640, 60],
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "sendTo": "={{ $json.lead.email }}",
+        "subject": "={{ 'Re: ' + $json.lead.subject }}",
+        "message": "={{ $json.briefing.rascunho_resposta_email }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail - gestaomarambaia"
+        }
+      }
+    },
+    {
+      "id": "noop-sem-email",
+      "name": "Fim: Sem E-mail do Lead",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2640, 220],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Gatilho: Novo E-mail de Lead": {
+      "main": [[{ "node": "Preparar Dados do E-mail", "type": "main", "index": 0 }]]
+    },
+    "Preparar Dados do E-mail": {
+      "main": [[{ "node": "Prompt: Extração de Lead", "type": "main", "index": 0 }]]
+    },
+    "Prompt: Extração de Lead": {
+      "main": [[{ "node": "IA: Extrair Dados do Lead", "type": "main", "index": 0 }]]
+    },
+    "IA: Extrair Dados do Lead": {
+      "main": [[{ "node": "Parsear JSON da IA (Extração)", "type": "main", "index": 0 }]]
+    },
+    "Parsear JSON da IA (Extração)": {
+      "main": [[{ "node": "Tem CNPJ?", "type": "main", "index": 0 }]]
+    },
+    "Tem CNPJ?": {
+      "main": [
+        [{ "node": "BrasilAPI: Consultar CNPJ", "type": "main", "index": 0 }],
+        [{ "node": "Consolidar Dados Enriquecidos", "type": "main", "index": 0 }]
+      ]
+    },
+    "BrasilAPI: Consultar CNPJ": {
+      "main": [[{ "node": "Consolidar Dados Enriquecidos", "type": "main", "index": 0 }]]
+    },
+    "Consolidar Dados Enriquecidos": {
+      "main": [[{ "node": "Prompt: Briefing de Venda", "type": "main", "index": 0 }]]
+    },
+    "Prompt: Briefing de Venda": {
+      "main": [[{ "node": "IA: Gerar Briefing de Venda", "type": "main", "index": 0 }]]
+    },
+    "IA: Gerar Briefing de Venda": {
+      "main": [[{ "node": "Parsear Briefing da IA", "type": "main", "index": 0 }]]
+    },
+    "Parsear Briefing da IA": {
+      "main": [
+        [
+          { "node": "Montar E-mail Interno (HTML)", "type": "main", "index": 0 },
+          { "node": "Tem E-mail do Lead?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Montar E-mail Interno (HTML)": {
+      "main": [[{ "node": "Enviar Briefing Interno", "type": "main", "index": 0 }]]
+    },
+    "Tem E-mail do Lead?": {
+      "main": [
+        [{ "node": "Criar Rascunho de Resposta ao Lead", "type": "main", "index": 0 }],
+        [{ "node": "Fim: Sem E-mail do Lead", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}
