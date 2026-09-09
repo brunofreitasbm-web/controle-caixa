@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v70'; // v70: remove precache do bluedox.html/css/js (dashboard mock órfão, removido do projeto)
+const CACHE_NAME = 'ponto-pwa-v71'; // v71: remoção completa do FaçaAmigos
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -10,7 +10,6 @@ const ASSETS_TO_CACHE = [
   '/modules/colaboradores.js',
   '/realtime.js',
   '/camera-universal.js',
-  '/mensagens-aniversario.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

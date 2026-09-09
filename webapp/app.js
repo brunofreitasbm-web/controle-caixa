@@ -6740,23 +6740,27 @@ function enrichirProdutosComBarras() {
  * @returns {{ produto: object|null, metodo: string }}
  */
 function resolverCodigoBipado(produtosList, cleanCode) {
+  if (!Array.isArray(produtosList) || !cleanCode) return { produto: null, metodo: 'não encontrado' };
+  const codeStr = String(cleanCode).trim();
+  if (!codeStr) return { produto: null, metodo: 'não encontrado' };
+
   // 1º — CodBarra direto (EAN lido da câmera)
-  let p = produtosList.find(prod => prod.barras && prod.barras.trim() === cleanCode);
+  let p = produtosList.find(prod => prod && prod.barras && String(prod.barras).trim() === codeStr);
   if (p) return { produto: p, metodo: 'CodBarra' };
 
   // 2º — Fallback via CSV: CodBarra → CodProd
-  const codProdViaBarras = codBarraParaCodProd[cleanCode];
+  const codProdViaBarras = codBarraParaCodProd[codeStr];
   if (codProdViaBarras) {
-    p = produtosList.find(prod => prod.code && prod.code.toString() === codProdViaBarras.toString());
+    p = produtosList.find(prod => prod && prod.code && String(prod.code).trim() === String(codProdViaBarras).trim());
     if (p) return { produto: p, metodo: 'CodBarra→CodProd (CSV)' };
   }
 
   // 3º — Fallback: o operador leu o CodProduto da etiqueta da caixa
-  p = produtosList.find(prod => prod.code && prod.code.toString() === cleanCode.toString());
+  p = produtosList.find(prod => prod && prod.code && String(prod.code).trim() === codeStr);
   if (p) {
     // Se o produto ainda não tem EAN, enriquece a partir do CSV
-    if (!p.barras && codProdParaCodBarra[cleanCode]) {
-      p.barras = codProdParaCodBarra[cleanCode];
+    if (!p.barras && codProdParaCodBarra[codeStr]) {
+      p.barras = codProdParaCodBarra[codeStr];
     }
     return { produto: p, metodo: 'CodProduto' };
   }
@@ -7687,12 +7691,16 @@ function atualizarListaBipeRecentes(prefixo) {
   const lista = document.getElementById(prefixo + "-bipe-lista");
   if (!lista) return;
   const recentes = prefixo === "nf" ? nfBipesRecentes : invBipesRecentes;
-  lista.innerHTML = recentes.map(r => `
-    <div class="bipe-item-recente">
-      <span class="bipe-item-qtd">${r.qtd}</span>
-      <span class="bipe-item-nome">${r.nome}</span>
-    </div>
-  `).join("");
+  if (!Array.isArray(recentes)) return;
+  lista.innerHTML = recentes.map(r => {
+    if (!r) return '';
+    return `
+      <div class="bipe-item-recente">
+        <span class="bipe-item-qtd">${r.qtd !== undefined && r.qtd !== null ? r.qtd : 0}</span>
+        <span class="bipe-item-nome">${r.nome || 'Produto'}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function desfazerUltimoBipeNf() {
@@ -9155,85 +9163,98 @@ function stopNfScanner() {
 }
 
 function onNfScanSuccess(decodedText) {
-  const cleanCode = decodedText.trim();
-  let p = null;
-  let matchedNfNumber = null;
+  try {
+    if (!decodedText) return;
+    const cleanCode = String(decodedText).trim();
+    if (!cleanCode) return;
 
-  // --- Etapa 1: Buscar nas NF-es ativas ---
-  for (const numNF of activeNfNumbers) {
-    const currentNf = importedNfs[numNF];
-    if (currentNf) {
-      const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
-      const tempP = resultado.produto;
-      if (tempP) {
-        // Priorizar item pendente
-        const currentQty = tempP.countedQty === '' ? 0 : Number(tempP.countedQty);
-        if (currentQty < tempP.nfQty) {
-          p = tempP;
-          matchedNfNumber = numNF;
-          break;
-        } else if (!p) {
-          p = tempP;
-          matchedNfNumber = numNF;
+    let p = null;
+    let matchedNfNumber = null;
+
+    // --- Etapa 1: Buscar nas NF-es ativas ---
+    for (const numNF of activeNfNumbers) {
+      const currentNf = importedNfs[numNF];
+      if (currentNf && Array.isArray(currentNf.products)) {
+        const resultado = resolverCodigoBipado(currentNf.products, cleanCode);
+        const tempP = resultado.produto;
+        if (tempP) {
+          // Priorizar item pendente
+          const currentQty = (tempP.countedQty === '' || tempP.countedQty === undefined || tempP.countedQty === null) ? 0 : Number(tempP.countedQty);
+          if (currentQty < (tempP.nfQty || 0)) {
+            p = tempP;
+            matchedNfNumber = numNF;
+            break;
+          } else if (!p) {
+            p = tempP;
+            matchedNfNumber = numNF;
+          }
         }
       }
     }
-  }
 
-  // --- Etapa 2: Buscar em outras NF-es importadas (carga misturada) ---
-  if (!p) {
-    for (const numNF of Object.keys(importedNfs)) {
-      if (!activeNfNumbers.includes(numNF)) {
-        const { produto, metodo } = resolverCodigoBipado(importedNfs[numNF].products, cleanCode);
-        if (produto) {
-          p = produto;
-          matchedNfNumber = numNF;
-          activeNfNumbers = [numNF];
-          activeNfNumber = numNF;
-          renderNfDashboard();
-          const metodoInfo = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
-          showToast(`⚡ Carga Misturada: NF Nº ${numNF.split('_')[0]}${metodoInfo}`, "info");
-          break;
+    // --- Etapa 2: Buscar em outras NF-es importadas (carga misturada) ---
+    if (!p && importedNfs && typeof importedNfs === 'object') {
+      for (const numNF of Object.keys(importedNfs)) {
+        if (!activeNfNumbers.includes(numNF)) {
+          const currentNf = importedNfs[numNF];
+          if (currentNf && Array.isArray(currentNf.products)) {
+            const { produto, metodo } = resolverCodigoBipado(currentNf.products, cleanCode);
+            if (produto) {
+              p = produto;
+              matchedNfNumber = numNF;
+              activeNfNumbers = [numNF];
+              activeNfNumber = numNF;
+              renderNfDashboard();
+              const metodoInfo = metodo !== 'CodBarra' ? ` (via ${metodo})` : '';
+              showToast(`⚡ Carga Misturada: NF Nº ${numNF.split('_')[0]}${metodoInfo}`, "info");
+              break;
+            }
+          }
         }
       }
     }
-  }
 
-  if (p && matchedNfNumber) {
-    if (navigator.vibrate) navigator.vibrate(150);
-    playBeep('success');
-    const currentQty = p.countedQty === '' ? 0 : Number(p.countedQty);
-    const newQty = currentQty + 1;
-    saveNfQuantity(p.code, newQty.toString(), matchedNfNumber);
+    if (p && matchedNfNumber) {
+      if (navigator.vibrate) navigator.vibrate(150);
+      playBeep('success');
+      const currentQty = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
+      const newQty = currentQty + 1;
+      saveNfQuantity(p.code, newQty.toString(), matchedNfNumber);
 
-    flashScanner("nf-scanner-container");
-    ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
-    nfBipesRecentes.unshift({ nome: p.description, qtd: newQty, code: p.code });
-    nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
-    renderBipeFeedback("nf", { nome: p.description, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
+      flashScanner("nf-scanner-container");
+      ultimoBipeNf = { code: p.code, nfNum: matchedNfNumber };
+      const nomeProduto = p.description || 'Produto';
+      
+      nfBipesRecentes.unshift({ nome: nomeProduto, qtd: newQty, code: p.code });
+      nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
+      renderBipeFeedback("nf", { nome: nomeProduto, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
-    // Focar no campo de quantidade inventariada do produto bipado — só faz
-    // sentido no desktop, onde a tabela continua visível. Na casca compacta
-    // ela some (ver style.css) em favor do cartão de feedback acima.
-    if (document.documentElement.dataset.density !== "compact") {
-      setTimeout(() => {
-        const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
-                         || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
-        if (rowInput) {
-          rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          rowInput.focus();
-          rowInput.select();
-        }
-      }, 100);
+      // Focar no campo de quantidade inventariada do produto bipado — só no desktop
+      if (document.documentElement.dataset.density !== "compact") {
+        setTimeout(() => {
+          try {
+            const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                             || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
+            if (rowInput) {
+              rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              rowInput.focus();
+              rowInput.select();
+            }
+          } catch (e) {}
+        }, 100);
+      }
+    } else {
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      playBeep('error');
+      const nomeCSVNf = codBarraParaDesc[cleanCode] || codProdParaDesc[cleanCode] || null;
+      const msgErroNf = nomeCSVNf
+        ? `"${nomeCSVNf}" não está nas NF-es importadas. Tente o CodProduto da etiqueta da caixa.`
+        : `Código não localizado nas NF-es: ${cleanCode}. Tente bipar o CodProduto da etiqueta da caixa.`;
+      showToast(msgErroNf, 'erro');
     }
-  } else {
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    playBeep('error');
-    const nomeCSVNf = codBarraParaDesc[cleanCode] || codProdParaDesc[cleanCode] || null;
-    const msgErroNf = nomeCSVNf
-      ? `"${nomeCSVNf}" não está nas NF-es importadas. Tente o CodProduto da etiqueta da caixa.`
-      : `Código não localizado nas NF-es: ${cleanCode}. Tente bipar o CodProduto da etiqueta da caixa.`;
-    showToast(msgErroNf, 'erro');
+  } catch (err) {
+    console.error("[onNfScanSuccess] Erro ao processar bipagem de NF-e:", err);
+    showToast("Erro ao processar leitura do código. Tente bipar novamente.", "erro");
   }
 }
 

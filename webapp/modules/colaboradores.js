@@ -55,19 +55,9 @@ function preencherDropdownUsuarios() {
   const consultorSelect = document.getElementById("consultor");
   if (consultorSelect && !consultorSelect.disabled) {
     const valConsultor = consultorSelect.value;
-    const consultorasCacau = USERS.filter(u => u.role !== "consultora_fa");
     consultorSelect.innerHTML = `<option value="" disabled selected>Selecione</option>` +
-      consultorasCacau.map(u => `<option value="${u.nome}">${u.nome}</option>`).join("");
+      USERS.map(u => `<option value="${u.nome}">${u.nome}</option>`).join("");
     if (valConsultor) consultorSelect.value = valConsultor;
-  }
-
-  const faConsultorSelect = document.getElementById("fa-consultor");
-  if (faConsultorSelect && !faConsultorSelect.disabled) {
-    const valFAConsultor = faConsultorSelect.value;
-    const consultorasFA = USERS.filter(u => u.role === "consultora_fa" || u.role === "owner");
-    faConsultorSelect.innerHTML = `<option value="" disabled selected>Selecione</option>` +
-      consultorasFA.map(u => `<option value="${u.nome}">${u.nome}</option>`).join("");
-    if (valFAConsultor) faConsultorSelect.value = valFAConsultor;
   }
 }
 
@@ -79,14 +69,12 @@ async function renderizarColaboradores() {
   const roleLabels = {
     consultora: "Consultora (Apenas Registro)",
     consultora_dashboard: "Líder de Operações Cacau Show",
-    consultora_fa: "Consultora FaçaAmigos (FA)",
     owner: "Administrador / Owner (Bruno e Isabella)"
   };
 
   const roleStyles = {
     consultora: "background: rgba(33, 150, 243, 0.12); color: #1976d2;",
     consultora_dashboard: "background: rgba(156, 39, 176, 0.12); color: #7b1fa2;",
-    consultora_fa: "background: rgba(255, 152, 0, 0.12); color: #e65100;",
     owner: "background: rgba(76, 175, 80, 0.12); color: var(--tone-success-ink);"
   };
 
@@ -94,9 +82,6 @@ async function renderizarColaboradores() {
     "9175": "🟣 9175 - Marambaia",
     "9201": "🟢 9201 - Mário Covas",
     "4304": "🔵 4304 - Icoaraci",
-    "fa-parque": "🔴 FA - Parque Circuito",
-    "fa-playground": "🟡 FA - ParqueShopping",
-    "fa-grao-para": "🟤 FA - Grão-Pará",
     "all": "Todas as Lojas"
   };
 

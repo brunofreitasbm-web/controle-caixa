@@ -1171,16 +1171,14 @@ function initDb(onSuccess) {
         })));
       });
 
-      // Remove usuários desativados (LiderOP e as contas de treinamento) que
-      // possam já existir de uma inicialização anterior — o seed acima nunca
-      // os recria, mas não apaga quem já foi inserido antes desta mudança.
-      const usuariosRemovidos = ["LiderOP", "Treinamento Cacau Show", "Treinamento Faça Amigos"];
+      // Remove usuários desativados e colaboradores do Faça Amigos
+      const usuariosRemovidos = ["LiderOP", "Treinamento Cacau Show", "Treinamento Faça Amigos", "Alice", "Alessandra"];
       promise = promise.then(() => {
-        return Promise.all(usuariosRemovidos.map(nome => new Promise(resolve => {
-          db.run('DELETE FROM colaboradores WHERE nome = ?', [nome], () => {
-            db.run('DELETE FROM pins WHERE usuario = ?', [nome], () => resolve());
+        return new Promise(resolve => {
+          db.run("DELETE FROM colaboradores WHERE role = 'consultora_fa' OR unidade LIKE 'fa-%' OR nome IN ('LiderOP', 'Treinamento Cacau Show', 'Treinamento Faça Amigos', 'Alice', 'Alessandra')", [], () => {
+            db.run("DELETE FROM pins WHERE usuario IN ('LiderOP', 'Treinamento Cacau Show', 'Treinamento Faça Amigos', 'Alice', 'Alessandra')", [], () => resolve());
           });
-        })));
+        });
       });
 
       promise.then(() => {
