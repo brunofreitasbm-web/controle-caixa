@@ -1974,13 +1974,19 @@ function verificarInventarioMensalNotificacao() {
 }
 
 // Botões de Seleção de Módulo
-document.getElementById("btn-mod-cacau").addEventListener("click", () => {
-  iniciarModuloBase("cacau-show");
-});
+const btnModCacau = document.getElementById("btn-mod-cacau");
+if (btnModCacau) {
+  btnModCacau.addEventListener("click", () => {
+    iniciarModuloBase("cacau-show");
+  });
+}
 
-document.getElementById("btn-mod-faca").addEventListener("click", () => {
-  iniciarModuloBase("faca-amigos");
-});
+const btnModFaca = document.getElementById("btn-mod-faca");
+if (btnModFaca) {
+  btnModFaca.addEventListener("click", () => {
+    iniciarModuloBase("faca-amigos");
+  });
+}
 
 const btnModRh = document.getElementById("btn-mod-rh");
 if (btnModRh) {
