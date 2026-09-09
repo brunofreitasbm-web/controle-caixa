@@ -15,14 +15,13 @@ const { registrarLog } = require('../config/logger');
 const requireOwner = require('./middleware/requireOwner');
 const { sugerirVencimento } = require('../services/ia-doc-vencimento');
 
-const NEGOCIOS_VALIDOS = ['cacau-show', 'faca-amigos'];
+const NEGOCIOS_VALIDOS = ['cacau-show'];
 const CATEGORIAS_VALIDAS = ['CNPJ', 'Contrato Social', 'Alvará', 'Habite-se', 'Seguro', 'Contrato Trabalhista', 'Outro'];
 
 // Papéis restritos a um único negócio; owner não aparece aqui (sem restrição).
 const NEGOCIO_POR_ROLE = {
   consultora: 'cacau-show',
-  consultora_dashboard: 'cacau-show',
-  consultora_fa: 'faca-amigos'
+  consultora_dashboard: 'cacau-show'
 };
 
 function semConteudo(doc) {

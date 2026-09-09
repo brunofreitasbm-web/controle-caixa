@@ -103,7 +103,7 @@ function obterEmailsDestinatarios(notificationType, callback) {
     if (typeRules.lider) enabledRoles.push('consultora_dashboard');
     if (typeRules.owner) enabledRoles.push('owner');
 
-    db.all('SELECT nome, role FROM colaboradores', [], (errColab, colabs) => {
+    db.all('SELECT nome, role, email FROM colaboradores', [], (errColab, colabs) => {
       if (errColab || !colabs) {
         return callback([]);
       }
@@ -114,19 +114,12 @@ function obterEmailsDestinatarios(notificationType, callback) {
         'alexandra': 'alexandracabral733@gmail.com'
       };
 
-      let recipientNames = colabs
+      const recipientEmails = colabs
         .filter(c => enabledRoles.includes(c.role))
-        .map(c => c.nome.toLowerCase());
-
-      if (notificationType === 'divergencia_caixa') {
-        recipientNames = recipientNames.filter(name => name !== 'bruno' && name !== 'isabella');
-      }
-
-      const targetEmails = recipientNames
-        .map(name => EMAIL_MAP[name])
+        .map(c => c.email || EMAIL_MAP[c.nome.toLowerCase()])
         .filter(Boolean);
 
-      callback(targetEmails);
+      callback([...new Set(recipientEmails)]);
     });
   });
 }
@@ -526,39 +519,144 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   });
 }
 
-function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau Show') {
+function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau Show', fundoPrevisto = null, diferenca = 0) {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) return;
     const fundoFmt = Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const title = `🟢 Abertura de Unidade - ${loja}`;
     const body = `${consultor || 'Operador'} abriu o caixa em ${loja} (${sistema}). Fundo: R$ ${fundoFmt}.`;
+    
+    // Dispara Push
     enviarNotificacaoPushInterno(title, body, null, 'abertura_unidade');
+
+    // Dispara E-mail HTML para os Owners
+    obterEmailsDestinatarios('abertura_unidade', (targetEmails) => {
+      if (!targetEmails || targetEmails.length === 0) return;
+      
+      const lojaSafe = escapeHtml(loja);
+      const consultorSafe = escapeHtml(consultor || 'Operador');
+      const sistemaSafe = escapeHtml(sistema);
+
+      let conciliacaoHtml = '';
+      let statusBadge = '<span style="color:#10b981; font-weight:bold;">✓ Fundo conferido sem divergência</span>';
+      
+      if (fundoPrevisto !== null && fundoPrevisto !== undefined) {
+        const fundoPrevistoFmt = Number(fundoPrevisto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const diffNum = Number(diferenca || 0);
+        if (diffNum > 0) {
+          statusBadge = `<span style="color:#f59e0b; font-weight:bold;">⚠️ SOBRA de R$ ${Math.abs(diffNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em relação ao fechamento anterior</span>`;
+        } else if (diffNum < 0) {
+          statusBadge = `<span style="color:#ef4444; font-weight:bold;">⚠️ FALTA de R$ ${Math.abs(diffNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em relação ao fechamento anterior</span>`;
+        }
+        conciliacaoHtml = `
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:6px 12px; color:#6b7280;">Fundo Previsto (Fechamento Anterior):</td>
+            <td style="padding:6px 12px; font-weight:600; color:#111827;">R$ ${fundoPrevistoFmt}</td>
+          </tr>
+        `;
+      }
+
+      const htmlBody = `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:520px; margin:0 auto; padding:24px; color:#111827; border:1px solid #e5e7eb; border-radius:12px; background-color:#ffffff;">
+          <h2 style="margin:0 0 16px; font-size:18px; font-weight:700; color:#111827;">🟢 Abertura de Caixa — ${lojaSafe}</h2>
+          <p style="margin:0 0 16px; font-size:14px; color:#4b5563;"><strong>${consultorSafe}</strong> abriu o caixa no sistema <strong>${sistemaSafe}</strong>.</p>
+          <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td style="padding:6px 12px 6px 0; color:#6b7280;">Fundo de Caixa Contado:</td>
+              <td style="padding:6px 0; font-weight:600; color:#111827;">R$ ${fundoFmt}</td>
+            </tr>
+            ${conciliacaoHtml}
+          </table>
+          <div style="padding:10px 14px; background-color:#f9fafb; border-radius:8px; font-size:13px; margin-top:12px;">
+            ${statusBadge}
+          </div>
+          <p style="margin:20px 0 0; font-size:12px; color:#9ca3af; text-align:center;">Hub de Operações — Notificação Automática</p>
+        </div>
+      `;
+
+      enviarEmailGenerico(targetEmails, `🟢 Abertura de Caixa - ${lojaSafe}`, body, htmlBody).catch(err => {
+        console.error('Erro ao enviar e-mail de abertura:', err);
+      });
+    });
   });
 }
 
-function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show') {
+function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show', fundoCaixa = null, fotoEnvelope = null, observacoes = null) {
   notificacoesEventosAtivas(async (ativas) => {
     if (!ativas) return;
     const fatFmt = Number(valorFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const envFmt = Number(valorEnvelope || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const fundoFmt = fundoCaixa !== null && fundoCaixa !== undefined ? Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : null;
     const sessoesText = sessoesCount !== undefined && sessoesCount !== null ? ` | Sessões/Vendas: ${sessoesCount}` : '';
 
-    // Faça Amigos não usa Meta Hora a Hora (o modelo de bonificação dele é
-    // outro, não R$/dia) — busca o % de conversão Ouro/Diamante nesse caso.
     let metaText = '';
+    let metaHtml = '';
     if (sistema === 'Cacau Show') {
       const meta = await buscarAtingimentoMetaDoDia(loja, agoraBrasilMeta().data);
-      metaText = meta
-        ? ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
-        : '';
+      if (meta) {
+        metaText = ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
+        metaHtml = `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Meta do Dia:</td><td style="padding:6px 0; font-weight:600; color:#111827;">${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td></tr>`;
+      }
     } else {
       const conversao = await buscarConversaoFaDoDia(consultor, loja, agoraBrasilMeta().data);
-      metaText = conversao ? ` | Conversão do dia: ${conversao.pct.toFixed(1)}% (${conversao.nivel})` : '';
+      if (conversao) {
+        metaText = ` | Conversão do dia: ${conversao.pct.toFixed(1)}% (${conversao.nivel})`;
+        metaHtml = `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Conversão do Dia:</td><td style="padding:6px 0; font-weight:600; color:#111827;">${conversao.pct.toFixed(1)}% (${conversao.nivel})</td></tr>`;
+      }
     }
 
     const title = `🔒 Fechamento de Caixa - ${loja}`;
     const body = `${consultor || 'Operador'} encerrou o caixa em ${loja}. Faturado: R$ ${fatFmt} | Envelope: R$ ${envFmt}${sessoesText}${metaText}`;
+    
+    // Dispara Push
     enviarNotificacaoPushInterno(title, body, null, 'fechamento_unidade');
+
+    // Dispara E-mail HTML para os Owners
+    obterEmailsDestinatarios('fechamento_unidade', (targetEmails) => {
+      if (!targetEmails || targetEmails.length === 0) return;
+
+      const lojaSafe = escapeHtml(loja);
+      const consultorSafe = escapeHtml(consultor || 'Operador');
+      const sistemaSafe = escapeHtml(sistema);
+      const obsSafe = observacoes ? escapeHtml(observacoes) : null;
+
+      let fotoHtml = '';
+      if (fotoEnvelope && typeof fotoEnvelope === 'string' && fotoEnvelope.length > 50) {
+        const imgSrc = fotoEnvelope.startsWith('data:') ? fotoEnvelope : `data:image/jpeg;base64,${fotoEnvelope}`;
+        fotoHtml = `
+          <div style="margin-top:20px; text-align:center;">
+            <p style="margin:0 0 8px; font-size:12px; color:#6b7280; text-transform:uppercase; font-weight:600;">Foto do Envelope Sangria</p>
+            <img src="${imgSrc}" alt="Foto do Envelope" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />
+          </div>
+        `;
+      }
+
+      const htmlBody = `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:520px; margin:0 auto; padding:24px; color:#111827; border:1px solid #e5e7eb; border-radius:12px; background-color:#ffffff;">
+          <h2 style="margin:0 0 16px; font-size:18px; font-weight:700; color:#111827;">🔒 Fechamento de Caixa — ${lojaSafe}</h2>
+          <p style="margin:0 0 16px; font-size:14px; color:#4b5563;"><strong>${consultorSafe}</strong> encerrou o caixa no sistema <strong>${sistemaSafe}</strong>.</p>
+          <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td style="padding:6px 12px 6px 0; color:#6b7280;">Valor Total Faturado:</td>
+              <td style="padding:6px 0; font-weight:600; color:#10b981; font-size:16px;">R$ ${fatFmt}</td>
+            </tr>
+            ${fundoFmt ? `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Fundo de Caixa Próximo Dia:</td><td style="padding:6px 0; font-weight:600; color:#111827;">R$ ${fundoFmt}</td></tr>` : ''}
+            <tr style="border-bottom:1px solid #f3f4f6;">
+              <td style="padding:6px 12px 6px 0; color:#6b7280;">Valor em Envelope (Sangria):</td>
+              <td style="padding:6px 0; font-weight:600; color:#3b82f6;">R$ ${envFmt}</td>
+            </tr>
+            ${metaHtml}
+            ${obsSafe ? `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Observações:</td><td style="padding:6px 0; color:#374151;">${obsSafe}</td></tr>` : ''}
+          </table>
+          ${fotoHtml}
+          <p style="margin:24px 0 0; font-size:12px; color:#9ca3af; text-align:center;">Hub de Operações — Notificação Automática</p>
+        </div>
+      `;
+
+      enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody).catch(err => {
+        console.error('Erro ao enviar e-mail de fechamento:', err);
+      });
+    });
   });
 }
 

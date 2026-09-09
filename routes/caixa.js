@@ -119,139 +119,7 @@ router.get('/registros/:id/foto', (req, res) => {
   });
 });
 
-router.get('/registros-fa/:id/foto', (req, res) => {
-  db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
-    res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
-  });
-});
 
-// FA-1. Obter todos os registros FaçaAmigos
-router.get('/registros-fa', (req, res) => {
-  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const normalized = (rows || []).map(normalizeRow);
-    const result = normalized.map(r => ({
-      ...r,
-      mensagemGerada: !!r.mensagemGerada
-    }));
-    res.json(result);
-  });
-});
-
-// FA-2. Inserir registro FaçaAmigos
-router.post('/registros-fa', (req, res) => {
-  const r = req.body;
-  db.run(
-    `INSERT INTO registros_fa (
-      id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
-      valorFaturado, sangria, sangriaMotivo,
-      observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
-      autorizadoPor, mensagemGerada, criadoEm
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
-      r.valorFaturado, r.sangria, r.sangriaMotivo || null,
-      r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
-      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
-    ],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-
-      if (r.tipoOperacao === 'Abertura') {
-        enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'FaçaAmigos');
-      } else if (r.tipoOperacao === 'Fechamento') {
-        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'FaçaAmigos');
-        if (r.valorEnvelope) {
-          db.get(
-            `SELECT SUM(valorEnvelope) as total FROM registros_fa WHERE loja = ? AND status = 'aguardando_retirada'`,
-            [r.loja],
-            (sumErr, row) => {
-              if (!sumErr && row && row.total >= 1000) {
-                enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
-                enviarNotificacaoPush(
-                  `🚨 ${r.loja}-FaçaAmigos`,
-                  `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
-                );
-              }
-            }
-          );
-        }
-      }
-
-      const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
-      registrarLog(r.id, 'CREATE_FA', `[FaçaAmigos] Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
-      publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
-
-      res.json({ success: true, id: r.id });
-    }
-  );
-});
-
-const COLUNAS_PERMITIDAS = new Set([
-  'consultor', 'loja', 'tipoOperacao', 'dataOperacao', 'fundoCaixa',
-  'valorEnvelope', 'valorFaturado', 'sangria', 'sangriaMotivo',
-  'observacoes', 'fotoEnvelope', 'status', 'dataRetirada', 'retiradoPor',
-  'confirmadoPorApp', 'autorizadoPor', 'mensagemGerada', 'deletadoEm'
-]);
-
-// FA-3. Atualizar registro FaçaAmigos
-router.put('/registros-fa/:id', (req, res) => {
-  const { id } = req.params;
-  const r = req.body;
-
-  const fields = [];
-  const values = [];
-
-  Object.keys(r).forEach(key => {
-    if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
-    fields.push(`${key} = ?`);
-    if (key === 'mensagemGerada') {
-      values.push(r[key] ? 1 : 0);
-    } else {
-      values.push(r[key]);
-    }
-  });
-
-  if (fields.length === 0) {
-    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
-  }
-
-  values.push(id);
-
-  const sql = `UPDATE registros_fa SET ${fields.join(', ')} WHERE id = ?`;
-
-  db.run(sql, values, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-
-    const usuarioLog = req.query.usuario || 'Desconhecido';
-    registrarLog(id, 'UPDATE_FA', `[FaçaAmigos] Registro atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
-    publish('registroFa.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
-
-    res.json({ success: true });
-  });
-});
-
-// FA-4. Excluir registro FaçaAmigos (Soft delete — somente Bruno)
-router.delete('/registros-fa/:id', (req, res) => {
-  const { id } = req.params;
-  const { usuario } = req.query;
-
-  if (usuario !== 'Bruno') {
-    return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros do FaçaAmigos.' });
-  }
-
-  const agora = new Date().toISOString();
-  db.run('UPDATE registros_fa SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-
-    registrarLog(id, 'DELETE_FA', `[FaçaAmigos] Registro removido logicamente.`, usuario);
-    publish('registroFa.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
-
-    res.json({ success: true });
-  });
-});
 
 // Inserir registro
 router.post('/registros', (req, res) => {
@@ -273,9 +141,45 @@ router.post('/registros', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       
       if (r.tipoOperacao === 'Abertura') {
-        enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show');
+        db.get(
+          `SELECT fundoCaixa FROM registros WHERE loja = ? AND tipoOperacao = 'Fechamento' AND deletadoEm IS NULL ORDER BY dataOperacao DESC, criadoEm DESC LIMIT 1`,
+          [r.loja],
+          (prevErr, prevRow) => {
+            let fundoPrevisto = null;
+            let diferenca = 0;
+            if (!prevErr && prevRow && prevRow.fundoCaixa !== null && prevRow.fundoCaixa !== undefined) {
+              fundoPrevisto = Number(prevRow.fundoCaixa || 0);
+              diferenca = Number(r.fundoCaixa || 0) - fundoPrevisto;
+            }
+            enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show', fundoPrevisto, diferenca);
+
+            if (diferenca !== 0 && fundoPrevisto !== null) {
+              obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
+                if (!targetEmails || targetEmails.length === 0) return;
+                const diferencaAbs = Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                const tipoDiff = diferenca > 0 ? 'sobra' : 'falta';
+                const subject = `⚠️ Divergência na Abertura de Caixa - Loja ${r.loja} (Cacau Show)`;
+                const bodyText = `Divergência detectada na abertura da loja ${r.loja} (${r.consultor}): Fundo contado R$ ${Number(r.fundoCaixa||0).toFixed(2)} vs previsto R$ ${fundoPrevisto.toFixed(2)} (${tipoDiff} de R$ ${diferencaAbs}).`;
+                const bodyHtml = `
+                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; max-width:500px; padding:20px; border:1px solid #fee2e2; border-radius:10px; background:#fff5f5;">
+                    <h3 style="color:#dc2626; margin-top:0;">⚠️ Divergência na Abertura de Caixa — ${escapeHtml(r.loja)}</h3>
+                    <p>Foi registrada uma <strong>${tipoDiff}</strong> no fundo de caixa da unidade Cacau Show <strong>${escapeHtml(r.loja)}</strong>.</p>
+                    <ul>
+                      <li><strong>Consultor(a):</strong> ${escapeHtml(r.consultor || 'Operador')}</li>
+                      <li><strong>Fundo Contado na Abertura:</strong> R$ ${Number(r.fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+                      <li><strong>Fundo Previsto (Fechamento Anterior):</strong> R$ ${fundoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+                      <li><strong>Diferença (${tipoDiff}):</strong> <span style="color:#dc2626; font-weight:bold;">R$ ${diferencaAbs}</span></li>
+                    </ul>
+                    ${r.observacoes ? `<p><strong>Justificativa/Observações:</strong> ${escapeHtml(r.observacoes)}</p>` : ''}
+                  </div>
+                `;
+                enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml).catch(e => console.error('Erro ao enviar email divergencia abertura CS:', e));
+              });
+            }
+          }
+        );
       } else if (r.tipoOperacao === 'Fechamento') {
-        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show');
+        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show', r.fundoCaixa, r.fotoEnvelope, r.observacoes);
         if (r.valorEnvelope) {
           db.get(
             `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,

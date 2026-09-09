@@ -32,9 +32,6 @@ const financeiroRoutes = require('./routes/financeiro');
 const pontoRoutes = require('./routes/ponto');
 const pontoBiometriaRoutes = require('./routes/ponto-biometria');
 const vendasRoutes = require('./routes/vendas');
-const faBonificacaoRoutes = require('./routes/fa-bonificacao');
-const posVisitaRoutes = require('./routes/pos-visita');
-const aniversariosRoutes = require('./routes/aniversarios');
 const metasLojasRoutes = require('./routes/metas-lojas');
 const metasRoutes = require('./routes/metas');
 const realtimeRoutes = require('./routes/realtime');
@@ -83,9 +80,6 @@ app.use('/api', metasRoutes);
 app.use('/api/ponto', pontoRoutes);
 app.use('/api/ponto', pontoBiometriaRoutes);
 app.use('/api/vendas', vendasRoutes);
-app.use('/api/fa-bonificacao', faBonificacaoRoutes);
-app.use('/api/pos-visita', posVisitaRoutes);
-app.use('/api/aniversarios', aniversariosRoutes);
 app.use('/api/metas-lojas', metasLojasRoutes);
 app.use('/api/auditoria-docs', auditoriaDocsRoutes);
 app.use('/api/nfe', nfeRoutes);
@@ -94,8 +88,8 @@ app.use('/api/nfe', nfeRoutes);
 // BACKUP MENSAL AUTOMÁTICO (silencioso, por e-mail)
 // ==========================================================================
 const BACKUP_EMAIL_DESTINO = 'brunofreitasbm@gmail.com';
-const BACKUP_TABELAS = ['registros', 'registros_fa', 'nfs', 'boletos', 'colaboradores', 'logs_auditoria'];
-// registros/registros_fa guardam a foto do envelope em base64 (pode passar de
+const BACKUP_TABELAS = ['registros', 'nfs', 'boletos', 'colaboradores', 'logs_auditoria'];
+// registros guarda a foto do envelope em base64 (pode passar de
 // 1MB por linha) — o backup por e-mail nunca manda a foto mesmo, então nem
 // vale a pena trazer a coluna do banco: exclui direto na query em vez de
 // buscar tudo e descartar depois em memória.
@@ -106,7 +100,7 @@ const COLUNAS_REGISTRO_BACKUP = `id, consultor, loja, tipoOperacao, dataOperacao
 async function gerarBackupCompleto() {
   const backup = {};
   for (const tabela of BACKUP_TABELAS) {
-    const isRegistros = tabela === 'registros' || tabela === 'registros_fa';
+    const isRegistros = tabela === 'registros';
     const rows = await dbAllAsync(isRegistros ? `SELECT ${COLUNAS_REGISTRO_BACKUP} FROM ${tabela}` : `SELECT * FROM ${tabela}`);
     backup[tabela] = isRegistros
       ? rows.map(r => ({ ...r, fotoEnvelope: '[foto omitida do backup por e-mail — disponível no app]' }))

@@ -90,13 +90,16 @@
     var txt = el.querySelector('.rt-txt');
     if (estado === 'ao-vivo') {
       dot.style.background = 'var(--tone-success-line)';
+      dot.classList.add('rt-pulse');
       txt.style.color = 'var(--tone-success-ink)';
       txt.textContent = 'AO VIVO';
     } else if (estado === 'fallback') {
+      dot.classList.remove('rt-pulse');
       dot.style.background = 'var(--tone-warning-line)';
       txt.style.color = 'var(--tone-warning-ink)';
       txt.textContent = 'ATUALIZANDO A CADA 20s';
     } else {
+      dot.classList.remove('rt-pulse');
       dot.style.background = 'var(--tone-danger-line)';
       txt.style.color = 'var(--tone-danger-ink)';
       txt.textContent = 'RECONECTANDO...';

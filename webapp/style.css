@@ -1243,6 +1243,14 @@ input:focus, select:focus {
   box-shadow: var(--shadow-sm);
 }
 
+@keyframes rt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+.rt-dot.rt-pulse {
+  animation: rt-pulse 2s infinite;
+}
+
 /* ==========================================================================
    IDENTIDADE VISUAL DAS OPERAÇÕES (emoji + cor fixos por loja)
    ========================================================================== */
@@ -2841,8 +2849,8 @@ body.tema-fa .topbar {
   --green-light: #E0F2F1;
   --amber: #F57C00;
   --amber-light: #FFE0B2;
-  --red: #F44336;
-  --red-light: #FFEBEE;
+  --red: var(--tone-danger-line);
+  --red-light: var(--tone-danger-soft);
   --blue: #1E62C9;
   --blue-light: #EBF5FF;
   --radius: 12px;

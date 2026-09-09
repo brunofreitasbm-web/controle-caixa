@@ -164,37 +164,16 @@ let USERS = [
   { nome: "Janine", role: "consultora" },
   { nome: "Estheffany", role: "consultora" },
   { nome: "Sabrina", role: "consultora" },
-  { nome: "Alice", role: "consultora_fa" },
-  { nome: "Alessandra", role: "consultora_fa" },
   { nome: "Isabella", role: "owner" },
   { nome: "Bruno", role: "owner" },
 ];
 
 const TABS_POR_ROLE = {
-  // "hoje" só para consultora: é o resumo de UMA loja (a dela), não faz
-  // sentido para quem acompanha várias (Líder de Operações usa "meta-hora-hora"
-  // com o seletor de loja; ver QUICK_MENU_POR_ROLE mais abaixo).
   consultora: ["hoje", "registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
   consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
-  consultora_fa: ["faca-amigos", "avisos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "faca-amigos", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "avisos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "avisos", "configuracoes"],
 };
 
-// Menu rápido (grade de atalhos no topo da sidebar + barra inferior mobile),
-// curado por perfil — diferente de TABS_POR_ROLE, que continua controlando a
-// sidebar completa. `faSubtab`, quando presente, pula direto para a sub-aba
-// certa dentro de "faca-amigos" (mesmo padrão dos botões tab-btn-fa-*).
-//
-// A ORDEM importa duas vezes. Na grade da sidebar ela é só leitura; na barra
-// inferior ela decide o que cabe, porque só os primeiros itens viram destino
-// fixo e o resto vai para "Mais". Por isso cada lista começa pelo destino que
-// o perfil abre primeiro no dia — a mesma ordem do design mobile publicado:
-// operador entra na meta do dia, líder no hora a hora, owner no painel.
-//
-// `curto` é o rótulo da barra inferior. A grade da sidebar continua com
-// `label` inteiro: lá há largura para "Metas Hora a Hora", aqui não — em
-// 390px de tela um destino tem ~78px e o rótulo longo virava reticências,
-// que não distinguem "Conferência NF-e" de "Conferência de estoque".
 const QUICK_MENU_POR_ROLE = {
   consultora: [
     { tab: "hoje", icon: "fa-bullseye", label: "Hoje", curto: "Hoje" },
@@ -215,22 +194,11 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "historico", icon: "fa-receipt", label: "Histórico", curto: "Histórico" },
     { tab: "importacoes", icon: "fa-file-import", label: "Importações", curto: "Importar" },
   ],
-  consultora_fa: [
-    { tab: "faca-amigos", faSubtab: "fa-registro", icon: "fa-heart", label: "Registrar Envelope", curto: "Envelope" },
-    { tab: "faca-amigos", faSubtab: "fa-meta", icon: "fa-bullseye", label: "Meta & Bonificação", curto: "Meta" },
-    { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
-  ],
   owner: [
-    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard CS", curto: "Painel" },
-    // "Envelopes" mira o Dashboard, não o Histórico: a gestão de retirada em
-    // lote (lista selecionável + "Marcar como retirados") mora dentro do
-    // Dashboard, embaixo dos cards por loja — "Histórico Completo" é outra
-    // tela, uma tabela de auditoria com filtro/busca/exportação que não tem
-    // equivalente no design mobile. scrollTo pula direto pra seção certa.
+    { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard", curto: "Painel" },
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
     { tab: "faturamento-nfe", icon: "fa-file-invoice-dollar", label: "Faturamento NFE", curto: "NFE" },
-    { tab: "faca-amigos", faSubtab: "fa-dashboard", icon: "fa-heart", label: "Dashboard FA", curto: "Faça Amigos" },
     { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
@@ -1799,31 +1767,15 @@ function iniciarModuloBase(moduloOpcional) {
 
   // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
   // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-faca-amigos", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
+  ["group-controle-caixa", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
     const group = document.getElementById(groupId);
     if (!group) return;
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
   });
 
-  // Reforço explícito: cada módulo é fechado, nunca mostra o grupo do outro
-  // negócio na sidebar, mesmo que algum tab-btn futuro volte a ser
-  // compartilhado entre os dois (caso do antigo Registro de Ponto, hoje
-  // exclusivo do Cacau Show — FaçaAmigos bate ponto em outro sistema).
-  if (moduloOpcional === "faca-amigos") {
-    document.getElementById("group-controle-caixa")?.classList.add("hidden");
-  } else if (moduloOpcional === "cacau-show") {
-    document.getElementById("group-faca-amigos")?.classList.add("hidden");
-  }
-
-  // Expande de cara o grupo do módulo em que a pessoa acabou de entrar — antes
-  // era preciso clicar no cabeçalho pra revelar as próprias funções do módulo
-  // ativo, um clique a mais toda vez que a página recarregava. Os demais
-  // grupos-acordeão (do outro negócio, se visível pro perfil) continuam
-  // recolhidos; "Insights IA" é atalho direto e não entra nesse controle.
   const GRUPO_POR_MODULO = {
     "cacau-show": "group-controle-caixa",
-    "faca-amigos": "group-faca-amigos",
     "rh-modulo": "group-rh-equipe",
   };
   const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
@@ -1836,10 +1788,6 @@ function iniciarModuloBase(moduloOpcional) {
     header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
   });
 
-  // Badges de pendências no menu: buscados aqui (e não só ao abrir a aba)
-  // pra que o operador veja o número piscando assim que entra no módulo.
-  if (tabsPermitidas.includes("aniversarios")) buscarContagemAniversariosPendentes();
-
   // Menu rápido (grade desktop + barra mobile), curado por perfil
   renderMenuRapido();
   document.getElementById("bottom-nav").classList.remove("hidden");
@@ -1849,9 +1797,6 @@ function iniciarModuloBase(moduloOpcional) {
   if (currentUser.role === "owner" && moduloOpcional) {
     if (moduloOpcional === "cacau-show") {
       ativarTab("dashboard");
-    } else if (moduloOpcional === "faca-amigos") {
-      faSubTabAtiva = "fa-dashboard";
-      ativarTab("faca-amigos");
     } else if (moduloOpcional === "rh-modulo") {
       ativarTab("rh-modulo");
     }
@@ -5545,45 +5490,52 @@ document.getElementById("modal-confirmar").addEventListener("click", async () =>
     autorizadoPor: null
   };
 
-  for (const rawId of targets) {
-    const idStr = String(rawId);
-    if (isFA) {
-      await atualizarRegistroFAAPI(rawId, updates);
-      const r = registrosFA.find(x => String(x.id) === idStr);
-      if (r) {
-        r.status = "retirado";
-        r.dataRetirada = dataRetirada;
-        r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+  setLoading("modal-confirmar", true);
+  try {
+    for (const rawId of targets) {
+      const idStr = String(rawId);
+      if (isFA) {
+        await atualizarRegistroFAAPI(rawId, updates);
+        const r = registrosFA.find(x => String(x.id) === idStr);
+        if (r) {
+          r.status = "retirado";
+          r.dataRetirada = dataRetirada;
+          r.retiradoPor = responsavel;
+          r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+        }
+        selecionadosFAPendentes.delete(idStr);
+        selecionadosFAPendentes.delete(rawId);
+      } else {
+        await atualizarRegistroAPI(rawId, updates);
+        const r = registros.find(x => String(x.id) === idStr);
+        if (r) {
+          r.status = "retirado";
+          r.dataRetirada = dataRetirada;
+          r.retiradoPor = responsavel;
+          r.confirmadoPorApp = currentUser ? currentUser.nome : "";
+          r.autorizadoPor = null;
+        }
+        selecionadosPendentes.delete(idStr);
+        selecionadosPendentes.delete(rawId);
       }
-      selecionadosFAPendentes.delete(idStr);
-      selecionadosFAPendentes.delete(rawId);
-    } else {
-      await atualizarRegistroAPI(rawId, updates);
-      const r = registros.find(x => String(x.id) === idStr);
-      if (r) {
-        r.status = "retirado";
-        r.dataRetirada = dataRetirada;
-        r.retiradoPor = responsavel;
-        r.confirmadoPorApp = currentUser ? currentUser.nome : "";
-        r.autorizadoPor = null;
-      }
-      selecionadosPendentes.delete(idStr);
-      selecionadosPendentes.delete(rawId);
     }
-  }
 
-  delete document.getElementById("modal-confirmar").dataset.faMode;
-  modalRetirada.classList.add("hidden");
-  retiradaAlvoId = null;
-  faRetiradaAlvoId = null;
+    delete document.getElementById("modal-confirmar").dataset.faMode;
+    modalRetirada.classList.add("hidden");
+    retiradaAlvoId = null;
+    faRetiradaAlvoId = null;
 
-  if (isFA) {
-    renderFaDashboard();
-    showToast(`${targets.length} retirada(s) FA confirmada(s) com sucesso!`, "sucesso");
-  } else {
-    renderDashboard();
-    showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
+    if (isFA) {
+      renderFaDashboard();
+      showToast(`${targets.length} retirada(s) FA confirmada(s) com sucesso!`, "sucesso");
+    } else {
+      renderDashboard();
+      showToast(`${targets.length} retirada(s) confirmada(s) com sucesso!`, "sucesso");
+    }
+  } catch (e) {
+    showModal(e.message || "Erro ao confirmar retirada. Verifique a conexão e tente novamente.", { icon: "⚠️", title: "Falha ao confirmar" });
+  } finally {
+    setLoading("modal-confirmar", false);
   }
 });
 

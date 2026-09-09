@@ -5,7 +5,7 @@ const http = require('http');
 
 process.env.DATABASE_URL = '';
 const { initDb, db } = require('../config/database');
-const posVisitaRouter = require('../routes/pos-visita');
+const caixaRouter = require('../routes/caixa');
 const nfeRouter = require('../routes/nfe');
 
 let server;
@@ -17,13 +17,13 @@ before(() => {
       setTimeout(() => {
         const app = express();
         app.use(express.json({ limit: '15mb' }));
-        app.use('/api/pos-visita', posVisitaRouter);
+        app.use('/api', caixaRouter);
         app.use('/api/nfe', nfeRouter);
 
         server = http.createServer(app);
         server.listen(0, '127.0.0.1', () => {
           const port = server.address().port;
-          baseUrl = `http://127.0.0.1:${port}/api/pos-visita`;
+          baseUrl = `http://127.0.0.1:${port}/api`;
           resolve();
         });
       }, 500);
@@ -60,61 +60,36 @@ async function request(path, options = {}) {
 }
 
 // --------------------------------------------------------------------------
-// 1. QA HOSTIL: Campos Vazios, Nulos e Em Branco
+// 1. QA HOSTIL: Listagem de Registros de Caixa
 // --------------------------------------------------------------------------
-test('QA Hostil #1 - Rejeição de body vazio / nulo / campos em branco', async () => {
-  // Teste marcar-enviada sem ID
-  const res1 = await request('/marcar-enviada', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({})
-  });
-  assert.equal(res1.status, 400);
-  assert.match(res1.body.error, /Campo "id" é obrigatório/i);
-
-  // Teste registrar indicação sem parâmetros obrigatórios
-  const res2 = await request('/indicacoes/registrar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ responsavel: '   ', telefone: '', amigoNome: '  ' })
-  });
-  assert.equal(res2.status, 400);
-  assert.match(res2.body.error, /Informe o nome e o WhatsApp/i);
+test('QA Hostil #1 - Leitura de registros de caixa via GET /registros', async () => {
+  const res = await request('/registros');
+  assert.equal(res.status, 200);
+  assert.ok(Array.isArray(res.body));
 });
 
 // --------------------------------------------------------------------------
-// 2. QA HOSTIL: Inputs Inválidos, Caracteres Especiais e Scripting (XSS)
+// 2. QA HOSTIL: Inputs Inválidos e Sanitização no Lançamento de Caixa
 // --------------------------------------------------------------------------
-test('QA Hostil #2 - Tratamento de sanitização e inputs maliciosos', async () => {
+test('QA Hostil #2 - Tratamento de sanitização e inserção de registro de caixa', async () => {
   const xssInput = "<script>alert('xss')</script>";
-  const telUnico = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
-  const res = await request('/indicacoes/registrar', {
+  const regId = `test_reg_${Date.now()}`;
+  const res = await request('/registros', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      responsavel: xssInput,
-      telefone: telUnico,
-      amigoNome: 'Amigo Teste XSS'
-    })
-  });
-  assert.equal(res.status, 200);
-  assert.equal(res.body.success, true);
-  assert.equal(res.body.responsavel, xssInput);
-});
-
-// --------------------------------------------------------------------------
-// 3. QA HOSTIL: Valores Extremos e Boundary Testing
-// --------------------------------------------------------------------------
-test('QA Hostil #3 - Suporte a strings extensas e números limites', async () => {
-  const nomeGigante = 'A'.repeat(5000);
-  const telUnico = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
-  const res = await request('/indicacoes/registrar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      responsavel: nomeGigante,
-      telefone: telUnico,
-      amigoNome: 'Amigo Teste Boundary'
+      id: regId,
+      consultor: xssInput,
+      loja: 'Marambaia',
+      tipoOperacao: 'Abertura',
+      dataOperacao: new Date().toISOString().split('T')[0],
+      fundoCaixa: 200,
+      valorEnvelope: 0,
+      valorFaturado: 0,
+      sangria: 0,
+      observacoes: 'Teste QA Hostil',
+      status: 'aguardando_retirada',
+      criadoEm: new Date().toISOString()
     })
   });
   assert.equal(res.status, 200);
@@ -122,86 +97,96 @@ test('QA Hostil #3 - Suporte a strings extensas e números limites', async () =>
 });
 
 // --------------------------------------------------------------------------
-// 4. QA HOSTIL: Cliques Repetidos e Disparos Simultâneos (Double-Submit)
+// 3. QA HOSTIL: Consulta de Foto Inexistente
 // --------------------------------------------------------------------------
-test('QA Hostil #4 - Concorrência e disparo simultâneo de requisições', async () => {
-  const telConcorrente = `119${Math.floor(10000000 + Math.random() * 90000000)}`;
-  
-  // Registrar amigo 1 e amigo 2 em paralelo
-  const p1 = request('/indicacoes/registrar', {
+test('QA Hostil #3 - Consulta de foto de registro inexistente retorna 404', async () => {
+  const res = await request('/registros/id_inexistente_99999/foto');
+  assert.equal(res.status, 404);
+  assert.match(res.body.error, /não encontrado/i);
+});
+
+// --------------------------------------------------------------------------
+// 4. QA HOSTIL: Disparos Simultâneos de Inserção de Registros (Concorrência)
+// --------------------------------------------------------------------------
+test('QA Hostil #4 - Concorrência e disparo simultâneo de requisições de caixa', async () => {
+  const p1 = request('/registros', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      responsavel: 'Carlos Santos',
-      telefone: telConcorrente,
-      amigoNome: 'Pedro Silva'
+      id: `conc_1_${Date.now()}`,
+      consultor: 'Ana Júlia',
+      loja: 'Marambaia',
+      tipoOperacao: 'Abertura',
+      dataOperacao: new Date().toISOString().split('T')[0],
+      fundoCaixa: 150
     })
   });
 
-  const p2 = request('/indicacoes/registrar', {
+  const p2 = request('/registros', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      responsavel: 'Carlos Santos',
-      telefone: telConcorrente,
-      amigoNome: 'Lucas Souza'
+      id: `conc_2_${Date.now()}`,
+      consultor: 'Vitória',
+      loja: 'Icoaraci',
+      tipoOperacao: 'Abertura',
+      dataOperacao: new Date().toISOString().split('T')[0],
+      fundoCaixa: 250
     })
   });
 
   const [r1, r2] = await Promise.all([p1, p2]);
-  // Ambos os disparos devem completar sem crash do servidor
   assert.ok([200, 409, 500].includes(r1.status));
   assert.ok([200, 409, 500].includes(r2.status));
 });
 
 // --------------------------------------------------------------------------
-// 5. QA HOSTIL: Validação de Autenticação / Token Secreto
+// 5. QA HOSTIL: Endpoint de Divergência de Fundo de Caixa
 // --------------------------------------------------------------------------
-test('QA Hostil #5 - Proteção de rotas com secret quando configurado', async () => {
-  process.env.POS_VISITA_IMPORT_SECRET = 'segredo_super_seguro';
-  
-  const resSemToken = await request('/importar-csv', {
+test('QA Hostil #5 - Divergência de fundo de caixa sem SMTP ativo responde sem crash', async () => {
+  const res = await request('/divergencia', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      loja: 'Marambaia',
+      consultor: 'Teste QA',
+      fundoAbertura: 200,
+      fundoUltimoFechamento: 250,
+      diferenca: -50
+    })
+  });
+  assert.equal(res.status, 200);
+});
+
+// --------------------------------------------------------------------------
+// 6. QA HOSTIL: Leitura de Logs de Auditoria
+// --------------------------------------------------------------------------
+test('QA Hostil #6 - Leitura e sanitização dos logs de caixa', async () => {
+  const res = await request('/registros');
+  assert.equal(res.status, 200);
+  assert.ok(Array.isArray(res.body));
+});
+
+// --------------------------------------------------------------------------
+// 7. QA HOSTIL: Rejeição de Atualização sem Campos
+// --------------------------------------------------------------------------
+test('QA Hostil #7 - Atualização de registro sem campos retorna 400', async () => {
+  const res = await request('/registros/some_id', {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({})
   });
-  assert.equal(resSemToken.status, 401);
-
-  delete process.env.POS_VISITA_IMPORT_SECRET;
+  assert.equal(res.status, 400);
 });
 
 // --------------------------------------------------------------------------
-// 6. QA HOSTIL: Operações Múltiplas e Concorrência de Leitura/Escrita
+// 8. QA HOSTIL: Deleção Não Autorizada
 // --------------------------------------------------------------------------
-test('QA Hostil #6 - Leitura e Atualização Concorrente de Indicações', async () => {
-  const res = await request('/indicacoes');
-  assert.equal(res.status, 200);
-  assert.ok(Array.isArray(res.body.registros));
-  assert.ok(res.body.resumo);
-});
-
-// --------------------------------------------------------------------------
-// 7. QA HOSTIL: Rejeição de IDs inexistentes para atualização
-// --------------------------------------------------------------------------
-test('QA Hostil #7 - Atualização de registro inexistente trata sem crash', async () => {
-  const res = await request('/indicacoes/atualizar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: 'id_que_nao_existe_12345', crianca: 'Maria' })
+test('QA Hostil #8 - Rejeição de deleção por usuário comum (Apenas Bruno autorizado)', async () => {
+  const res = await request('/registros/some_id?usuario=Operador', {
+    method: 'DELETE'
   });
-  assert.equal(res.status, 200);
-  assert.equal(res.body.success, true);
-});
-
-// --------------------------------------------------------------------------
-// 8. QA HOSTIL: Idempotência de Deletar Registro
-// --------------------------------------------------------------------------
-test('QA Hostil #8 - Deleção repetida de registro (Idempotência)', async () => {
-  const res1 = await request('/indicacoes/id_inexistente_del', { method: 'DELETE' });
-  assert.equal(res1.status, 200);
-
-  const res2 = await request('/indicacoes/id_inexistente_del', { method: 'DELETE' });
-  assert.equal(res2.status, 200);
+  assert.equal(res.status, 403);
 });
 
 // --------------------------------------------------------------------------
@@ -220,8 +205,7 @@ test('Refatoração #9 - Utilitário compartilhado normalizarTelefone', () => {
 // 10. MÓDULO NFE: Validação de Endpoints de Conferência de NFE
 // --------------------------------------------------------------------------
 test('Módulo NFE #10 - Cadastro e Validação de Status de NFE', async () => {
-  const port = server.address().port;
-  const nfeUrl = `http://127.0.0.1:${port}/api/nfe`;
+  const nfeUrl = `${baseUrl}/nfe`;
 
   // 1. Criar NFE
   const postRes = await fetch(nfeUrl, {

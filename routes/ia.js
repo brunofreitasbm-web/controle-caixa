@@ -59,30 +59,7 @@ router.get('/ia/briefing', async (req, res) => {
 // para escrever a mensagem e não deve trafegar até o provedor de IA.
 // --------------------------------------------------------------------------
 router.post('/ia/mensagem', async (req, res) => {
-  const { tipo, nomeResponsavel, nomeCrianca, idade, tempoTotalMinutos, jaContactadoAntes } = req.body || {};
-
-  if (!tipo || !['aniversario', 'pos-visita'].includes(tipo)) {
-    return res.status(400).json({ error: 'Campo "tipo" deve ser "aniversario" ou "pos-visita".' });
-  }
-  if (!nomeResponsavel || !nomeCrianca) {
-    return res.status(400).json({ error: 'Campos "nomeResponsavel" e "nomeCrianca" são obrigatórios.' });
-  }
-
-  try {
-    const mensagem = tipo === 'aniversario'
-      ? await mensagemAniversario({ nomeResponsavel, nomeCrianca, idade })
-      : await mensagemPosVisita({ nomeResponsavel, nomeCrianca, tempoTotalMinutos, jaContactadoAntes: !!jaContactadoAntes });
-
-    res.json({
-      mensagem,
-      fonte: mensagem ? 'ia' : 'fallback'
-    });
-  } catch (err) {
-    // Falhar aqui não pode travar o envio: devolve 200 com mensagem nula e o
-    // frontend segue com o template sorteado.
-    console.warn('[IA Mensagem] Caindo no fallback:', err.message);
-    res.json({ mensagem: null, fonte: 'fallback', motivo: err.message });
-  }
+  return res.json({ mensagem: null, fonte: "descontinuado" });
 });
 
 // --------------------------------------------------------------------------

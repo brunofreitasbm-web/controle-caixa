@@ -851,6 +851,33 @@ function initDb(onSuccess) {
 
       promise = promise.then(() => {
         return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN email TEXT', [], () => resolve());
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          const agora = new Date().toISOString();
+          db.run(
+            `INSERT INTO colaboradores (nome, role, email, criadoEm)
+             VALUES ('Isabella', 'owner', 'isabella.vgoncalves@gmail.com', ?)
+             ON CONFLICT(nome) DO UPDATE SET role = 'owner', email = 'isabella.vgoncalves@gmail.com'`,
+            [agora],
+            () => {
+              db.run(
+                `INSERT INTO colaboradores (nome, role, email, criadoEm)
+                 VALUES ('Bruno', 'owner', 'brunofreitasbm@gmail.com', ?)
+                 ON CONFLICT(nome) DO UPDATE SET role = 'owner', email = 'brunofreitasbm@gmail.com'`,
+                [agora],
+                () => resolve()
+              );
+            }
+          );
+        });
+      });
+
+      promise = promise.then(() => {
+        return new Promise(resolve => {
           db.run('ALTER TABLE ponto_registros ADD COLUMN operacao TEXT', [], () => resolve());
         });
       });
