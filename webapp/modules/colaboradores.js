@@ -28,8 +28,8 @@ async function carregarColaboradores() {
             localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             console.log(`Permissão de ${currentUser.nome} atualizada para ${currentUser.role}`);
             // Recarrega permissões na interface
-            if (typeof iniciarModuloBase === "function") {
-              iniciarModuloBase();
+            if (typeof iniciarApp === "function") {
+              iniciarApp();
             }
           }
           if (userDb) {

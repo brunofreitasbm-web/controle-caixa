@@ -171,7 +171,12 @@ let USERS = [
 const TABS_POR_ROLE = {
   consultora: ["hoje", "registro", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
   consultora_dashboard: ["registro", "dashboard", "historico", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "avisos", "configuracoes"],
+  // "controle-ponto" entrou aqui junto com o fim dos módulos de topo: o Owner
+  // alcançava o Ponto pelo card "Controle de Ponto" da tela de seleção, que
+  // liberava a aba independente de TABS_POR_ROLE. Sem esse card, a permissão
+  // precisa estar na lista do perfil — é ele quem usa o painel admin do Ponto
+  // (Resumo/Atestado/Relatório).
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
 };
 
 const QUICK_MENU_POR_ROLE = {
@@ -1550,43 +1555,19 @@ function entrarNoApp() {
     carregarSolicitacoesRetiradaPendentes();
   }
 
-  // Exibir botão de trocar módulo para todos os perfis permitidos
-  const btnTopbar = document.getElementById("btn-topbar-trocar-modulo");
-  if (btnTopbar) btnTopbar.classList.remove("hidden");
-
-  ajustarCardsModulos();
-
-  let ultimoModulo = localStorage.getItem("ultimoModulo_" + currentUser.nome);
-
-  // Deep link de notificação push (ex.: "?modulo=cacau-show&tab=faturamento-nfe")
-  // manda no módulo a abrir, sobrepondo o último módulo usado — senão a pessoa
-  // cai no módulo em que estava antes (ex.: FaçaAmigos) e a aba pedida nem
-  // existe ali. O parâmetro "tab" em si é lido dentro de iniciarModuloBase.
-  const moduloDeepLink = new URLSearchParams(location.search).get("modulo");
-  if (moduloDeepLink) ultimoModulo = moduloDeepLink;
-
+  // Não há mais escolha de módulo depois do login: o sistema inteiro é o
+  // Cacau Show e os antigos módulos (RH, Ponto) viraram submenus da sidebar.
+  // O único desvio que ainda existe aqui é a escolha de UNIDADE, para quem
+  // opera mais de uma loja. O parâmetro "?modulo=" de deep links antigos é
+  // ignorado; só "?tab=" continua valendo (lido dentro de iniciarApp).
   const unidadesStr = currentUser && currentUser.unidade ? currentUser.unidade : "";
   const unidades = unidadesStr !== "all" && unidadesStr !== "" ? unidadesStr.split(",").map(u => u.trim()).filter(Boolean) : [];
 
   if (unidadesStr === "all" || unidades.length === 0) {
-    if (ultimoModulo) {
-      iniciarModuloBase(ultimoModulo);
-    } else {
-      document.getElementById("module-selection-overlay").classList.remove("hidden");
-      appEl.classList.add("hidden");
-    }
+    iniciarApp();
   } else if (unidades.length === 1) {
     const singleUnit = unidades[0];
-    // UNIDADES_FA e ALIASES
-    let isFA = false;
-    if (singleUnit.startsWith("fa-")) {
-      isFA = true;
-    } else {
-      const pNome = OPERACOES_ALIASES[singleUnit] || singleUnit;
-      if (UNIDADES_FA.includes(pNome)) isFA = true;
-    }
-    ultimoModulo = isFA ? "faca-amigos" : "cacau-show";
-    
+
     setTimeout(() => {
       const nomeLoja = OPERACOES_ALIASES[singleUnit] || singleUnit;
       
@@ -1603,7 +1584,7 @@ function entrarNoApp() {
       }
     }, 150);
 
-    iniciarModuloBase(ultimoModulo);
+    iniciarApp();
   } else {
     // Múltiplas unidades
     mostrarSelecaoUnidade(unidades);
@@ -1618,21 +1599,17 @@ function mostrarSelecaoUnidade(unidadesArray) {
 
   unidadesArray.forEach(unidadeRaw => {
     const nomeLoja = OPERACOES_ALIASES[unidadeRaw] || unidadeRaw;
-    const isFA = UNIDADES_FA.includes(nomeLoja) || unidadeRaw.startsWith("fa-");
-    const icone = isFA ? '<i class="fa-solid fa-heart" style="color: var(--coral);"></i>' : '<i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i>';
-    const sub = isFA ? 'FaçaAmigos' : 'Cacau Show';
 
     const btn = document.createElement("button");
-    btn.className = `module-card ${isFA ? 'card-faca' : 'card-cacau'}`;
+    btn.className = "module-card card-cacau";
     btn.innerHTML = `
-      <span class="mod-icon">${icone}</span>
+      <span class="mod-icon"><i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i></span>
       <h3>${nomeLoja}</h3>
-      <p>${sub}</p>
+      <p>Cacau Show</p>
     `;
     btn.onclick = () => {
       overlay.classList.add("hidden");
-      const modulo = isFA ? "faca-amigos" : "cacau-show";
-      
+
       setTimeout(() => {
         const selectLoja = document.getElementById("loja");
         if (selectLoja) {
@@ -1647,7 +1624,7 @@ function mostrarSelecaoUnidade(unidadesArray) {
         }
       }, 150);
 
-      iniciarModuloBase(modulo);
+      iniciarApp();
     };
     container.appendChild(btn);
   });
@@ -1655,94 +1632,18 @@ function mostrarSelecaoUnidade(unidadesArray) {
   overlay.classList.remove("hidden");
 }
 
-function ajustarCardsModulos() {
-  const btnCacau = document.getElementById("btn-mod-cacau");
-  const btnFaca = document.getElementById("btn-mod-faca");
-  const btnRh = document.getElementById("btn-mod-rh");
-  const btnPonto = document.getElementById("btn-mod-ponto");
-
-  const role = currentUser.role;
-
-  if (btnCacau) btnCacau.classList.toggle("hidden", !(role === "owner" || role === "consultora" || role === "consultora_dashboard"));
-  if (btnFaca) btnFaca.classList.toggle("hidden", !(role === "owner" || role === "consultora_fa"));
-  if (btnRh) btnRh.classList.toggle("hidden", !(role === "owner"));
-  // Registro de Ponto do FaçaAmigos é feito por outro sistema — o módulo
-  // aqui é exclusivo do Cacau Show, não aparece para consultora_fa.
-  if (btnPonto) btnPonto.classList.toggle("hidden", role === "consultora_fa");
-
-  // Troca rápida Cacau Show/Faça Amigos: só o Owner opera os dois negócios
-  // no mesmo dia, então só ele ganha o atalho de 1 clique na topbar. Os
-  // demais perfis continuam usando "Trocar Módulo" (tela cheia de seleção).
-  const ownerSwitch = document.getElementById("owner-module-switch");
-  const btnTopbarTrocarModulo = document.getElementById("btn-topbar-trocar-modulo");
-  if (ownerSwitch) ownerSwitch.classList.toggle("hidden", role !== "owner");
-  if (btnTopbarTrocarModulo) btnTopbarTrocarModulo.classList.toggle("hidden", role === "owner");
-}
-
-function iniciarModuloBase(moduloOpcional) {
-  document.getElementById("module-selection-overlay").classList.add("hidden");
+// Entrada única do app depois do login. Não recebe mais "módulo": o sistema
+// inteiro é o Cacau Show, e o que antes era escolha de módulo (Cacau Show /
+// RH / Ponto) virou submenu da sidebar. Quem decide o que a pessoa enxerga
+// é só o perfil, via TABS_POR_ROLE — sem nenhum filtro por módulo por cima.
+// Também é chamada sem argumento para recarregar permissões quando o role
+// muda no servidor (ver carregarColaboradores()).
+function iniciarApp() {
   appEl.classList.remove("hidden");
 
   document.getElementById("user-badge").textContent = currentUser.nome;
 
-  // Quando chamado sem argumento (ex.: recarregar permissões depois que o role
-  // muda no servidor, ver carregarColaboradores()), reaproveita o último módulo
-  // ativo em vez de cair no bloco `else` abaixo — sem isso, o filtro de
-  // Cacau Show/FaçaAmigos/RH/Ponto era pulado por completo e a lista bruta de
-  // TABS_POR_ROLE (que mistura os módulos) vazava direto pra sidebar.
-  if (!moduloOpcional) {
-    moduloOpcional = localStorage.getItem("ultimoModulo_" + currentUser.nome) || moduloOpcional;
-  }
-
-  // Guarda-costas contra "ultimoModulo" salvo antes desta regra existir: uma
-  // consultora_fa não entra no módulo de Ponto (Cacau Show only) mesmo que
-  // tenha ficado gravado no localStorage dela de uma sessão antiga.
-  if (moduloOpcional === "controle-ponto" && currentUser.role === "consultora_fa") {
-    moduloOpcional = "faca-amigos";
-  }
-
-  // Guarda contra "ultimoModulo" salvo no localStorage como "fluxo-caixa" antes
-  // deste módulo ser removido: sem isso, nenhum dos ramos abaixo bate e a
-  // sidebar cai na lista crua e sem filtro de TABS_POR_ROLE (ver histórico do
-  // mesmo problema em webapp/sw.js, causado por uma remoção anterior).
-  if (moduloOpcional === "fluxo-caixa") {
-    moduloOpcional = currentUser.role === "consultora_fa" ? "faca-amigos" : "cacau-show";
-  }
-
-  let tabsPermitidas = [...TABS_POR_ROLE[currentUser.role]];
-
-  if (moduloOpcional) {
-    localStorage.setItem("ultimoModulo_" + currentUser.nome, moduloOpcional);
-    if (moduloOpcional === "cacau-show") {
-      // controle-ponto continua liberado aqui: virou item normal de menu para
-      // consultora/consultora_dashboard, não é mais exclusivo do módulo à parte.
-      // Precisa excluir TODOS os itens exclusivos do FaçaAmigos (não só
-      // "faca-amigos" em si) — "pos-visita"/"aniversarios" também estão na
-      // lista bruta de TABS_POR_ROLE.owner e vazavam pra dentro do módulo
-      // Cacau Show antes desta correção.
-      const TABS_EXCLUSIVOS_FA = ["faca-amigos", "aniversarios"];
-      tabsPermitidas = TABS_POR_ROLE[currentUser.role].filter(tab => tab !== "rh-modulo" && !TABS_EXCLUSIVOS_FA.includes(tab));
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    } else if (moduloOpcional === "faca-amigos") {
-      // Sem "controle-ponto" aqui: Registro de Ponto do FaçaAmigos é feito por
-      // outro sistema, o módulo de Ponto deste app é exclusivo do Cacau Show.
-      tabsPermitidas = ["faca-amigos", "aniversarios", "avisos", "configuracoes"];
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    } else if (moduloOpcional === "rh-modulo") {
-      tabsPermitidas = ["rh-modulo", "colaboradores", "avisos", "configuracoes"];
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    } else if (moduloOpcional === "controle-ponto") {
-      tabsPermitidas = ["controle-ponto", "avisos", "configuracoes"];
-      document.getElementById("btn-trocar-modulo").classList.remove("hidden");
-    }
-  } else {
-    document.getElementById("btn-trocar-modulo").classList.add("hidden");
-  }
-
-  // Realça na topbar (Owner) qual dos dois módulos está ativo agora.
-  document.querySelectorAll(".module-switch-btn").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.modulo === moduloOpcional);
-  });
+  const tabsPermitidas = [...(TABS_POR_ROLE[currentUser.role] || [])];
 
   // Os passo a passo de importação são material de apoio de quem opera a
   // extração no Cacau Digital: Líder de Operações (consultora_dashboard) e
@@ -1765,27 +1666,13 @@ function iniciarModuloBase(moduloOpcional) {
     btn.classList.toggle("hidden", !permitido);
   });
 
-  // Atualizar visibilidade dos grupos do menu lateral: cada grupo some se
-  // nenhuma de suas abas estiver liberada para o perfil atual.
-  ["group-controle-caixa", "group-rh-equipe", "group-configuracoes"].forEach(groupId => {
-    const group = document.getElementById(groupId);
-    if (!group) return;
+  // Visibilidade dos submenus (acordeões) da sidebar: um módulo some inteiro
+  // se nenhuma das suas telas estiver liberada para o perfil atual. Percorre
+  // todos os .sidebar-group em vez de uma lista fixa de ids, pra um submenu
+  // novo no HTML já entrar na regra sem precisar ser registrado aqui.
+  document.querySelectorAll(".sidebar-group").forEach(group => {
     const temTabVisivel = Array.from(group.querySelectorAll(".tab-btn")).some(btn => !btn.classList.contains("hidden"));
     group.classList.toggle("hidden", !temTabVisivel);
-  });
-
-  const GRUPO_POR_MODULO = {
-    "cacau-show": "group-controle-caixa",
-    "rh-modulo": "group-rh-equipe",
-  };
-  const grupoDoModuloAtivo = GRUPO_POR_MODULO[moduloOpcional];
-  document.querySelectorAll(".sidebar-group").forEach(group => {
-    const header = group.querySelector(".sidebar-group-header");
-    if (!header || header.classList.contains("is-direct")) return;
-    const deveExpandir = group.id === grupoDoModuloAtivo;
-    group.classList.toggle("expanded", deveExpandir);
-    group.classList.toggle("collapsed", !deveExpandir);
-    header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
   });
 
   // Menu rápido (grade desktop + barra mobile), curado por perfil
@@ -1793,21 +1680,21 @@ function iniciarModuloBase(moduloOpcional) {
   document.getElementById("bottom-nav").classList.remove("hidden");
   document.getElementById("fab-novo-registro").classList.remove("hidden");
 
-  // Configura a aba padrão após selecionar módulo (Owners)
-  if (currentUser.role === "owner" && moduloOpcional) {
-    if (moduloOpcional === "cacau-show") {
-      ativarTab("dashboard");
-    } else if (moduloOpcional === "rh-modulo") {
-      ativarTab("rh-modulo");
-    }
+  // Aba de entrada: Owner cai no Dashboard; os demais perfis ficam onde
+  // estavam, desde que a aba continue permitida. ativarTab() cuida de abrir
+  // o submenu que contém a aba escolhida.
+  if (currentUser.role === "owner") {
+    ativarTab("dashboard");
   } else {
     const ativa = document.querySelector(".tab-panel.active")?.id.replace("tab-", "");
     if (!tabsPermitidas.includes(ativa)) {
       ativarTab(tabsPermitidas[0]);
+    } else {
+      ativarTab(ativa, true);
     }
   }
 
-  // Deep link vindo de notificação push (ex.: "?modulo=cacau-show&tab=faturamento-nfe"
+  // Deep link vindo de notificação push (ex.: "?tab=faturamento-nfe"
   // — ver config/notifications.js, enviarNotificacaoNfeFaturamentoNovosProdutos):
   // sobrepõe a aba padrão definida acima, sempre que a aba pedida for permitida
   // para o perfil logado. Roda uma única vez por carregamento — a URL é limpa
@@ -1973,51 +1860,6 @@ function verificarInventarioMensalNotificacao() {
   }, 600);
 }
 
-// Botões de Seleção de Módulo
-const btnModCacau = document.getElementById("btn-mod-cacau");
-if (btnModCacau) {
-  btnModCacau.addEventListener("click", () => {
-    iniciarModuloBase("cacau-show");
-  });
-}
-
-const btnModFaca = document.getElementById("btn-mod-faca");
-if (btnModFaca) {
-  btnModFaca.addEventListener("click", () => {
-    iniciarModuloBase("faca-amigos");
-  });
-}
-
-const btnModRh = document.getElementById("btn-mod-rh");
-if (btnModRh) {
-  btnModRh.addEventListener("click", () => {
-    iniciarModuloBase("rh-modulo");
-  });
-}
-
-const btnModPonto = document.getElementById("btn-mod-ponto");
-if (btnModPonto) {
-  btnModPonto.addEventListener("click", () => {
-    iniciarModuloBase("controle-ponto");
-    ativarTab("controle-ponto");
-  });
-}
-
-// Troca rápida de módulo (Owner): pula a tela cheia de seleção e vai direto,
-// num clique só, pro módulo escolhido.
-document.querySelectorAll(".module-switch-btn").forEach(btn => {
-  btn.addEventListener("click", () => iniciarModuloBase(btn.dataset.modulo));
-});
-
-// Botão Trocar Módulo na Topbar / Sidebar
-const trocarModuloHandler = () => {
-  appEl.classList.add("hidden");
-  document.getElementById("module-selection-overlay").classList.remove("hidden");
-};
-document.getElementById("btn-trocar-modulo").addEventListener("click", trocarModuloHandler);
-const btnTopbarTrocar = document.getElementById("btn-topbar-trocar-modulo");
-if (btnTopbarTrocar) btnTopbarTrocar.addEventListener("click", trocarModuloHandler);
-
 function esconderBootSplash() {
   const splash = document.getElementById("boot-splash");
   if (!splash) return;
@@ -2119,6 +1961,20 @@ function ativarTab(tabName, skipHistory = false) {
     activeBtn.setAttribute("aria-selected", "true");
     activeBtn.setAttribute("tabindex", "0");
   }
+
+  // Abre o submenu (acordeão) que contém a aba ativa e recolhe os demais. Com
+  // os módulos virando submenus do Cacau Show, as telas ficaram espalhadas por
+  // vários grupos: sem isso, quem chega por um atalho (menu rápido, barra
+  // inferior, deep link) via o item ativo escondido dentro de um grupo fechado.
+  const grupoDaAba = activeBtn ? activeBtn.closest(".sidebar-group") : null;
+  document.querySelectorAll(".sidebar-group").forEach(group => {
+    const header = group.querySelector(".sidebar-group-header");
+    if (!header || header.classList.contains("is-direct")) return;
+    const deveExpandir = group === grupoDaAba;
+    group.classList.toggle("expanded", deveExpandir);
+    group.classList.toggle("collapsed", !deveExpandir);
+    header.setAttribute("aria-expanded", deveExpandir ? "true" : "false");
+  });
 
   // Cabeçalhos que são atalho direto (grupo de item único, ex.: Insights IA)
   // também precisam refletir a aba aberta.
@@ -11956,7 +11812,7 @@ function inicializarPontoDb() {
 // Código de unidade do cadastro (colaboradores.unidade, ver
 // renderizarColaboradores) → nome de operação usado no seletor de Ponto.
 // Só lojas Cacau Show: o módulo de Ponto é exclusivo do Cacau Show (FaçaAmigos
-// bate ponto em outro sistema, ver ajustarCardsModulos/iniciarModuloBase).
+// bate ponto em outro sistema).
 // "all" (Líder/Owner) e códigos não mapeados voltam null de propósito: quem
 // não tem uma unidade fixa cai no fallback antigo (loja Cacau Show ativa).
 function unidadeCadastroParaOperacaoPonto(codigo) {

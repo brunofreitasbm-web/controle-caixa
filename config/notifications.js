@@ -684,7 +684,7 @@ function enviarNotificacaoNfeFaturamentoNovosProdutos(loja, numeroNfe, produtosN
     const resto = qtd > 3 ? ` e mais ${qtd - 3}` : '';
     const title = `🆕 ${qtd} produto${qtd > 1 ? 's' : ''} novo${qtd > 1 ? 's' : ''} na NF-e — ${loja || 'loja'}`;
     const body = `NF-e nº ${numeroNfe || '-'}: ${nomes}${resto}. Toque para ver o faturamento completo.`;
-    enviarNotificacaoPushInterno(title, body, null, 'nfe_faturamento_novo_produto', '/?modulo=cacau-show&tab=faturamento-nfe');
+    enviarNotificacaoPushInterno(title, body, null, 'nfe_faturamento_novo_produto', '/?tab=faturamento-nfe');
   });
 }
 

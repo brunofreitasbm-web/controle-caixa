@@ -160,7 +160,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=4">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=4">
 <link rel="manifest" href="manifest.json?v=3">
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
 <!-- Tailwind CSS estático compilado localmente -->
 <link rel="stylesheet" href="tailwind-compiled.css">
 <!-- FontAwesome Icons -->
@@ -286,34 +286,10 @@
   </div>
 </div>
 
-<!-- ===================== OVERLAY: SELEÇÃO DE MÓDULOS (OWNERS) ===================== -->
-<div id="module-selection-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="module-title" aria-modal="true">
-  <div class="modal module-modal">
-    <h2 id="module-title">Escolha o Módulo</h2>
-    <p class="modal-sub">Qual operação você deseja acessar agora?</p>
-    
-    <div class="module-cards">
-      <button id="btn-mod-cacau" class="module-card card-cacau">
-        <span class="mod-icon"><i class="fa-solid fa-cookie-bite" style="color: var(--gold);"></i></span>
-        <h3>HuB Operações</h3>
-        <p>Financeiro e Logístico</p>
-      </button>
-      
-      <button id="btn-mod-rh" class="module-card card-rh">
-        <span class="mod-icon"><i class="fa-solid fa-users-gear" style="color: #6366f1;"></i></span>
-        <h3>Módulo RH</h3>
-        <p>Gestão de Pessoas e Perfil DISC</p>
-      </button>
-
-      <button id="btn-mod-ponto" class="module-card card-ponto">
-        <span class="mod-icon"><i class="fa-solid fa-clock-rotate-left" style="color: #2563EB;"></i></span>
-        <h3>Controle de Ponto</h3>
-        <p>Marcação de jornada e espelho de ponto</p>
-      </button>
-
-    </div>
-  </div>
-</div>
+<!-- Não há mais overlay de seleção de módulo: depois do login a pessoa cai
+     direto no Cacau Show. Os antigos módulos (RH, Ponto) são submenus da
+     sidebar. A seleção de UNIDADE (abaixo) continua, é outra coisa: define
+     em qual loja a pessoa está operando. -->
 
 <!-- ===================== OVERLAY: SELEÇÃO DE UNIDADES ===================== -->
 <div id="unit-selection-overlay" class="modal-overlay hidden" role="dialog" aria-labelledby="unit-title" aria-modal="true">
@@ -362,33 +338,37 @@
   <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
 
 
-  <!-- Left Sidebar -->
+  <!-- ===================== SIDEBAR =====================
+       Hierarquia de layout: o SISTEMA INTEIRO e o Cacau Show (marca no
+       cabecalho + tema). O que antes eram "modulos" irmaos, escolhidos numa
+       tela de selecao antes de entrar no app, virou submenu: cada acordeao
+       aqui e um modulo do Cacau Show e cada tab-btn e uma tela dele.
+       Tres niveis, sempre: Cacau Show > Modulo (grupo) > Tela (aba). -->
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
       <div class="brand">
         <div class="logo-dot"></div>
         <div>
-          <h1 style="font-size: 1.05rem; line-height: 1.2;">HuB Operações</h1>
-          <span class="subtitle">Cacau Show & Faça Amigos</span>
+          <h1 style="font-size: 1.05rem; line-height: 1.2;">Cacau Show</h1>
+          <span class="subtitle">HuB Operações · Marambaia, Icoaraci e Mário Covas</span>
         </div>
       </div>
       <button id="btn-close-sidebar" class="sidebar-close-btn" aria-label="Fechar menu">✕</button>
     </div>
 
     <!-- Menu rápido: gerado por renderMenuRapido() a partir de QUICK_MENU_POR_ROLE,
-         curado por perfil (Owner vê 3 itens de consolidação; Colaborador/Líder
-         veem as rotinas operacionais; Faça Amigos vê seus próprios atalhos). -->
+         curado por perfil (Owner vê itens de consolidação; Colaborador/Líder
+         veem as rotinas operacionais). -->
     <div class="quick-actions-grid" id="quick-actions-grid"></div>
 
     <nav class="sidebar-nav" role="tablist" aria-label="Navegação principal">
 
-      <!-- ===================== ITENS AVULSOS (fora dos módulos) =====================
-           "Hoje" e "Avisos" ficam FORA de group-controle-caixa/group-faca-amigos
-           de propósito: aqueles dois grupos são escondidos inteiros quando o
-           Owner troca de módulo (ver JS, "moduloOpcional"), e Avisos precisa
-           continuar alcançável nos dois. A visibilidade de cada botão aqui
-           ainda é decidida do mesmo jeito que qualquer outro tab-btn — por
-           tabsPermitidas, calculado a partir de TABS_POR_ROLE. -->
+      <!-- ===================== NÍVEL 1: ITENS DIRETOS =====================
+           "Hoje" e "Avisos" são transversais a todos os módulos — não moram
+           em nenhum acordeão de propósito, para continuarem a um clique de
+           qualquer tela. A visibilidade de cada botão é decidida do mesmo
+           jeito que a de qualquer outro tab-btn: por tabsPermitidas,
+           calculado a partir de TABS_POR_ROLE. -->
       <div class="sidebar-group-content" style="margin-bottom: 8px;">
         <button class="tab-btn hidden" id="tab-btn-hoje" data-tab="hoje" role="tab" aria-selected="false" aria-controls="tab-hoje" data-tip="Meta do dia, check-in da hora e pendências — resumo rápido pra quem opera uma loja só">
           <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
@@ -400,31 +380,31 @@
         </button>
       </div>
 
-      <!-- ===================== SEÇÃO: OPERAÇÕES =====================
-           Cacau Show e FaçaAmigos são módulos independentes entre si:
-           cada um vive no seu próprio accordion aqui dentro, com suas
-           próprias telas. Nenhum item de um aparece dentro do outro. -->
-      <h3 class="sidebar-section-title">Operações</h3>
+      <!-- ===================== NÍVEL 2: MÓDULOS (SUBMENUS) =====================
+           Cada acordeão abaixo é um submenu do Cacau Show. Um por vez fica
+           aberto (acordeão, ver app.js) e o que contém a aba ativa é
+           expandido automaticamente. -->
+      <h3 class="sidebar-section-title">Módulos</h3>
 
-      <!-- ---------- Cacau Show ---------- -->
-      <div class="sidebar-group collapsed" id="group-controle-caixa">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Registro, dashboard, histórico e demais rotinas do Cacau Show">
+      <!-- ---------- Módulo: Caixa &amp; Vendas ---------- -->
+      <div class="sidebar-group collapsed" id="group-caixa-vendas">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Envelopes de caixa, dashboards de faturamento e meta do dia">
           <span class="group-icon"><i class="fa-solid fa-coins"></i></span>
-          <span class="group-title">Cacau Show</span>
+          <span class="group-title">Caixa &amp; Vendas</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
           <button class="tab-btn active" data-tab="registro" role="tab" aria-selected="true" aria-controls="tab-registro" id="tablink-registro" data-tip="Lança um novo envelope de abertura ou fechamento de caixa">
             <span class="tab-icon"><i class="fa-solid fa-file-signature"></i></span>
-            <span class="tab-text">Caixa (Registrar Envelope)</span>
+            <span class="tab-text">Registrar Envelope</span>
           </button>
           <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tablink-dashboard" data-tip="Visão geral dos envelopes em aberto e já retirados">
             <span class="tab-icon"><i class="fa-solid fa-chart-column"></i></span>
-            <span class="tab-text">Dashboard CS</span>
+            <span class="tab-text">Dashboard</span>
           </button>
           <button class="tab-btn" data-tab="mensal" role="tab" aria-selected="false" aria-controls="tab-mensal" id="tablink-mensal" data-tip="Totais e gráficos de faturamento consolidados por mês">
             <span class="tab-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="tab-text">↳ Dashboard Mensal</span>
+            <span class="tab-text">Dashboard Mensal</span>
           </button>
           <button class="tab-btn" data-tab="historico" role="tab" aria-selected="false" aria-controls="tab-historico" id="tablink-historico" data-tip="Lista completa de envelopes registrados, com filtros">
             <span class="tab-icon"><i class="fa-solid fa-receipt"></i></span>
@@ -434,14 +414,17 @@
             <span class="tab-icon"><i class="fa-solid fa-bullseye"></i></span>
             <span class="tab-text">Meta Hora a Hora</span>
           </button>
-          <button class="tab-btn" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
-            <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
-            <span class="tab-text">Registro de Ponto</span>
-          </button>
-          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes" data-tip="Central de upload de arquivos (XML de NF-e, PDF de títulos, metas diárias)">
-            <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
-            <span class="tab-text">Importações</span>
-          </button>
+        </div>
+      </div>
+
+      <!-- ---------- Módulo: Estoque &amp; Notas ---------- -->
+      <div class="sidebar-group collapsed" id="group-estoque-notas">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Recebimento de mercadoria, inventário e notas fiscais">
+          <span class="group-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="group-title">Estoque &amp; Notas</span>
+          <span class="group-chevron">▼</span>
+        </button>
+        <div class="sidebar-group-content">
           <button class="tab-btn" id="tab-btn-conferencia-nfe" data-tab="conferencia-nfe" role="tab" aria-selected="false" aria-controls="tab-conferencia-nfe" data-tip="Confere os produtos recebidos contra a nota fiscal (XML)">
             <span class="tab-icon"><i class="fa-solid fa-truck"></i></span>
             <span class="tab-text">Conferência de Notas</span>
@@ -450,46 +433,43 @@
             <span class="tab-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span class="tab-text">Inventários</span>
           </button>
+          <button class="tab-btn hidden" id="tab-btn-importacoes" data-tab="importacoes" role="tab" aria-selected="false" aria-controls="tab-importacoes" data-tip="Central de upload de arquivos (XML de NF-e, PDF de títulos, metas diárias)">
+            <span class="tab-icon"><i class="fa-solid fa-file-import"></i></span>
+            <span class="tab-text">Importações</span>
+          </button>
           <button class="tab-btn hidden" id="tab-btn-faturamento-nfe" data-tab="faturamento-nfe" role="tab" aria-selected="false" aria-controls="tab-faturamento-nfe" data-tip="Loja, produtos, valores, vencimento e campanha de cada NF-e importada (Exclusivo Owner)">
             <span class="tab-icon"><i class="fa-solid fa-file-invoice-dollar" style="color: #10b981;"></i></span>
             <span class="tab-text">Faturamento NFE (Owner)</span>
           </button>
+          <button class="tab-btn hidden" id="tab-btn-nfe-owner" data-tab="nfe-owner" role="tab" aria-selected="false" aria-controls="tab-nfe-owner" data-tip="Conferência de Notas Fiscais e validação fiscal de faturamento (Exclusivo Owner)">
+            <span class="tab-icon"><i class="fa-solid fa-receipt" style="color: #10b981;"></i></span>
+            <span class="tab-text">Conferência NFE (Owner)</span>
+          </button>
         </div>
       </div>
 
-
-
-      <!-- ===================== SEÇÃO: RH & EQUIPE =====================
-           Itens de gestão de pessoas — hoje só o Owner enxerga (ver
-           TABS_POR_ROLE): não são exclusivos de Cacau Show nem de FaçaAmigos,
-           por isso ficam num grupo à parte em vez de dentro de um dos dois
-           módulos de operação. Antes viviam soltos na nav (fora de qualquer
-           acordeão), o que os deixava sem cabeçalho/contexto. -->
-      <h3 class="sidebar-section-title">RH &amp; Equipe</h3>
+      <!-- ---------- Módulo: RH &amp; Equipe ----------
+           Ponto, cadastro de colaboradores e DISC. Era um "módulo" de topo,
+           acessível só pela tela de seleção; agora é mais um submenu do
+           Cacau Show, como os demais. -->
       <div class="sidebar-group collapsed" id="group-rh-equipe">
-        <button class="sidebar-group-header" aria-expanded="false" data-tip="Perfis comportamentais (DISC) e cadastro de colaboradores dos dois módulos">
+        <button class="sidebar-group-header" aria-expanded="false" data-tip="Ponto, cadastro de colaboradores e perfis comportamentais (DISC)">
           <span class="group-icon"><i class="fa-solid fa-user-group" style="color: #6366f1;"></i></span>
           <span class="group-title">RH &amp; Equipe</span>
           <span class="group-chevron">▼</span>
         </button>
         <div class="sidebar-group-content">
-          <!-- DISC: perfis comportamentais dos colaboradores, dos dois módulos -->
-          <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
-            <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
-            <span class="tab-text">DISC</span>
+          <button class="tab-btn" data-tab="controle-ponto" role="tab" aria-selected="false" aria-controls="tab-controle-ponto" data-tip="Bater ponto e conferir histórico de jornada">
+            <span class="tab-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <span class="tab-text">Registro de Ponto</span>
           </button>
-
-          <!-- Colaboradores: cadastro, PIN, unidade e perfil — promovido para o
-               menu principal (antes só acessível via Configurações). -->
           <button class="tab-btn hidden" id="tab-btn-colaboradores" data-tab="colaboradores" role="tab" aria-selected="false" aria-controls="tab-colaboradores" data-tip="Dados pessoais, PIN de acesso, unidade e perfil de cada colaborador(a)">
             <span class="tab-icon"><i class="fa-solid fa-users-gear"></i></span>
             <span class="tab-text">Colaboradores</span>
           </button>
-
-          <!-- Conferência NFE (Exclusivo Owner) -->
-          <button class="tab-btn hidden" id="tab-btn-nfe-owner" data-tab="nfe-owner" role="tab" aria-selected="false" aria-controls="tab-nfe-owner" data-tip="Conferência de Notas Fiscais e validação fiscal de faturamento (Exclusivo Owner)">
-            <span class="tab-icon"><i class="fa-solid fa-receipt" style="color: #10b981;"></i></span>
-            <span class="tab-text">Conferência NFE (Owner)</span>
+          <button class="tab-btn hidden" id="tab-btn-rh-modulo" data-tab="rh-modulo" role="tab" aria-selected="false" aria-controls="tab-rh-modulo" data-tip="Perfis comportamentais (DISC) dos colaboradores">
+            <span class="tab-icon"><i class="fa-solid fa-users-viewfinder" style="color: #6366f1;"></i></span>
+            <span class="tab-text">DISC</span>
           </button>
         </div>
       </div>
@@ -500,7 +480,6 @@
         <span id="user-badge" class="user-badge" aria-label="Usuário logado"></span>
       </div>
       <div class="sidebar-actions">
-        <button id="btn-trocar-modulo" class="btn-mini-outline hidden" data-tip="Volta pra tela de escolha de módulo (Cacau Show / FaçaAmigos / RH / Ponto)">Módulos</button>
         <button id="btn-trocar-pin" class="btn-mini-outline" data-tip="Altera o PIN de acesso do usuário atual">Trocar PIN</button>
         <button id="btn-trocar-usuario" class="btn-mini-outline" data-tip="Sai da conta atual e volta pra tela de login">Trocar usuário</button>
       </div>
@@ -518,22 +497,12 @@
         </button>
         <div class="topbar-brand-mobile">
           <div class="logo-dot logo-dot-sm"></div>
-          <span class="topbar-title">HuB Operações</span>
+          <span class="topbar-title">Cacau Show</span>
         </div>
       </div>
       <div class="user-box">
-        <!-- Troca rápida de módulo: só para Owner (é quem opera os dois
-             negócios no mesmo dia). Demais perfis continuam usando o botão
-             "Trocar Módulo" abaixo, que abre a tela cheia de seleção. -->
-        <div id="owner-module-switch" class="owner-module-switch hidden" role="group" aria-label="Troca rápida de módulo">
-          <button type="button" id="btn-switch-cacau" class="module-switch-btn" data-modulo="cacau-show" title="Ir direto para o módulo Cacau Show">
-            <i class="fa-solid fa-cookie-bite"></i><span>Cacau Show</span>
-          </button>
-          <button type="button" id="btn-switch-faca" class="module-switch-btn" data-modulo="faca-amigos" title="Ir direto para o módulo Faça Amigos">
-            <i class="fa-solid fa-heart"></i><span>Faça Amigos</span>
-          </button>
-        </div>
-        <button id="btn-topbar-trocar-modulo" class="btn-mini-outline hidden" title="Alternar entre Cacau Show e Faça Amigos"><i class="fa-solid fa-right-left"></i> Trocar Módulo</button>
+        <!-- Não existe mais troca de módulo na topbar: o sistema inteiro é o
+             Cacau Show e os antigos módulos viraram submenus da sidebar. -->
         <button id="btn-instalar-pwa" class="btn-mini-outline hidden" title="Instalar aplicativo no dispositivo"><i class="fa-solid fa-mobile-screen-button"></i> Instalar App</button>
         <div class="notifications-wrapper">
           <button id="btn-notificacoes" class="icon-btn hidden" title="Notificações" aria-label="Notificações"><i class="fa-solid fa-bell"></i><span id="notificacao-badge" class="notificacao-badge hidden">0</span></button>
@@ -3760,6 +3729,6 @@
 <script src="modules/auditoria.js?v=1"></script>
 <script src="modules/meta-hora-hora.js?v=1"></script>
 <script src="modules/colaboradores.js?v=1"></script>
-<script src="app.js?v=58"></script>
+<script src="app.js?v=59"></script>
 </body>
 </html>

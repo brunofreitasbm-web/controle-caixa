@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v71'; // v71: remoção completa do FaçaAmigos
+const CACHE_NAME = 'ponto-pwa-v72'; // v72: hierarquia Cacau Show > módulos (submenus) > telas; fim da tela de seleção de módulo
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
