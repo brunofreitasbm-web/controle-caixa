@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarEmailGenerico, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
@@ -19,68 +18,6 @@ function escapeHtml(str) {
   if (typeof str !== 'string') return String(str || '');
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-
-// Notificação de divergência de fundo de caixa (#8 Reconciliação)
-router.post('/divergencia', (req, res) => {
-  const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body;
-
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) {
-    return res.json({ sent: false, reason: 'SMTP não configurado' });
-  }
-
-  notificacoesEventosAtivas((ativas) => {
-   if (!ativas) {
-     console.log('Notificação de divergência ignorada: notificações de eventos estão desativadas em Configurações.');
-     return res.json({ sent: false, reason: 'Notificações desativadas' });
-   }
-
-   obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
-    if (targetEmails.length === 0) {
-      console.log('Notificação de divergência por e-mail ignorada (nenhum destinatário configurado).');
-      return res.json({ sent: false, reason: 'Nenhum destinatário configurado' });
-    }
-
-    const lojaSafe = escapeHtml(loja);
-    const consultorSafe = escapeHtml(consultor);
-    const fundoAberturaNum = Number(fundoAbertura) || 0;
-    const fundoUltimoFechamentoNum = Number(fundoUltimoFechamento) || 0;
-    const diferencaNum = Number(diferenca) || 0;
-    
-    const transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(process.env.SMTP_PORT) || 465,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user, pass }
-    });
-    
-    transporter.sendMail({
-      from: `"Controle de Caixa Cacau Show" <${user}>`,
-      to: targetEmails.join(', '),
-      subject: `⚠️ Divergência de Fundo de Caixa - Loja ${lojaSafe}`,
-      html: `<p>Olá,</p>
-<p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${lojaSafe}</strong>.</p>
-<h3>Detalhes:</h3>
-<ul>
-  <li><strong>Consultor(a):</strong> ${consultorSafe}</li>
-  <li><strong>Fundo de caixa na abertura:</strong> R$ ${fundoAberturaNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Fundo no último fechamento:</strong> R$ ${fundoUltimoFechamentoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Diferença:</strong> R$ ${Math.abs(diferencaNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${diferencaNum > 0 ? 'a mais' : 'a menos'})</li>
-</ul>
-<p>Por favor, investigue a divergência.</p>
-<p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
-    }, (error) => {
-      if (error) {
-        console.error('Erro ao enviar e-mail de divergência:', error);
-        return res.json({ sent: false, reason: error.message });
-      }
-      res.json({ sent: true });
-    });
-   });
-  });
-});
 
 // Colunas da listagem sem fotoEnvelope (base64, pode pesar MBs por linha) —
 // a lista só precisa saber SE existe foto (temFoto); a imagem em si é
