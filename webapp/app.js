@@ -829,39 +829,15 @@ async function inicializarDados() {
 
       // Carregar lista de colaboradores cadastrados
       await carregarColaboradores();
-
-      // Carregar NF-es do servidor — merge com dados locais
-      try {
-        const resNfs = await fetch(`${API_BASE}/nfs`);
-        if (resNfs.ok) {
-          const dataNfs = await resNfs.json();
-          const serverNfs = {};
-          dataNfs.forEach(nf => {
-            if (!nf || !nf.numero) return;
-            if (!nf.info) nf.info = {};
-            if (nf.info.rawEmissaoDate) {
-              nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
-            }
-            if (Array.isArray(nf.products)) {
-              nf.products.forEach(p => {
-                if (p.validade) p.validade = new Date(p.validade);
-              });
-            }
-            const store = nf.info.targetStore ? nf.info.targetStore.toString() : '9175';
-            nf.info.targetStore = store;
-            const key = `${nf.numero.toString().trim()}_${store}`;
-            serverNfs[key] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
-          });
-          importedNfs = mesclarNfs(importedNfs, serverNfs);
-          localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-        }
-      } catch (nfErr) {
-        console.error("Erro ao sincronizar NF-es do servidor:", nfErr);
-      }
     } catch (e) {
       console.error("Erro ao puxar dados da API:", e);
       carregarDadosLocais();
     }
+
+    // Fora do try/catch acima de propósito (ver comentário em
+    // sincronizarNfsDoServidor): mesmo que registros/pins/config tenham
+    // falhado, a conferência de NF-e ainda tenta sincronizar sozinha.
+    await sincronizarNfsDoServidor();
   } else {
     carregarDadosLocais();
     carregarColaboradores();
@@ -926,6 +902,48 @@ function mesclarNfs(locais, doServidor) {
   });
 
   return resultado;
+}
+
+/**
+ * Busca as NF-es no servidor e mescla com o que já está no aparelho.
+ *
+ * Isolada do restante da sincronização inicial de propósito: numa rede móvel
+ * instável, um fetch falho de registros/pins/config não pode derrubar junto
+ * a conferência de notas fiscais — antes disso acontecer, esse bloco vivia
+ * dentro do mesmo try/catch de inicializarDados() e uma falha ali (comum em
+ * 3G/4G, rara em wifi de desktop) fazia a tela de conferência no celular
+ * ficar sem notas ou com contagens desatualizadas, mesmo com o servidor no
+ * ar. Reaproveitada tanto na carga inicial quanto na reconexão do tempo real.
+ */
+async function sincronizarNfsDoServidor() {
+  try {
+    const resNfs = await fetch(`${API_BASE}/nfs`);
+    if (!resNfs.ok) return false;
+    const dataNfs = await resNfs.json();
+    const serverNfs = {};
+    dataNfs.forEach(nf => {
+      if (!nf || !nf.numero) return;
+      if (!nf.info) nf.info = {};
+      if (nf.info.rawEmissaoDate) {
+        nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
+      }
+      if (Array.isArray(nf.products)) {
+        nf.products.forEach(p => {
+          if (p.validade) p.validade = new Date(p.validade);
+        });
+      }
+      const store = nf.info.targetStore ? nf.info.targetStore.toString() : '9175';
+      nf.info.targetStore = store;
+      const key = `${nf.numero.toString().trim()}_${store}`;
+      serverNfs[key] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
+    });
+    importedNfs = mesclarNfs(importedNfs, serverNfs);
+    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
+    return true;
+  } catch (nfErr) {
+    console.error("Erro ao sincronizar NF-es do servidor:", nfErr);
+    return false;
+  }
 }
 
 const STORAGE_KEY_FA = "cacaushow_controle_caixa_fa_v1";
@@ -14977,30 +14995,11 @@ function _rtNfConcluida(payload, quem) {
 
 async function _rtRecarregarNfs() {
   if (!API_ONLINE) return;
-  try {
-    const res = await fetch(`${API_BASE}/nfs`);
-    if (!res.ok) return;
-    const dados = await res.json();
-    const doServidor = {};
-    dados.forEach(nf => {
-      if (!nf || !nf.numero) return;
-      if (!nf.info) nf.info = {};
-      if (nf.info.rawEmissaoDate) nf.info.rawEmissaoDate = new Date(nf.info.rawEmissaoDate);
-      if (Array.isArray(nf.products)) {
-        nf.products.forEach(p => { if (p.validade) p.validade = new Date(p.validade); });
-      }
-      const loja = nf.info.targetStore ? nf.info.targetStore.toString() : "9175";
-      nf.info.targetStore = loja;
-      doServidor[`${nf.numero.toString().trim()}_${loja}`] = { info: nf.info, products: Array.isArray(nf.products) ? nf.products : [] };
-    });
-    importedNfs = mesclarNfs(importedNfs, doServidor);
-    localStorage.setItem("cacaushow_imported_nfs", JSON.stringify(importedNfs));
-    if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
-    if (_rtTabAtual === "faturamento-nfe" && typeof renderFaturamentoNfe === "function") renderFaturamentoNfe();
-    _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
-  } catch (e) {
-    console.error("[RT] Falha ao recarregar NF-es:", e);
-  }
+  const ok = await sincronizarNfsDoServidor();
+  if (!ok) return;
+  if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
+  if (_rtTabAtual === "faturamento-nfe" && typeof renderFaturamentoNfe === "function") renderFaturamentoNfe();
+  _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
 }
 
 // ---------------------------------------------------------------- REGISTROS
