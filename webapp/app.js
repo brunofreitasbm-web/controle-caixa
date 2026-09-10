@@ -176,7 +176,7 @@ const TABS_POR_ROLE = {
   // liberava a aba independente de TABS_POR_ROLE. Sem esse card, a permissão
   // precisa estar na lista do perfil — é ele quem usa o painel admin do Ponto
   // (Resumo/Atestado/Relatório).
-  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
+  owner: ["registro", "dashboard", "historico", "mensal", "auditoria", "colaboradores", "rh-modulo", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "meta-hora-hora", "controle-ponto", "avisos", "configuracoes"],
 };
 
 const QUICK_MENU_POR_ROLE = {
@@ -203,7 +203,6 @@ const QUICK_MENU_POR_ROLE = {
     { tab: "dashboard", icon: "fa-chart-column", label: "Dashboard", curto: "Painel" },
     { tab: "dashboard", scrollTo: "envelopes-pendentes-secao", icon: "fa-box-open", label: "Envelopes (retirada)", curto: "Envelopes" },
     { tab: "inventario-estoque", icon: "fa-barcode", label: "Inventário", curto: "Inventário" },
-    { tab: "faturamento-nfe", icon: "fa-file-invoice-dollar", label: "Faturamento NFE", curto: "NFE" },
     { tab: "meta-hora-hora", icon: "fa-clock", label: "Metas Hora a Hora", curto: "Hora a hora" },
     { tab: "avisos", icon: "fa-bell", label: "Avisos", curto: "Avisos" },
   ],
@@ -230,7 +229,6 @@ const DEFAULT_NOTIF_PREFS = {
   "abertura": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
   "visao-19h": { colab: false, lider: true, owner: true, colab_ch: "email", lider_ch: "push", owner_ch: "push" },
   "nfe-pendente": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" },
-  "nfe-faturamento-novo-produto": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
 // Chave mestra de notificações de eventos (email + push). Default: ativada.
@@ -1713,8 +1711,7 @@ function iniciarApp() {
     }
   }
 
-  // Deep link vindo de notificação push (ex.: "?tab=faturamento-nfe"
-  // — ver config/notifications.js, enviarNotificacaoNfeFaturamentoNovosProdutos):
+  // Deep link vindo de notificação push (ex.: "?tab=nfe-owner"):
   // sobrepõe a aba padrão definida acima, sempre que a aba pedida for permitida
   // para o perfil logado. Roda uma única vez por carregamento — a URL é limpa
   // em seguida para não reabrir a mesma aba a cada F5.
@@ -1957,7 +1954,7 @@ function ativarTab(tabName, skipHistory = false) {
   currentActiveTab = tabName;
 
   // Painel que começa como "hidden" e deve voltar a ser hidden quando inativo
-  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "faturamento-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "hoje", "avisos"];
+  const PANELS_HIDDEN_BY_DEFAULT = ["auditoria", "faca-amigos", "importacoes", "importar-meta", "conferencia-nfe", "inventario-estoque", "rh-modulo", "meta-hora-hora", "configuracoes", "controle-ponto", "aniversarios", "hoje", "avisos"];
 
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.remove("active");
@@ -2034,7 +2031,6 @@ function ativarTab(tabName, skipHistory = false) {
   if (tabName === "rh-modulo") renderRhModulo();
   if (tabName === "importar-meta") renderImportarMeta();
   if (tabName === "conferencia-nfe") renderNfCardsGallery();
-  if (tabName === "faturamento-nfe") renderFaturamentoNfe();
   if (tabName === "controle-ponto") inicializarAbaPonto();
   if (tabName === "meta-hora-hora") inicializarMetaHoraHora();
   // "hoje" lê os mesmos dados de "meta-hora-hora" (ver atualizarPainelHoje,
@@ -6844,8 +6840,7 @@ function renderNotificationTable() {
     "fechamento": { title: "Fechamento de Caixa", desc: "Aviso a cada fechamento de caixa registrado (Cacau Show e Faça Amigos)" },
     "abertura": { title: "Abertura de Unidade", desc: "Alerta em tempo real a cada abertura de caixa realizada" },
     "visao-19h": { title: "Visão Geral das 19h", desc: "Resumo diário automático às 19:00 com meta, faturamento e sessões/locações" },
-    "nfe-pendente": { title: "Nova NFE a Conferir (Owner)", desc: "Aviso exclusivo para Owner de nova nota fiscal pendente de conferência" },
-    "nfe-faturamento-novo-produto": { title: "Produto Novo no Faturamento NFE (Owner)", desc: "Aviso exclusivo para Owner quando um upload de NF-e traz produto nunca visto antes" }
+    "nfe-pendente": { title: "Nova NFE a Conferir (Owner)", desc: "Aviso exclusivo para Owner de nova nota fiscal pendente de conferência" }
   };
 
   const prefs = loadNotificationPrefs();
@@ -14998,7 +14993,6 @@ async function _rtRecarregarNfs() {
   const ok = await sincronizarNfsDoServidor();
   if (!ok) return;
   if (typeof renderNfCardsGallery === "function") renderNfCardsGallery();
-  if (_rtTabAtual === "faturamento-nfe" && typeof renderFaturamentoNfe === "function") renderFaturamentoNfe();
   _rtQuandoLivre("nf-inventory-tbody", () => renderNfTable());
 }
 
@@ -15382,134 +15376,8 @@ async function excluirNfe(id) {
 window.atualizarStatusNfe = atualizarStatusNfe;
 window.excluirNfe = excluirNfe;
 
-// ==========================================================================
-// MÓDULO: FATURAMENTO NFE (EXCLUSIVO OWNER)
-// --------------------------------------------------------------------------
-// Apresentação amigável, por NF-e, de tudo que já é extraído do XML no
-// upload (ver parseXmlNfe): loja/operação, produtos com descrição/quantidade/
-// valor, vencimento (duplicatas do boleto) e campanha (marcador PDI_CLI nas
-// Informações Complementares). Não duplica dado nenhum — lê o mesmo
-// `importedNfs` que já alimenta a Conferência de Notas, só que sem o fluxo de
-// bipagem: aqui é somente leitura, pensado para o Owner olhar o faturamento
-// entrando pela notificação push de "produto novo" (ver config/notifications.js).
-// ==========================================================================
-
-function inicializarModuloFaturamentoNfe() {
-  const filtroLoja = document.getElementById("faturamento-nfe-filtro-loja");
-  const busca = document.getElementById("faturamento-nfe-busca");
-  if (filtroLoja) filtroLoja.addEventListener("change", renderFaturamentoNfe);
-  if (busca) busca.addEventListener("input", renderFaturamentoNfe);
-}
-
-function renderFaturamentoNfe() {
-  const container = document.getElementById("faturamento-nfe-lista");
-  if (!container) return;
-
-  const filtroLoja = document.getElementById("faturamento-nfe-filtro-loja")?.value || "";
-  const busca = (document.getElementById("faturamento-nfe-busca")?.value || "").trim().toLowerCase();
-
-  // Códigos de produto já apresentados nesta tela alguma vez neste aparelho —
-  // usado só para o selo visual "Novo" no card (o push em si é decidido no
-  // servidor, na hora do upload, e vale para todo mundo).
-  const VISTOS_KEY = "cacaushow_faturamento_nfe_codigos_vistos";
-  let vistosSet;
-  try { vistosSet = new Set(JSON.parse(localStorage.getItem(VISTOS_KEY) || "[]")); } catch (e) { vistosSet = new Set(); }
-
-  const entradas = Object.keys(importedNfs || {})
-    .map(chave => ({ chave, nf: importedNfs[chave] }))
-    .filter(({ nf }) => nf && nf.info)
-    .filter(({ nf }) => !filtroLoja || String(nf.info.targetStore) === filtroLoja)
-    .filter(({ nf, chave }) => {
-      if (!busca) return true;
-      const alvo = `${nf.info.numero || ""} ${chave} ${nf.info.campanha || ""} ${(nf.products || []).map(p => p.description).join(" ")}`.toLowerCase();
-      return alvo.includes(busca);
-    })
-    .sort((a, b) => new Date(b.nf.info.rawEmissaoDate || 0) - new Date(a.nf.info.rawEmissaoDate || 0));
-
-  const totalFaturado = entradas.reduce((soma, { nf }) => soma + (Number(nf.info.valorTotal) || 0), 0);
-  const elTotal = document.getElementById("faturamento-nfe-stat-total");
-  const elQtd = document.getElementById("faturamento-nfe-stat-qtd");
-  if (elTotal) elTotal.textContent = `R$ ${totalFaturado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-  if (elQtd) elQtd.textContent = entradas.length;
-
-  if (entradas.length === 0) {
-    container.innerHTML = `<div class="col-span-full py-12 text-center text-ink-muted text-sm glass-card rounded-2xl border border-subtle">
-      <i class="fa-solid fa-file-invoice-dollar text-4xl mb-3 block text-ink-strong"></i>
-      Nenhuma NF-e encontrada. Assim que um XML for importado em Importações, o faturamento aparece aqui automaticamente.
-    </div>`;
-    return;
-  }
-
-  const codigosDesteRender = new Set();
-  const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-
-  container.innerHTML = entradas.map(({ nf }) => {
-    const info = nf.info || {};
-    const produtos = nf.products || [];
-    const lojaNome = getLojaNomePorCodigo(info.targetStore);
-
-    const vencimentosHtml = (info.duplicatas && info.duplicatas.length)
-      ? info.duplicatas.map(d => `<span class="px-2 py-1 rounded-lg bg-surface-2 border border-subtle text-[11px] font-bold text-ink-strong whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i>${d.vencimento || "-"} · ${fmtMoeda(d.valor)}</span>`).join("")
-      : `<span class="text-[11px] text-ink-muted">Vencimento não identificado na NF-e</span>`;
-
-    const produtosHtml = produtos.map(p => {
-      const codigo = p.code ? String(p.code) : "";
-      const isNovo = codigo && !vistosSet.has(codigo);
-      if (codigo) codigosDesteRender.add(codigo);
-      const valorItem = p.valorTotal !== undefined ? Number(p.valorTotal) : 0;
-      const valorUnitItem = p.valorUnitario !== undefined ? Number(p.valorUnitario) : 0;
-      return `
-        <div class="flex items-center justify-between gap-3 py-2 border-b border-subtle last:border-0">
-          <div class="min-w-0 flex-1">
-            <div class="text-xs font-bold text-ink truncate flex items-center gap-1.5">
-              <span class="truncate">${p.description || "Produto"}</span>
-              ${isNovo ? '<span class="shrink-0 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-extrabold uppercase">Novo</span>' : ""}
-            </div>
-            <div class="text-[11px] text-ink-muted">Cód. ${p.code || "-"}${valorUnitItem ? " · " + fmtMoeda(valorUnitItem) + "/un" : ""}</div>
-          </div>
-          <div class="text-right shrink-0">
-            <div class="text-xs font-extrabold text-ink">${Number(p.nfQty || 0)} un</div>
-            <div class="text-[11px] text-ink-muted">${fmtMoeda(valorItem)}</div>
-          </div>
-        </div>`;
-    }).join("");
-
-    return `
-      <div class="glass-card rounded-2xl border border-subtle bg-surface-2 shadow-md overflow-hidden">
-        <div class="p-4 flex flex-wrap items-start justify-between gap-2 border-b border-subtle bg-surface-1">
-          <div class="min-w-0">
-            <div class="text-xs font-extrabold text-ink-strong flex items-center gap-1.5 flex-wrap">
-              <i class="fa-solid fa-store text-ink-muted"></i> ${lojaNome}
-              <span class="text-ink-muted font-normal">· NF-e nº ${info.numero || "-"}</span>
-            </div>
-            <div class="text-[11px] text-ink-muted mt-0.5">Emissão: ${info.emissao || "-"} · Fornecedor: ${info.fornecedor || "-"}</div>
-          </div>
-          <div class="text-right shrink-0">
-            <div class="text-sm font-extrabold text-ink">${fmtMoeda(info.valorTotal)}</div>
-            ${info.campanha
-              ? `<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-accent-soft text-ink-strong text-[10px] font-extrabold uppercase">🎯 ${info.campanha}</span>`
-              : '<span class="inline-block mt-1 text-[10px] text-ink-muted">Sem campanha identificada</span>'}
-          </div>
-        </div>
-        <div class="p-4 flex flex-wrap gap-2 border-b border-subtle">${vencimentosHtml}</div>
-        <details class="group">
-          <summary class="cursor-pointer px-4 py-2.5 text-xs font-bold text-ink-muted flex items-center justify-between hover:bg-surface-1 transition list-none">
-            <span><i class="fa-solid fa-boxes-stacked mr-1.5"></i>${produtos.length} produto${produtos.length === 1 ? "" : "s"}</span>
-            <i class="fa-solid fa-chevron-down text-[10px] transition group-open:rotate-180"></i>
-          </summary>
-          <div class="px-4 pb-3">${produtosHtml || '<div class="text-xs text-ink-muted py-2">Sem produtos nesta nota.</div>'}</div>
-        </details>
-      </div>`;
-  }).join("");
-
-  try {
-    localStorage.setItem(VISTOS_KEY, JSON.stringify([...new Set([...vistosSet, ...codigosDesteRender])]));
-  } catch (e) {}
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   inicializarModuloNfeOwner();
-  inicializarModuloFaturamentoNfe();
 });
 
 // Quando o canal não está disponível (rede que bloqueia conexão longa) ou
