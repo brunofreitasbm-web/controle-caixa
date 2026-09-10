@@ -3,7 +3,7 @@ const router = express.Router();
 const nodemailer = require('nodemailer');
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
@@ -124,6 +124,7 @@ router.get('/registros/:id/foto', (req, res) => {
 // Inserir registro
 router.post('/registros', (req, res) => {
   const r = req.body;
+  if (r.loja) r.loja = normalizarNomeLoja(r.loja);
   db.run(
     `INSERT INTO registros (
       id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,

@@ -194,18 +194,118 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
   });
 }
 
+function normalizarNomeLoja(loja) {
+  if (!loja || typeof loja !== 'string') return loja || '';
+  const s = loja.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (s.includes('marambaia') || s.includes('marumbaia') || s === '9175') return 'Marambaia';
+  if (s.includes('icoaraci') || s.includes('coraci') || s === '4304') return 'Icoaraci';
+  if (s.includes('mario covas') || s === '9201') return 'Mário Covas';
+  if (s.includes('grao para')) return 'Grão Pará';
+  if (s.includes('parqueshopping') || s.includes('parque shopping')) return 'ParqueShopping';
+  if (s.includes('parque circuito') || s.includes('parquecircuito')) return 'Parque Circuito';
+  return loja.trim();
+}
+
+let poolTransporter = null;
+let processandoFila = false;
+
+function getSmtpTransporter() {
+  if (poolTransporter) return poolTransporter;
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT) || 465;
+  const secure = process.env.SMTP_SECURE === 'true';
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) return null;
+
+  poolTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    rateLimit: 5,
+    auth: { user, pass }
+  });
+  return poolTransporter;
+}
+
+function processarFilaEmails() {
+  if (processandoFila) return;
+  processandoFila = true;
+
+  const transporter = getSmtpTransporter();
+  if (!transporter) {
+    processandoFila = false;
+    return;
+  }
+
+  db.all(
+    `SELECT * FROM email_queue WHERE status = 'pending' AND attempts < max_attempts ORDER BY created_at ASC LIMIT 10`,
+    [],
+    (err, rows) => {
+      if (err || !rows || rows.length === 0) {
+        processandoFila = false;
+        return;
+      }
+
+      let processados = 0;
+      const total = rows.length;
+
+      rows.forEach(item => {
+        const user = process.env.SMTP_USER;
+        const targetEmails = item.target_emails ? item.target_emails.split(',').map(e => e.trim()) : [];
+        const mailOptions = {
+          from: `"Controle de Caixa Cacau Show" <${user}>`,
+          to: targetEmails.join(', '),
+          subject: item.subject,
+          text: item.body_text,
+          html: item.body_html || `<p>${(item.body_text || '').replace(/\n/g, '<br>')}</p>`
+        };
+
+        db.run(`UPDATE email_queue SET attempts = attempts + 1 WHERE id = ?`, [item.id], () => {
+          transporter.sendMail(mailOptions, (sendErr, info) => {
+            if (sendErr) {
+              const errMsg = sendErr.message || String(sendErr);
+              console.error(`Erro ao enviar e-mail da fila [${item.id}]:`, errMsg);
+              const statusAtual = item.attempts + 1 >= item.max_attempts ? 'failed' : 'pending';
+              db.run(
+                `UPDATE email_queue SET status = ?, last_error = ? WHERE id = ?`,
+                [statusAtual, errMsg, item.id]
+              );
+            } else {
+              console.log(`E-mail da fila [${item.id}] enviado com sucesso:`, info.response);
+              const agora = new Date().toISOString();
+              db.run(
+                `UPDATE email_queue SET status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?`,
+                [agora, item.id]
+              );
+            }
+
+            processados++;
+            if (processados >= total) {
+              processandoFila = false;
+            }
+          });
+        });
+      });
+    }
+  );
+}
+
+// Inicia verificação periódica da fila a cada 30 segundos
+setInterval(processarFilaEmails, 30000);
+
 // `attachments` segue o formato do nodemailer ([{ filename, content, encoding }]).
-// Retorna Promise para quem precisa saber se o envio deu certo (ex.: a rota de
-// folha de ponto responde ao Owner com sucesso/erro); os chamadores antigos que
-// ignoram o retorno continuam funcionando igual.
+// Enfileira na tabela email_queue e tenta o envio imediato via pool SMTP.
 function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml, attachments) {
   if (!targetEmails || targetEmails.length === 0) {
     return Promise.reject(new Error('Nenhum destinatário informado.'));
   }
 
   const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT) || 465;
-  const secure = process.env.SMTP_SECURE === 'true';
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -214,25 +314,52 @@ function enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml, attachme
     return Promise.reject(new Error('SMTP não configurado no servidor.'));
   }
 
-  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
-  const mailOptions = {
-    from: `"Controle de Caixa Cacau Show" <${user}>`,
-    to: targetEmails.join(', '),
-    subject,
-    text: bodyText,
-    html: bodyHtml || `<p>${bodyText.replace(/\n/g, '<br>')}</p>`
-  };
-  if (attachments && attachments.length) mailOptions.attachments = attachments;
+  const targetsStr = Array.isArray(targetEmails) ? targetEmails.join(', ') : String(targetEmails);
+  const queueId = 'eq_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const criadoEm = new Date().toISOString();
 
-  return new Promise((resolve, reject) => {
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Erro ao enviar e-mail de notificação:', error);
-        return reject(error);
+  return new Promise((resolve) => {
+    db.run(
+      `INSERT INTO email_queue (id, target_emails, subject, body_text, body_html, status, attempts, max_attempts, created_at)
+       VALUES (?, ?, ?, ?, ?, 'pending', 0, 5, ?)`,
+      [queueId, targetsStr, subject, bodyText || '', bodyHtml || '', criadoEm],
+      (err) => {
+        if (err) {
+          console.error('Erro ao enfileirar e-mail:', err);
+        }
+
+        const transporter = getSmtpTransporter();
+        if (!transporter) {
+          return resolve({ status: 'queued', queueId });
+        }
+
+        const mailOptions = {
+          from: `"Controle de Caixa Cacau Show" <${user}>`,
+          to: targetsStr,
+          subject,
+          text: bodyText,
+          html: bodyHtml || `<p>${(bodyText || '').replace(/\n/g, '<br>')}</p>`
+        };
+        if (attachments && attachments.length) mailOptions.attachments = attachments;
+
+        db.run(`UPDATE email_queue SET attempts = attempts + 1 WHERE id = ?`, [queueId], () => {
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              const errMsg = error.message || String(error);
+              console.error('Erro no envio direto de e-mail (permanecerá em fila para retentativa):', errMsg);
+              db.run(`UPDATE email_queue SET last_error = ? WHERE id = ?`, [errMsg, queueId], () => {
+                resolve({ status: 'queued', queueId, error: errMsg });
+              });
+              return;
+            }
+            console.log('E-mail de notificação enviado com sucesso:', info.response);
+            db.run(`UPDATE email_queue SET status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?`, [new Date().toISOString(), queueId], () => {
+              resolve(info);
+            });
+          });
+        });
       }
-      console.log('E-mail de notificação enviado com sucesso:', info.response);
-      resolve(info);
-    });
+    );
   });
 }
 
@@ -521,7 +648,8 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   });
 }
 
-function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau Show', fundoPrevisto = null, diferenca = 0) {
+function enviarNotificacaoAbertura(lojaRaw, consultor, fundoCaixa, sistema = 'Cacau Show', fundoPrevisto = null, diferenca = 0) {
+  const loja = normalizarNomeLoja(lojaRaw);
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) return;
     const fundoFmt = Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -583,7 +711,8 @@ function enviarNotificacaoAbertura(loja, consultor, fundoCaixa, sistema = 'Cacau
   });
 }
 
-function enviarNotificacaoFechamento(loja, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show', fundoCaixa = null, fotoEnvelope = null, observacoes = null) {
+function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show', fundoCaixa = null, fotoEnvelope = null, observacoes = null) {
+  const loja = normalizarNomeLoja(lojaRaw);
   notificacoesEventosAtivas(async (ativas) => {
     if (!ativas) return;
     const fatFmt = Number(valorFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -749,6 +878,8 @@ function enviarNotificacaoVisao19h() {
 }
 
 module.exports = {
+  normalizarNomeLoja,
+  processarFilaEmails,
   notificacoesEventosAtivas,
   obterEmailsDestinatarios,
   enviarEmailNotificacao,

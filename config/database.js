@@ -669,6 +669,19 @@ function initDb(onSuccess) {
           concluidoEm TEXT,
           notas TEXT
         )`,
+        `CREATE TABLE IF NOT EXISTS email_queue (
+          id TEXT PRIMARY KEY,
+          target_emails TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          body_text TEXT,
+          body_html TEXT,
+          status TEXT DEFAULT 'pending',
+          attempts INTEGER DEFAULT 0,
+          max_attempts INTEGER DEFAULT 5,
+          last_error TEXT,
+          created_at TEXT NOT NULL,
+          sent_at TEXT
+        )`,
       ];
 
       let promise = Promise.resolve();
