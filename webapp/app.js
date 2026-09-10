@@ -233,12 +233,13 @@ const DEFAULT_NOTIF_PREFS = {
   "nfe-faturamento-novo-produto": { colab: false, lider: false, owner: true, colab_ch: "email", lider_ch: "email", owner_ch: "push" }
 };
 const NOTIF_PREFS_KEY = "cacaushow_notif_prefs_v1";
-// Chave mestra de notificações de eventos (email + push). Default: desativada.
+// Chave mestra de notificações de eventos (email + push). Default: ativada.
 const NOTIF_MASTER_KEY = "cacaushow_notif_master_v1";
 
 function notifMasterFromValue(valor) {
-  const v = String(valor == null ? "" : valor).trim().toLowerCase();
-  return v === "1" || v === "true";
+  if (valor == null || valor === "") return true;
+  const v = String(valor).trim().toLowerCase();
+  return v !== "0" && v !== "false";
 }
 
 function loadNotifMasterEnabled() {

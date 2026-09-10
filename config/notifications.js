@@ -8,14 +8,16 @@ function escapeHtml(str) {
 }
 
 // Chave mestra de notificações de eventos (e-mail + push).
-// Enquanto não estiver explicitamente ativada em Configurações, nenhum alerta é enviado.
+// Por padrão as notificações de eventos ficam ATIVADAS a menos que desativadas ("0" ou "false").
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
 
 function notificacoesEventosAtivas(callback) {
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', [CHAVE_NOTIF_ATIVAS], (err, row) => {
-    if (err || !row || !row.valor) return callback(false);
+    if (err || !row || row.valor === undefined || row.valor === null || row.valor === '') {
+      return callback(true);
+    }
     const valor = String(row.valor).trim().toLowerCase();
-    callback(valor === '1' || valor === 'true');
+    callback(valor !== '0' && valor !== 'false');
   });
 }
 
