@@ -3013,20 +3013,10 @@ document.getElementById("form-registro").addEventListener("submit", async e => {
           `Divergência detectada! O fundo de caixa desta abertura (${formatBRL(fundoCaixa)}) difere do último fechamento de ${loja} (${formatBRL(ultimoFechamento.fundoCaixa)}). Diferença: ${formatBRL(Math.abs(diff))} (${diff > 0 ? 'a mais' : 'a menos'}).`,
           { icon: "⚠️", title: "Divergência de Fundo de Caixa", btnText: "Entendido" }
         );
-        // Notificar via email (silencioso)
-        if (API_ONLINE) {
-          fetch(`${API_BASE}/divergencia`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              loja,
-              consultor,
-              fundoAbertura: fundoCaixa,
-              fundoUltimoFechamento: ultimoFechamento.fundoCaixa,
-              diferenca: diff
-            })
-          }).catch(() => { });
-        }
+        // A notificação por email de divergência é disparada pelo servidor em
+        // POST /api/registros (com base no último Fechamento salvo no banco),
+        // não daqui — evita duplicar o email com dados possivelmente
+        // desatualizados no `registros` local do cliente.
       }
     }
   }
