@@ -33,8 +33,7 @@ const REGRAS_PADRAO_NOTIFICACAO = {
   abertura_unidade: { colab: false, lider: true, owner: true },
   visao_19h: { colab: false, lider: true, owner: true },
   fechamento_unidade: { colab: false, lider: true, owner: true },
-  nfe_pendente: { colab: false, lider: false, owner: true },
-  nfe_faturamento_novo_produto: { colab: false, lider: false, owner: true }
+  nfe_pendente: { colab: false, lider: false, owner: true }
 };
 
 // A tela de Configurações (webapp/app.js) grava as chaves com hífen
@@ -56,8 +55,7 @@ const ALIASES_TIPO_NOTIFICACAO = {
   abertura_unidade: ['abertura_unidade', 'abertura-unidade', 'abertura'],
   visao_19h: ['visao_19h', 'visao-19h'],
   fechamento_unidade: ['fechamento_unidade', 'fechamento-unidade', 'fechamento', 'fechamento_caixa'],
-  nfe_pendente: ['nfe_pendente', 'nfe-pendente'],
-  nfe_faturamento_novo_produto: ['nfe_faturamento_novo_produto', 'nfe-faturamento-novo-produto']
+  nfe_pendente: ['nfe_pendente', 'nfe-pendente']
 };
 
 function tipoCanonicoNotificacao(notificationType) {
@@ -801,24 +799,6 @@ function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
   });
 }
 
-// Faturamento de NF-e (tela exclusiva do Owner, extraída automaticamente de
-// cada XML importado): dispara quando o upload traz produto(s) com código
-// nunca visto em nenhuma NF-e anterior. `produtosNovos` é o array já filtrado
-// pelo chamador (routes/financeiro.js, POST /nfs) — este módulo só formata e
-// envia. O link do push leva direto para a aba nova de Faturamento NFE.
-function enviarNotificacaoNfeFaturamentoNovosProdutos(loja, numeroNfe, produtosNovos) {
-  if (!produtosNovos || produtosNovos.length === 0) return;
-  notificacoesEventosAtivas((ativas) => {
-    if (!ativas) return;
-    const qtd = produtosNovos.length;
-    const nomes = produtosNovos.slice(0, 3).map(p => p.description || p.code || 'Produto').join(', ');
-    const resto = qtd > 3 ? ` e mais ${qtd - 3}` : '';
-    const title = `🆕 ${qtd} produto${qtd > 1 ? 's' : ''} novo${qtd > 1 ? 's' : ''} na NF-e — ${loja || 'loja'}`;
-    const body = `NF-e nº ${numeroNfe || '-'}: ${nomes}${resto}. Toque para ver o faturamento completo.`;
-    enviarNotificacaoPushInterno(title, body, null, 'nfe_faturamento_novo_produto', '/?tab=faturamento-nfe');
-  });
-}
-
 function enviarNotificacaoVisao19h() {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) return;
@@ -889,7 +869,6 @@ module.exports = {
   enviarNotificacaoAbertura,
   enviarNotificacaoFechamento,
   enviarNotificacaoNfePendente,
-  enviarNotificacaoNfeFaturamentoNovosProdutos,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
