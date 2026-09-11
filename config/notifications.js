@@ -7,6 +7,18 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+// Extrai o base64 puro e o mime type de uma foto que pode chegar como data
+// URI completa ("data:image/jpeg;base64,...", formato do canvas.toDataURL()
+// do client) ou já como base64 puro. Usado para montar um anexo de e-mail
+// (ver nota em enviarNotificacaoFechamento sobre por que a foto precisa ir
+// como anexo com cid, e não inline em <img src="data:...">).
+function extrairBase64DaFoto(foto) {
+  if (!foto || typeof foto !== 'string') return null;
+  const match = foto.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (match) return { mimeType: match[1], base64: match[2] };
+  return { mimeType: 'image/jpeg', base64: foto };
+}
+
 // Chave mestra de notificações de eventos (e-mail + push).
 // Por padrão as notificações de eventos ficam ATIVADAS a menos que desativadas ("0" ou "false").
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
@@ -774,15 +786,30 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
       const sistemaSafe = escapeHtml(sistema);
       const obsSafe = observacoes ? escapeHtml(observacoes) : null;
 
+      // A foto vai como anexo com Content-ID (cid:), não inline em
+      // <img src="data:...">: Gmail e a maioria dos webmails removem `data:`
+      // URIs do HTML de e-mails recebidos por segurança/anti-spam — o e-mail
+      // chegava, mas a imagem nunca aparecia. Anexo com cid: é o jeito que
+      // esses clientes de fato renderizam imagem embutida num e-mail.
       let fotoHtml = '';
+      let fotoAttachment = null;
       if (fotoEnvelope && typeof fotoEnvelope === 'string' && fotoEnvelope.length > 50) {
-        const imgSrc = fotoEnvelope.startsWith('data:') ? fotoEnvelope : `data:image/jpeg;base64,${fotoEnvelope}`;
-        fotoHtml = `
-          <div style="margin-top:20px; text-align:center;">
-            <p style="margin:0 0 8px; font-size:12px; color:#6b7280; text-transform:uppercase; font-weight:600;">Foto do Envelope Sangria</p>
-            <img src="${imgSrc}" alt="Foto do Envelope" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />
-          </div>
-        `;
+        const fotoInfo = extrairBase64DaFoto(fotoEnvelope);
+        if (fotoInfo) {
+          const extensao = (fotoInfo.mimeType.split('/')[1] || 'jpg').toLowerCase();
+          fotoAttachment = {
+            filename: `envelope-${loja.replace(/\s+/g, '-').toLowerCase()}.${extensao}`,
+            content: fotoInfo.base64,
+            encoding: 'base64',
+            cid: 'envelope-foto'
+          };
+          fotoHtml = `
+            <div style="margin-top:20px; text-align:center;">
+              <p style="margin:0 0 8px; font-size:12px; color:#6b7280; text-transform:uppercase; font-weight:600;">Foto do Envelope Sangria</p>
+              <img src="cid:envelope-foto" alt="Foto do Envelope" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />
+            </div>
+          `;
+        }
       }
 
       const htmlBody = `
@@ -807,7 +834,7 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
         </div>
       `;
 
-      enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody)
+      enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody, fotoAttachment ? [fotoAttachment] : undefined)
         .catch(err => console.error('Erro ao enviar e-mail de fechamento:', err))
         .then(resolve);
     });
