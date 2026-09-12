@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
-const { db, normalizeRow } = require('../config/database');
+const { db, normalizeRow, dbGetAsync } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarEmailGenerico, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
@@ -19,68 +18,6 @@ function escapeHtml(str) {
   if (typeof str !== 'string') return String(str || '');
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-
-// Notificação de divergência de fundo de caixa (#8 Reconciliação)
-router.post('/divergencia', (req, res) => {
-  const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body;
-
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) {
-    return res.json({ sent: false, reason: 'SMTP não configurado' });
-  }
-
-  notificacoesEventosAtivas((ativas) => {
-   if (!ativas) {
-     console.log('Notificação de divergência ignorada: notificações de eventos estão desativadas em Configurações.');
-     return res.json({ sent: false, reason: 'Notificações desativadas' });
-   }
-
-   obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
-    if (targetEmails.length === 0) {
-      console.log('Notificação de divergência por e-mail ignorada (nenhum destinatário configurado).');
-      return res.json({ sent: false, reason: 'Nenhum destinatário configurado' });
-    }
-
-    const lojaSafe = escapeHtml(loja);
-    const consultorSafe = escapeHtml(consultor);
-    const fundoAberturaNum = Number(fundoAbertura) || 0;
-    const fundoUltimoFechamentoNum = Number(fundoUltimoFechamento) || 0;
-    const diferencaNum = Number(diferenca) || 0;
-    
-    const transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(process.env.SMTP_PORT) || 465,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user, pass }
-    });
-    
-    transporter.sendMail({
-      from: `"Controle de Caixa Cacau Show" <${user}>`,
-      to: targetEmails.join(', '),
-      subject: `⚠️ Divergência de Fundo de Caixa - Loja ${lojaSafe}`,
-      html: `<p>Olá,</p>
-<p>Foi detectada uma <strong>divergência no fundo de caixa</strong> na loja <strong>${lojaSafe}</strong>.</p>
-<h3>Detalhes:</h3>
-<ul>
-  <li><strong>Consultor(a):</strong> ${consultorSafe}</li>
-  <li><strong>Fundo de caixa na abertura:</strong> R$ ${fundoAberturaNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Fundo no último fechamento:</strong> R$ ${fundoUltimoFechamentoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-  <li><strong>Diferença:</strong> R$ ${Math.abs(diferencaNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${diferencaNum > 0 ? 'a mais' : 'a menos'})</li>
-</ul>
-<p>Por favor, investigue a divergência.</p>
-<p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
-    }, (error) => {
-      if (error) {
-        console.error('Erro ao enviar e-mail de divergência:', error);
-        return res.json({ sent: false, reason: error.message });
-      }
-      res.json({ sent: true });
-    });
-   });
-  });
-});
 
 // Colunas da listagem sem fotoEnvelope (base64, pode pesar MBs por linha) —
 // a lista só precisa saber SE existe foto (temFoto); a imagem em si é
@@ -121,6 +58,81 @@ router.get('/registros/:id/foto', (req, res) => {
 
 
 
+// Dispara as notificações do registro e só resolve depois de a tentativa de
+// e-mail ter de fato terminado (sucesso ou falha).
+//
+// Importante: em produção este backend roda como função serverless na
+// Vercel (ver api/index.js + vercel.json) — o processo não continua vivo
+// depois que a resposta HTTP é enviada, então qualquer envio "fire-and-
+// forget" disparado sem await corre risco real de ser cortado no meio antes
+// de completar. Foi assim que o e-mail de Fechamento (que faz mais
+// round-trips assíncronos que o de Abertura, por causa do cálculo de Meta do
+// Dia) ficou intermitente: a rota respondia e o processo podia ser suspenso
+// antes do e-mail terminar de ser enviado. Por isso a rota abaixo aguarda
+// esta função inteira antes de chamar res.json().
+async function dispararNotificacoesRegistro(r) {
+  if (r.tipoOperacao === 'Abertura') {
+    const prevRow = await dbGetAsync(
+      `SELECT fundoCaixa FROM registros WHERE loja = ? AND tipoOperacao = 'Fechamento' AND deletadoEm IS NULL ORDER BY dataOperacao DESC, criadoEm DESC LIMIT 1`,
+      [r.loja]
+    ).catch(() => null);
+
+    let fundoPrevisto = null;
+    let diferenca = 0;
+    if (prevRow && prevRow.fundoCaixa !== null && prevRow.fundoCaixa !== undefined) {
+      fundoPrevisto = Number(prevRow.fundoCaixa || 0);
+      diferenca = Number(r.fundoCaixa || 0) - fundoPrevisto;
+    }
+
+    await enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show', fundoPrevisto, diferenca);
+
+    if (diferenca !== 0 && fundoPrevisto !== null) {
+      await new Promise((resolve) => {
+        obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
+          if (!targetEmails || targetEmails.length === 0) return resolve();
+          const diferencaAbs = Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+          const tipoDiff = diferenca > 0 ? 'sobra' : 'falta';
+          const subject = `⚠️ Divergência na Abertura de Caixa - Loja ${r.loja} (Cacau Show)`;
+          const bodyText = `Divergência detectada na abertura da loja ${r.loja} (${r.consultor}): Fundo contado R$ ${Number(r.fundoCaixa||0).toFixed(2)} vs previsto R$ ${fundoPrevisto.toFixed(2)} (${tipoDiff} de R$ ${diferencaAbs}).`;
+          const bodyHtml = `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; max-width:500px; padding:20px; border:1px solid #fee2e2; border-radius:10px; background:#fff5f5;">
+              <h3 style="color:#dc2626; margin-top:0;">⚠️ Divergência na Abertura de Caixa — ${escapeHtml(r.loja)}</h3>
+              <p>Foi registrada uma <strong>${tipoDiff}</strong> no fundo de caixa da unidade Cacau Show <strong>${escapeHtml(r.loja)}</strong>.</p>
+              <ul>
+                <li><strong>Consultor(a):</strong> ${escapeHtml(r.consultor || 'Operador')}</li>
+                <li><strong>Fundo Contado na Abertura:</strong> R$ ${Number(r.fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+                <li><strong>Fundo Previsto (Fechamento Anterior):</strong> R$ ${fundoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
+                <li><strong>Diferença (${tipoDiff}):</strong> <span style="color:#dc2626; font-weight:bold;">R$ ${diferencaAbs}</span></li>
+              </ul>
+              ${r.observacoes ? `<p><strong>Justificativa/Observações:</strong> ${escapeHtml(r.observacoes)}</p>` : ''}
+            </div>
+          `;
+          enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml)
+            .catch(e => console.error('Erro ao enviar email divergencia abertura CS:', e))
+            .then(resolve);
+        });
+      });
+    }
+  } else if (r.tipoOperacao === 'Fechamento') {
+    await enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show', r.fundoCaixa, r.fotoEnvelope, r.observacoes);
+
+    if (r.valorEnvelope) {
+      const row = await dbGetAsync(
+        `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
+        [r.loja]
+      ).catch(() => null);
+
+      if (row && row.total >= 1000) {
+        await enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+        enviarNotificacaoPush(
+          `🚨 ${r.loja}-Cacau Show`,
+          `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+        );
+      }
+    }
+  }
+}
+
 // Inserir registro
 router.post('/registros', (req, res) => {
   const r = req.body;
@@ -138,64 +150,13 @@ router.post('/registros', (req, res) => {
       r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
       r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm
     ],
-    function(err) {
+    async function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      
-      if (r.tipoOperacao === 'Abertura') {
-        db.get(
-          `SELECT fundoCaixa FROM registros WHERE loja = ? AND tipoOperacao = 'Fechamento' AND deletadoEm IS NULL ORDER BY dataOperacao DESC, criadoEm DESC LIMIT 1`,
-          [r.loja],
-          (prevErr, prevRow) => {
-            let fundoPrevisto = null;
-            let diferenca = 0;
-            if (!prevErr && prevRow && prevRow.fundoCaixa !== null && prevRow.fundoCaixa !== undefined) {
-              fundoPrevisto = Number(prevRow.fundoCaixa || 0);
-              diferenca = Number(r.fundoCaixa || 0) - fundoPrevisto;
-            }
-            enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show', fundoPrevisto, diferenca);
 
-            if (diferenca !== 0 && fundoPrevisto !== null) {
-              obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
-                if (!targetEmails || targetEmails.length === 0) return;
-                const diferencaAbs = Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                const tipoDiff = diferenca > 0 ? 'sobra' : 'falta';
-                const subject = `⚠️ Divergência na Abertura de Caixa - Loja ${r.loja} (Cacau Show)`;
-                const bodyText = `Divergência detectada na abertura da loja ${r.loja} (${r.consultor}): Fundo contado R$ ${Number(r.fundoCaixa||0).toFixed(2)} vs previsto R$ ${fundoPrevisto.toFixed(2)} (${tipoDiff} de R$ ${diferencaAbs}).`;
-                const bodyHtml = `
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; max-width:500px; padding:20px; border:1px solid #fee2e2; border-radius:10px; background:#fff5f5;">
-                    <h3 style="color:#dc2626; margin-top:0;">⚠️ Divergência na Abertura de Caixa — ${escapeHtml(r.loja)}</h3>
-                    <p>Foi registrada uma <strong>${tipoDiff}</strong> no fundo de caixa da unidade Cacau Show <strong>${escapeHtml(r.loja)}</strong>.</p>
-                    <ul>
-                      <li><strong>Consultor(a):</strong> ${escapeHtml(r.consultor || 'Operador')}</li>
-                      <li><strong>Fundo Contado na Abertura:</strong> R$ ${Number(r.fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-                      <li><strong>Fundo Previsto (Fechamento Anterior):</strong> R$ ${fundoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</li>
-                      <li><strong>Diferença (${tipoDiff}):</strong> <span style="color:#dc2626; font-weight:bold;">R$ ${diferencaAbs}</span></li>
-                    </ul>
-                    ${r.observacoes ? `<p><strong>Justificativa/Observações:</strong> ${escapeHtml(r.observacoes)}</p>` : ''}
-                  </div>
-                `;
-                enviarEmailGenerico(targetEmails, subject, bodyText, bodyHtml).catch(e => console.error('Erro ao enviar email divergencia abertura CS:', e));
-              });
-            }
-          }
-        );
-      } else if (r.tipoOperacao === 'Fechamento') {
-        enviarNotificacaoFechamento(r.loja, r.consultor, r.valorFaturado, null, null, r.valorEnvelope, 'Cacau Show', r.fundoCaixa, r.fotoEnvelope, r.observacoes);
-        if (r.valorEnvelope) {
-          db.get(
-            `SELECT SUM(valorEnvelope) as total FROM registros WHERE loja = ? AND status = 'aguardando_retirada'`,
-            [r.loja],
-            (sumErr, row) => {
-              if (!sumErr && row && row.total >= 1000) {
-                enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
-                enviarNotificacaoPush(
-                  `🚨 ${r.loja}-Cacau Show`,
-                  `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
-                );
-              }
-            }
-          );
-        }
+      try {
+        await dispararNotificacoesRegistro(r);
+      } catch (notifErr) {
+        console.error('Erro ao disparar notificações do registro:', notifErr);
       }
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';

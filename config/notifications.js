@@ -7,6 +7,18 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+// Extrai o base64 puro e o mime type de uma foto que pode chegar como data
+// URI completa ("data:image/jpeg;base64,...", formato do canvas.toDataURL()
+// do client) ou já como base64 puro. Usado para montar um anexo de e-mail
+// (ver nota em enviarNotificacaoFechamento sobre por que a foto precisa ir
+// como anexo com cid, e não inline em <img src="data:...">).
+function extrairBase64DaFoto(foto) {
+  if (!foto || typeof foto !== 'string') return null;
+  const match = foto.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (match) return { mimeType: match[1], base64: match[2] };
+  return { mimeType: 'image/jpeg', base64: foto };
+}
+
 // Chave mestra de notificações de eventos (e-mail + push).
 // Por padrão as notificações de eventos ficam ATIVADAS a menos que desativadas ("0" ou "false").
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
@@ -33,8 +45,7 @@ const REGRAS_PADRAO_NOTIFICACAO = {
   abertura_unidade: { colab: false, lider: true, owner: true },
   visao_19h: { colab: false, lider: true, owner: true },
   fechamento_unidade: { colab: false, lider: true, owner: true },
-  nfe_pendente: { colab: false, lider: false, owner: true },
-  nfe_faturamento_novo_produto: { colab: false, lider: false, owner: true }
+  nfe_pendente: { colab: false, lider: false, owner: true }
 };
 
 // A tela de Configurações (webapp/app.js) grava as chaves com hífen
@@ -56,8 +67,7 @@ const ALIASES_TIPO_NOTIFICACAO = {
   abertura_unidade: ['abertura_unidade', 'abertura-unidade', 'abertura'],
   visao_19h: ['visao_19h', 'visao-19h'],
   fechamento_unidade: ['fechamento_unidade', 'fechamento-unidade', 'fechamento', 'fechamento_caixa'],
-  nfe_pendente: ['nfe_pendente', 'nfe-pendente'],
-  nfe_faturamento_novo_produto: ['nfe_faturamento_novo_produto', 'nfe-faturamento-novo-produto']
+  nfe_pendente: ['nfe_pendente', 'nfe-pendente']
 };
 
 function tipoCanonicoNotificacao(notificationType) {
@@ -126,13 +136,23 @@ function obterEmailsDestinatarios(notificationType, callback) {
   });
 }
 
+// Retorna uma Promise que só resolve depois da tentativa de envio (sucesso ou
+// falha) ter terminado. Em produção este módulo roda como função serverless
+// (ver api/index.js + vercel.json): o processo não fica vivo entre
+// requisições, então qualquer envio "fire-and-forget" disparado depois da
+// resposta HTTP corre risco real de ser interrompido antes de completar — foi
+// assim que o e-mail de Fechamento (que faz mais round-trips assíncronos que
+// o de Abertura, por causa do cálculo de Meta do Dia) ficou intermitente.
+// Por isso as rotas (routes/caixa.js) aguardam esta Promise antes de responder.
 function enviarEmailNotificacao(loja, novoValor, totalPendente, consultor) {
-  notificacoesEventosAtivas((ativas) => {
-    if (!ativas) {
-      console.log('Notificação de envelopes acumulados ignorada: notificações de eventos estão desativadas em Configurações.');
-      return;
-    }
-    enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor);
+  return new Promise((resolve) => {
+    notificacoesEventosAtivas((ativas) => {
+      if (!ativas) {
+        console.log('Notificação de envelopes acumulados ignorada: notificações de eventos estão desativadas em Configurações.');
+        return resolve();
+      }
+      enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor).then(resolve);
+    });
   });
 }
 
@@ -145,33 +165,34 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
 
   if (!host || !user || !pass) {
     console.warn('Configuração de SMTP incompleta no arquivo .env. Notificação por e-mail não enviada.');
-    return;
+    return Promise.resolve();
   }
 
-  obterEmailsDestinatarios('envelopes', (targetEmails) => {
-    if (targetEmails.length === 0) {
-      console.log('Notificação de envelopes acumulados por e-mail ignorada (nenhum destinatário configurado).');
-      return;
-    }
+  return new Promise((resolve) => {
+    obterEmailsDestinatarios('envelopes', (targetEmails) => {
+      if (targetEmails.length === 0) {
+        console.log('Notificação de envelopes acumulados por e-mail ignorada (nenhum destinatário configurado).');
+        return resolve();
+      }
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass }
-    });
+      const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: { user, pass }
+      });
 
-    const lojaSafe = escapeHtml(loja);
-    const consultorSafe = escapeHtml(consultor);
-    const novoValorNum = Number(novoValor) || 0;
-    const totalPendenteNum = Number(totalPendente) || 0;
+      const lojaSafe = escapeHtml(loja);
+      const consultorSafe = escapeHtml(consultor);
+      const novoValorNum = Number(novoValor) || 0;
+      const totalPendenteNum = Number(totalPendente) || 0;
 
-    const mailOptions = {
-      from: `"Controle de Caixa Cacau Show" <${user}>`,
-      to: targetEmails.join(', '),
-      subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${lojaSafe}`,
-      text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValorNum.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendenteNum.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
-      html: `<p>Olá,</p>
+      const mailOptions = {
+        from: `"Controle de Caixa Cacau Show" <${user}>`,
+        to: targetEmails.join(', '),
+        subject: `⚠️ Alerta de Envelopes Acumulados - Loja ${lojaSafe}`,
+        text: `Olá,\n\nO limite de R$ 1.000,00 em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: ${loja}.\n\nDetalhes:\n- Novo envelope registrado por: ${consultor}\n- Valor do novo envelope: R$ ${novoValorNum.toFixed(2)}\n- Valor total acumulado pendente de retirada nesta loja: R$ ${totalPendenteNum.toFixed(2)}\n\nPor favor, providencie a retirada.\n\nAtenciosamente,\nSistema de Controle de Caixa`,
+        html: `<p>Olá,</p>
 <p>O limite de <strong>R$ 1.000,00</strong> em envelopes em trânsito/pendentes foi atingido ou ultrapassado na loja: <strong>${lojaSafe}</strong>.</p>
 <h3>Detalhes:</h3>
 <ul>
@@ -182,14 +203,16 @@ function enviarEmailNotificacaoInterno(loja, novoValor, totalPendente, consultor
 <p>Por favor, providencie a retirada.</p>
 <br>
 <p><em>Atenciosamente,<br>Sistema de Controle de Caixa</em></p>`
-    };
+      };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Erro ao enviar e-mail de notificação:', error);
-      } else {
-        console.log('E-mail de notificação enviado com sucesso:', info.response);
-      }
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Erro ao enviar e-mail de notificação:', error);
+        } else {
+          console.log('E-mail de notificação enviado com sucesso:', info.response);
+        }
+        resolve();
+      });
     });
   });
 }
@@ -648,10 +671,13 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
   });
 }
 
+// Retorna uma Promise resolvida só depois da tentativa de e-mail terminar —
+// ver nota em enviarEmailNotificacao sobre por que isso importa em serverless.
 function enviarNotificacaoAbertura(lojaRaw, consultor, fundoCaixa, sistema = 'Cacau Show', fundoPrevisto = null, diferenca = 0) {
   const loja = normalizarNomeLoja(lojaRaw);
+  return new Promise((resolve) => {
   notificacoesEventosAtivas((ativas) => {
-    if (!ativas) return;
+    if (!ativas) return resolve();
     const fundoFmt = Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const title = `🟢 Abertura de Unidade - ${loja}`;
     const body = `${consultor || 'Operador'} abriu o caixa em ${loja} (${sistema}). Fundo: R$ ${fundoFmt}.`;
@@ -661,8 +687,8 @@ function enviarNotificacaoAbertura(lojaRaw, consultor, fundoCaixa, sistema = 'Ca
 
     // Dispara E-mail HTML para os Owners
     obterEmailsDestinatarios('abertura_unidade', (targetEmails) => {
-      if (!targetEmails || targetEmails.length === 0) return;
-      
+      if (!targetEmails || targetEmails.length === 0) return resolve();
+
       const lojaSafe = escapeHtml(loja);
       const consultorSafe = escapeHtml(consultor || 'Operador');
       const sistemaSafe = escapeHtml(sistema);
@@ -704,17 +730,26 @@ function enviarNotificacaoAbertura(lojaRaw, consultor, fundoCaixa, sistema = 'Ca
         </div>
       `;
 
-      enviarEmailGenerico(targetEmails, `🟢 Abertura de Caixa - ${lojaSafe}`, body, htmlBody).catch(err => {
-        console.error('Erro ao enviar e-mail de abertura:', err);
-      });
+      enviarEmailGenerico(targetEmails, `🟢 Abertura de Caixa - ${lojaSafe}`, body, htmlBody)
+        .catch(err => console.error('Erro ao enviar e-mail de abertura:', err))
+        .then(resolve);
     });
+  });
   });
 }
 
+// Retorna uma Promise resolvida só depois da tentativa de e-mail terminar —
+// ver nota em enviarEmailNotificacao sobre por que isso importa em serverless.
+// Esta função em particular tem mais saltos assíncronos que a de Abertura
+// (o cálculo de Meta do Dia faz 2-3 round-trips extras ao banco antes de
+// chegar no envio), então era a mais exposta a ter o e-mail cortado pela
+// função serverless antes de terminar.
 function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja, sessoesCount, valorEnvelope, sistema = 'Cacau Show', fundoCaixa = null, fotoEnvelope = null, observacoes = null) {
   const loja = normalizarNomeLoja(lojaRaw);
+  return new Promise((resolve) => {
   notificacoesEventosAtivas(async (ativas) => {
-    if (!ativas) return;
+    if (!ativas) return resolve();
+    try {
     const fatFmt = Number(valorFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const envFmt = Number(valorEnvelope || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const fundoFmt = fundoCaixa !== null && fundoCaixa !== undefined ? Number(fundoCaixa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : null;
@@ -744,22 +779,37 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
 
     // Dispara E-mail HTML para os Owners
     obterEmailsDestinatarios('fechamento_unidade', (targetEmails) => {
-      if (!targetEmails || targetEmails.length === 0) return;
+      if (!targetEmails || targetEmails.length === 0) return resolve();
 
       const lojaSafe = escapeHtml(loja);
       const consultorSafe = escapeHtml(consultor || 'Operador');
       const sistemaSafe = escapeHtml(sistema);
       const obsSafe = observacoes ? escapeHtml(observacoes) : null;
 
+      // A foto vai como anexo com Content-ID (cid:), não inline em
+      // <img src="data:...">: Gmail e a maioria dos webmails removem `data:`
+      // URIs do HTML de e-mails recebidos por segurança/anti-spam — o e-mail
+      // chegava, mas a imagem nunca aparecia. Anexo com cid: é o jeito que
+      // esses clientes de fato renderizam imagem embutida num e-mail.
       let fotoHtml = '';
+      let fotoAttachment = null;
       if (fotoEnvelope && typeof fotoEnvelope === 'string' && fotoEnvelope.length > 50) {
-        const imgSrc = fotoEnvelope.startsWith('data:') ? fotoEnvelope : `data:image/jpeg;base64,${fotoEnvelope}`;
-        fotoHtml = `
-          <div style="margin-top:20px; text-align:center;">
-            <p style="margin:0 0 8px; font-size:12px; color:#6b7280; text-transform:uppercase; font-weight:600;">Foto do Envelope Sangria</p>
-            <img src="${imgSrc}" alt="Foto do Envelope" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />
-          </div>
-        `;
+        const fotoInfo = extrairBase64DaFoto(fotoEnvelope);
+        if (fotoInfo) {
+          const extensao = (fotoInfo.mimeType.split('/')[1] || 'jpg').toLowerCase();
+          fotoAttachment = {
+            filename: `envelope-${loja.replace(/\s+/g, '-').toLowerCase()}.${extensao}`,
+            content: fotoInfo.base64,
+            encoding: 'base64',
+            cid: 'envelope-foto'
+          };
+          fotoHtml = `
+            <div style="margin-top:20px; text-align:center;">
+              <p style="margin:0 0 8px; font-size:12px; color:#6b7280; text-transform:uppercase; font-weight:600;">Foto do Envelope Sangria</p>
+              <img src="cid:envelope-foto" alt="Foto do Envelope" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />
+            </div>
+          `;
+        }
       }
 
       const htmlBody = `
@@ -784,10 +834,15 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
         </div>
       `;
 
-      enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody).catch(err => {
-        console.error('Erro ao enviar e-mail de fechamento:', err);
-      });
+      enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody, fotoAttachment ? [fotoAttachment] : undefined)
+        .catch(err => console.error('Erro ao enviar e-mail de fechamento:', err))
+        .then(resolve);
     });
+    } catch (err) {
+      console.error('Erro ao montar notificação de fechamento:', err);
+      resolve();
+    }
+  });
   });
 }
 
@@ -798,24 +853,6 @@ function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
     const title = `🧾 Nova NFE a Conferir - ${loja}`;
     const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} no valor de R$ ${valFmt} aguarda validação fiscal (Exclusivo Owner).`;
     enviarNotificacaoPushInterno(title, body, null, 'nfe_pendente');
-  });
-}
-
-// Faturamento de NF-e (tela exclusiva do Owner, extraída automaticamente de
-// cada XML importado): dispara quando o upload traz produto(s) com código
-// nunca visto em nenhuma NF-e anterior. `produtosNovos` é o array já filtrado
-// pelo chamador (routes/financeiro.js, POST /nfs) — este módulo só formata e
-// envia. O link do push leva direto para a aba nova de Faturamento NFE.
-function enviarNotificacaoNfeFaturamentoNovosProdutos(loja, numeroNfe, produtosNovos) {
-  if (!produtosNovos || produtosNovos.length === 0) return;
-  notificacoesEventosAtivas((ativas) => {
-    if (!ativas) return;
-    const qtd = produtosNovos.length;
-    const nomes = produtosNovos.slice(0, 3).map(p => p.description || p.code || 'Produto').join(', ');
-    const resto = qtd > 3 ? ` e mais ${qtd - 3}` : '';
-    const title = `🆕 ${qtd} produto${qtd > 1 ? 's' : ''} novo${qtd > 1 ? 's' : ''} na NF-e — ${loja || 'loja'}`;
-    const body = `NF-e nº ${numeroNfe || '-'}: ${nomes}${resto}. Toque para ver o faturamento completo.`;
-    enviarNotificacaoPushInterno(title, body, null, 'nfe_faturamento_novo_produto', '/?tab=faturamento-nfe');
   });
 }
 
@@ -889,7 +926,6 @@ module.exports = {
   enviarNotificacaoAbertura,
   enviarNotificacaoFechamento,
   enviarNotificacaoNfePendente,
-  enviarNotificacaoNfeFaturamentoNovosProdutos,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
