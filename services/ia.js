@@ -170,7 +170,7 @@ function iaHabilitada() {
   if (process.env.IA_DESATIVADA === 'true') return false;
   try {
     return !!adaptador().chave();
-  } catch {
+  } catch (_e) {
     return false;
   }
 }
@@ -301,7 +301,7 @@ async function gerarJSON(prompt, opcoes = {}) {
 
   try {
     return JSON.parse(bruto);
-  } catch {
+  } catch (_e) {
     // Provedores sem modo JSON nativo às vezes embrulham em ```json ... ```.
     const limpo = bruto.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
     const inicio = Math.min(
@@ -311,7 +311,7 @@ async function gerarJSON(prompt, opcoes = {}) {
     if (Number.isFinite(inicio) && fim > inicio) {
       try {
         return JSON.parse(limpo.slice(inicio, fim + 1));
-      } catch {}
+      } catch (_e2) {}
     }
     throw new IAIndisponivelError('resposta não é JSON válido', bruto.slice(0, 300));
   }

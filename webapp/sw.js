@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v72'; // v72: hierarquia Cacau Show > módulos (submenus) > telas; fim da tela de seleção de módulo
+const CACHE_NAME = 'ponto-pwa-v73'; // v73: fix erro de sintaxe 'catch' em navegadores mobile antigos
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

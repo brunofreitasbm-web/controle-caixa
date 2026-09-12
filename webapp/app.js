@@ -637,7 +637,7 @@ function carregarJSON(key, fallback) {
   try {
     const v = JSON.parse(localStorage.getItem(key));
     return v ?? fallback;
-  } catch {
+  } catch (_e) {
     return fallback;
   }
 }
@@ -3261,7 +3261,7 @@ function mostrarGeradorMensagem(registro) {
   document.getElementById("btn-copiar-mensagem").onclick = async () => {
     try {
       await navigator.clipboard.writeText(textarea.value);
-    } catch {
+    } catch (_e) {
       textarea.select();
       document.execCommand("copy");
     }
@@ -3426,7 +3426,7 @@ async function mostrarFaGeradorMensagem(registro) {
   document.getElementById("fa-btn-copiar-mensagem").onclick = async () => {
     try {
       await navigator.clipboard.writeText(textarea.value);
-    } catch {
+    } catch (_e) {
       textarea.select();
       document.execCommand("copy");
     }
@@ -5859,7 +5859,7 @@ document.getElementById("session-unlock").addEventListener("click", async () => 
       });
       const result = await res.json();
       pinCorreto = result.valid;
-    } catch {
+    } catch (_e) {
       // Fallback local
       pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
     }
@@ -6076,7 +6076,7 @@ async function processarFilaSync() {
       if (!res || !res.ok) {
         failed.push(item);
       }
-    } catch {
+    } catch (_e) {
       failed.push(item);
     }
   }
@@ -9162,15 +9162,6 @@ function onNfScanSuccess(decodedText) {
           }
         } catch (e) {}
       }, 100);
-
-          const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
-                           || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
-          if (rowInput && document.documentElement.dataset.density !== "compact") {
-            rowInput.focus();
-            rowInput.select();
-          }
-        } catch (e) {}
-      }, 100);
     } else {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       playBeep('error');
@@ -9300,7 +9291,7 @@ function abrirPopupConclusaoNfeMulti(numNFs) {
     try {
       await navigator.clipboard.writeText(textarea.value);
       showToast('Mensagem copiada!', 'sucesso');
-    } catch {
+    } catch (_e) {
       textarea.select();
       document.execCommand('copy');
     }
