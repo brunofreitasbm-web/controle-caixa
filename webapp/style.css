@@ -5792,13 +5792,21 @@ button:disabled:not(.fa-section *) {
   text-overflow: ellipsis;
 }
 
-/* Tabela de produto de NF-e: 6 colunas fixas, mesma classe de overflow que
-   já quebrava em "Envelopes Aguardando Retirada" (Owner). Sem equivalente em
-   cartão ainda — a revisão item a item de uma nota inteira continua sendo
-   tarefa de desktop; o mobile ganhou a bipagem rápida com feedback
-   (.bipe-mobile-panel, acima), não a edição linha a linha. */
+/* Tabela de produto de NF-e: exibida em todos os modos (inclusive Kiosk/compacto)
+   para conferência visual dos produtos bipados. */
 .density-compact #nf-tabela-produtos-wrap {
-  display: none;
+  display: block;
+}
+
+@keyframes rowBipadoFlash {
+  0% { background-color: rgba(34, 197, 94, 0.4); }
+  50% { background-color: rgba(34, 197, 94, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.row-bipado-active {
+  animation: rowBipadoFlash 1.5s ease-out;
+  box-shadow: 0 0 0 2px var(--tone-success-line, #22c55e);
 }
 
 /* Tabela de produto de Inventário: mesmo motivo (7 colunas fixas), mas AQUI

@@ -6472,6 +6472,7 @@ let activeNfNumber = null;
 let activeNfNumbers = [];
 let selectedNfNumbers = [];
 let nfSearchQuery = '';
+let nfStatusFilter = 'all';
 let html5QrCodeNf = null;
 let currentStore = '9175';
 let nfGalleryStoreFilter = null; // aba ativa da galeria de NF-e (separação física por loja)
@@ -7083,6 +7084,17 @@ document.addEventListener('DOMContentLoaded', () => {
     nfSearchInput.addEventListener('input', (e) => {
       nfSearchQuery = e.target.value.trim().toLowerCase();
       renderNfTable();
+    });
+  }
+
+  const nfStatusFilterGroup = document.getElementById('nf-status-filter-group');
+  if (nfStatusFilterGroup) {
+    nfStatusFilterGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.nf-filter-btn');
+      if (btn) {
+        const filterVal = btn.getAttribute('data-nf-filter');
+        if (filterVal) setNfStatusFilter(filterVal);
+      }
     });
   }
 
@@ -8807,27 +8819,58 @@ function renderNfDashboard() {
 
 function updateNfStats() {
   let faltasCount = 0;
+  let sobrasCount = 0;
   let totalItens = 0;
-  let itensCompletos = 0;
+  let conformesCount = 0;
+  let pendentesCount = 0;
+
   activeNfNumbers.forEach(numNF => {
     const currentNf = importedNfs[numNF];
     if (currentNf && currentNf.products) {
       currentNf.products.forEach(p => {
-        const counted = p.countedQty === '' ? 0 : Number(p.countedQty);
-        if (counted < p.nfQty) faltasCount += (p.nfQty - counted);
         totalItens++;
-        if (counted >= p.nfQty) itensCompletos++;
+        const counted = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? null : Number(p.countedQty);
+        
+        if (counted === null) {
+          pendentesCount++;
+          faltasCount += p.nfQty;
+        } else if (counted === p.nfQty) {
+          conformesCount++;
+        } else if (counted < p.nfQty) {
+          if (counted === 0) pendentesCount++;
+          faltasCount += (p.nfQty - counted);
+        } else {
+          sobrasCount += (counted - p.nfQty);
+        }
       });
     }
   });
-  const el = document.getElementById('nf-faltas-count');
-  if (el) el.textContent = faltasCount;
 
-  // Mesmos números, versão resumida pro painel de bipagem mobile (ver
-  // renderBipeFeedback) — só existem na casca compacta, por isso os
-  // elementos podem não estar na página; os `if (el)` cobrem isso.
+  const percentConcluido = totalItens > 0 ? Math.round((conformesCount / totalItens) * 100) : 0;
+
+  const elTotal = document.getElementById('nf-stat-total-items');
+  if (elTotal) elTotal.textContent = totalItens;
+
+  const elConformes = document.getElementById('nf-stat-conformes');
+  if (elConformes) elConformes.textContent = conformesCount;
+
+  const elPendentes = document.getElementById('nf-stat-pendentes');
+  if (elPendentes) elPendentes.textContent = pendentesCount;
+
+  const elDivergentes = document.getElementById('nf-stat-divergentes');
+  if (elDivergentes) elDivergentes.textContent = (faltasCount + sobrasCount) > 0 ? `${faltasCount + sobrasCount}` : '0';
+
+  const elFaltas = document.getElementById('nf-faltas-count');
+  if (elFaltas) elFaltas.textContent = faltasCount;
+
+  const elProgressBadge = document.getElementById('nf-progress-badge');
+  if (elProgressBadge) elProgressBadge.textContent = `${percentConcluido}% Concluído`;
+
+  const elProgressBarFill = document.getElementById('nf-progress-bar-fill');
+  if (elProgressBarFill) elProgressBarFill.style.width = `${percentConcluido}%`;
+
   const elConferidos = document.getElementById('nf-mobile-conferidos');
-  if (elConferidos) elConferidos.textContent = `${itensCompletos}/${totalItens}`;
+  if (elConferidos) elConferidos.textContent = `${conformesCount}/${totalItens}`;
   const elFaltasMobile = document.getElementById('nf-mobile-faltas');
   if (elFaltasMobile) elFaltasMobile.textContent = faltasCount;
 }
@@ -9092,20 +9135,26 @@ function onNfScanSuccess(decodedText) {
       nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
       renderBipeFeedback("nf", { nome: nomeProduto, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
-      // Focar no campo de quantidade inventariada do produto bipado — só no desktop
-      if (document.documentElement.dataset.density !== "compact") {
-        setTimeout(() => {
-          try {
-            const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
-                             || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
-            if (rowInput) {
-              rowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              rowInput.focus();
-              rowInput.select();
-            }
-          } catch (e) {}
-        }, 100);
-      }
+      // Rolar suavemente até o produto bipado e piscar a linha em destaque visual (Desktop e Kiosk)
+      setTimeout(() => {
+        try {
+          const rowEl = document.getElementById(`nf-row-${p.code}`) || document.querySelector(`tr[data-code="${p.code}"]`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            rowEl.classList.remove('row-bipado-active');
+            void rowEl.offsetWidth; // Forçar reflow
+            rowEl.classList.add('row-bipado-active');
+            setTimeout(() => rowEl.classList.remove('row-bipado-active'), 1500);
+          }
+
+          const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                           || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
+          if (rowInput && document.documentElement.dataset.density !== "compact") {
+            rowInput.focus();
+            rowInput.select();
+          }
+        } catch (e) {}
+      }, 100);
     } else {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       playBeep('error');
@@ -9499,59 +9548,139 @@ function autoCreditNfProductToInventory(nfInfo, p) {
   }
 }
 
+function setNfStatusFilter(filterType) {
+  nfStatusFilter = filterType;
+  const filterBtns = document.querySelectorAll('.nf-filter-btn');
+  filterBtns.forEach(btn => {
+    const f = btn.getAttribute('data-nf-filter');
+    if (f === filterType) {
+      btn.className = "nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-accent-soft text-ink border border-subtle shadow-sm";
+    } else {
+      btn.className = "nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-surface-1 text-ink-muted border border-subtle hover:text-ink";
+    }
+  });
+  renderNfTable();
+}
+
 function renderNfTable() {
   const tbody = document.getElementById('nf-inventory-tbody');
   if (!tbody || activeNfNumbers.length === 0) return;
   tbody.innerHTML = '';
+
+  let totalRendered = 0;
 
   activeNfNumbers.forEach(numNF => {
     const currentNf = importedNfs[numNF];
     if (!currentNf || !currentNf.products) return;
 
     currentNf.products.forEach(p => {
-      const counted = p.countedQty === '' ? null : Number(p.countedQty);
+      const counted = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? null : Number(p.countedQty);
       
       let statusText = 'Pendente';
-      let statusColorClass = 'text-warning font-extrabold bg-warning-soft px-2 py-1 rounded border border-warning';
-      let rowBgClass = 'bg-warning-soft border-warning';
+      let statusColorClass = 'text-warning font-extrabold bg-warning-soft px-2.5 py-1 rounded-lg border border-warning';
+      let rowBgClass = '';
 
       if (counted !== null) {
         if (counted === p.nfQty) {
-          statusText = 'Conforme';
-          statusColorClass = 'text-success font-extrabold bg-success-soft px-2 py-1 rounded border border-success';
-          rowBgClass = 'bg-success-soft border-success';
+          statusText = `✓ Conforme (${counted}/${p.nfQty})`;
+          statusColorClass = 'text-success font-extrabold bg-success-soft px-2.5 py-1 rounded-lg border border-success';
+          rowBgClass = 'bg-success-soft/20';
+        } else if (counted < p.nfQty) {
+          statusText = counted > 0 ? `Parcial (${counted}/${p.nfQty})` : `Pendente (${p.nfQty})`;
+          statusColorClass = 'text-warning font-extrabold bg-warning-soft px-2.5 py-1 rounded-lg border border-warning';
+          rowBgClass = counted > 0 ? 'bg-warning-soft/20' : '';
         } else {
-          statusText = counted < p.nfQty ? 'Falta' : 'Sobra';
-          statusColorClass = 'text-danger font-extrabold bg-danger-soft px-2 py-1 rounded border border-danger';
-          rowBgClass = 'bg-danger-soft border-danger';
+          const sobra = counted - p.nfQty;
+          statusText = `⚠ Sobra (${counted}/${p.nfQty} +${sobra})`;
+          statusColorClass = 'text-danger font-extrabold bg-danger-soft px-2.5 py-1 rounded-lg border border-danger';
+          rowBgClass = 'bg-danger-soft/20';
         }
       }
 
+      // Aplicar filtro por busca de texto
+      if (nfSearchQuery) {
+        const descMatch = (p.description || '').toLowerCase().includes(nfSearchQuery);
+        const codeMatch = (p.code || '').toLowerCase().includes(nfSearchQuery);
+        const eanMatch = (p.barras || '').toLowerCase().includes(nfSearchQuery);
+        if (!descMatch && !codeMatch && !eanMatch) return;
+      }
+
+      // Aplicar filtro por botão de status
+      if (nfStatusFilter !== 'all') {
+        if (nfStatusFilter === 'pending' && counted === p.nfQty) return;
+        if (nfStatusFilter === 'conforme' && counted !== p.nfQty) return;
+        if (nfStatusFilter === 'divergente' && (counted === null || counted === p.nfQty)) return;
+      }
+
+      totalRendered++;
       const tr = document.createElement('tr');
-      tr.className = `hover:bg-surface-hover transition-all border-b ${rowBgClass}`;
+      tr.id = `nf-row-${p.code}`;
+      tr.dataset.code = p.code;
+      tr.dataset.nf = numNF;
+      tr.className = `hover:bg-surface-hover transition-all border-b border-subtle ${rowBgClass}`;
       
       const shortNf = numNF.split('_')[0];
+      const countedDisplay = (p.countedQty === undefined || p.countedQty === null) ? '' : p.countedQty;
       
       tr.innerHTML = `
         <td class="py-3 px-4">
-          <div class="font-semibold text-ink-strong text-xs">${p.description}</div>
-          <div class="text-[10px] text-ink-muted font-mono">Cód: ${p.code} ${p.barras ? `| EAN: ${p.barras}` : ''} | <span class="text-ink font-bold bg-surface-1 px-1 py-0.5 rounded border border-subtle">NF: ${shortNf}</span></div>
+          <div class="font-semibold text-ink-strong text-xs">${p.description || 'Produto'}</div>
+          <div class="text-[10px] text-ink-muted font-mono mt-0.5 flex flex-wrap items-center gap-1.5">
+            <span>Cód: ${p.code}</span>
+            ${p.barras ? `<span>| EAN: ${p.barras}</span>` : ''}
+            <span class="text-ink font-bold bg-surface-1 px-1.5 py-0.5 rounded border border-subtle">NF: ${shortNf}</span>
+          </div>
         </td>
         <td class="py-3 px-4 text-center text-xs text-ink">${p.validade ? formatDate(p.validade) : '-'}</td>
         <td class="py-3 px-4 text-center text-xs text-ink-muted">${p.daysRemaining !== null ? `${p.daysRemaining}d` : '-'}</td>
-        <td class="py-3 px-4 text-center font-bold text-xs text-ink-strong">${p.nfQty}</td>
+        <td class="py-3 px-4 text-center font-extrabold text-xs text-ink-strong">${p.nfQty}</td>
         <td class="py-3 px-4 text-center">
-          <input type="number" value="${p.countedQty}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-16 text-center bg-surface-2 border border-subtle text-ink rounded py-1 font-bold text-xs" />
+          <div class="inline-flex items-center justify-center gap-1">
+            <button type="button" class="btn-nf-dec w-7 h-7 bg-surface-2 hover:bg-surface-hover active:scale-95 text-ink font-bold rounded-lg border border-subtle flex items-center justify-center transition" data-code="${p.code}" data-nf="${numNF}">-</button>
+            <input type="number" value="${countedDisplay}" placeholder="0" data-code="${p.code}" data-nf="${numNF}" class="nf-qty-input w-14 text-center bg-surface-1 border border-subtle text-ink rounded-lg py-1 font-bold text-xs focus:border-accent focus:outline-none" />
+            <button type="button" class="btn-nf-inc w-7 h-7 bg-surface-2 hover:bg-surface-hover active:scale-95 text-ink font-bold rounded-lg border border-subtle flex items-center justify-center transition" data-code="${p.code}" data-nf="${numNF}">+</button>
+          </div>
         </td>
         <td class="py-3 px-4 text-center text-xs">
           <span class="${statusColorClass}">${statusText}</span>
         </td>
       `;
+
       const qtyInput = tr.querySelector('.nf-qty-input');
-      qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
+      if (qtyInput) {
+        qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
+      }
+
+      const btnInc = tr.querySelector('.btn-nf-inc');
+      if (btnInc) {
+        btnInc.addEventListener('click', () => {
+          const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
+          saveNfQuantity(p.code, (cur + 1).toString(), numNF);
+        });
+      }
+
+      const btnDec = tr.querySelector('.btn-nf-dec');
+      if (btnDec) {
+        btnDec.addEventListener('click', () => {
+          const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
+          if (cur > 0) saveNfQuantity(p.code, (cur - 1).toString(), numNF);
+        });
+      }
+
       tbody.appendChild(tr);
     });
   });
+
+  if (totalRendered === 0) {
+    const trEmpty = document.createElement('tr');
+    trEmpty.innerHTML = `
+      <td colspan="6" class="py-8 text-center text-ink-muted text-xs">
+        <i class="fa-solid fa-filter-circle-xmark text-xl mb-2 block"></i>
+        Nenhum produto encontrado com os filtros atuais.
+      </td>
+    `;
+    tbody.appendChild(trEmpty);
+  }
 }
 
 function triggerInventoryStartedNotification() {

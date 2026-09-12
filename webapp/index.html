@@ -1930,23 +1930,61 @@
             <div id="nf-bipe-lista" class="bipe-lista-recentes"></div>
           </div>
 
-          <!-- Tabela de Produtos NF — some na casca compacta (ver
-               .density-compact #nf-tabela-produtos-wrap em style.css); o
-               painel de bipagem acima é quem dá a confirmação no mobile. -->
+          <!-- Tabela de Produtos NF — Exibição visual contínua para conferência e bipagem -->
           <div id="nf-tabela-produtos-wrap" class="glass-card rounded-2xl overflow-hidden shadow-xl border border-subtle">
-            <div class="p-3 bg-surface-2 border-b border-subtle flex justify-between items-center">
-              <input type="text" id="nf-search-input" placeholder="Filtrar produtos da nota..." class="bg-surface-1 border border-subtle text-ink text-xs rounded-lg px-3 py-1.5 w-64 focus:outline-none">
-              <span class="text-xs text-ink-muted font-mono">Faltas: <strong id="nf-faltas-count" class="text-warning">0</strong></span>
+            <!-- Barra de Progresso e Métricas Rápidas da Conferência -->
+            <div class="p-4 bg-surface-2 border-b border-subtle space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-list-check text-accent text-base"></i>
+                  <h3 class="font-bold text-xs text-ink uppercase tracking-wider">Lista de Itens da NF-e</h3>
+                  <span id="nf-progress-badge" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-accent-soft text-ink">0% Concluído</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-mono">
+                  <span class="px-2 py-1 bg-surface-1 rounded border border-subtle text-ink">Itens: <strong id="nf-stat-total-items">0</strong></span>
+                  <span class="px-2 py-1 bg-success-soft rounded border border-success text-ink">Conformes: <strong id="nf-stat-conformes">0</strong></span>
+                  <span class="px-2 py-1 bg-warning-soft rounded border border-warning text-ink">Pendentes: <strong id="nf-stat-pendentes">0</strong></span>
+                  <span class="px-2 py-1 bg-danger-soft rounded border border-danger text-ink">Divergentes: <strong id="nf-stat-divergentes">0</strong></span>
+                </div>
+              </div>
+
+              <!-- Barra visual de progresso da nota -->
+              <div class="w-full bg-surface-3 rounded-full h-2 overflow-hidden border border-subtle">
+                <div id="nf-progress-bar-fill" class="bg-accent h-full transition-all duration-300 rounded-full" style="width: 0%;"></div>
+              </div>
+
+              <!-- Filtros e Busca -->
+              <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div class="relative flex-1 min-w-[200px] max-w-md">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted text-xs"></i>
+                  <input type="text" id="nf-search-input" placeholder="Buscar por descrição, SKU ou EAN..." class="w-full bg-surface-1 border border-subtle text-ink text-xs rounded-xl pl-8 pr-3 py-1.5 focus:outline-none focus:border-accent">
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap" id="nf-status-filter-group">
+                  <button type="button" class="nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-accent-soft text-ink border border-subtle" data-nf-filter="all">
+                    Todos
+                  </button>
+                  <button type="button" class="nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-surface-1 text-ink-muted border border-subtle hover:text-ink" data-nf-filter="pending">
+                    🟡 Pendentes
+                  </button>
+                  <button type="button" class="nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-surface-1 text-ink-muted border border-subtle hover:text-ink" data-nf-filter="conforme">
+                    🟢 Conformes
+                  </button>
+                  <button type="button" class="nf-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-surface-1 text-ink-muted border border-subtle hover:text-ink" data-nf-filter="divergente">
+                    🔴 Divergentes
+                  </button>
+                </div>
+              </div>
             </div>
+
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
-                    <th class="py-3 px-4">Produto</th>
+                    <th class="py-3 px-4">Produto (Descrição / Cód / EAN)</th>
                     <th class="py-3 px-4 text-center">Validade</th>
-                    <th class="py-3 px-4 text-center">Dias a Vencer</th>
+                    <th class="py-3 px-4 text-center">Vencimento</th>
                     <th class="py-3 px-4 text-center">Qtd NF</th>
-                    <th class="py-3 px-4 text-center w-24">Qtd Rec</th>
+                    <th class="py-3 px-4 text-center min-w-[130px]">Qtd Bipada / Rec</th>
                     <th class="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
