@@ -1972,7 +1972,8 @@
               </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <!-- Visão Tabela (telas médias e grandes: Desktop / Kiosk / Tablet) -->
+            <div class="overflow-x-auto hidden md:block">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr class="bg-surface-2 border-b border-subtle text-ink-muted uppercase tracking-wider font-bold">
@@ -1988,6 +1989,11 @@
                   <!-- Injetado por JS -->
                 </tbody>
               </table>
+            </div>
+
+            <!-- Visão Cartões Touch Mobile (Smartphones) -->
+            <div id="nf-produtos-cards-container" class="p-3 space-y-3 block md:hidden">
+              <!-- Injetado por JS -->
             </div>
           </div>
         </div>

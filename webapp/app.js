@@ -9138,17 +9138,30 @@ function onNfScanSuccess(decodedText) {
       nfBipesRecentes = nfBipesRecentes.slice(0, BIPE_RECENTES_MAX);
       renderBipeFeedback("nf", { nome: nomeProduto, ean: p.barras || '', qtd: newQty, code: p.code, nfNum: matchedNfNumber });
 
-      // Rolar suavemente até o produto bipado e piscar a linha em destaque visual (Desktop e Kiosk)
+      // Rolar suavemente até o produto bipado e piscar em destaque visual (Desktop, Kiosk e Mobile)
       setTimeout(() => {
         try {
-          const rowEl = document.getElementById(`nf-row-${p.code}`) || document.querySelector(`tr[data-code="${p.code}"]`);
-          if (rowEl) {
-            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            rowEl.classList.remove('row-bipado-active');
-            void rowEl.offsetWidth; // Forçar reflow
-            rowEl.classList.add('row-bipado-active');
-            setTimeout(() => rowEl.classList.remove('row-bipado-active'), 1500);
+          const targets = [
+            document.getElementById(`nf-card-${p.code}`),
+            document.getElementById(`nf-row-${p.code}`) || document.querySelector(`tr[data-code="${p.code}"]`)
+          ].filter(Boolean);
+
+          targets.forEach(el => {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.remove('row-bipado-active');
+            void el.offsetWidth; // Forçar reflow
+            el.classList.add('row-bipado-active');
+            setTimeout(() => el.classList.remove('row-bipado-active'), 1500);
+          });
+
+          const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
+                           || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
+          if (rowInput && document.documentElement.dataset.density !== "compact") {
+            rowInput.focus();
+            rowInput.select();
           }
+        } catch (e) {}
+      }, 100);
 
           const rowInput = document.querySelector(`input.nf-qty-input[data-code="${p.code}"][data-nf="${matchedNfNumber}"]`)
                            || document.querySelector(`input.nf-qty-input[data-code="${p.code}"]`);
@@ -9567,8 +9580,10 @@ function setNfStatusFilter(filterType) {
 
 function renderNfTable() {
   const tbody = document.getElementById('nf-inventory-tbody');
+  const cardsContainer = document.getElementById('nf-produtos-cards-container');
   if (!tbody || activeNfNumbers.length === 0) return;
   tbody.innerHTML = '';
+  if (cardsContainer) cardsContainer.innerHTML = '';
 
   let totalRendered = 0;
 
@@ -9616,14 +9631,15 @@ function renderNfTable() {
       }
 
       totalRendered++;
+      const shortNf = numNF.split('_')[0];
+      const countedDisplay = (p.countedQty === undefined || p.countedQty === null) ? '' : p.countedQty;
+
+      // 1. Renderizar Linha na Tabela (Desktop/Kiosk/Tablet)
       const tr = document.createElement('tr');
       tr.id = `nf-row-${p.code}`;
       tr.dataset.code = p.code;
       tr.dataset.nf = numNF;
       tr.className = `hover:bg-surface-hover transition-all border-b border-subtle ${rowBgClass}`;
-      
-      const shortNf = numNF.split('_')[0];
-      const countedDisplay = (p.countedQty === undefined || p.countedQty === null) ? '' : p.countedQty;
       
       tr.innerHTML = `
         <td class="py-3 px-4">
@@ -9650,39 +9666,79 @@ function renderNfTable() {
       `;
 
       const qtyInput = tr.querySelector('.nf-qty-input');
-      if (qtyInput) {
-        qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
-      }
-
+      if (qtyInput) qtyInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
       const btnInc = tr.querySelector('.btn-nf-inc');
-      if (btnInc) {
-        btnInc.addEventListener('click', () => {
+      if (btnInc) btnInc.addEventListener('click', () => {
+        const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
+        saveNfQuantity(p.code, (cur + 1).toString(), numNF);
+      });
+      const btnDec = tr.querySelector('.btn-nf-dec');
+      if (btnDec) btnDec.addEventListener('click', () => {
+        const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
+        if (cur > 0) saveNfQuantity(p.code, (cur - 1).toString(), numNF);
+      });
+      tbody.appendChild(tr);
+
+      // 2. Renderizar Cartão Mobile (Smartphones)
+      if (cardsContainer) {
+        const card = document.createElement('div');
+        card.id = `nf-card-${p.code}`;
+        card.dataset.code = p.code;
+        card.dataset.nf = numNF;
+        card.className = `p-3 rounded-xl border border-subtle bg-surface-1 space-y-2.5 transition-all shadow-sm ${rowBgClass}`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div class="space-y-0.5">
+              <div class="font-bold text-ink-strong text-xs leading-snug">${p.description || 'Produto'}</div>
+              <div class="text-[10px] text-ink-muted font-mono flex flex-wrap items-center gap-1">
+                <span>Cód: ${p.code}</span>
+                ${p.barras ? `<span>| EAN: ${p.barras}</span>` : ''}
+              </div>
+            </div>
+            <span class="${statusColorClass} text-[10px] whitespace-nowrap shrink-0">${statusText}</span>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-subtle/50 text-xs">
+            <div class="text-[11px] text-ink-muted font-mono">
+              Qtd NF: <strong class="text-ink-strong font-extrabold text-xs">${p.nfQty}</strong>
+              ${p.validade ? `<span class="ml-2">Val: ${formatDate(p.validade)}</span>` : ''}
+            </div>
+            <div class="inline-flex items-center gap-1.5">
+              <button type="button" class="btn-nf-card-dec w-8 h-8 bg-surface-2 active:scale-95 text-ink font-bold rounded-lg border border-subtle flex items-center justify-center text-sm shadow-sm">-</button>
+              <input type="number" value="${countedDisplay}" placeholder="0" class="nf-card-qty-input w-12 text-center bg-surface-2 border border-subtle text-ink rounded-lg py-1 font-bold text-xs focus:border-accent focus:outline-none" />
+              <button type="button" class="btn-nf-card-inc w-8 h-8 bg-surface-2 active:scale-95 text-ink font-bold rounded-lg border border-subtle flex items-center justify-center text-sm shadow-sm">+</button>
+            </div>
+          </div>
+        `;
+
+        const cardInput = card.querySelector('.nf-card-qty-input');
+        if (cardInput) cardInput.addEventListener('input', (e) => saveNfQuantity(p.code, e.target.value, numNF));
+        const cardBtnInc = card.querySelector('.btn-nf-card-inc');
+        if (cardBtnInc) cardBtnInc.addEventListener('click', () => {
           const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
           saveNfQuantity(p.code, (cur + 1).toString(), numNF);
         });
-      }
-
-      const btnDec = tr.querySelector('.btn-nf-dec');
-      if (btnDec) {
-        btnDec.addEventListener('click', () => {
+        const cardBtnDec = card.querySelector('.btn-nf-card-dec');
+        if (cardBtnDec) cardBtnDec.addEventListener('click', () => {
           const cur = (p.countedQty === '' || p.countedQty === undefined || p.countedQty === null) ? 0 : Number(p.countedQty);
           if (cur > 0) saveNfQuantity(p.code, (cur - 1).toString(), numNF);
         });
-      }
 
-      tbody.appendChild(tr);
+        cardsContainer.appendChild(card);
+      }
     });
   });
 
   if (totalRendered === 0) {
-    const trEmpty = document.createElement('tr');
-    trEmpty.innerHTML = `
-      <td colspan="6" class="py-8 text-center text-ink-muted text-xs">
+    const emptyHtml = `
+      <div class="py-8 text-center text-ink-muted text-xs">
         <i class="fa-solid fa-filter-circle-xmark text-xl mb-2 block"></i>
         Nenhum produto encontrado com os filtros atuais.
-      </td>
+      </div>
     `;
+    const trEmpty = document.createElement('tr');
+    trEmpty.innerHTML = `<td colspan="6">${emptyHtml}</td>`;
     tbody.appendChild(trEmpty);
+    if (cardsContainer) cardsContainer.innerHTML = emptyHtml;
   }
 }
 
