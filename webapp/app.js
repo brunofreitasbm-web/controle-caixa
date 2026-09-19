@@ -15333,7 +15333,16 @@ function _rtRegistrarHandlers() {
       }
     });
   });
+
+  ["auditoria.criado", "auditoria.alterado", "auditoria.excluido"].forEach(tipo => {
+    RT.on(tipo, () => {
+      if (_rtTabAtual === "auditoria-docs" && typeof carregarAuditoriaDocs === "function") {
+        carregarAuditoriaDocs();
+      }
+    });
+  });
 }
+
 
 // ==========================================================================
 // MÓDULO: CONFERÊNCIA NFE (EXCLUSIVO OWNER)
@@ -15563,7 +15572,10 @@ function _rtRecarregarTudoQueEstaAberto() {
   _rtRecarregarNfs();
   if (_rtTabAtual === "meta-hora-hora" && typeof carregarMetaHoraHora === "function") carregarMetaHoraHora();
   if (_rtTabAtual === "nfe-owner") carregarNfesOwner();
+  if (_rtTabAtual === "auditoria-docs" && typeof carregarAuditoriaDocs === "function") carregarAuditoriaDocs();
+  if (typeof carregarColaboradores === "function") carregarColaboradores();
 }
+
 
 if (typeof window.RT !== "undefined") {
   _rtRegistrarHandlers();

@@ -14,6 +14,7 @@ const { dbGetAsync, dbAllAsync, dbRunAsync, normalizeRow } = require('../config/
 const { registrarLog } = require('../config/logger');
 const requireOwner = require('./middleware/requireOwner');
 const { sugerirVencimento } = require('../services/ia-doc-vencimento');
+const { publish } = require('../config/realtime');
 
 const NEGOCIOS_VALIDOS = ['cacau-show'];
 const CATEGORIAS_VALIDAS = ['CNPJ', 'Contrato Social', 'Alvará', 'Habite-se', 'Seguro', 'Contrato Trabalhista', 'Outro'];
@@ -179,7 +180,9 @@ router.post('/', async (req, res) => {
     registrarLog(r.id, 'enviar_documento_auditoria', `Enviou "${r.nomeArquivo || r.categoria}" na Pasta de Auditoria (${negocio}).`, r.actorUsuario);
 
     const linha = await dbGetAsync('SELECT * FROM documentos_auditoria WHERE id = ?', [r.id]);
-    res.status(201).json(semConteudo(normalizeRow(linha)));
+    const docFormatado = semConteudo(normalizeRow(linha));
+    publish('auditoria.criado', docFormatado, { origem: req.query.clientId, usuario: r.actorUsuario });
+    res.status(201).json(docFormatado);
   } catch (erro) {
     if (erro && erro.status) return res.status(erro.status).json({ error: erro.error });
     res.status(500).json({ error: erro.message });
@@ -226,7 +229,9 @@ router.put('/:id', requireOwner, async (req, res) => {
     registrarLog(req.params.id, 'editar_documento_auditoria', `Editou "${atualizado.nomeArquivo || atualizado.categoria}" na Pasta de Auditoria.`, r.actorUsuario);
 
     const linhaAtualizada = await dbGetAsync('SELECT * FROM documentos_auditoria WHERE id = ?', [req.params.id]);
-    res.json(semConteudo(normalizeRow(linhaAtualizada)));
+    const docAtualizadoFormatado = semConteudo(normalizeRow(linhaAtualizada));
+    publish('auditoria.alterado', docAtualizadoFormatado, { origem: req.query.clientId, usuario: r.actorUsuario });
+    res.json(docAtualizadoFormatado);
   } catch (erro) {
     res.status(500).json({ error: erro.message });
   }
@@ -243,6 +248,7 @@ router.delete('/:id', requireOwner, async (req, res) => {
 
     await dbRunAsync('DELETE FROM documentos_auditoria WHERE id = ?', [req.params.id]);
     registrarLog(req.params.id, 'apagar_documento_auditoria', `Apagou "${doc.nomeArquivo || doc.categoria}" da Pasta de Auditoria.`, req.body.actorUsuario);
+    publish('auditoria.excluido', { id: req.params.id }, { origem: req.query.clientId, usuario: req.body.actorUsuario });
     res.json({ ok: true });
   } catch (erro) {
     res.status(500).json({ error: erro.message });

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
+const { publish } = require('../config/realtime');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -150,6 +151,7 @@ router.post('/pins', async (req, res) => {
       [usuario, hash, hash],
       function(err) {
         if (err) return res.status(500).json({ error: err.message });
+        publish('pin.salvo', { usuario }, { origem: req.query.clientId, usuario: req.query.usuario });
         res.json({ success: true });
       }
     );
@@ -163,6 +165,7 @@ router.delete('/pins/:usuario', (req, res) => {
   const { usuario } = req.params;
   db.run('DELETE FROM pins WHERE usuario = ?', [usuario], function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    publish('pin.excluido', { usuario }, { origem: req.query.clientId, usuario: req.query.usuario });
     res.json({ success: true });
   });
 });
@@ -196,6 +199,7 @@ router.post('/colaboradores', (req, res) => {
     [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
+      publish('colaborador.salvo', { nome: nomeTrim, role, unidade, cpf, dataNascimento, telefone, dataAdmissao }, { origem: req.query.clientId, usuario: req.query.usuario });
       res.json({ success: true, nome: nomeTrim, role });
     }
   );
@@ -213,6 +217,7 @@ router.post('/colaboradores/:nome/reset-biometria', requireOwner, (req, res) => 
       if (err2) return res.status(500).json({ error: err2.message });
       db.run('DELETE FROM biometria_tentativas WHERE usuario = ?', [nome], (err3) => {
         if (err3) return res.status(500).json({ error: err3.message });
+        publish('biometria.reset', { nome }, { origem: req.query.clientId, usuario: req.query.usuario });
         res.json({ success: true });
       });
     });
@@ -228,6 +233,7 @@ router.post('/colaboradores/reset-biometria-todos', requireOwner, (req, res) => 
       if (err2) return res.status(500).json({ error: err2.message });
       db.run('DELETE FROM biometria_tentativas', [], (err3) => {
         if (err3) return res.status(500).json({ error: err3.message });
+        publish('biometria.reset', { nome: 'todos' }, { origem: req.query.clientId, usuario: req.query.usuario });
         res.json({ success: true });
       });
     });
@@ -243,10 +249,12 @@ router.delete('/colaboradores/:nome', (req, res) => {
     // Deleta também o PIN do colaborador
     db.run('DELETE FROM pins WHERE usuario = ?', [nome], (errPin) => {
       if (errPin) console.error('Erro ao deletar PIN do colaborador:', errPin.message);
+      publish('colaborador.excluido', { nome }, { origem: req.query.clientId, usuario: req.query.usuario });
       res.json({ success: true });
     });
   });
 });
+
 
 // Notificação para a Gestão (Push + Email)
 router.post('/notificar-gestao', (req, res) => {

@@ -389,3 +389,17 @@ if (btnAtualizarColab) {
     showToast("Lista de colaboradores atualizada.", "info");
   };
 }
+
+if (typeof window.RT !== "undefined") {
+  ["colaborador.salvo", "colaborador.excluido", "pin.salvo", "pin.excluido", "biometria.reset"].forEach(tipo => {
+    RT.on(tipo, () => {
+      carregarColaboradores().then(() => {
+        const tabColab = document.getElementById("tab-colaboradores");
+        if (tabColab && !tabColab.classList.contains("hidden")) {
+          renderizarColaboradores();
+        }
+      });
+    });
+  });
+}
+
