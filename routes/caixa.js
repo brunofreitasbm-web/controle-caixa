@@ -32,6 +32,14 @@ const COLUNAS_REGISTRO_SEM_FOTO = `
   mensagemGerada, criadoEm, deletadoEm
 `;
 
+const COLUNAS_PERMITIDAS = new Set([
+  'consultor', 'loja', 'tipoOperacao', 'dataOperacao', 'fundoCaixa',
+  'valorEnvelope', 'valorFaturado', 'sangria', 'sangriaMotivo',
+  'observacoes', 'fotoEnvelope', 'status', 'dataRetirada', 'retiradoPor',
+  'confirmadoPorApp', 'autorizadoPor', 'mensagemGerada', 'criadoEm', 'deletadoEm'
+]);
+
+
 // 3. Obter todos os registros
 router.get('/registros', (req, res) => {
   db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
@@ -225,4 +233,117 @@ router.delete('/registros/:id', (req, res) => {
   });
 });
 
+// ==========================================================================
+// REGISTROS FAÇAAMIGOS (registros_fa)
+// ==========================================================================
+
+// Obter todos os registros FA
+router.get('/registros-fa', (req, res) => {
+  db.all(`SELECT ${COLUNAS_REGISTRO_SEM_FOTO} FROM registros_fa WHERE deletadoEm IS NULL ORDER BY dataOperacao DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const normalized = (rows || []).map(normalizeRow);
+    const result = normalized.map(r => ({
+      ...r,
+      mensagemGerada: !!r.mensagemGerada
+    }));
+    res.json(result);
+  });
+});
+
+// Foto de um registro FA específico
+router.get('/registros-fa/:id/foto', (req, res) => {
+  db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Registro FA não encontrado.' });
+    res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
+  });
+});
+
+// Inserir registro FA
+router.post('/registros-fa', (req, res) => {
+  const r = req.body;
+  if (r.loja) r.loja = normalizarNomeLoja(r.loja);
+  db.run(
+    `INSERT INTO registros_fa (
+      id, consultor, loja, tipoOperacao, dataOperacao, fundoCaixa, valorEnvelope,
+      valorFaturado, sangria, sangriaMotivo,
+      observacoes, fotoEnvelope, status, dataRetirada, retiradoPor, confirmadoPorApp,
+      autorizadoPor, mensagemGerada, criadoEm
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      r.id, r.consultor, r.loja, r.tipoOperacao, r.dataOperacao, r.fundoCaixa, r.valorEnvelope,
+      r.valorFaturado, r.sangria, r.sangriaMotivo || null,
+      r.observacoes, r.fotoEnvelope, r.status, r.dataRetirada, r.retiradoPor, r.confirmadoPorApp,
+      r.autorizadoPor, r.mensagemGerada ? 1 : 0, r.criadoEm || new Date().toISOString()
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
+      registrarLog(r.id, 'CREATE_FA', `Registro FA criado: ${r.tipoOperacao} (${r.loja})`, usuarioLog);
+      publish('registroFa.criado', semFoto(r), { origem: req.query.clientId, usuario: usuarioLog });
+
+      res.json({ success: true, id: r.id });
+    }
+  );
+});
+
+// Atualizar registro FA
+router.put('/registros-fa/:id', (req, res) => {
+  const { id } = req.params;
+  const r = req.body;
+  
+  const fields = [];
+  const values = [];
+  
+  Object.keys(r).forEach(key => {
+    if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
+    fields.push(`${key} = ?`);
+    if (key === 'mensagemGerada') {
+      values.push(r[key] ? 1 : 0);
+    } else {
+      values.push(r[key]);
+    }
+  });
+  
+  if (fields.length === 0) {
+    return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  }
+  
+  values.push(id);
+  
+  const sql = `UPDATE registros_fa SET ${fields.join(', ')} WHERE id = ?`;
+  
+  db.run(sql, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const usuarioLog = req.query.usuario || 'Desconhecido';
+    registrarLog(id, 'UPDATE_FA', `Registro FA atualizado: ${Object.keys(r).join(', ')}`, usuarioLog);
+    publish('registroFa.alterado', { id, campos: semFoto(r) }, { origem: req.query.clientId, usuario: usuarioLog });
+
+    res.json({ success: true });
+  });
+});
+
+// Excluir registro FA
+router.delete('/registros-fa/:id', (req, res) => {
+  const { id } = req.params;
+  const { usuario } = req.query;
+  
+  if (usuario !== 'Bruno') {
+    return res.status(403).json({ error: 'Permissão negada. Somente o Bruno pode excluir registros.' });
+  }
+
+  const agora = new Date().toISOString();
+  db.run('UPDATE registros_fa SET deletadoEm = ? WHERE id = ?', [agora, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    registrarLog(id, 'DELETE_FA', `Registro FA removido logicamente.`, usuario);
+    publish('registroFa.excluido', { id, deletadoEm: agora }, { origem: req.query.clientId, usuario });
+
+    res.json({ success: true });
+  });
+});
+
 module.exports = router;
+

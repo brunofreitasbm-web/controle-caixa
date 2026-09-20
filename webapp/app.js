@@ -982,6 +982,7 @@ async function salvarRegistroAPI(reg) {
 }
 
 async function atualizarRegistroAPI(id, dados) {
+  let ok = false;
   if (API_ONLINE) {
     try {
       const res = await fetch(`${API_BASE}/registros/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
@@ -989,21 +990,21 @@ async function atualizarRegistroAPI(id, dados) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dados)
       });
-      if (res.ok) return true;
+      if (res.ok) ok = true;
     } catch (e) {
       console.error("Erro ao atualizar registro na API:", e);
     }
   }
-  // Fallback Local
-  const idx = registros.findIndex(r => r.id === id);
+  // Sempre atualiza localmente para manter UI e localStorage em sincronia
+  const idx = registros.findIndex(r => String(r.id) === String(id));
   if (idx !== -1) {
     registros[idx] = { ...registros[idx], ...dados };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
   }
-  if (typeof addToSyncQueue === "function") {
+  if (!ok && typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
-  return false;
+  return ok;
 }
 
 async function excluirRegistroAPI(id) {
@@ -1022,7 +1023,7 @@ async function excluirRegistroAPI(id) {
   }
 
   if (excluido) {
-    const idx = registros.findIndex(r => r.id === id);
+    const idx = registros.findIndex(r => String(r.id) === String(id));
     if (idx !== -1) {
       registros.splice(idx, 1);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
@@ -1081,6 +1082,7 @@ async function salvarRegistroFAAPI(reg) {
 }
 
 async function atualizarRegistroFAAPI(id, dados) {
+  let ok = false;
   if (API_ONLINE) {
     try {
       const res = await fetch(`${API_BASE}/registros-fa/${id}?usuario=${encodeURIComponent(currentUser ? currentUser.nome : "")}`, {
@@ -1088,21 +1090,21 @@ async function atualizarRegistroFAAPI(id, dados) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dados)
       });
-      if (res.ok) return true;
+      if (res.ok) ok = true;
     } catch (e) {
       console.error("Erro ao atualizar registro FA na API:", e);
     }
   }
-  // Fallback Local
-  const idx = registrosFA.findIndex(r => r.id === id);
+  // Sempre atualiza localmente para manter UI e localStorage em sincronia
+  const idx = registrosFA.findIndex(r => String(r.id) === String(id));
   if (idx !== -1) {
     registrosFA[idx] = { ...registrosFA[idx], ...dados };
     localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
   }
-  if (typeof addToSyncQueue === "function") {
+  if (!ok && typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "FA_UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
   }
-  return false;
+  return ok;
 }
 
 async function excluirRegistroFAAPI(id) {

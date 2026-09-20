@@ -180,6 +180,100 @@ test('QA Hostil #7 - Atualização de registro sem campos retorna 400', async ()
 });
 
 // --------------------------------------------------------------------------
+// 7.1. PERSISTÊNCIA DE RETIRADA: Atualização de envelope para retirado
+// --------------------------------------------------------------------------
+test('Persistência de Retirada #7.1 - Marcação de envelope como retirado via PUT /registros/:id', async () => {
+  const regId = `retirada_test_${Date.now()}`;
+  // 1. Criar registro aguardando retirada
+  const postRes = await request('/registros', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: regId,
+      consultor: 'Consultor Teste',
+      loja: 'Marambaia',
+      tipoOperacao: 'Fechamento',
+      dataOperacao: new Date().toISOString().split('T')[0],
+      fundoCaixa: 200,
+      valorEnvelope: 350.00,
+      valorFaturado: 1200.00,
+      status: 'aguardando_retirada',
+      criadoEm: new Date().toISOString()
+    })
+  });
+  assert.equal(postRes.status, 200);
+
+  // 2. Atualizar status para retirado
+  const dataRetirada = new Date().toISOString();
+  const putRes = await request(`/registros/${regId}?usuario=Bruno`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      status: 'retirado',
+      dataRetirada: dataRetirada,
+      retiradoPor: 'Bruno',
+      confirmadoPorApp: 'Bruno'
+    })
+  });
+  assert.equal(putRes.status, 200);
+  assert.equal(putRes.body.success, true);
+
+  // 3. Consultar via GET /registros e confirmar persistência
+  const getRes = await request('/registros');
+  assert.equal(getRes.status, 200);
+  const regAtualizado = getRes.body.find(r => r.id === regId);
+  assert.ok(regAtualizado, 'Registro deve existir na listagem');
+  assert.equal(regAtualizado.status, 'retirado', 'Status deve ser permanentemente persistido como retirado');
+  assert.equal(regAtualizado.retiradoPor, 'Bruno');
+});
+
+// --------------------------------------------------------------------------
+// 7.2. FAÇAAMIGOS: Endpoints CRUD e Marcação de Retirada
+// --------------------------------------------------------------------------
+test('FaçaAmigos #7.2 - Criar, atualizar retirada e listar registros-fa', async () => {
+  const faId = `fa_retirada_test_${Date.now()}`;
+  // 1. Criar registro FA
+  const postRes = await request('/registros-fa?usuario=Isabella', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: faId,
+      consultor: 'Consultor FA',
+      loja: 'Circuito',
+      tipoOperacao: 'Fechamento',
+      dataOperacao: new Date().toISOString().split('T')[0],
+      fundoCaixa: 100,
+      valorEnvelope: 500.00,
+      status: 'aguardando_retirada',
+      criadoEm: new Date().toISOString()
+    })
+  });
+  assert.equal(postRes.status, 200);
+
+  // 2. Atualizar status FA para retirado
+  const dataRetirada = new Date().toISOString();
+  const putRes = await request(`/registros-fa/${faId}?usuario=Isabella`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      status: 'retirado',
+      dataRetirada: dataRetirada,
+      retiradoPor: 'Isabella',
+      confirmadoPorApp: 'Isabella'
+    })
+  });
+  assert.equal(putRes.status, 200);
+  assert.equal(putRes.body.success, true);
+
+  // 3. Consultar via GET /registros-fa e verificar persistência
+  const getRes = await request('/registros-fa');
+  assert.equal(getRes.status, 200);
+  const regFaAtualizado = getRes.body.find(r => r.id === faId);
+  assert.ok(regFaAtualizado, 'Registro FA deve existir na listagem');
+  assert.equal(regFaAtualizado.status, 'retirado', 'Status FA deve ser persistido como retirado');
+});
+
+// --------------------------------------------------------------------------
 // 8. QA HOSTIL: Deleção Não Autorizada
 // --------------------------------------------------------------------------
 test('QA Hostil #8 - Rejeição de deleção por usuário comum (Apenas Bruno autorizado)', async () => {
@@ -188,6 +282,7 @@ test('QA Hostil #8 - Rejeição de deleção por usuário comum (Apenas Bruno au
   });
   assert.equal(res.status, 403);
 });
+
 
 // --------------------------------------------------------------------------
 // 9. REATORAÇÃO: Validação do Utilitário Compartilhado normalizarTelefone
