@@ -10049,6 +10049,7 @@ function exportExcel() {
   const ano = new Date().getFullYear();
   const mes = new Date().getMonth();
   const storeKey = `inv_completed_${ano}_${mes}_${currentStore}`;
+  const jaNotificadoConclusaoIndividual = localStorage.getItem(storeKey) !== null;
   localStorage.setItem(storeKey, JSON.stringify({
     concluidoEm: new Date().toISOString(),
     operador: currentUser.nome,
@@ -10063,17 +10064,20 @@ function exportExcel() {
 
   showToast(`Inventário da Loja ${currentStore} concluído e exportado com sucesso!`, 'success');
 
-  // Notificar conclusão da loja individual
-  fetch('/api/notificar-gestao', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
-      assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
-      mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
-      operador: currentUser.nome
-    })
-  }).catch(err => console.error('Erro na notificação de conclusão individual:', err));
+  // Notificar conclusão da loja individual (apenas uma vez por loja/mês, mesmo que o
+  // arquivo seja reexportado várias vezes — evita o disparo de dezenas de e-mails duplicados)
+  if (!jaNotificadoConclusaoIndividual) {
+    fetch('/api/notificar-gestao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinatarios: ['Bruno', 'Isabella', 'Alexandra'],
+        assunto: `🎉 Inventário Finalizado - Loja ${getLojaNomePorCodigo(currentStore)}`,
+        mensagem: `O Inventário de Estoque da Loja ${getLojaNomePorCodigo(currentStore)} foi concluído e exportado por ${currentUser.nome}. Total de itens inventariados: ${products.length}.`,
+        operador: currentUser.nome
+      })
+    }).catch(err => console.error('Erro na notificação de conclusão individual:', err));
+  }
 
   // Se TODAS as lojas concluírem o Inventário Mensal, notificar Bruno, Isabella e Alexandra
   if (lojasConcluidas.length === lojasRequeridas.length) {
