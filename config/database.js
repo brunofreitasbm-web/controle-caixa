@@ -669,6 +669,14 @@ function initDb(onSuccess) {
           concluidoEm TEXT,
           notas TEXT
         )`,
+        // Tickets de entrada do Hub de Gestão já usados (POST /api/auth/sso):
+        // cada jti vale uma vez só. Fica no banco porque na Vercel a memória
+        // do processo não persiste entre invocações.
+        `CREATE TABLE IF NOT EXISTS sso_tickets_usados (
+          jti TEXT PRIMARY KEY,
+          usuario TEXT,
+          usadoEm TEXT NOT NULL
+        )`,
         `CREATE TABLE IF NOT EXISTS email_queue (
           id TEXT PRIMARY KEY,
           target_emails TEXT NOT NULL,

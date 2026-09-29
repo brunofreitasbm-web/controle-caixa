@@ -758,6 +758,35 @@ function getDestinatariosNotificacao(tipo) {
 }
 
 // --- Sincronização Inicial ---
+// Entrada pelo Hub de Gestão (gestao.institutofacaamigos.com.br): o hub abre
+// esta página com #sso=<ticket> (HMAC, 60s, uso único — ver POST /api/auth/sso).
+// O servidor confere o ticket e devolve o nome; daqui em diante é igual a um
+// login por PIN de Owner (sessão salva, renderApp entra direto).
+async function consumirTicketHubGestao() {
+  const m = window.location.hash.match(/^#sso=([^&]+)/);
+  if (!m) return;
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    const res = await fetch(`${API_BASE}/auth/sso`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket: decodeURIComponent(m[1]) })
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok || !result.usuario) {
+      console.error("Entrada pelo Hub de Gestão recusada:", result.error || res.status);
+      return;
+    }
+    const user = USERS.find(u => u.nome.toLowerCase() === String(result.usuario).toLowerCase());
+    if (!user) return;
+    currentUser = user;
+    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    localStorage.setItem("ultimo_usuario_login", user.nome);
+  } catch (e) {
+    console.error("Entrada pelo Hub de Gestão falhou:", e);
+  }
+}
+
 async function inicializarDados() {
   await checkApiConnection();
 
@@ -841,6 +870,7 @@ async function inicializarDados() {
     carregarColaboradores();
   }
 
+  await consumirTicketHubGestao();
   renderApp();
   // Sinaliza que os dados do servidor foram carregados — DOMContentLoaded vai renderizar
   window._nfsServerLoaded = true;

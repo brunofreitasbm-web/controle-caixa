@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
@@ -138,6 +139,64 @@ router.post('/auth/verify', (req, res) => {
       }
       res.json({ valid: match, hasPin: true });
     }
+  });
+});
+
+// Entrada pelo Hub de Gestão (gestao.institutofacaamigos.com.br).
+// O hub (Edge Function gestao-hub) assina com HMAC-SHA256 um ticket
+// base64url(payload).base64url(assinatura), payload = { u, aud, exp, jti },
+// válido por 60s e de uso único. O segredo compartilhado fica em
+// GESTAO_SSO_SECRET_CACAU (Vercel daqui + secrets do Supabase). Só usuários
+// com papel owner no banco entram por aqui.
+function base64urlDecode(s) {
+  return Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
+router.post('/auth/sso', (req, res) => {
+  const secret = process.env.GESTAO_SSO_SECRET_CACAU;
+  if (!secret) return res.status(503).json({ error: 'Entrada pelo Hub de Gestão não configurada.' });
+
+  const ticket = typeof req.body?.ticket === 'string' ? req.body.ticket : '';
+  const [payloadB64, sigB64] = ticket.split('.');
+  if (!payloadB64 || !sigB64) return res.status(400).json({ error: 'Ticket inválido.' });
+
+  const esperado = crypto.createHmac('sha256', secret).update(payloadB64).digest();
+  const recebido = base64urlDecode(sigB64);
+  if (recebido.length !== esperado.length || !crypto.timingSafeEqual(recebido, esperado)) {
+    return res.status(401).json({ error: 'Ticket inválido.' });
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(base64urlDecode(payloadB64).toString('utf8'));
+  } catch {
+    return res.status(400).json({ error: 'Ticket inválido.' });
+  }
+  const agora = Math.floor(Date.now() / 1000);
+  if (payload.aud !== 'hub-operacoes' || typeof payload.u !== 'string' || typeof payload.jti !== 'string'
+      || typeof payload.exp !== 'number' || payload.exp < agora) {
+    return res.status(401).json({ error: 'Ticket expirado ou inválido.' });
+  }
+
+  db.get('SELECT nome, role FROM colaboradores WHERE LOWER(nome) = LOWER(?)', [payload.u.trim()], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row || row.role !== 'owner') return res.status(403).json({ error: 'Acesso negado.' });
+
+    // Queima o jti: se a linha já existia, o ticket já foi usado.
+    db.all(
+      'INSERT INTO sso_tickets_usados (jti, usuario, usadoEm) VALUES (?, ?, ?) ON CONFLICT (jti) DO NOTHING RETURNING jti',
+      [payload.jti, row.nome, new Date().toISOString()],
+      (err2, rows) => {
+        if (err2) return res.status(500).json({ error: err2.message });
+        if (!rows || rows.length === 0) return res.status(401).json({ error: 'Ticket já usado.' });
+        db.run(
+          'INSERT INTO logs_auditoria (data, usuario, acao, descricao) VALUES (?, ?, ?, ?)',
+          [new Date().toISOString(), row.nome, 'LOGIN_HUB_GESTAO', 'Entrada pelo Hub de Gestão'],
+          () => {},
+        );
+        res.json({ usuario: row.nome });
+      }
+    );
   });
 });
 
