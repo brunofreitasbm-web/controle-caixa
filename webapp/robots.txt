@@ -1,0 +1,3 @@
+# Sistema interno (Cacau Show / FaçaAmigos): não indexar.
+User-agent: *
+Disallow: /
