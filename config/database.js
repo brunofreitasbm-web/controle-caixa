@@ -208,7 +208,41 @@ function dbRunAsync(sql, params = []) {
   });
 }
 
+// Versão do schema que o initDb abaixo garante. INCREMENTE este valor sempre que alterar o DDL do
+// initDb (tabela nova, coluna nova, índice, ALTER...). Em Postgres, o initDb só roda o DDL quando a
+// versão gravada em `configuracoes` (chave schema_version) for diferente desta.
+//
+// Por quê: em produção (Vercel), o initDb rodava inteiro em TODA inicialização a frio, ~5.650 vezes
+// em 2 meses. Cada rodada executa centenas de CREATE/ALTER/DROP, e cada DDL dispara o recarregamento
+// do cache de schema do PostgREST (a cada ~2 min), trava tabelas com ALTER TABLE e invalida o cache
+// de catálogo de todas as conexões do banco.
+const SCHEMA_VERSION = '2026-10-01.1';
+
 function initDb(onSuccess) {
+  // SQLite local (desenvolvimento): mantém o comportamento de sempre.
+  if (!isPostgres) return runInitDdl(onSuccess);
+
+  db.get("SELECT valor FROM configuracoes WHERE chave = 'schema_version'", [], (err, row) => {
+    if (!err && row && row.valor === SCHEMA_VERSION) {
+      // Schema já está na versão atual: não roda nenhum DDL.
+      if (onSuccess) onSuccess();
+      return;
+    }
+    // Banco novo, sem a tabela/chave ainda, ou versão antiga: roda o DDL completo e grava a versão.
+    runInitDdl(() => {
+      db.run(
+        "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor",
+        ['schema_version', SCHEMA_VERSION],
+        (errVersion) => {
+          if (errVersion) console.error('Falha ao gravar schema_version:', errVersion.message);
+          if (onSuccess) onSuccess();
+        }
+      );
+    });
+  });
+}
+
+function runInitDdl(onSuccess) {
   const checkSql = isPostgres 
     ? "SELECT column_name FROM information_schema.columns WHERE table_name = 'nfs' AND column_name = 'id'"
     : "PRAGMA table_info(nfs)";
