@@ -7,6 +7,10 @@ process.env.DATABASE_URL = '';
 const { initDb, db } = require('../config/database');
 const caixaRouter = require('../routes/caixa');
 const nfeRouter = require('../routes/nfe');
+const pontoRouter = require('../routes/ponto');
+const { validarDataUrl } = require('../config/data-url');
+const { prepararFotoParaEmail } = require('../config/notifications');
+const UploadUtils = require('../webapp/upload-utils');
 
 let server;
 let baseUrl;
@@ -19,6 +23,7 @@ before(() => {
         app.use(express.json({ limit: '15mb' }));
         app.use('/api', caixaRouter);
         app.use('/api/nfe', nfeRouter);
+        app.use('/api/ponto', pontoRouter);
 
         server = http.createServer(app);
         server.listen(0, '127.0.0.1', () => {
@@ -333,4 +338,148 @@ test('Módulo NFE #10 - Cadastro e Validação de Status de NFE', async () => {
   const putData = await putRes.json();
   assert.equal(putRes.status, 200);
   assert.equal(putData.success, true);
+});
+
+// --------------------------------------------------------------------------
+// Uploads: validação server-side de data URL (MIME permitido + teto + bytes)
+// --------------------------------------------------------------------------
+const b64 = (bytes) => Buffer.from(bytes).toString('base64');
+const WEBP_BYTES = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x10, 0, 0, 0]), Buffer.from('WEBPVP8 '), Buffer.alloc(32)]);
+const JPEG_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32)]);
+const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const PDF_BYTES = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(32)]);
+const dataUrl = (mime, bytes) => `data:${mime};base64,${b64(bytes)}`;
+
+test('Upload #1 - validarDataUrl aceita webp/jpeg/png e rejeita o resto', () => {
+  assert.equal(validarDataUrl(dataUrl('image/webp', WEBP_BYTES)).ok, true);
+  assert.equal(validarDataUrl(dataUrl('image/jpeg', JPEG_BYTES)).ok, true);
+  assert.equal(validarDataUrl(dataUrl('image/png', PNG_BYTES)).ok, true);
+  assert.equal(validarDataUrl(dataUrl('image/gif', Buffer.from('GIF89a' + 'x'.repeat(30)))).ok, false);
+  assert.equal(validarDataUrl(dataUrl('image/svg+xml', Buffer.from('<svg onload=alert(1)/>'))).ok, false);
+  assert.equal(validarDataUrl(dataUrl('text/html', Buffer.from('<script>1</script>'))).ok, false);
+  assert.equal(validarDataUrl('data:image/webp;base64,').ok, false);
+  assert.equal(validarDataUrl('não é data url').ok, false);
+  assert.equal(validarDataUrl(b64(JPEG_BYTES)).ok, false); // base64 puro sem cabeçalho
+  assert.equal(validarDataUrl(12345).ok, false);
+});
+
+test('Upload #2 - PDF só quando permitido e bytes precisam bater com o MIME', () => {
+  assert.equal(validarDataUrl(dataUrl('application/pdf', PDF_BYTES)).ok, false);
+  assert.equal(validarDataUrl(dataUrl('application/pdf', PDF_BYTES), { permitirPdf: true }).ok, true);
+  // MIME declarado webp, conteúdo PDF
+  assert.equal(validarDataUrl(dataUrl('image/webp', PDF_BYTES)).ok, false);
+  assert.equal(validarDataUrl(dataUrl('image/jpeg', WEBP_BYTES)).ok, false);
+});
+
+test('Upload #3 - teto de tamanho', () => {
+  const grande = Buffer.concat([JPEG_BYTES, Buffer.alloc(4 * 1024 * 1024)]);
+  const r = validarDataUrl(dataUrl('image/jpeg', grande));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /limite/);
+  assert.equal(validarDataUrl(dataUrl('image/jpeg', grande), { maxBytes: 5 * 1024 * 1024 }).ok, true);
+});
+
+test('Upload #4 - POST /registros valida fotoEnvelope', async () => {
+  const base = (id, foto) => JSON.stringify({
+    id, consultor: 'Teste', loja: 'Marambaia', tipoOperacao: 'Abertura',
+    dataOperacao: new Date().toISOString().split('T')[0], fundoCaixa: 100, fotoEnvelope: foto
+  });
+  const headers = { 'Content-Type': 'application/json' };
+
+  const ruim = await request('/registros', { method: 'POST', headers, body: base(`up_ruim_${Date.now()}`, dataUrl('text/html', Buffer.from('<b>x</b>'))) });
+  assert.equal(ruim.status, 400);
+  assert.match(ruim.body.error, /fotoEnvelope/);
+
+  const ok = await request('/registros', { method: 'POST', headers, body: base(`up_ok_${Date.now()}`, dataUrl('image/webp', WEBP_BYTES)) });
+  assert.equal(ok.status, 200);
+
+  const semFoto = await request('/registros', { method: 'POST', headers, body: base(`up_sem_${Date.now()}`, null) });
+  assert.equal(semFoto.status, 200);
+
+  const putRuim = await request(`/registros/${ok.body.id}`, { method: 'PUT', headers, body: JSON.stringify({ fotoEnvelope: 'data:image/svg+xml;base64,PHN2Zy8+' }) });
+  assert.equal(putRuim.status, 400);
+});
+
+test('Upload #5 - POST /registros-fa valida fotoEnvelope', async () => {
+  const res = await request('/registros-fa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: `up_fa_${Date.now()}`, consultor: 'T', loja: 'Marambaia', tipoOperacao: 'Abertura', fotoEnvelope: 'data:application/pdf;base64,' + b64(PDF_BYTES) })
+  });
+  assert.equal(res.status, 400);
+});
+
+test('Upload #6 - /ponto/sync e /ponto/ajuste validam fotos/comprovantes', async () => {
+  const headers = { 'Content-Type': 'application/json' };
+  const sync = await fetch(`${baseUrl}/ponto/sync`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ records: [{ id: 'x1', usuario: 'T', timestamp: new Date().toISOString(), tipo: 'ENTRADA', photo: 'data:text/html;base64,PGI+' }] })
+  });
+  assert.equal(sync.status, 400);
+  const j = await sync.json();
+  assert.equal(j.invalidos[0].id, 'x1');
+
+  const ajuste = await fetch(`${baseUrl}/ponto/ajuste`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ id: 'aj1', usuario: 'T', data: '2026-01-01', tipo: 'ENTRADA', motivo: 'm', comprovante: 'data:text/html;base64,PGI+' })
+  });
+  assert.equal(ajuste.status, 400);
+});
+
+// --------------------------------------------------------------------------
+// E-mail de fechamento: WebP -> JPEG só no envio, com fallback
+// --------------------------------------------------------------------------
+test('Upload #7 - prepararFotoParaEmail converte com sharp e cai no original sem ele', async () => {
+  const info = { mimeType: 'image/webp', base64: b64(WEBP_BYTES) };
+  const fakeSharp = () => {
+    const c = { rotate: () => c, flatten: () => c, jpeg: () => c, toBuffer: async () => JPEG_BYTES };
+    return c;
+  };
+  const conv = await prepararFotoParaEmail(info, fakeSharp);
+  assert.equal(conv.mimeType, 'image/jpeg');
+  assert.equal(conv.base64, b64(JPEG_BYTES));
+
+  assert.deepEqual(await prepararFotoParaEmail(info, null), info); // sharp indisponível
+  const quebrado = () => { throw new Error('boom'); };
+  assert.deepEqual(await prepararFotoParaEmail(info, quebrado), info); // falha na conversão
+  const jpeg = { mimeType: 'image/jpeg', base64: b64(JPEG_BYTES) };
+  assert.deepEqual(await prepararFotoParaEmail(jpeg, fakeSharp), jpeg); // já é JPEG
+});
+
+test('Upload #8 - prepararFotoParaEmail com sharp real (se instalado)', async (t) => {
+  let sharp;
+  try { sharp = require('sharp'); } catch (e) { return t.skip('sharp não instalado'); }
+  const webp = await sharp({ create: { width: 40, height: 30, channels: 4, background: { r: 200, g: 10, b: 10, alpha: 0.5 } } }).webp().toBuffer();
+  const out = await prepararFotoParaEmail({ mimeType: 'image/webp', base64: webp.toString('base64') });
+  assert.equal(out.mimeType, 'image/jpeg');
+  assert.equal(Buffer.from(out.base64, 'base64')[0], 0xff);
+});
+
+// --------------------------------------------------------------------------
+// webapp/upload-utils.js — partes puras (o encode em canvas é do navegador)
+// --------------------------------------------------------------------------
+test('Upload #9 - UploadUtils.sniffBytes e fitDimensions', async () => {
+  assert.equal(UploadUtils.sniffBytes(WEBP_BYTES), 'image/webp');
+  assert.equal(UploadUtils.sniffBytes(JPEG_BYTES), 'image/jpeg');
+  assert.equal(UploadUtils.sniffBytes(PNG_BYTES), 'image/png');
+  assert.equal(UploadUtils.sniffBytes(PDF_BYTES), 'application/pdf');
+  assert.equal(UploadUtils.sniffBytes(Buffer.from('<svg xmlns=')), null);
+  assert.equal(await UploadUtils.sniffType(new Blob([PDF_BYTES], { type: 'image/png' })), 'application/pdf'); // ignora file.type
+
+  assert.deepEqual(UploadUtils.fitDimensions(4400, 2200, 2200), { width: 2200, height: 1100 });
+  assert.deepEqual(UploadUtils.fitDimensions(1000, 500, 2200), { width: 1000, height: 500 }); // sem upscale
+  assert.deepEqual(UploadUtils.fitDimensions(3000, 4000, null), { width: 3000, height: 4000 }); // selfie
+  assert.equal(UploadUtils.extDe('image/webp'), 'webp');
+});
+
+test('Upload #10 - compressImage/prepareUpload devolvem intactos GIF, SVG e arquivos não suportados', async () => {
+  const gif = new Blob([Buffer.from('GIF89a' + 'x'.repeat(20))], { type: 'image/gif' });
+  const r = await UploadUtils.prepareUpload(gif, 'documento');
+  assert.equal(r.compressed, false);
+  assert.equal(r.blob, gif);
+  assert.equal(r.mime, 'image/gif');
+  const svg = new Blob(['<svg xmlns="http://www.w3.org/2000/svg"/>'], { type: 'image/svg+xml' });
+  const r2 = await UploadUtils.prepareUpload(svg, 'foto');
+  assert.equal(r2.compressed, false);
+  assert.equal(r2.blob, svg);
 });

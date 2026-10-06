@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v73'; // v73: fix erro de sintaxe 'catch' em navegadores mobile antigos
+const CACHE_NAME = 'ponto-pwa-v74'; // v74: upload-utils.js (compressão WebP/PDF de uploads)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const ASSETS_TO_CACHE = [
   '/modules/colaboradores.js',
   '/realtime.js',
   '/camera-universal.js',
+  '/upload-utils.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/favicon-16.png',

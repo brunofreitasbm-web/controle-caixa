@@ -1,4 +1,5 @@
 const express = require('express');
+const { validarDataUrl } = require('../config/data-url');
 const router = express.Router();
 const { db, normalizeRow, dbGetAsync } = require('../config/database');
 const { registrarLog } = require('../config/logger');
@@ -141,9 +142,19 @@ async function dispararNotificacoesRegistro(r) {
   }
 }
 
+// Foto do envelope: opcional, mas se vier tem que ser data URL de imagem
+// permitida (webp/jpeg/png) dentro do teto. Retorna a mensagem de erro ou null.
+function erroFotoEnvelope(r) {
+  if (!r || r.fotoEnvelope === undefined || r.fotoEnvelope === null || r.fotoEnvelope === '') return null;
+  const v = validarDataUrl(r.fotoEnvelope);
+  return v.ok ? null : `fotoEnvelope: ${v.error}`;
+}
+
 // Inserir registro
 router.post('/registros', (req, res) => {
   const r = req.body;
+  const fotoErr = erroFotoEnvelope(r);
+  if (fotoErr) return res.status(400).json({ error: fotoErr });
   if (r.loja) r.loja = normalizarNomeLoja(r.loja);
   db.run(
     `INSERT INTO registros (
@@ -180,6 +191,8 @@ router.post('/registros', (req, res) => {
 router.put('/registros/:id', (req, res) => {
   const { id } = req.params;
   const r = req.body;
+  const fotoErr = erroFotoEnvelope(r);
+  if (fotoErr) return res.status(400).json({ error: fotoErr });
   
   const fields = [];
   const values = [];
@@ -262,6 +275,8 @@ router.get('/registros-fa/:id/foto', (req, res) => {
 // Inserir registro FA
 router.post('/registros-fa', (req, res) => {
   const r = req.body;
+  const fotoErr = erroFotoEnvelope(r);
+  if (fotoErr) return res.status(400).json({ error: fotoErr });
   if (r.loja) r.loja = normalizarNomeLoja(r.loja);
   db.run(
     `INSERT INTO registros_fa (
@@ -292,6 +307,8 @@ router.post('/registros-fa', (req, res) => {
 router.put('/registros-fa/:id', (req, res) => {
   const { id } = req.params;
   const r = req.body;
+  const fotoErr = erroFotoEnvelope(r);
+  if (fotoErr) return res.status(400).json({ error: fotoErr });
   
   const fields = [];
   const values = [];

@@ -19,6 +19,37 @@ function extrairBase64DaFoto(foto) {
   return { mimeType: 'image/jpeg', base64: foto };
 }
 
+// A foto do envelope é armazenada em WebP (o front comprime), mas clientes de
+// e-mail (Outlook desktop, alguns webmails) não renderizam WebP de forma
+// confiável. Só no envio convertemos para JPEG com `sharp`. `sharp` é
+// dependência OPCIONAL (binário nativo): se não estiver instalado, ou a
+// conversão falhar, anexa a imagem como está — o e-mail nunca deixa de sair.
+let _sharp; // undefined = ainda não tentou; null = indisponível
+function carregarSharp() {
+  if (_sharp === undefined) {
+    try { _sharp = require('sharp'); } catch (e) { _sharp = null; }
+  }
+  return _sharp;
+}
+
+async function prepararFotoParaEmail(fotoInfo, sharpImpl) {
+  if (!fotoInfo) return fotoInfo;
+  if (fotoInfo.mimeType !== 'image/webp') return fotoInfo;
+  const sharp = sharpImpl === undefined ? carregarSharp() : sharpImpl;
+  if (!sharp) return fotoInfo;
+  try {
+    const jpeg = await sharp(Buffer.from(fotoInfo.base64, 'base64'))
+      .rotate()
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return { mimeType: 'image/jpeg', base64: jpeg.toString('base64') };
+  } catch (e) {
+    console.error('Aviso: conversão WebP→JPEG do e-mail falhou, anexando original:', e.message);
+    return fotoInfo;
+  }
+}
+
 // Chave mestra de notificações de eventos (e-mail + push).
 // Por padrão as notificações de eventos ficam ATIVADAS a menos que desativadas ("0" ou "false").
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
@@ -778,8 +809,9 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
     enviarNotificacaoPushInterno(title, body, null, 'fechamento_unidade');
 
     // Dispara E-mail HTML para os Owners
-    obterEmailsDestinatarios('fechamento_unidade', (targetEmails) => {
+    obterEmailsDestinatarios('fechamento_unidade', async (targetEmails) => {
       if (!targetEmails || targetEmails.length === 0) return resolve();
+      try {
 
       const lojaSafe = escapeHtml(loja);
       const consultorSafe = escapeHtml(consultor || 'Operador');
@@ -794,7 +826,7 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
       let fotoHtml = '';
       let fotoAttachment = null;
       if (fotoEnvelope && typeof fotoEnvelope === 'string' && fotoEnvelope.length > 50) {
-        const fotoInfo = extrairBase64DaFoto(fotoEnvelope);
+        const fotoInfo = await prepararFotoParaEmail(extrairBase64DaFoto(fotoEnvelope));
         if (fotoInfo) {
           const extensao = (fotoInfo.mimeType.split('/')[1] || 'jpg').toLowerCase();
           fotoAttachment = {
@@ -837,6 +869,10 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
       enviarEmailGenerico(targetEmails, `🔒 Fechamento de Caixa - ${lojaSafe}`, body, htmlBody, fotoAttachment ? [fotoAttachment] : undefined)
         .catch(err => console.error('Erro ao enviar e-mail de fechamento:', err))
         .then(resolve);
+      } catch (errEmail) {
+        console.error('Erro ao montar e-mail de fechamento:', errEmail);
+        resolve();
+      }
     });
     } catch (err) {
       console.error('Erro ao montar notificação de fechamento:', err);
@@ -925,6 +961,7 @@ module.exports = {
   enviarNotificacaoRetiradaSolicitada,
   enviarNotificacaoAbertura,
   enviarNotificacaoFechamento,
+  prepararFotoParaEmail,
   enviarNotificacaoNfePendente,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,

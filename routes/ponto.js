@@ -4,6 +4,7 @@ const { db } = require('../config/database');
 const { publish } = require('../config/realtime');
 const { enviarEmailGenerico } = require('../config/notifications');
 const { registrarLog } = require('../config/logger');
+const { validarDataUrl } = require('../config/data-url');
 
 router.post('/sync', (req, res) => {
   const records = req.body.records || [];
@@ -13,6 +14,18 @@ router.post('/sync', (req, res) => {
 
   if (records.length === 0) {
     return res.json({ success: true, count: 0 });
+  }
+
+  // Selfie da batida: data URL de imagem permitida (webp/jpeg/png) dentro do teto.
+  const fotosInvalidas = [];
+  records.forEach(r => {
+    if (r && r.photo) {
+      const v = validarDataUrl(r.photo);
+      if (!v.ok) fotosInvalidas.push({ id: r.id, error: v.error });
+    }
+  });
+  if (fotosInvalidas.length > 0) {
+    return res.status(400).json({ success: false, error: 'Foto inválida em um ou mais registros.', invalidos: fotosInvalidas });
   }
 
   const serverTime = new Date();
@@ -68,6 +81,10 @@ router.post('/sync', (req, res) => {
 
 router.post('/ajuste', (req, res) => {
   const { id, usuario, data, tipo, motivo, comprovante } = req.body;
+  if (comprovante) {
+    const v = validarDataUrl(comprovante, { permitirPdf: true });
+    if (!v.ok) return res.status(400).json({ error: `comprovante: ${v.error}` });
+  }
   if (!id || !usuario || !data || !tipo) {
     return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
   }

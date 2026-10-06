@@ -2784,44 +2784,20 @@ const fotoInput = document.getElementById("foto-envelope");
 const fotoPreviewWrap = document.getElementById("foto-preview-wrap");
 const fotoPreview = document.getElementById("foto-preview");
 
-fotoInput.addEventListener("change", () => {
+fotoInput.addEventListener("change", async () => {
   const file = fotoInput.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const MAX_WIDTH = 800;
-      const MAX_HEIGHT = 800;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
-        }
-      } else {
-        if (height > MAX_HEIGHT) {
-          width *= MAX_HEIGHT / height;
-          height = MAX_HEIGHT;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Comprime e redimensiona para JPEG (qualidade 60%)
-      fotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
-      fotoPreview.src = fotoDataUrl;
-      fotoPreviewWrap.classList.remove("hidden");
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  try {
+    // Preset "documento": WebP (fallback JPEG), lado maior 2200px — o
+    // comprovante do envelope precisa continuar legível.
+    const r = await UploadUtils.prepareUploadDataUrl(file, "documento");
+    fotoDataUrl = r.dataUrl;
+    fotoPreview.src = fotoDataUrl;
+    fotoPreviewWrap.classList.remove("hidden");
+  } catch (err) {
+    console.error("Erro ao processar foto do envelope:", err);
+    showToast("Não foi possível processar a foto. Tente outra imagem.", "erro");
+  }
 });
 
 document.getElementById("foto-remover").addEventListener("click", () => {
@@ -2835,34 +2811,18 @@ const faFotoInput = document.getElementById("fa-foto-envelope");
 const faFotoPreviewWrap = document.getElementById("fa-foto-preview-wrap");
 const faFotoPreview = document.getElementById("fa-foto-preview");
 
-faFotoInput.addEventListener("change", () => {
+faFotoInput.addEventListener("change", async () => {
   const file = faFotoInput.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const MAX_WIDTH = 800;
-      const MAX_HEIGHT = 800;
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-      } else {
-        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-      faFotoDataUrl = canvas.toDataURL("image/jpeg", 0.6);
-      faFotoPreview.src = faFotoDataUrl;
-      faFotoPreviewWrap.classList.remove("hidden");
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  try {
+    const r = await UploadUtils.prepareUploadDataUrl(file, "documento");
+    faFotoDataUrl = r.dataUrl;
+    faFotoPreview.src = faFotoDataUrl;
+    faFotoPreviewWrap.classList.remove("hidden");
+  } catch (err) {
+    console.error("Erro ao processar foto do envelope FA:", err);
+    showToast("Não foi possível processar a foto. Tente outra imagem.", "erro");
+  }
 });
 
 document.getElementById("fa-foto-remover").addEventListener("click", () => {
@@ -12468,7 +12428,8 @@ function capturarFrameRetrato(video, canvas, aspectAlvo = 3 / 4) {
   canvas.height = Math.round(targetWidth / aspectAlvo);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.8);
+  // WebP q0.85 (fallback JPEG); mantém os 480px de largura da captura.
+  return UploadUtils.canvasToDataUrl(canvas, 0.85);
 }
 
 // Sequência esperada de marcações no dia: ENTRADA -> SAIDA_INTERVALO -> RETORNO_INTERVALO -> SAIDA -> (novo dia) ENTRADA
@@ -12681,36 +12642,16 @@ async function enviarSolicitacaoAjuste(e) {
   });
 }
 
-function comprimirImagemClientSide(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-
-        const MAX_WIDTH = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_WIDTH) {
-          height = Math.round((height * MAX_WIDTH) / width);
-          width = MAX_WIDTH;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Compress WebP or JPEG to <300KB
-        const compressed = canvas.toDataURL("image/jpeg", 0.8);
-        resolve(compressed);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+// Comprovante de ajuste de ponto: WebP via UploadUtils (preset "documento").
+// Se falhar, cai no arquivo original lido como data URL (o servidor valida).
+async function comprimirImagemClientSide(file) {
+  try {
+    const r = await UploadUtils.prepareUploadDataUrl(file, "documento");
+    return r.dataUrl;
+  } catch (err) {
+    console.warn("Compressão do comprovante falhou, enviando original:", err);
+    return UploadUtils.blobToDataUrl(file);
+  }
 }
 
 async function atualizarHistoricoPonto() {

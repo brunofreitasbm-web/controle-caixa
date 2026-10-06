@@ -15,6 +15,7 @@ const { registrarLog } = require('../config/logger');
 const requireOwner = require('./middleware/requireOwner');
 const { sugerirVencimento } = require('../services/ia-doc-vencimento');
 const { publish } = require('../config/realtime');
+const { validarDataUrl } = require('../config/data-url');
 
 const NEGOCIOS_VALIDOS = ['cacau-show'];
 const CATEGORIAS_VALIDAS = ['CNPJ', 'Contrato Social', 'Alvará', 'Habite-se', 'Seguro', 'Contrato Trabalhista', 'Outro'];
@@ -147,6 +148,8 @@ router.post('/', async (req, res) => {
     if (!r.id || !r.conteudo) {
       return res.status(400).json({ error: 'id e conteudo são obrigatórios.' });
     }
+    const arquivoValido = validarDataUrl(r.conteudo, { permitirPdf: true });
+    if (!arquivoValido.ok) return res.status(400).json({ error: `conteudo: ${arquivoValido.error}` });
 
     let dataVencimento = r.dataVencimento || null;
     let vencimentoSugeridoIA = 0;
@@ -171,7 +174,7 @@ router.post('/', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         r.id, negocio, r.unidade || null, r.categoria, r.categoriaOutro || null,
-        r.nomeArquivo || null, r.mimeType || null, r.conteudo, dataVencimento,
+        r.nomeArquivo || null, arquivoValido.mime, r.conteudo, dataVencimento,
         vencimentoSugeridoIA, r.observacoes || null, r.actorUsuario,
         agora, agora
       ]
@@ -202,6 +205,12 @@ router.put('/:id', requireOwner, async (req, res) => {
     if (r.categoria && !CATEGORIAS_VALIDAS.includes(r.categoria)) {
       return res.status(400).json({ error: 'categoria inválida.' });
     }
+    let mimeNovo = null;
+    if (r.conteudo) {
+      const arquivoValido = validarDataUrl(r.conteudo, { permitirPdf: true });
+      if (!arquivoValido.ok) return res.status(400).json({ error: `conteudo: ${arquivoValido.error}` });
+      mimeNovo = arquivoValido.mime;
+    }
 
     const atualizado = {
       unidade: r.unidade !== undefined ? r.unidade : atual.unidade,
@@ -210,7 +219,7 @@ router.put('/:id', requireOwner, async (req, res) => {
       dataVencimento: r.dataVencimento !== undefined ? r.dataVencimento : atual.dataVencimento,
       observacoes: r.observacoes !== undefined ? r.observacoes : atual.observacoes,
       nomeArquivo: r.nomeArquivo || atual.nomeArquivo,
-      mimeType: r.mimeType || atual.mimeType,
+      mimeType: mimeNovo || r.mimeType || atual.mimeType,
       conteudo: r.conteudo || atual.conteudo
     };
 
