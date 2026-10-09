@@ -2221,12 +2221,38 @@ function mostrarToastNavegacao(mensagem) {
   }, 1800);
 }
 
-function fecharModalAtivo() {
-  const overlaysVisiveis = Array.from(document.querySelectorAll(".modal-overlay, .rh-perfil-modal-overlay, .modal-confirm, .module-modal"))
-    .filter(o => !o.classList.contains("hidden") && getComputedStyle(o).display !== "none");
-  
-  if (overlaysVisiveis.length > 0) {
-    const topoModal = overlaysVisiveis[overlaysVisiveis.length - 1];
+// Overlays que não podem ser dispensados por "voltar" (login, sessão
+// expirada, escolha de unidade): fechá-los deixaria o usuário numa tela vazia.
+const OVERLAYS_OBRIGATORIOS = ["login-overlay", "session-overlay", "unit-selection-overlay"];
+
+const SELETOR_OVERLAYS = ".modal-overlay, .rh-perfil-modal-overlay, .modal-confirm, .module-modal";
+
+function overlaysVisiveis(somenteDispensaveis = false) {
+  const todos = Array.from(document.querySelectorAll(SELETOR_OVERLAYS));
+  if (!somenteDispensaveis) {
+    return todos.filter(o => !o.classList.contains("hidden") && getComputedStyle(o).display !== "none");
+  }
+  // Para o botão voltar do celular: só overlays realmente visíveis (os "filhos"
+  // .module-modal/.modal-confirm continuam com display:block mesmo quando o
+  // overlay pai está escondido), só o mais externo de cada grupo e nunca os
+  // obrigatórios (login, sessão, escolha de unidade).
+  return todos.filter(o =>
+    o.getClientRects().length > 0 &&
+    !o.classList.contains("hidden") &&
+    !(o.parentElement && o.parentElement.closest(SELETOR_OVERLAYS)) &&
+    !OVERLAYS_OBRIGATORIOS.includes(o.id)
+  );
+}
+
+function sidebarMobileAberta() {
+  return document.documentElement.classList.contains("sidebar-mobile-open") || (typeof sidebarEl !== "undefined" && sidebarEl && sidebarEl.classList.contains("open"));
+}
+
+function fecharModalAtivo(somenteDispensaveis = false) {
+  const visiveis = overlaysVisiveis(somenteDispensaveis);
+
+  if (visiveis.length > 0) {
+    const topoModal = visiveis[visiveis.length - 1];
     const btnFechar = topoModal.querySelector(".btn-secondary, .btn-cancel, [id$='-cancelar'], [id$='-fechar'], .modal-close");
     if (btnFechar) {
       btnFechar.click();
@@ -2238,15 +2264,15 @@ function fecharModalAtivo() {
   return false;
 }
 
-function voltarTelaAnterior() {
+function voltarTelaAnterior(somenteDispensaveis = false) {
   // 1. Fechar modal aberto
-  if (fecharModalAtivo()) {
+  if (fecharModalAtivo(somenteDispensaveis)) {
     mostrarToastNavegacao("✕ Modal Fechado");
     return true;
   }
 
   // 2. Fechar sidebar mobile se estiver aberta
-  if (document.documentElement.classList.contains("sidebar-mobile-open") || (typeof sidebarEl !== "undefined" && sidebarEl && sidebarEl.classList.contains("open"))) {
+  if (sidebarMobileAberta()) {
     if (typeof fecharSidebarMobile === "function") fecharSidebarMobile();
     mostrarToastNavegacao("← Menu Fechado");
     return true;
@@ -2265,6 +2291,34 @@ function voltarTelaAnterior() {
   }
 
   return false;
+}
+
+// Botão/gesto "voltar" do celular (Android/iOS/PWA): cada camada abaixo vira
+// uma entrada de histórico (ver back-handler.js). Ordem do onBack, da mais
+// interna à mais externa: modal → menu lateral → histórico de abas. Na aba
+// inicial sem nada aberto não bloqueia: voltar sai do site.
+const voltarCelular = (typeof BackHandler !== "undefined") ? BackHandler.create({
+  getDepth: () =>
+    overlaysVisiveis(true).length +
+    (sidebarMobileAberta() ? 1 : 0) +
+    // O histórico de abas conta como 1 nível: se ainda sobrar aba, o handler repõe a entrada.
+    ((typeof tabHistoryStack !== "undefined" && tabHistoryStack.length > 0) ? 1 : 0),
+  onBack: () => { voltarTelaAnterior(true); },
+}) : null;
+
+if (voltarCelular) {
+  let agendado = false;
+  const agendarSync = () => {
+    if (agendado) return;
+    agendado = true;
+    requestAnimationFrame(() => { agendado = false; voltarCelular.sync(); });
+  };
+  // Modais, menu lateral e abas mudam por classe/estilo: um observador central
+  // evita ter que avisar o hook em cada ponto que abre ou fecha uma tela.
+  new MutationObserver(agendarSync).observe(document.documentElement, {
+    subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"],
+  });
+  agendarSync();
 }
 
 // Atalhos globais de teclado (Backspace, Escape, Alt + Seta, Ctrl + K)
@@ -2346,7 +2400,9 @@ document.addEventListener("keydown", (e) => {
 
     // Arraste da esquerda para a direita (Swipe Right) -> Voltar Tela
     if (deltaX > 90) {
-      voltarTelaAnterior();
+      // Passa pelo histórico do navegador (mesmo caminho do botão voltar do
+      // aparelho); sem entradas, cai no comportamento antigo.
+      if (!(voltarCelular && voltarCelular.back())) voltarTelaAnterior(true);
     }
   }, { passive: true });
 
