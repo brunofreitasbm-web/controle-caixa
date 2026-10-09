@@ -1,10 +1,11 @@
-const CACHE_NAME = 'ponto-pwa-v74'; // v74: upload-utils.js (compressão WebP/PDF de uploads)
+const CACHE_NAME = 'ponto-pwa-v75'; // v75: back-handler.js (botão/gesto voltar do celular); v74: upload-utils.js (compressão WebP/PDF de uploads)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/style.css',
   '/tailwind-compiled.css',
   '/app.js',
+  '/back-handler.js',
   '/modules/auditoria.js',
   '/modules/meta-hora-hora.js',
   '/modules/colaboradores.js',
