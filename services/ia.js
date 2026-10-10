@@ -364,30 +364,29 @@ async function comCache(chave, ttlSegundos, produtor) {
 // cada poucos minutos — mas isso significa que o mesmo disparo pode ser
 // verificado várias vezes no mesmo dia/intervalo, e não pode sair duplicado.
 //
-// `marcarSeNovo` verifica-então-grava — não é atômico contra duas chamadas
-// no mesmíssimo instante, mas isso não é um risco real com um único
-// pingador externo rodando a cada alguns minutos.
+// `marcarSeNovo` é atômico: um único INSERT ... ON CONFLICT DO UPDATE ... WHERE
+// só assume a chave se ela não existe ou já expirou, e RETURNING diz se esta
+// chamada ganhou. Duas chamadas simultâneas (cron interno + pingador, ou duas
+// instâncias) nunca passam as duas.
+//
+// Se o banco falhar, retorna false (NÃO dispara): antes o catch devolvia true e
+// cada ping do /api/cron/ia-tick reenviava o mesmo aviso. O erro vai para o log.
 // Ver server.js (rota /api/cron/ia-tick) e docs/IA.md.
 // --------------------------------------------------------------------------
 async function marcarSeNovo(chave, ttlSegundos) {
   const agora = Date.now();
   try {
-    const existente = await dbGetAsync('SELECT expiraem FROM ia_cache WHERE chave = ?', [chave]);
-    if (existente) {
-      const expiraEm = Number(existente.expiraem ?? existente.expiraEm);
-      if (Number.isFinite(expiraEm) && expiraEm > agora) return false; // já marcado e ainda válido
-    }
-    await dbRunAsync(
+    const ganhou = await dbGetAsync(
       `INSERT INTO ia_cache (chave, valor, criadoEm, expiraEm) VALUES (?, ?, ?, ?)
-       ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm`,
-      [chave, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000]
+       ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, criadoEm = excluded.criadoEm, expiraEm = excluded.expiraEm
+       WHERE ia_cache.expiraEm <= ?
+       RETURNING chave`,
+      [chave, '"marcado"', new Date().toISOString(), agora + ttlSegundos * 1000, agora]
     );
-    return true;
+    return !!ganhou;
   } catch (err) {
-    // Falha ao marcar não pode travar o disparo — pior um envio repetido
-    // ocasional do que nenhum envio.
-    console.warn('[IA] Falha ao marcar disparo:', err.message);
-    return true;
+    console.error('[IA] Falha ao marcar disparo (aviso NÃO enviado):', err.message);
+    return false;
   }
 }
 
