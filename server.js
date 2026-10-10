@@ -23,6 +23,7 @@ const {
   obterEmailsDestinatarios,
   enviarEmailGenerico,
   enviarNotificacaoPush,
+  enviarTelegramEvento,
   enviarNotificacaoVisao19h
 } = require('./config/notifications');
 
@@ -353,7 +354,17 @@ async function dispararBriefingDiario() {
     briefing.fechamento || ''
   ].join('\n');
 
-  enviarNotificacaoPush('Briefing do dia', briefing.manchete, null, 'briefing_diario');
+  enviarNotificacaoPush('Briefing do dia', briefing.manchete, null, 'briefing_diario', null, true);
+  enviarTelegramEvento('Briefing do dia', briefing.manchete, null, {
+    tipo: 'briefing_diario',
+    texto: briefing.manchete,
+    campos: [
+      ['Vendas', briefing.vendas, '📈'],
+      ...(briefing.alertas || []).map((a, i) => [`Alerta ${i + 1}`, a, '🚨']),
+      ...(briefing.prioridades || []).map((p, i) => [`Prioridade ${i + 1}`, p, '🎯']),
+      ['Fechamento', briefing.fechamento || null, '🏁']
+    ]
+  });
 
   obterEmailsDestinatarios('briefing_diario', (emails) => {
     if (!emails || emails.length === 0) return;

@@ -19,3 +19,8 @@ Ficam de fora: lembrete de meta hora a hora (é da colaboradora), backup mensal 
 
 ## Instância dormindo (Render/Vercel)
 `/api/cron/ia-tick` também dispara a visão das 19h (janela 19:00–21:59) e o resumo de atraso (a partir de 22:05), com dedup diária (`marcarSeNovo`) compartilhada com os crons internos: não duplica. O pingador externo precisa continuar chamando o endpoint a cada ~10 min.
+
+## Formato das mensagens
+Todas seguem o mesmo layout (`services/telegram.js`, `formatarEvento`): emoji + título, categoria com hashtags (`#Caixa #Fechamento #Marambaia`, úteis para buscar/filtrar no Telegram), loja, itens numerados, régua e horário (Brasília).
+
+Categorias: 💰 Caixa · 🔑 Retirada · 🧾 NFE · 📊 Resumos · 🎯 Metas · 🧠 Briefing · 📣 Gestão. Eventos principais passam campos estruturados; avisos livres (`/notificar-gestao`) são interpretados: linhas `Rótulo: valor` viram itens numerados.

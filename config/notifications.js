@@ -57,16 +57,24 @@ const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
 
 // Telegram (grupo do owner): canal adicional ao push/e-mail. Lembretes de meta
 // hora a hora são destinados à colaboradora e não vão para o grupo.
-// 'fechamento_unidade' envia o próprio Telegram (com foto do envelope).
-const TIPOS_SEM_TELEGRAM = new Set(['meta_lembrete', 'fechamento_unidade']);
+// Tipos abaixo montam a própria mensagem do Telegram, com campos estruturados.
+const TIPOS_SEM_TELEGRAM = new Set([
+  'meta_lembrete', 'abertura_unidade', 'fechamento_unidade', 'retirada_solicitada',
+  'nfe_pendente', 'nfe_conferida', 'divergencia_nfe'
+]);
 
-function enviarTelegramEvento(title, body, foto = null) {
+// fmt (opcional): opções de telegram.formatarEvento ({ tipo, loja, sistema, campos, texto }).
+// Sem fmt, o texto do aviso é interpretado e categorizado por `tipo`.
+function enviarTelegramEvento(title, body, foto = null, fmt = null, tipo = 'gestao') {
   if (!telegram.configurado()) return Promise.resolve(false);
   return telegram.rastrear(new Promise((resolve) => {
     db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['telegram_ativo'], (err, row) => {
       const v = !err && row && row.valor != null ? String(row.valor).trim().toLowerCase() : '';
       if (v === '0' || v === 'false') return resolve(false);
-      telegram.enviarTelegram(telegram.formatarMensagem(title, body), foto).then(resolve);
+      const texto = fmt
+        ? telegram.formatarEvento({ titulo: title, ...fmt })
+        : telegram.formatarMensagem(title, body, tipo);
+      telegram.enviarTelegram(texto, foto).then(resolve);
     });
   }));
 }
@@ -530,6 +538,15 @@ function enviarNotificacaoRetiradaSolicitada(loja, valorTotal, quantidade, solic
   const qtdTexto = quantidade > 1 ? `${quantidade} envelopes` : '1 envelope';
   const body = `${solicitadoPor} pediu para retirar ${qtdTexto} (R$ ${valorFmt}) da loja ${loja}. Abra o app para autorizar com seu PIN.`;
   enviarNotificacaoPushInterno(title, body, null, 'retirada_solicitada');
+  enviarTelegramEvento(title, body, null, {
+    tipo: 'retirada_solicitada', loja,
+    campos: [
+      ['Solicitante', solicitadoPor],
+      ['Envelopes', quantidade],
+      ['Valor total', `R$ ${valorFmt}`],
+      ['Ação', 'Autorizar com PIN no app', '👉']
+    ]
+  });
 }
 
 // Busca o % de meta do dia já batido pela loja (Meta Hora a Hora), pra
@@ -606,18 +623,18 @@ async function buscarConversaoFaDoDia(consultor, loja, data) {
   }
 }
 
-function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null, url = null) {
+function enviarNotificacaoPush(title, body, targetUsers = null, notificationType = null, url = null, semTelegram = false) {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) {
       console.log(`Push notification (${title}) ignorada: notificações de eventos estão desativadas em Configurações.`);
       return;
     }
-    enviarNotificacaoPushInterno(title, body, targetUsers, notificationType, url);
+    enviarNotificacaoPushInterno(title, body, targetUsers, notificationType, url, semTelegram);
   });
 }
 
-function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificationType = null, url = null) {
-  if (!TIPOS_SEM_TELEGRAM.has(notificationType)) enviarTelegramEvento(title, body);
+function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificationType = null, url = null, semTelegram = false) {
+  if (!semTelegram && !TIPOS_SEM_TELEGRAM.has(notificationType)) enviarTelegramEvento(title, body, null, null, notificationType);
   const textCheck = `${title || ''} ${body || ''}`.toLowerCase();
   if (
     notificationType === 'divergencia' ||
@@ -734,6 +751,21 @@ function enviarNotificacaoAbertura(lojaRaw, consultor, fundoCaixa, sistema = 'Ca
     // Dispara Push
     enviarNotificacaoPushInterno(title, body, null, 'abertura_unidade');
 
+    const temPrevisto = fundoPrevisto !== null && fundoPrevisto !== undefined;
+    const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const conciliacao = !temPrevisto ? null
+      : Number(diferenca) === 0 ? '✅ Sem divergência'
+      : `⚠️ ${Number(diferenca) > 0 ? 'Sobra' : 'Falta'} de ${fmtBRL(Math.abs(diferenca))}`;
+    enviarTelegramEvento(title, body, null, {
+      tipo: 'abertura_unidade', loja, sistema,
+      campos: [
+        ['Responsável', consultor || 'Operador'],
+        ['Fundo contado', fmtBRL(fundoCaixa)],
+        ['Fundo previsto', temPrevisto ? fmtBRL(fundoPrevisto) : null],
+        ['Conciliação', conciliacao, '📌']
+      ]
+    });
+
     // Dispara E-mail HTML para os Owners
     obterEmailsDestinatarios('abertura_unidade', (targetEmails) => {
       if (!targetEmails || targetEmails.length === 0) return resolve();
@@ -806,16 +838,19 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
 
     let metaText = '';
     let metaHtml = '';
+    let metaCampo = null;
     if (sistema === 'Cacau Show') {
       const meta = await buscarAtingimentoMetaDoDia(loja, agoraBrasilMeta().data);
       if (meta) {
         metaText = ` | Meta do dia: ${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
+        metaCampo = ['Meta do dia', `${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`];
         metaHtml = `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Meta do Dia:</td><td style="padding:6px 0; font-weight:600; color:#111827;">${meta.pct}% (R$ ${meta.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${meta.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td></tr>`;
       }
     } else {
       const conversao = await buscarConversaoFaDoDia(consultor, loja, agoraBrasilMeta().data);
       if (conversao) {
         metaText = ` | Conversão do dia: ${conversao.pct.toFixed(1)}% (${conversao.nivel})`;
+        metaCampo = ['Conversão do dia', `${conversao.pct.toFixed(1)}% (${conversao.nivel})`];
         metaHtml = `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 12px 6px 0; color:#6b7280;">Conversão do Dia:</td><td style="padding:6px 0; font-weight:600; color:#111827;">${conversao.pct.toFixed(1)}% (${conversao.nivel})</td></tr>`;
       }
     }
@@ -832,7 +867,18 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
       const info = extrairBase64DaFoto(fotoEnvelope);
       if (info) fotoTelegram = { buffer: Buffer.from(info.base64, 'base64'), mimeType: info.mimeType };
     }
-    enviarTelegramEvento(title, body + (observacoes ? `\nObs: ${observacoes}` : ''), fotoTelegram);
+    enviarTelegramEvento(title, body, fotoTelegram, {
+      tipo: 'fechamento_unidade', loja, sistema,
+      campos: [
+        ['Responsável', consultor || 'Operador'],
+        ['Faturado', `R$ ${fatFmt}`],
+        ['Envelope', `R$ ${envFmt}`],
+        ['Fundo de caixa', fundoFmt ? `R$ ${fundoFmt}` : null],
+        ['Sessões/Vendas', sessoesCount !== undefined && sessoesCount !== null ? sessoesCount : null],
+        metaCampo || [],
+        ['Observações', observacoes || null]
+      ]
+    });
 
     // Dispara E-mail HTML para os Owners
     obterEmailsDestinatarios('fechamento_unidade', async (targetEmails) => {
@@ -915,6 +961,14 @@ function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
     const title = `🧾 Nova NFE a Conferir - ${loja}`;
     const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} no valor de R$ ${valFmt} aguarda validação fiscal (Exclusivo Owner).`;
     enviarNotificacaoPushInterno(title, body, null, 'nfe_pendente');
+    enviarTelegramEvento(title, body, null, {
+      tipo: 'nfe_pendente', loja,
+      campos: [
+        ['NFE nº', numeroNfe || 's/ número'],
+        ['Valor', `R$ ${valFmt}`],
+        ['Status', 'Aguarda validação fiscal (exclusivo owner)']
+      ]
+    });
   });
 }
 
@@ -928,6 +982,15 @@ function enviarNotificacaoNfeConferida(loja, numeroNfe, valor, status, por) {
     const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} (R$ ${valFmt}) marcada como ${ok ? 'conferida' : 'divergente'} por ${por || 'Owner'}.`;
     // Push de divergência é bloqueado de propósito; o Telegram entra por este gancho.
     enviarNotificacaoPushInterno(title, body, null, ok ? 'nfe_conferida' : 'divergencia_nfe');
+    enviarTelegramEvento(title, body, null, {
+      tipo: ok ? 'nfe_conferida' : 'divergencia_nfe', loja,
+      campos: [
+        ['NFE nº', numeroNfe || 's/ número'],
+        ['Valor', `R$ ${valFmt}`],
+        ['Status', ok ? 'Conferida' : 'Divergente'],
+        ['Conferido por', por || 'Owner']
+      ]
+    });
   });
 }
 
