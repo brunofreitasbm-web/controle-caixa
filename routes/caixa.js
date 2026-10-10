@@ -97,12 +97,18 @@ async function dispararNotificacoesRegistro(r) {
     await enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show', fundoPrevisto, diferenca);
 
     if (diferenca !== 0 && fundoPrevisto !== null) {
-      const tipoDiffTg = diferenca > 0 ? 'sobra' : 'falta';
-      enviarTelegramEvento(
-        `⚠️ Divergência na Abertura de Caixa - Loja ${r.loja} (Cacau Show)`,
-        `Divergência na abertura (${r.consultor}): fundo contado R$ ${Number(r.fundoCaixa || 0).toFixed(2)} vs previsto R$ ${fundoPrevisto.toFixed(2)} (${tipoDiffTg} de R$ ${Math.abs(diferenca).toFixed(2)}).` +
-        (r.observacoes ? `\nJustificativa: ${r.observacoes}` : '')
-      );
+      const tipoDiffTg = diferenca > 0 ? 'Sobra' : 'Falta';
+      const brl = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      enviarTelegramEvento(`⚠️ Divergência na Abertura de Caixa - ${r.loja}`, '', null, {
+        tipo: 'divergencia_caixa', loja: r.loja, sistema: 'Cacau Show',
+        campos: [
+          ['Responsável', r.consultor || 'Operador'],
+          ['Fundo contado', brl(r.fundoCaixa)],
+          ['Fundo previsto', brl(fundoPrevisto)],
+          [tipoDiffTg, brl(Math.abs(diferenca)), '⚠️'],
+          ['Justificativa', r.observacoes || null]
+        ]
+      });
       await new Promise((resolve) => {
         obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
           if (!targetEmails || targetEmails.length === 0) return resolve();
@@ -140,10 +146,20 @@ async function dispararNotificacoesRegistro(r) {
 
       if (row && row.total >= 1000) {
         await enviarEmailNotificacao(r.loja, r.valorEnvelope, row.total, r.consultor);
+        const totalFmt = `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
         enviarNotificacaoPush(
           `🚨 ${r.loja}-Cacau Show`,
-          `R$ ${row.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em dinheiro, recomendo retirar!`
+          `${totalFmt} em dinheiro, recomendo retirar!`,
+          null, null, null, true
         );
+        enviarTelegramEvento(`🚨 ${r.loja}-Cacau Show`, '', null, {
+          tipo: 'envelopes_acumulados', loja: r.loja, sistema: 'Cacau Show',
+          campos: [
+            ['Último envelope', `R$ ${Number(r.valorEnvelope).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+            ['Total acumulado', totalFmt],
+            ['Ação', 'Recomendo retirar o dinheiro', '👉']
+          ]
+        });
       }
     }
   }
