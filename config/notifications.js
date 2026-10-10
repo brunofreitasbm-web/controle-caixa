@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const webPush = require('web-push');
 const { db } = require('./database');
+const telegram = require('../services/telegram');
 
 function escapeHtml(str) {
   if (typeof str !== 'string') return String(str || '');
@@ -53,6 +54,22 @@ async function prepararFotoParaEmail(fotoInfo, sharpImpl) {
 // Chave mestra de notificações de eventos (e-mail + push).
 // Por padrão as notificações de eventos ficam ATIVADAS a menos que desativadas ("0" ou "false").
 const CHAVE_NOTIF_ATIVAS = 'notificacoes_eventos_ativas';
+
+// Telegram (grupo do owner): canal adicional ao push/e-mail. Lembretes de meta
+// hora a hora são destinados à colaboradora e não vão para o grupo.
+// 'fechamento_unidade' envia o próprio Telegram (com foto do envelope).
+const TIPOS_SEM_TELEGRAM = new Set(['meta_lembrete', 'fechamento_unidade']);
+
+function enviarTelegramEvento(title, body, foto = null) {
+  if (!telegram.configurado()) return Promise.resolve(false);
+  return telegram.rastrear(new Promise((resolve) => {
+    db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['telegram_ativo'], (err, row) => {
+      const v = !err && row && row.valor != null ? String(row.valor).trim().toLowerCase() : '';
+      if (v === '0' || v === 'false') return resolve(false);
+      telegram.enviarTelegram(telegram.formatarMensagem(title, body), foto).then(resolve);
+    });
+  }));
+}
 
 function notificacoesEventosAtivas(callback) {
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', [CHAVE_NOTIF_ATIVAS], (err, row) => {
@@ -600,6 +617,7 @@ function enviarNotificacaoPush(title, body, targetUsers = null, notificationType
 }
 
 function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificationType = null, url = null) {
+  if (!TIPOS_SEM_TELEGRAM.has(notificationType)) enviarTelegramEvento(title, body);
   const textCheck = `${title || ''} ${body || ''}`.toLowerCase();
   if (
     notificationType === 'divergencia' ||
@@ -808,6 +826,14 @@ function enviarNotificacaoFechamento(lojaRaw, consultor, valorFaturado, metaLoja
     // Dispara Push
     enviarNotificacaoPushInterno(title, body, null, 'fechamento_unidade');
 
+    // Telegram do owner, com a foto do envelope quando houver
+    let fotoTelegram = null;
+    if (fotoEnvelope && typeof fotoEnvelope === 'string' && fotoEnvelope.length > 50) {
+      const info = extrairBase64DaFoto(fotoEnvelope);
+      if (info) fotoTelegram = { buffer: Buffer.from(info.base64, 'base64'), mimeType: info.mimeType };
+    }
+    enviarTelegramEvento(title, body + (observacoes ? `\nObs: ${observacoes}` : ''), fotoTelegram);
+
     // Dispara E-mail HTML para os Owners
     obterEmailsDestinatarios('fechamento_unidade', async (targetEmails) => {
       if (!targetEmails || targetEmails.length === 0) return resolve();
@@ -892,6 +918,19 @@ function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
   });
 }
 
+// Conferência de NFE concluída pelo owner (conferido / divergente).
+function enviarNotificacaoNfeConferida(loja, numeroNfe, valor, status, por) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const valFmt = Number(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const ok = status === 'conferido';
+    const title = `${ok ? '✅ NFE Conferida' : '⚠️ NFE com Divergência'} - ${loja || ''}`.trim();
+    const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} (R$ ${valFmt}) marcada como ${ok ? 'conferida' : 'divergente'} por ${por || 'Owner'}.`;
+    // Push de divergência é bloqueado de propósito; o Telegram entra por este gancho.
+    enviarNotificacaoPushInterno(title, body, null, ok ? 'nfe_conferida' : 'divergencia_nfe');
+  });
+}
+
 function enviarNotificacaoVisao19h() {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) return;
@@ -963,6 +1002,7 @@ module.exports = {
   enviarNotificacaoFechamento,
   prepararFotoParaEmail,
   enviarNotificacaoNfePendente,
+  enviarNotificacaoNfeConferida,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,
@@ -972,5 +1012,6 @@ module.exports = {
   minutosParaHoraStrMeta,
   checkpointsDoDiaMeta,
   enviarLembreteMetaHoraHora,
-  enviarResumoAtrasoMeta
+  enviarResumoAtrasoMeta,
+  enviarTelegramEvento
 };
