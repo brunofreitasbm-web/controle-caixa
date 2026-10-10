@@ -59,10 +59,22 @@ test('Persistência de e-mails na tabela email_queue', async () => {
   assert.ok(['pending', 'sent', 'queued', 'failed'].includes(rows[0].status));
 });
 
-test('Notificação de Abertura com Loja Normalizada', async () => {
-  enviarNotificacaoAbertura('Marumbáia', 'Testador', 150, 'Cacau Show');
+test('Notificação de Abertura não enfileira e-mail com NOTIFICACOES_EMAIL_EVENTOS desligado', async () => {
+  delete process.env.NOTIFICACOES_EMAIL_EVENTOS;
+  await enviarNotificacaoAbertura('Havan Teste', 'Testador', 150, 'Cacau Show');
 
-  await new Promise(r => setTimeout(r, 600));
+  const rows = await new Promise((resolve, reject) => {
+    db.all(`SELECT * FROM email_queue WHERE subject LIKE '%Abertura de Caixa - Havan Teste%'`, [], (err, res) => {
+      if (err) reject(err); else resolve(res);
+    });
+  });
+  assert.equal(rows.length, 0);
+});
+
+test('Notificação de Abertura com Loja Normalizada', async () => {
+  process.env.NOTIFICACOES_EMAIL_EVENTOS = 'true';
+  await enviarNotificacaoAbertura('Marumbáia', 'Testador', 150, 'Cacau Show');
+  delete process.env.NOTIFICACOES_EMAIL_EVENTOS;
 
   const rows = await new Promise((resolve, reject) => {
     db.all(`SELECT * FROM email_queue WHERE subject LIKE '%Abertura de Caixa - Marambaia%'`, [], (err, res) => {

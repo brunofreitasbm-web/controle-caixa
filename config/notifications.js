@@ -156,7 +156,16 @@ function regrasDoTipoNotificacao(rulesBrutas, notificationType) {
   return typeRules;
 }
 
+// E-mail de eventos (abertura, fechamento, divergência, envelopes, briefing,
+// metas) foi substituído pelo Telegram + push. Fica DESLIGADO por padrão;
+// NOTIFICACOES_EMAIL_EVENTOS=true religa. Não afeta envios explícitos como a
+// folha de ponto ao contador (routes/ponto.js), que não passam por aqui.
+function emailEventosAtivo() {
+  return String(process.env.NOTIFICACOES_EMAIL_EVENTOS || '').trim().toLowerCase() === 'true';
+}
+
 function obterEmailsDestinatarios(notificationType, callback) {
+  if (!emailEventosAtivo()) return callback([]);
   db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['notificacoes_config'], (errConfig, rowConfig) => {
     let rulesBrutas = null;
     if (!errConfig && rowConfig && rowConfig.valor) {
@@ -505,7 +514,8 @@ function enviarLembreteMetaHoraHora(loja, horaSlot) {
     const body = `Faltam ${META_LEMBRETE_MIN_ANTES} minutos para confirmar o intervalo das ${horaSlot} na loja ${loja}.`;
     enviarNotificacaoPushInterno(title, body, null, 'meta_lembrete');
     obterEmailsDestinatarios('meta_lembrete', (targetEmails) => {
-      enviarEmailGenerico(targetEmails, title, body);
+      if (!targetEmails || targetEmails.length === 0) return;
+      enviarEmailGenerico(targetEmails, title, body).catch(() => {});
     });
   });
 }
@@ -521,8 +531,9 @@ function enviarResumoAtrasoMeta(resumoPorLoja) {
     const body = `Os intervalos abaixo ficaram sem confirmação de Meta Hora a Hora hoje:\n\n${linhasTexto.join('\n')}`;
     enviarNotificacaoPushInterno(title, body, null, 'meta_atraso');
     obterEmailsDestinatarios('meta_atraso', (targetEmails) => {
+      if (!targetEmails || targetEmails.length === 0) return;
       const linhasHtml = lojas.map(loja => `<li><strong>${loja}:</strong> ${resumoPorLoja[loja].join(', ')}</li>`).join('');
-      enviarEmailGenerico(targetEmails, title, body, `<p>Os intervalos abaixo ficaram sem confirmação de Meta Hora a Hora hoje:</p><ul>${linhasHtml}</ul>`);
+      enviarEmailGenerico(targetEmails, title, body, `<p>Os intervalos abaixo ficaram sem confirmação de Meta Hora a Hora hoje:</p><ul>${linhasHtml}</ul>`).catch(() => {});
     });
   });
 }
@@ -1056,6 +1067,7 @@ module.exports = {
   normalizarNomeLoja,
   processarFilaEmails,
   notificacoesEventosAtivas,
+  emailEventosAtivo,
   obterEmailsDestinatarios,
   enviarEmailNotificacao,
   enviarEmailGenerico,
