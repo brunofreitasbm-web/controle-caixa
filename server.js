@@ -269,39 +269,54 @@ if (require.main === module) {
 // Meta Hora a Hora — resumo de atraso para o Líder de Operação. Roda uma vez
 // por dia, logo após o fechamento mais tardio (22h), comparando os
 // checkpoints esperados com o que foi de fato confirmado em metas_vendas.
+// Dedup por dia (marcarSeNovo): chamado pelo cron interno e por /api/cron/ia-tick.
+async function dispararResumoAtraso() {
+  const { marcarSeNovo } = require('./services/ia');
+  const agora = agoraBrasilMeta();
+  const novo = await marcarSeNovo(`enviado:resumo22h:${agora.data}`, 24 * 3600);
+  if (!novo) return { enviado: false, motivo: 'ja_enviado_hoje' };
+
+  const resumoPorLoja = {};
+
+  for (const loja of Object.keys(OPERACOES_CONFIG_META)) {
+    if (UNIDADES_FA_META.includes(loja)) continue;
+
+    const metaHoje = await dbGetAsync(
+      'SELECT * FROM metas_diarias_lojas WHERE loja = ? AND data = ?',
+      [loja, agora.data]
+    );
+    if (!metaHoje || !['diaria', 'manual'].includes(metaHoje.origem)) continue;
+
+    const checkins = await dbAllAsync(
+      'SELECT horaslot AS "horaSlot" FROM metas_vendas WHERE operacao = ? AND data = ?',
+      [loja, agora.data]
+    );
+    const confirmados = new Set(checkins.map(c => c.horaSlot));
+
+    const perdidos = checkpointsDoDiaMeta(loja)
+      .filter(slotMin => slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN < agora.minutosDoDia)
+      .map(minutosParaHoraStrMeta)
+      .filter(horaSlot => !confirmados.has(horaSlot));
+
+    if (perdidos.length > 0) resumoPorLoja[loja] = perdidos;
+  }
+
+  enviarResumoAtrasoMeta(resumoPorLoja);
+  return { enviado: true };
+}
+
+// Visão geral das 19h, com a mesma dedup diária.
+async function dispararVisao19h() {
+  const { marcarSeNovo } = require('./services/ia');
+  const novo = await marcarSeNovo(`enviado:visao19h:${agoraBrasilMeta().data}`, 24 * 3600);
+  if (!novo) return { enviado: false, motivo: 'ja_enviado_hoje' };
+  enviarNotificacaoVisao19h();
+  return { enviado: true };
+}
+
 if (require.main === module) {
-  cron.schedule('5 22 * * *', async () => {
-    try {
-      const agora = agoraBrasilMeta();
-      const resumoPorLoja = {};
-
-      for (const loja of Object.keys(OPERACOES_CONFIG_META)) {
-        if (UNIDADES_FA_META.includes(loja)) continue;
-
-        const metaHoje = await dbGetAsync(
-          'SELECT * FROM metas_diarias_lojas WHERE loja = ? AND data = ?',
-          [loja, agora.data]
-        );
-        if (!metaHoje || !['diaria', 'manual'].includes(metaHoje.origem)) continue;
-
-        const checkins = await dbAllAsync(
-          'SELECT horaslot AS "horaSlot" FROM metas_vendas WHERE operacao = ? AND data = ?',
-          [loja, agora.data]
-        );
-        const confirmados = new Set(checkins.map(c => c.horaSlot));
-
-        const perdidos = checkpointsDoDiaMeta(loja)
-          .filter(slotMin => slotMin + META_JANELA_FECHAMENTO_DEPOIS_MIN < agora.minutosDoDia)
-          .map(minutosParaHoraStrMeta)
-          .filter(horaSlot => !confirmados.has(horaSlot));
-
-        if (perdidos.length > 0) resumoPorLoja[loja] = perdidos;
-      }
-
-      enviarResumoAtrasoMeta(resumoPorLoja);
-    } catch (err) {
-      console.error('[Meta Hora a Hora] Erro no job de resumo de atraso:', err);
-    }
+  cron.schedule('5 22 * * *', () => {
+    dispararResumoAtraso().catch(err => console.error('[Meta Hora a Hora] Erro no job de resumo de atraso:', err));
   });
 }
 
@@ -398,6 +413,17 @@ app.get('/api/cron/ia-tick', async (req, res) => {
       if (r.enviado) disparos.push({ tipo: 'briefing', ...r });
     }
 
+    // Visão das 19h: janela 19:00–21:59 (depois disso o "acumulado às 19h"
+    // seria enganoso). Resumo de atraso: a partir de 22:05, no mesmo dia.
+    if (agora.minutosDoDia >= 19 * 60 && agora.minutosDoDia < 22 * 60) {
+      const r = await dispararVisao19h();
+      if (r.enviado) disparos.push({ tipo: 'visao19h', ...r });
+    }
+    if (agora.minutosDoDia >= 22 * 60 + 5) {
+      const r = await dispararResumoAtraso();
+      if (r.enviado) disparos.push({ tipo: 'resumo22h', ...r });
+    }
+
     // Copiloto: janela de tolerância maior que o intervalo do pingador, para
     // não perder o disparo se um ping específico atrasar ou falhar. Vai até
     // um pouco depois do horário do intervalo — atrasado ainda é útil.
@@ -426,7 +452,7 @@ initDb(() => {
   // Cron Job para Visão Geral Diária às 19:00 (Fuso horário do Brasil)
   cron.schedule('0 19 * * *', () => {
     console.log('[cron] Disparando notificação de visão geral diária (19h)...');
-    enviarNotificacaoVisao19h();
+    dispararVisao19h().catch(err => console.error('[Visão 19h] Erro no job diário:', err));
   }, { timezone: 'America/Sao_Paulo' });
 
   if (require.main === module) {

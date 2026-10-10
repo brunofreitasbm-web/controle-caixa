@@ -918,6 +918,19 @@ function enviarNotificacaoNfePendente(loja, numeroNfe, valor) {
   });
 }
 
+// Conferência de NFE concluída pelo owner (conferido / divergente).
+function enviarNotificacaoNfeConferida(loja, numeroNfe, valor, status, por) {
+  notificacoesEventosAtivas((ativas) => {
+    if (!ativas) return;
+    const valFmt = Number(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const ok = status === 'conferido';
+    const title = `${ok ? '✅ NFE Conferida' : '⚠️ NFE com Divergência'} - ${loja || ''}`.trim();
+    const body = `NFE ${numeroNfe ? 'nº ' + numeroNfe : ''} (R$ ${valFmt}) marcada como ${ok ? 'conferida' : 'divergente'} por ${por || 'Owner'}.`;
+    // Push de divergência é bloqueado de propósito; o Telegram entra por este gancho.
+    enviarNotificacaoPushInterno(title, body, null, ok ? 'nfe_conferida' : 'divergencia_nfe');
+  });
+}
+
 function enviarNotificacaoVisao19h() {
   notificacoesEventosAtivas((ativas) => {
     if (!ativas) return;
@@ -989,6 +1002,7 @@ module.exports = {
   enviarNotificacaoFechamento,
   prepararFotoParaEmail,
   enviarNotificacaoNfePendente,
+  enviarNotificacaoNfeConferida,
   enviarNotificacaoVisao19h,
   OPERACOES_CONFIG_META,
   UNIDADES_FA_META,

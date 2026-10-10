@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db, normalizeRow } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { enviarNotificacaoNfePendente } = require('../config/notifications');
+const { enviarNotificacaoNfePendente, enviarNotificacaoNfeConferida } = require('../config/notifications');
 const { publish } = require('../config/realtime');
 
 // 1. Listar todas as NFEs para conferência
@@ -96,6 +96,13 @@ router.put('/:id/status', (req, res) => {
 
       registrarLog(id, 'NFE_STATUS', `Status da NFE alterado para ${status} por ${usuarioLog}`, usuarioLog);
       publish('nfe.alterado', { id, status, conferidoPor: usuarioLog, atualizadoEm: agora }, { origem: req.query.clientId, usuario: usuarioLog });
+
+      if (status !== 'pendente' && this.changes !== 0) {
+        db.get('SELECT loja, numeroNfe, valor FROM nfe_conferencia WHERE id = ?', [id], (e, row) => {
+          const n = row ? normalizeRow(row) : null;
+          if (!e && n) enviarNotificacaoNfeConferida(n.loja, n.numeroNfe, n.valor, status, usuarioLog);
+        });
+      }
 
       res.json({ success: true });
     }
