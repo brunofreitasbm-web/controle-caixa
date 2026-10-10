@@ -1,6 +1,6 @@
 # Notificações via Telegram
 
-Canal adicional (não substitui e-mail/push) para o grupo do owner.
+Canal de notificações de eventos do grupo do owner. O e-mail de eventos está desligado por padrão (`NOTIFICACOES_EMAIL_EVENTOS=true` religa); o envio da folha de ponto ao contador continua por SMTP.
 
 ## Configurar
 1. No Telegram, fale com `@BotFather` → `/newbot` → guarde o token.
