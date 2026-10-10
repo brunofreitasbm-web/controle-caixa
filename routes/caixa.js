@@ -3,8 +3,9 @@ const { validarDataUrl } = require('../config/data-url');
 const router = express.Router();
 const { db, normalizeRow, dbGetAsync } = require('../config/database');
 const { registrarLog } = require('../config/logger');
-const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarEmailGenerico, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, normalizarNomeLoja } = require('../config/notifications');
+const { notificacoesEventosAtivas, obterEmailsDestinatarios, enviarEmailNotificacao, enviarEmailGenerico, enviarNotificacaoPush, enviarNotificacaoAbertura, enviarNotificacaoFechamento, enviarTelegramEvento, normalizarNomeLoja } = require('../config/notifications');
 const { publish } = require('../config/realtime');
+const { aguardarPendentes: aguardarTelegram } = require('../services/telegram');
 
 // A foto do envelope é base64 e pesa MUITO (é por isso que o express.json está
 // com limit de 15mb). Ela nunca vai no evento de tempo real — o cliente que
@@ -96,6 +97,12 @@ async function dispararNotificacoesRegistro(r) {
     await enviarNotificacaoAbertura(r.loja, r.consultor, r.fundoCaixa, 'Cacau Show', fundoPrevisto, diferenca);
 
     if (diferenca !== 0 && fundoPrevisto !== null) {
+      const tipoDiffTg = diferenca > 0 ? 'sobra' : 'falta';
+      enviarTelegramEvento(
+        `⚠️ Divergência na Abertura de Caixa - Loja ${r.loja} (Cacau Show)`,
+        `Divergência na abertura (${r.consultor}): fundo contado R$ ${Number(r.fundoCaixa || 0).toFixed(2)} vs previsto R$ ${fundoPrevisto.toFixed(2)} (${tipoDiffTg} de R$ ${Math.abs(diferenca).toFixed(2)}).` +
+        (r.observacoes ? `\nJustificativa: ${r.observacoes}` : '')
+      );
       await new Promise((resolve) => {
         obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
           if (!targetEmails || targetEmails.length === 0) return resolve();
@@ -177,6 +184,7 @@ router.post('/registros', (req, res) => {
       } catch (notifErr) {
         console.error('Erro ao disparar notificações do registro:', notifErr);
       }
+      await aguardarTelegram();
 
       const usuarioLog = req.query.usuario || r.consultor || 'Desconhecido';
       registrarLog(r.id, 'CREATE', `Registro criado: ${r.tipoOperacao} (${r.loja}) - R$ ${r.fundoCaixa}`, usuarioLog);
