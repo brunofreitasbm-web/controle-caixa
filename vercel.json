@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/backup-mensal",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/limpar-fotos-envelopes",
+      "schedule": "0 3 * * *"
     }
   ],
   "headers": [

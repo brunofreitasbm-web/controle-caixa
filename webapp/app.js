@@ -15267,6 +15267,10 @@ function _rtRegistroAlterado(lista, chaveStorage, rota, payload, render) {
     if (k === "temFoto") return;
     reg[k] = campos[k];
   });
+  if (campos.temFoto !== undefined) {
+    reg.temFoto = !!campos.temFoto;
+    if (!campos.temFoto) reg.fotoEnvelope = null;
+  }
   localStorage.setItem(chaveStorage, JSON.stringify(lista));
   render();
   if (campos.temFoto && !reg.fotoEnvelope) _rtBuscarFoto(rota, { id: reg.id, temFoto: true });

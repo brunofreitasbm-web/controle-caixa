@@ -40,6 +40,7 @@ const iaRoutes = require('./routes/ia');
 const auditoriaDocsRoutes = require('./routes/auditoria-docs');
 const retiradasRoutes = require('./routes/retiradas');
 const nfeRoutes = require('./routes/nfe');
+const { limparFotosEnvelopesRecolhidosAntigos } = require('./services/limpeza-envelopes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -210,7 +211,34 @@ if (require.main === module) {
       console.error('[Backup Mensal] Erro na verificação diária:', err);
     });
   });
+
+  // Limpeza de fotos de envelopes recolhidos há mais de 5 dias (diariamente às 3h da manhã)
+  cron.schedule('0 3 * * *', () => {
+    limparFotosEnvelopesRecolhidosAntigos({ dias: 5 }).catch(err => {
+      console.error('[Limpeza Envelopes] Erro no job diário:', err);
+    });
+  }, { timezone: 'America/Sao_Paulo' });
 }
+
+// Endpoint manual/cron para limpeza de fotos de envelopes recolhidos há mais de 5 dias
+app.get('/api/cron/limpar-fotos-envelopes', async (req, res) => {
+  if (process.env.CRON_SECRET) {
+    const auth = req.headers['authorization'];
+    const secretQuery = req.query.secret;
+    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
+    const validQuery = secretQuery === process.env.CRON_SECRET;
+    if (!validHeader && !validQuery) {
+      return res.status(401).json({ error: 'Não autorizado.' });
+    }
+  }
+  try {
+    const resultado = await limparFotosEnvelopesRecolhidosAntigos({ dias: 5 });
+    res.json(resultado);
+  } catch (err) {
+    console.error('[Limpeza Envelopes] Erro ao limpar fotos de envelopes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Dispara o aviso de um único intervalo (loja + horaSlot). Extraído para uma
 // função porque é chamado de dois lugares: o cron.schedule interno (que só
@@ -398,6 +426,16 @@ app.get('/api/cron/ia-tick', async (req, res) => {
       if (r.enviado) disparos.push({ tipo: 'briefing', ...r });
     }
 
+    // Limpeza de fotos de envelopes recolhidos há mais de 5 dias (1x ao dia via pingador)
+    const { marcarSeNovo } = require('./services/ia');
+    const novoLimpeza = await marcarSeNovo(`enviado:limpeza_fotos:${agora.data}`, 24 * 3600);
+    if (novoLimpeza) {
+      const rLimpeza = await limparFotosEnvelopesRecolhidosAntigos({ dias: 5 });
+      if (rLimpeza && rLimpeza.totalLimpos > 0) {
+        disparos.push({ tipo: 'limpeza_fotos_envelopes', ...rLimpeza });
+      }
+    }
+
     // Copiloto: janela de tolerância maior que o intervalo do pingador, para
     // não perder o disparo se um ping específico atrasar ou falhar. Vai até
     // um pouco depois do horário do intervalo — atrasado ainda é útil.
@@ -423,6 +461,11 @@ app.get('/api/cron/ia-tick', async (req, res) => {
 
 // Inicializar banco de dados e iniciar servidor
 initDb(() => {
+  // Verificação inicial de fotos expiradas de envelopes ao inicializar o servidor
+  limparFotosEnvelopesRecolhidosAntigos({ dias: 5 }).catch(err => {
+    console.error('[Limpeza Envelopes] Erro na verificação inicial:', err);
+  });
+
   // Cron Job para Visão Geral Diária às 19:00 (Fuso horário do Brasil)
   cron.schedule('0 19 * * *', () => {
     console.log('[cron] Disparando notificação de visão geral diária (19h)...');

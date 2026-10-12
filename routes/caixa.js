@@ -141,6 +141,28 @@ async function dispararNotificacoesRegistro(r) {
   }
 }
 
+// Endpoint de compatibilidade para disparo manual/QA de divergência de caixa
+router.post('/divergencia', async (req, res) => {
+  const { loja, consultor, fundoAbertura, fundoUltimoFechamento, diferenca } = req.body || {};
+  try {
+    await new Promise((resolve) => {
+      obterEmailsDestinatarios('divergencia_caixa', (targetEmails) => {
+        if (!targetEmails || targetEmails.length === 0) return resolve();
+        const diferencaAbs = Math.abs(Number(diferenca) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const tipoDiff = (Number(diferenca) || 0) > 0 ? 'sobra' : 'falta';
+        const subject = `⚠️ Divergência na Abertura de Caixa - Loja ${loja || 'Desconhecida'} (Cacau Show)`;
+        const bodyText = `Divergência detectada na abertura da loja ${loja} (${consultor}): Fundo contado R$ ${Number(fundoAbertura || 0).toFixed(2)} vs previsto R$ ${Number(fundoUltimoFechamento || 0).toFixed(2)} (${tipoDiff} de R$ ${diferencaAbs}).`;
+        enviarEmailGenerico(targetEmails, subject, bodyText)
+          .catch(e => console.error('Erro ao enviar email divergencia:', e))
+          .then(resolve);
+      });
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Inserir registro
 router.post('/registros', (req, res) => {
   const r = req.body;

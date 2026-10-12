@@ -319,7 +319,8 @@ function processarFilaEmails() {
 }
 
 // Inicia verificação periódica da fila a cada 30 segundos
-setInterval(processarFilaEmails, 30000);
+const _emailQueueInterval = setInterval(processarFilaEmails, 30000);
+if (_emailQueueInterval && _emailQueueInterval.unref) _emailQueueInterval.unref();
 
 // `attachments` segue o formato do nodemailer ([{ filename, content, encoding }]).
 // Enfileira na tabela email_queue e tenta o envio imediato via pool SMTP.
