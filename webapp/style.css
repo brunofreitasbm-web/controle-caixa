@@ -1,39 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&display=swap');
-
-/* ==========================================================================
-   DESIGN SYSTEM — TOKENS SEMÂNTICOS (tema claro único, paleta Organic)
-   --------------------------------------------------------------------------
-   Fonte de verdade da paleta do app. A paleta vem do design publicado
-   "Hub Operações Mobile" (design system Organic): fundo bege, cartões em
-   tom terroso e acento marrom-alaranjado. Os NOMES dos tokens não mudaram —
-   só os valores —, então as ~200 regras de componente que os consomem
-   seguiram funcionando sem reescrita.
-
-   Regras mantidas do sistema anterior:
-     · toda superfície é clara (bege, off-white ou areia);
-     · todo texto é escuro, com contraste >= 7:1 (WCAG AAA) sobre a superfície
-       em que assenta — as razões medidas estão anotadas em cada token;
-     · cor de acento nunca vira preenchimento sólido com texto branco: entra
-       como tint claro (--tone-*-soft) + borda/ícone (--tone-*-line) + rótulo
-       escuro (--tone-*-ink).
-
-   Uma diferença de forma em relação ao sistema azul anterior: aqui
-   --surface-2 é MAIS CLARO que --surface-1, e não mais escuro. É de
-   propósito, e é o que o design faz: a página é bege (#F5EAD8), o cartão
-   assenta em areia (#EBDDC5) e o campo de entrada volta ao quase-branco
-   (#F9F4ED). A elevação é lida pelo contraste com o vizinho, não por uma
-   rampa monotônica.
-
-   O módulo Faça Amigos tem paleta própria (ver bloco FAÇAAMIGOS) e continua
-   deliberadamente fora deste sistema — é outra marca.
-   ========================================================================== */
+/* Tipografia padronizada em System UI Nativo (zero latência de rede, fluidez máxima) */
 :root {
-  /* --- Tipografia --------------------------------------------------------
-     Caprasimo é uma display de peso único (400). Onde ela entra, o peso é
-     fixado em 400 na própria regra: pedir 700 faria o navegador sintetizar
-     um negrito borrado sobre uma face que já é pesada por desenho.        */
-  --font-display: 'Caprasimo', 'Figtree', system-ui, sans-serif;
-  --font-body:    'Figtree', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  /* --- Tipografia Padronizada (System UI) ---------------------------------
+     Padronização 100% nativa: sem requisições HTTP a fontes externas,
+     renderização instantânea (Limiar de Doherty < 100ms) e máxima nitidez. */
+  --font-system:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-system);
+  --font-body:    var(--font-system);
+  --font-mono:    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* --- Superfícies -------------------------------------------------------- */
   --surface-canvas:   #F5EAD8; /* fundo da página                            */
@@ -3980,17 +3953,12 @@ body.tema-fa .topbar {
    BLUEDOX DESIGN SYSTEM LAYOUT & DESIGN SYSTEM SPECIFIC ADDITIONS
    ========================================================================== */
 
-/* Tipografia global — duas famílias, uma decisão por papel.
+/* Tipografia global — Padronizada em System UI Nativo.
    -------------------------------------------------------------------------
-   Este bloco tem `!important` porque precisa vencer o tailwind-compiled.css
-   (congelado, carregado depois). Ele é o motivo de as regras
-   `font-family: var(--font-body)` espalhadas acima nunca terem efeito
-   próprio: sobrevivem como documentação do papel de cada peça, mas quem
-   decide é aqui.
-
-   Corpo, controle e rótulo ficam em Figtree. Título vai para Caprasimo —
-   com o peso fixado em 400, porque a face só existe nesse peso e qualquer
-   valor maior vira negrito sintético. */
+   Vence tailwind-compiled.css com máxima fidelidade e zero requisição web.
+   Corpo e controles herdam clareza e alta legibilidade nativa do sistema.
+   Títulos (h1-h6) e destaques usam pesos estruturados (600-700) para máxima
+   hierarquia visual e nitidez segundo a Lei de Miller e Efeito Estético-Usabilidade. */
 body, button, input, select, textarea, .tab-btn {
   font-family: var(--font-body) !important;
   color: var(--ink);
@@ -3998,19 +3966,15 @@ body, button, input, select, textarea, .tab-btn {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display) !important;
-  font-weight: 400 !important;
-  letter-spacing: -0.015em;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em;
   color: var(--ink-strong);
 }
 
-/* `.font-display` já existia como classe em várias telas (ex.: `<h2
-   class="font-display ...">` no cabeçalho do Dashboard) sem nenhuma regra
-   correspondente — nas headings isso não se notava, porque a regra acima já
-   cobre h1–h6; a classe existir sem efeito próprio é o que permite usá-la
-   também fora de uma heading (um <span> de número grande, por exemplo). */
 .font-display {
-  font-family: var(--font-display);
-  font-weight: 400;
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
 }
 
 /* Herança de tinta: qualquer conteúdo fora do Faça Amigos herda a tinta
@@ -5294,7 +5258,8 @@ button:disabled:not(.fa-section *) {
 .loja-card .valor,
 .stat-card .valor {
   font-family: var(--font-display) !important;
-  font-weight: 400 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
 }
 
 /* O !important de `.topbar-title { font-weight: 700 }`, lá em cima, é
@@ -5944,4 +5909,123 @@ button:disabled:not(.fa-section *) {
   background: #533927;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* ==========================================================================
+   OTIMIZAÇÃO VISUAL E DE INTERAÇÃO (LEIS DE UX & DESIGN SYSTEM)
+   --------------------------------------------------------------------------
+   Arquitetura de interação e acessibilidade baseada em:
+     1. Tipografia Unificada (System UI puro com antialiasing superior)
+     2. Lei de Fitts (alvos táteis >= 44px, alcance ergonômico no polegar)
+     3. Lei de Hick (hierarquia clara entre ação primária e secundária)
+     4. Lei de Jakob (padrões de foco acessível e convenções de interface)
+     5. Lei de Miller (chunking modular, métricas e cartões respiráveis)
+     6. Limiar de Doherty (feedback de clique < 100ms e micro-animações instantâneas)
+     7. Efeito Estético-Usabilidade (harmonia visual, acabamento premium e WCAG AAA)
+   ========================================================================== */
+
+/* 1. RENDERIZAÇÃO TIPOGRÁFICA ULTRA-NÍTIDA */
+body, input, button, select, textarea {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 2. LEI DE FITTS: ALVOS TÁTEIS & ERGONOMIA
+   Garante área mínima de 44px de toque/clique para evitar erros motores */
+button,
+.btn,
+.tab-btn,
+.seg-btn,
+.bottom-nav-btn,
+.quick-action-item,
+.modal-close,
+.close-btn {
+  min-height: 44px;
+}
+
+.bottom-nav-btn {
+  min-height: 56px;
+  touch-action: manipulation;
+}
+
+/* 3. LEI DE HICK: HIERARQUIA VISUAL DE DECISÃO
+   Reduz o tempo de escolha destacando visualmente o caminho principal */
+.btn-primary,
+button[type="submit"] {
+  box-shadow: 0 2px 8px rgba(178, 98, 45, 0.25);
+  font-weight: 700;
+}
+
+.btn-secondary,
+.btn-ghost {
+  opacity: 0.92;
+}
+
+.btn-secondary:hover,
+.btn-ghost:hover {
+  opacity: 1;
+}
+
+/* 4. LEI DE JAKOB: FOCO E PADRÕES UNIVERSAIS ACESSÍVEIS */
+:focus-visible {
+  outline: 2px solid var(--edge-focus) !important;
+  outline-offset: 2px !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--edge-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--edge-accent) 20%, transparent) !important;
+}
+
+/* 5. LEI DE MILLER: CHUNKING E LEITURA RESPIRÁVEL
+   Separação visual estruturada para não sobrecarregar a memória de curto prazo */
+.card,
+.stat-card,
+.loja-card,
+.form-card,
+.table-wrap {
+  border-radius: var(--radius);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover,
+.stat-card:hover,
+.loja-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* 6. LIMIAR DE DOHERTY: RESPOSTA IMEDIATA (< 150ms)
+   Feedback tátil instantâneo no toque/clique sem latência perceptível */
+button:active,
+.btn:active,
+.tab-btn:active,
+.seg-btn:active,
+.bottom-nav-btn:active,
+.quick-action-item:active {
+  transform: scale(0.97) !important;
+  transition: transform 0.08s ease-out !important;
+}
+
+/* 7. EFEITO ESTÉTICO-USABILIDADE: ACABAMENTO REFINADO */
+.modal {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 48px rgba(46, 43, 37, 0.22);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--edge-default);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--edge-strong);
 }
