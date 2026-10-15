@@ -14,7 +14,13 @@
   var CLIENT_ID_KEY = 'cacaushow_client_id';
   var MAX_BACKOFF_MS = 30000;
   var FALLBACK_APOS_FALHAS = 3;
-  var FALLBACK_INTERVALO_MS = 20000;
+  // Em produção o backend roda como função serverless na Vercel: cada conexão SSE
+  // segura uma função ativa até o limite de 300s (timeouts + custo), e a lista de
+  // clientes em memória nem alcança outras instâncias. Por isso o padrão é
+  // atualização periódica (polling). Para voltar ao SSE (servidor de 1 instância),
+  // mude para true E defina REALTIME_SSE=1 no servidor.
+  var USAR_SSE = false;
+  var FALLBACK_INTERVALO_MS = 30000;
   var TEMPO_OCIOSO_PARA_FECHAR_MS = 5 * 60 * 1000;
 
   function gerarId() {
@@ -93,11 +99,16 @@
       dot.classList.add('rt-pulse');
       txt.style.color = 'var(--tone-success-ink)';
       txt.textContent = 'AO VIVO';
+    } else if (estado === 'polling') {
+      dot.classList.remove('rt-pulse');
+      dot.style.background = 'var(--tone-success-line)';
+      txt.style.color = 'var(--tone-success-ink)';
+      txt.textContent = 'ATUALIZA A CADA ' + (FALLBACK_INTERVALO_MS / 1000) + 's';
     } else if (estado === 'fallback') {
       dot.classList.remove('rt-pulse');
       dot.style.background = 'var(--tone-warning-line)';
       txt.style.color = 'var(--tone-warning-ink)';
-      txt.textContent = 'ATUALIZANDO A CADA 20s';
+      txt.textContent = 'ATUALIZANDO A CADA ' + (FALLBACK_INTERVALO_MS / 1000) + 's';
     } else {
       dot.classList.remove('rt-pulse');
       dot.style.background = 'var(--tone-danger-line)';
@@ -119,6 +130,10 @@
   }
 
   function conectar() {
+    if (!USAR_SSE) {
+      entrarEmFallback();
+      return;
+    }
     if (typeof window.EventSource === 'undefined') {
       console.warn('[RT] Navegador sem suporte a EventSource — usando atualização periódica.');
       entrarEmFallback();
@@ -191,7 +206,7 @@
   function entrarEmFallback() {
     if (modoFallback) return;
     modoFallback = true;
-    atualizarIndicador('fallback');
+    atualizarIndicador(USAR_SSE ? 'fallback' : 'polling');
     clearInterval(timerFallback);
     timerFallback = setInterval(function () {
       if (document.hidden) return;

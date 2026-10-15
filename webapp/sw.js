@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ponto-pwa-v75'; // v75: back-handler.js (botão/gesto voltar do celular); v74: upload-utils.js (compressão WebP/PDF de uploads)
+const CACHE_NAME = 'ponto-pwa-v76'; // v76: realtime por polling (sem SSE); v75: back-handler.js (botão/gesto voltar do celular); v74: upload-utils.js (compressão WebP/PDF de uploads)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
