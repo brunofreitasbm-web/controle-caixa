@@ -62,6 +62,8 @@ router.get('/registros/:id/foto', (req, res) => {
   db.get('SELECT fotoEnvelope FROM registros WHERE id = ?', [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Registro não encontrado.' });
+    // Foto do envelope não muda depois de enviada: cache privado no navegador evita reler o banco.
+    res.set('Cache-Control', 'private, max-age=3600');
     res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
   });
 });
@@ -292,6 +294,8 @@ router.get('/registros-fa/:id/foto', (req, res) => {
   db.get('SELECT fotoEnvelope FROM registros_fa WHERE id = ?', [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Registro FA não encontrado.' });
+    // Foto do envelope não muda depois de enviada: cache privado no navegador evita reler o banco.
+    res.set('Cache-Control', 'private, max-age=3600');
     res.json({ fotoEnvelope: normalizeRow(row).fotoEnvelope || null });
   });
 });
