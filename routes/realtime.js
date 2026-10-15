@@ -9,6 +9,12 @@ const { addClient, removeClient, replay, stats } = require('../config/realtime')
  * header Last-Event-ID, que usamos para reenviar o que foi perdido.
  */
 router.get('/events', (req, res) => {
+  // Em função serverless (Vercel) uma conexão SSE fica ativa até o timeout de 300s e a
+  // lista de clientes em memória não alcança outras instâncias. O app agora usa
+  // polling; 204 faz o EventSource de abas antigas desistir e cair no polling também.
+  // Para servidor de 1 instância (Render/VPS), defina REALTIME_SSE=1.
+  if (process.env.REALTIME_SSE !== '1') return res.status(204).end();
+
   const { usuario, clientId, loja } = req.query;
 
   res.writeHead(200, {
