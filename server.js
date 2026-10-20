@@ -461,16 +461,18 @@ app.get('/api/cron/ia-tick', async (req, res) => {
 
 // Inicializar banco de dados e iniciar servidor
 initDb(() => {
-  // Verificação inicial de fotos expiradas de envelopes ao inicializar o servidor
-  limparFotosEnvelopesRecolhidosAntigos({ dias: 5 }).catch(err => {
-    console.error('[Limpeza Envelopes] Erro na verificação inicial:', err);
-  });
+  if (!process.env.VERCEL) {
+    // Verificação inicial de fotos expiradas de envelopes ao inicializar o servidor
+    limparFotosEnvelopesRecolhidosAntigos({ dias: 5 }).catch(err => {
+      console.error('[Limpeza Envelopes] Erro na verificação inicial:', err);
+    });
 
-  // Cron Job para Visão Geral Diária às 19:00 (Fuso horário do Brasil)
-  cron.schedule('0 19 * * *', () => {
-    console.log('[cron] Disparando notificação de visão geral diária (19h)...');
-    enviarNotificacaoVisao19h();
-  }, { timezone: 'America/Sao_Paulo' });
+    // Cron Job para Visão Geral Diária às 19:00 (Fuso horário do Brasil)
+    cron.schedule('0 19 * * *', () => {
+      console.log('[cron] Disparando notificação de visão geral diária (19h)...');
+      enviarNotificacaoVisao19h();
+    }, { timezone: 'America/Sao_Paulo' });
+  }
 
   if (require.main === module) {
     app.listen(PORT, () => {

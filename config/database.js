@@ -123,15 +123,26 @@ if (isPostgres) {
   if (dbUrl.includes('pooler.supabase.com:5432')) {
     dbUrl = dbUrl.replace('pooler.supabase.com:5432', 'pooler.supabase.com:6543');
   }
-  const pool = new Pool({
-    connectionString: dbUrl,
-    ssl: {
-      rejectUnauthorized: sslRejectUnauthorized
-    },
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
-  });
+  if (dbUrl.includes(':6543') && !dbUrl.includes('pgbouncer=true')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+  }
+
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  const defaultMax = isServerless ? 2 : 10;
+  const maxPoolConnections = parseInt(process.env.PG_POOL_MAX || defaultMax, 10);
+
+  if (!global.__hubPgPool) {
+    global.__hubPgPool = new Pool({
+      connectionString: dbUrl,
+      ssl: {
+        rejectUnauthorized: sslRejectUnauthorized
+      },
+      max: maxPoolConnections,
+      idleTimeoutMillis: isServerless ? 5000 : 30000,
+      connectionTimeoutMillis: 5000
+    });
+  }
+  const pool = global.__hubPgPool;
 
   db = {
     all: (sql, params, cb) => {
@@ -208,7 +219,47 @@ function dbRunAsync(sql, params = []) {
   });
 }
 
+function configurarVapidKeys(cb) {
+  if (global.vapidPublicKey) {
+    if (cb) cb();
+    return;
+  }
+  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err3, row) => {
+    let vapidKeys;
+    if (!err3 && row && row.valor) {
+      try {
+        vapidKeys = JSON.parse(row.valor);
+      } catch (e) {
+        vapidKeys = webPush.generateVAPIDKeys();
+      }
+    } else {
+      vapidKeys = webPush.generateVAPIDKeys();
+      db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
+    }
+    webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
+    global.vapidPublicKey = vapidKeys.publicKey;
+    console.log('Web Push VAPID keys configuradas.');
+    if (cb) cb();
+  });
+}
+
 function initDb(onSuccess) {
+  if (global.__hubDbInitialized) {
+    if (onSuccess) onSuccess();
+    return;
+  }
+
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  // Em serverless, se não for solicitado explicitamente executar DDL completo (RUN_DB_INIT),
+  // as tabelas já foram criadas na migração inicial. Evitamos rodar 50+ DDL queries em cada cold start.
+  if (isPostgres && isServerless && process.env.RUN_DB_INIT !== 'true') {
+    global.__hubDbInitialized = true;
+    configurarVapidKeys(() => {
+      if (onSuccess) onSuccess();
+    });
+    return;
+  }
+
   const checkSql = isPostgres 
     ? "SELECT column_name FROM information_schema.columns WHERE table_name = 'nfs' AND column_name = 'id'"
     : "PRAGMA table_info(nfs)";
@@ -1204,23 +1255,11 @@ function initDb(onSuccess) {
 
       promise.then(() => {
         console.log('Banco de dados inicializado com sucesso.');
-        
-        // Inicializar VAPID keys para Web Push
-        db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['vapid_keys'], (err3, row) => {
-          let vapidKeys;
-          if (!err3 && row && row.valor) {
-            vapidKeys = JSON.parse(row.valor);
-          } else {
-            vapidKeys = webPush.generateVAPIDKeys();
-            db.run('INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?', ['vapid_keys', JSON.stringify(vapidKeys), JSON.stringify(vapidKeys)]);
-          }
-          webPush.setVapidDetails('mailto:brunofreitasbm@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
-          global.vapidPublicKey = vapidKeys.publicKey;
-          console.log('Web Push VAPID keys configuradas.');
-          if (onSuccess) onSuccess();
-        });
+        global.__hubDbInitialized = true;
+        configurarVapidKeys(onSuccess);
       }).catch((err3) => {
         console.error('Erro na inicialização do banco de dados:', err3);
+        if (onSuccess) onSuccess();
       });
     };
 
