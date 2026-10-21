@@ -12,6 +12,20 @@ const PIN_KEY = "cacaushow_pins_v1";
 const CONFIG_KEY = "cacaushow_config";
 const THEME_KEY = "cacaushow_theme";
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
+
+// O localStorage é só espelho da API (fonte da verdade). Estourar a quota (~5MB,
+// geralmente por fotos base64 em fotoEnvelope) nunca pode derrubar o fluxo.
+function salvarCacheLocal(key, lista) {
+  try { localStorage.setItem(key, JSON.stringify(lista)); return true; } catch (_e) {}
+  try {
+    const leve = lista.map(r => (r && typeof r.fotoEnvelope === "string" && r.fotoEnvelope.length > 2000) ? { ...r, fotoEnvelope: "" } : r);
+    localStorage.setItem(key, JSON.stringify(leve));
+    return true;
+  } catch (_e) {}
+  try { localStorage.removeItem(key); } catch (_e) {}
+  console.warn("localStorage cheio: cache local de " + key + " descartado (dados seguem na API).");
+  return false;
+}
 let sessionTimeoutMs = 30 * 60 * 1000; // 30 minutos por padrão (carregado dinamicamente do config)
 
 const LOJAS = ["Marambaia", "Icoaraci", "Mário Covas", "Venda Direta"];
@@ -801,7 +815,7 @@ async function inicializarDados() {
 
       const dataReg = await resReg.json();
       registros = Array.isArray(dataReg) ? dataReg : [];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+      salvarCacheLocal(STORAGE_KEY, registros);
 
       // Carregar registros FA
       const dataRegFA = await resRegFA.json();
@@ -1004,7 +1018,7 @@ async function salvarRegistroAPI(reg) {
   }
   // Fallback Local
   registros.push(reg);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  salvarCacheLocal(STORAGE_KEY, registros);
   if (typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
   }
@@ -1029,7 +1043,7 @@ async function atualizarRegistroAPI(id, dados) {
   const idx = registros.findIndex(r => String(r.id) === String(id));
   if (idx !== -1) {
     registros[idx] = { ...registros[idx], ...dados };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+    salvarCacheLocal(STORAGE_KEY, registros);
   }
   if (!ok && typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
@@ -1056,7 +1070,7 @@ async function excluirRegistroAPI(id) {
     const idx = registros.findIndex(r => String(r.id) === String(id));
     if (idx !== -1) {
       registros.splice(idx, 1);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+      salvarCacheLocal(STORAGE_KEY, registros);
     }
     return true;
   }
@@ -1104,7 +1118,7 @@ async function salvarRegistroFAAPI(reg) {
   }
   // Fallback Local
   registrosFA.push(reg);
-  localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+  salvarCacheLocal(STORAGE_KEY_FA, registrosFA);
   if (typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "FA_CREATE", data: reg, usuario: currentUser ? currentUser.nome : "" });
   }
@@ -1129,7 +1143,7 @@ async function atualizarRegistroFAAPI(id, dados) {
   const idx = registrosFA.findIndex(r => String(r.id) === String(id));
   if (idx !== -1) {
     registrosFA[idx] = { ...registrosFA[idx], ...dados };
-    localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+    salvarCacheLocal(STORAGE_KEY_FA, registrosFA);
   }
   if (!ok && typeof addToSyncQueue === "function") {
     addToSyncQueue({ type: "FA_UPDATE", id, data: dados, usuario: currentUser ? currentUser.nome : "" });
@@ -1156,7 +1170,7 @@ async function excluirRegistroFAAPI(id) {
     const idx = registrosFA.findIndex(r => r.id === id);
     if (idx !== -1) {
       registrosFA.splice(idx, 1);
-      localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+      salvarCacheLocal(STORAGE_KEY_FA, registrosFA);
     }
     return true;
   }
@@ -15236,10 +15250,10 @@ async function _rtBuscarFoto(rota, registro) {
     if (dados && dados.fotoEnvelope) {
       registro.fotoEnvelope = dados.fotoEnvelope;
       if (rota === "registros") {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+        salvarCacheLocal(STORAGE_KEY, registros);
         _rtRenderRegistrosCacau();
       } else {
-        localStorage.setItem(STORAGE_KEY_FA, JSON.stringify(registrosFA));
+        salvarCacheLocal(STORAGE_KEY_FA, registrosFA);
         _rtRenderRegistrosFa();
       }
     }
