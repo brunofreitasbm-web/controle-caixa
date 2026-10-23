@@ -30,6 +30,9 @@ router.get('/events', (req, res) => {
   // Sem `id:` neste frame para não mexer no Last-Event-ID do cliente.
   res.write(`data: ${JSON.stringify({ tipo: 'conectado', payload: { ok: true, reenviados } })}\n\n`);
 
+  // Fecha o stream antes do limite de 300s da funcao; o EventSource reconecta (retry 3s) e o Last-Event-ID reenvia o que faltou.
+  const encerrar = setTimeout(() => { try { res.end(); } catch (e) {} }, 270000);
+  req.on('close', () => clearTimeout(encerrar));
   req.on('close', () => removeClient(client));
   req.on('error', () => removeClient(client));
 });
