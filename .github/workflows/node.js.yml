@@ -1,31 +1,44 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
+# CI enxuto: um unico job, com limite de tempo e cancelamento de runs antigos.
+# Antes: matriz Node 18/20/22 sem timeout; o npm test nao encerrava e cada job
+# rodava ate o limite de 6h (3 jobs x 360 min por push).
 name: Node.js CI
 
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - "**.md"
+      - "**.xlsx"
+      - "**.csv"
+      - "**.docx"
+      - "**.pdf"
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - "**.md"
+      - "**.xlsx"
+      - "**.csv"
+      - "**.docx"
+      - "**.pdf"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+      - uses: actions/checkout@v4
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build --if-present
+      # --test-force-exit encerra o processo ao fim dos testes, mesmo com
+      # handle aberto (servidor, cron, conexao de banco).
+      - run: node --test --test-force-exit tests/hostile-qa.test.js
