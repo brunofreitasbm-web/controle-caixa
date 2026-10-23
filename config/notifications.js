@@ -731,9 +731,9 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
               auth: row.keys_auth
             }
           };
-          return webPush.sendNotification(sub, payload).catch(error => {
+          return webPush.sendNotification(sub, payload, { timeout: 8000 }).catch(error => {
             console.error('Erro ao enviar push para endpoint:', row.endpoint, error);
-            if (error.statusCode === 404 || error.statusCode === 410) {
+            if (error.statusCode === 404 || error.statusCode === 410 || (error.statusCode === 401 && /\/fcm\/send\//.test(row.endpoint))) {
               console.log('Subscription expirada. Removendo do banco.');
               db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [row.endpoint]);
             }
