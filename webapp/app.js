@@ -10101,9 +10101,11 @@ function exportExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "INVENTARIO");
 
-  // Nome do arquivo conforme o padrão de 1 por loja (.xls / .xlsx)
-  const filename = `INVENTARIO_LOJA_${currentStore}.xls`;
-  XLSX.writeFile(workbook, filename);
+  // Padrão de 1 arquivo por loja, sempre em .xlsx (Office Open XML). O
+  // bookType é explícito porque o SheetJS infere o formato pela extensão —
+  // antes o nome terminava em .xls e saía BIFF8 legado.
+  const filename = `INVENTARIO_LOJA_${currentStore}.xlsx`;
+  XLSX.writeFile(workbook, filename, { bookType: 'xlsx' });
 
   // Marcar conclusão do inventário da loja atual no localStorage
   const ano = new Date().getFullYear();
