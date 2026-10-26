@@ -180,7 +180,7 @@ function obterEmailsDestinatarios(notificationType, callback) {
     if (typeRules.lider) enabledRoles.push('consultora_dashboard');
     if (typeRules.owner) enabledRoles.push('owner');
 
-    db.all('SELECT nome, role, email FROM colaboradores', [], (errColab, colabs) => {
+    db.all('SELECT nome, role, email FROM colaboradores WHERE COALESCE(ativo, 1) <> 0', [], (errColab, colabs) => {
       if (errColab || !colabs) {
         return callback([]);
       }
@@ -670,7 +670,7 @@ function enviarNotificacaoPushInterno(title, body, targetUsers = null, notificat
       } catch (e) {}
     }
 
-    db.all('SELECT nome, role FROM colaboradores', [], (errColab, colabs) => {
+    db.all('SELECT nome, role FROM colaboradores WHERE COALESCE(ativo, 1) <> 0', [], (errColab, colabs) => {
       if (errColab || !colabs) return;
 
       let finalTargetUsers = null;

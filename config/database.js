@@ -896,6 +896,14 @@ function runInitDdl(onSuccess) {
           db.run('ALTER TABLE colaboradores ADD COLUMN telefone TEXT', [], () => resolve());
         });
       });
+      // Desligamento pelo Hub de Gestão: ativo = 0 bloqueia só o ACESSO (login por PIN,
+      // entrada pelo Hub, sessões, avisos). Nada é apagado: PIN, biometria, ponto e
+      // histórico ficam como estão, e reativar devolve tudo. NULL conta como ativo.
+      promise = promise.then(() => {
+        return new Promise(resolve => {
+          db.run('ALTER TABLE colaboradores ADD COLUMN ativo INTEGER DEFAULT 1', [], () => resolve());
+        });
+      });
       promise = promise.then(() => {
         return new Promise(resolve => {
           db.run('ALTER TABLE colaboradores ADD COLUMN dataAdmissao TEXT', [], () => resolve());
