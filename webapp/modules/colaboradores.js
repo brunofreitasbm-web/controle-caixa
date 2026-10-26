@@ -16,7 +16,9 @@ async function carregarColaboradores() {
           cpf: c.cpf || "",
           dataNascimento: c.dataNascimento || "",
           telefone: c.telefone || "",
-          dataAdmissao: c.dataAdmissao || ""
+          dataAdmissao: c.dataAdmissao || "",
+          // Desativado (pelo Hub ou aqui): não entra, mas segue na lista com PIN, biometria e histórico.
+          ativo: !(c.ativo !== null && c.ativo !== undefined && Number(c.ativo) === 0)
         }));
         localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
 
@@ -51,12 +53,12 @@ async function carregarColaboradores() {
 function preencherDropdownUsuarios() {
   if (typeof renderLoginUserGrid === "function") renderLoginUserGrid();
 
-  // Atualizar select de consultoras nos formulários
+  // Atualizar select de consultoras nos formulários (desativados não aparecem para novos registros)
   const consultorSelect = document.getElementById("consultor");
   if (consultorSelect && !consultorSelect.disabled) {
     const valConsultor = consultorSelect.value;
     consultorSelect.innerHTML = `<option value="" disabled selected>Selecione</option>` +
-      USERS.map(u => `<option value="${u.nome}">${u.nome}</option>`).join("");
+      USERS.filter(u => u.ativo !== false).map(u => `<option value="${u.nome}">${u.nome}</option>`).join("");
     if (valConsultor) consultorSelect.value = valConsultor;
   }
 }
@@ -101,12 +103,13 @@ async function renderizarColaboradores() {
     const labelRole = roleLabels[u.role] || u.role;
     const styleBadge = roleStyles[u.role] || "background: rgba(0,0,0,0.06); color: #333;";
     const labelUnidade = unidadeLabels[u.unidade] || "—";
+    const desativado = u.ativo === false;
     const btnResetarBiometriaHtml = u.hasBiometricEnrolled
       ? `<button class="btn-mini-outline btn-resetar-biometria" data-nome="${u.nome}" style="margin-right: 6px;">🧑‍💻 Resetar Biometria</button>`
       : "";
 
     tr.innerHTML = `
-      <td><strong>${u.nome}</strong></td>
+      <td><strong>${u.nome}</strong>${desativado ? ' <span style="padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; background: rgba(0,0,0,0.08); color: #555;">Desativado</span>' : ''}</td>
       <td><span style="padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; display: inline-block; ${styleBadge}">${labelRole}</span></td>
       <td>${statusPinHtml}</td>
       <td>${labelUnidade}</td>
@@ -114,7 +117,9 @@ async function renderizarColaboradores() {
         <button class="btn-mini-outline btn-editar-colab" data-nome="${u.nome}" style="margin-right: 6px;">📝 Editar</button>
         <button class="btn-mini-outline btn-alterar-pin" data-nome="${u.nome}" style="margin-right: 6px;">✏️ Alterar PIN</button>
         ${btnResetarBiometriaHtml}
-        <button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: var(--tone-danger-ink); border-color: var(--tone-danger-ink);">🗑️ Excluir</button>
+        ${desativado
+          ? `<button class="btn-mini-outline btn-reativar-colab" data-nome="${u.nome}">✅ Reativar</button>`
+          : `<button class="btn-mini-outline btn-excluir-colab" data-nome="${u.nome}" style="color: var(--tone-danger-ink); border-color: var(--tone-danger-ink);">⏸️ Desativar</button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -134,6 +139,10 @@ async function renderizarColaboradores() {
 
   tbody.querySelectorAll(".btn-excluir-colab").forEach(btn => {
     btn.onclick = () => excluirColaborador(btn.dataset.nome);
+  });
+
+  tbody.querySelectorAll(".btn-reativar-colab").forEach(btn => {
+    btn.onclick = () => reativarColaborador(btn.dataset.nome);
   });
 }
 
@@ -225,40 +234,52 @@ if (btnAdminPinResetar) {
   };
 }
 
+// "Excluir" agora só desativa o acesso: o colaborador, o PIN, a biometria e o histórico ficam
+// guardados e "Reativar" devolve tudo como estava.
 async function excluirColaborador(nome) {
   if (nome === "Bruno" || nome === "Isabella") {
-    showToast("Os administradores Bruno e Isabella não podem ser excluídos.", "erro");
+    showToast("Os administradores Bruno e Isabella não podem ser desativados.", "erro");
     return;
   }
-  const ok = await showModal(`Tem certeza que deseja excluir o colaborador "${nome}"? Esta ação é irreversível.`, {
-    title: "Excluir Colaborador",
-    icon: "⚠️",
-    btnText: "Excluir Colaborador",
+  const ok = await showModal(`Desativar o acesso de "${nome}"? A pessoa deixa de entrar e de registrar ponto, mas o PIN, a biometria e o histórico continuam guardados. Dá para reativar depois.`, {
+    title: "Desativar Colaborador",
+    icon: "⏸️",
+    btnText: "Desativar",
     btnClass: "btn-danger"
   });
   if (!ok) return;
-
-  if (API_ONLINE) {
-    try {
-      const res = await fetch(`${API_BASE}/colaboradores/${encodeURIComponent(nome)}`, { method: "DELETE" });
-      const resData = await res.json();
-      if (resData.error) {
-        showToast(`Erro ao excluir: ${resData.error}`, "erro");
-        return;
-      }
-    } catch (e) {
-      showToast("Erro ao se conectar ao servidor.", "erro");
-      return;
-    }
-  }
-
-  delete pins[nome];
-  localStorage.setItem(PIN_KEY, JSON.stringify(pins));
-  USERS = USERS.filter(u => u.nome !== nome);
-  localStorage.setItem("cacaushow_users_cache", JSON.stringify(USERS));
-
-  showToast(`Colaborador "${nome}" excluído com sucesso!`, "sucesso");
+  if (!(await alterarAtivoColaborador(nome, false))) return;
+  showToast(`Acesso de "${nome}" desativado.`, "sucesso");
   await renderizarColaboradores();
+}
+
+async function reativarColaborador(nome) {
+  if (!(await alterarAtivoColaborador(nome, true))) return;
+  showToast(`Acesso de "${nome}" reativado.`, "sucesso");
+  await renderizarColaboradores();
+}
+
+async function alterarAtivoColaborador(nome, ativo) {
+  if (!API_ONLINE) {
+    showToast("Sem conexão com o servidor.", "erro");
+    return false;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/colaboradores/${encodeURIComponent(nome)}/ativo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ativo, actorUsuario: currentUser ? currentUser.nome : "" })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      showToast(`Erro: ${data.error || "não foi possível alterar o acesso."}`, "erro");
+      return false;
+    }
+    return true;
+  } catch (e) {
+    showToast("Erro ao se conectar ao servidor.", "erro");
+    return false;
+  }
 }
 
 // Nome original do colaborador em edição (null quando o form está em modo

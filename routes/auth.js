@@ -5,15 +5,16 @@ const crypto = require('crypto');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
-const { criarSessao, lerSessao, exigirSessao } = require('./middleware/sessao');
+const { criarSessao, lerSessao, exigirSessao, exigirSessaoTransicao } = require('./middleware/sessao');
 const { publish } = require('../config/realtime');
 
 const BCRYPT_ROUNDS = 10;
 
 // 0. Obter logs (apenas Owners e Alexandra)
-router.get('/logs', (req, res) => {
+router.get('/logs', exigirSessaoTransicao(), (req, res) => {
+  // Com sessão, quem pede é quem o servidor diz que é, não o nome que veio na URL.
   const { usuario } = req.query;
-  const userLower = (usuario || '').trim().toLowerCase();
+  const userLower = (req.sessao ? req.sessao.usuario : (usuario || '')).trim().toLowerCase();
   if (userLower !== 'bruno' && userLower !== 'isabella' && userLower !== 'alexandra') {
     return res.status(403).json({ error: 'Acesso negado. Sem permissão para ver os logs.' });
   }
@@ -35,7 +36,7 @@ router.get('/config', (req, res) => {
 });
 
 // Salvar configuração
-router.post('/config', (req, res) => {
+router.post('/config', exigirSessaoTransicao(), (req, res) => {
   const { chave, valor } = req.body;
   db.run(
     'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
@@ -386,10 +387,23 @@ router.delete('/pins/:usuario', exigirSessao(['owner']), (req, res) => {
 });
 
 // --- Endpoints de Colaboradores ---
+// A lista (nome, papel, unidade) alimenta a tela de login, então segue aberta. CPF, telefone,
+// nascimento e admissão só saem para sessão de owner: antes iam para qualquer um (e para o
+// cache local de todos os aparelhos).
+const CAMPOS_PESSOAIS = ['cpf', 'dataNascimento', 'telefone', 'dataAdmissao'];
 router.get('/colaboradores', (req, res) => {
-  db.all('SELECT * FROM colaboradores ORDER BY nome ASC', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json((rows || []).map(normalizeRow));
+  lerSessao(req, (errSessao, sessao) => {
+    if (errSessao) return res.status(500).json({ error: errSessao.message });
+    const completo = !!sessao && sessao.role === 'owner';
+    db.all('SELECT * FROM colaboradores ORDER BY nome ASC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json((rows || []).map(normalizeRow).map(c => {
+        if (completo) return c;
+        const publico = { ...c };
+        CAMPOS_PESSOAIS.forEach(k => delete publico[k]);
+        return publico;
+      }));
+    });
   });
 });
 
@@ -419,15 +433,15 @@ router.post('/colaboradores', exigirSessao(['owner', 'consultora_dashboard']), (
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(nome) DO UPDATE SET
          role = excluded.role,
-         unidade = excluded.unidade,
-         cpf = excluded.cpf,
-         dataNascimento = excluded.dataNascimento,
-         telefone = excluded.telefone,
-         dataAdmissao = excluded.dataAdmissao`,
+         unidade = COALESCE(excluded.unidade, colaboradores.unidade),
+         cpf = COALESCE(excluded.cpf, colaboradores.cpf),
+         dataNascimento = COALESCE(excluded.dataNascimento, colaboradores.dataNascimento),
+         telefone = COALESCE(excluded.telefone, colaboradores.telefone),
+         dataAdmissao = COALESCE(excluded.dataAdmissao, colaboradores.dataAdmissao)`,
       [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
       function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        publish('colaborador.salvo', { nome: nomeTrim, role, unidade, cpf, dataNascimento, telefone, dataAdmissao }, { origem: req.query.clientId, usuario: req.query.usuario });
+        publish('colaborador.salvo', { nome: nomeTrim, role, unidade }, { origem: req.query.clientId, usuario: req.query.usuario });
         res.json({ success: true, nome: nomeTrim, role });
       }
     );
@@ -453,40 +467,38 @@ router.post('/colaboradores/:nome/reset-biometria', requireOwner, (req, res) => 
   });
 });
 
-// Redefinição excepcional de biometria de TODOS os colaboradores — apenas
-// Admin/Owner. Mesma limpeza do reset individual, aplicada em massa.
-router.post('/colaboradores/reset-biometria-todos', requireOwner, (req, res) => {
-  db.run('UPDATE colaboradores SET hasBiometricEnrolled = 0', [], (err) => {
+// Liga/desliga o ACESSO de um colaborador (colaboradores.ativo). Nunca apaga a pessoa, o PIN, a
+// biometria nem o histórico: desligar só impede entrar (login por PIN, sessão e ponto) e ligar
+// devolve tudo como estava. Owner não se desliga por aqui (isso é decisão do Hub).
+function definirAtivo(req, res, nome, ativo) {
+  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
+  db.get('SELECT nome, role FROM colaboradores WHERE nome = ?', [nome], (err, colab) => {
     if (err) return res.status(500).json({ error: err.message });
-    db.run('DELETE FROM ponto_biometria', [], (err2) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-      db.run('DELETE FROM biometria_tentativas', [], (err3) => {
-        if (err3) return res.status(500).json({ error: err3.message });
-        publish('biometria.reset', { nome: 'todos' }, { origem: req.query.clientId, usuario: req.query.usuario });
-        res.json({ success: true });
-      });
+    if (!colab) return res.status(404).json({ error: 'Colaborador não encontrado.' });
+    if (!ativo && colab.role === 'owner') {
+      return res.status(409).json({ error: 'Owner não é desativado por aqui. Use o Hub de Gestão.' });
+    }
+    db.run('UPDATE colaboradores SET ativo = ? WHERE nome = ?', [ativo ? 1 : 0, nome], function(errUp) {
+      if (errUp) return res.status(500).json({ error: errUp.message });
+      publish(ativo ? 'colaborador.salvo' : 'colaborador.excluido', { nome, role: colab.role },
+        { origem: req.query.clientId, usuario: req.query.usuario });
+      res.json({ success: true, ativo });
     });
   });
+}
+
+// Antes isto era aberto e apagava o colaborador E o PIN dele. Agora exige owner e só desativa.
+router.delete('/colaboradores/:nome', requireOwner, (req, res) => {
+  definirAtivo(req, res, req.params.nome, false);
 });
 
-router.delete('/colaboradores/:nome', (req, res) => {
-  const { nome } = req.params;
-  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
-
-  db.run('DELETE FROM colaboradores WHERE nome = ?', [nome], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    // Deleta também o PIN do colaborador
-    db.run('DELETE FROM pins WHERE usuario = ?', [nome], (errPin) => {
-      if (errPin) console.error('Erro ao deletar PIN do colaborador:', errPin.message);
-      publish('colaborador.excluido', { nome }, { origem: req.query.clientId, usuario: req.query.usuario });
-      res.json({ success: true });
-    });
-  });
+router.post('/colaboradores/:nome/ativo', requireOwner, (req, res) => {
+  definirAtivo(req, res, req.params.nome, !!(req.body && req.body.ativo === true));
 });
 
 
 // Notificação para a Gestão (Push + Email)
-router.post('/notificar-gestao', (req, res) => {
+router.post('/notificar-gestao', exigirSessaoTransicao(), (req, res) => {
   const { destinatarios, assunto, mensagem } = req.body;
   if (!destinatarios || !Array.isArray(destinatarios)) {
     return res.status(400).json({ error: 'Lista de destinatários é obrigatória.' });

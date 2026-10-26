@@ -1424,7 +1424,7 @@ function getEmojiUsuario(nome) {
 function renderLoginUserGrid() {
   loginUserGrid.innerHTML = "";
   const ultimoUsuario = localStorage.getItem("ultimo_usuario_login");
-  USERS.forEach(u => {
+  USERS.filter(u => u.ativo !== false).forEach(u => {
     const isUltimo = u.nome === ultimoUsuario;
     const card = document.createElement("button");
     card.type = "button";

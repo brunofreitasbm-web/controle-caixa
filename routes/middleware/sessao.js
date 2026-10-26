@@ -54,4 +54,25 @@ function exigirSessao(roles) {
   };
 }
 
-module.exports = { criarSessao, lerSessao, exigirSessao };
+// Para rotas que eram abertas e o navegador já chama sem token: com sessão valem as regras
+// de papel; sem sessão só passam no modo de transição (mesma chave de requireOwner:
+// CACAU_EXIGIR_SESSAO=1 passa a exigir sessão). `req.sessao` fica nulo no caminho legado.
+function exigirSessaoTransicao(roles) {
+  return (req, res, next) => {
+    lerSessao(req, (err, sessao) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (sessao) {
+        if (roles && !roles.includes(sessao.role)) return res.status(403).json({ error: 'Acesso negado.' });
+        req.sessao = sessao;
+        return next();
+      }
+      if (process.env.CACAU_EXIGIR_SESSAO === '1') {
+        return res.status(401).json({ error: 'Sessão expirada. Entre novamente.' });
+      }
+      req.sessao = null;
+      next();
+    });
+  };
+}
+
+module.exports = { criarSessao, lerSessao, exigirSessao, exigirSessaoTransicao };
