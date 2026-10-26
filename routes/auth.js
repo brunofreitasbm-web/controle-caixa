@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { db, normalizeRow } = require('../config/database');
 const { enviarNotificacaoPush, notificacoesEventosAtivas } = require('../config/notifications');
 const requireOwner = require('./middleware/requireOwner');
+const { criarSessao, lerSessao, exigirSessao } = require('./middleware/sessao');
 const { publish } = require('../config/realtime');
 
 const BCRYPT_ROUNDS = 10;
@@ -106,6 +107,17 @@ function checkVerifyRateLimit(key) {
   return true;
 }
 
+// PIN certo: devolve também o token de sessão do servidor (campo novo; quem não
+// o conhece só lê valid/hasPin, como antes). O PIN em si não é tocado aqui.
+function responderVerify(res, usuario, match) {
+  if (!match) return res.json({ valid: false, hasPin: true });
+  criarSessao(String(usuario).trim(), (err, token) => {
+    // Falha ao gravar a sessão não pode impedir o login por PIN.
+    if (err) console.error('Erro ao criar sessão:', err.message);
+    res.json({ valid: true, hasPin: true, token: token || null });
+  });
+}
+
 // Verificar PIN (autenticação segura — compara hash)
 router.post('/auth/verify', (req, res) => {
   const { usuario, pin } = req.body;
@@ -125,7 +137,7 @@ router.post('/auth/verify', (req, res) => {
       // PIN já é hash bcrypt
       bcrypt.compare(pin, row.pin, (err2, match) => {
         if (err2) return res.status(500).json({ valid: false, error: err2.message });
-        res.json({ valid: match, hasPin: true });
+        responderVerify(res, usuario, match);
       });
     } else {
       // PIN antigo em texto puro — verifica e migra para hash
@@ -137,7 +149,7 @@ router.post('/auth/verify', (req, res) => {
           }
         });
       }
-      res.json({ valid: match, hasPin: true });
+      responderVerify(res, usuario, match);
     }
   });
 });
@@ -180,7 +192,20 @@ router.post('/auth/sso', (req, res) => {
 
   db.get('SELECT nome, role FROM colaboradores WHERE LOWER(nome) = LOWER(?)', [payload.u.trim()], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!row || row.role !== 'owner') return res.status(403).json({ error: 'Acesso negado.' });
+    if (!row) return res.status(403).json({ error: 'Acesso negado: usuário não cadastrado no Cacau Show.' });
+
+    // O nível vem do Hub (n). O papel dentro do Cacau continua sendo o do cadastro em
+    // colaboradores: o ticket só decide se a pessoa pode entrar, nunca a eleva.
+    //   owner  -> exige nível admin (ticket sem n é de um Hub antigo, que só emitia p/ owner);
+    //   outros -> exigem operar ou admin; "ver" ainda não existe no Cacau, então não entra.
+    const nivel = typeof payload.n === 'string' ? payload.n : null;
+    if (row.role === 'owner') {
+      if (nivel && nivel !== 'admin') {
+        return res.status(403).json({ error: 'Acesso negado: o Cacau Show exige nível admin para este usuário.' });
+      }
+    } else if (nivel !== 'operar' && nivel !== 'admin') {
+      return res.status(403).json({ error: 'Acesso negado: o Cacau Show ainda não tem acesso só de leitura. Use o nível operar.' });
+    }
 
     // Queima o jti: se a linha já existia, o ticket já foi usado.
     db.all(
@@ -194,33 +219,59 @@ router.post('/auth/sso', (req, res) => {
           [new Date().toISOString(), row.nome, 'LOGIN_HUB_GESTAO', 'Entrada pelo Hub de Gestão'],
           () => {},
         );
-        res.json({ usuario: row.nome });
+        criarSessao(row.nome, (errSessao, token) => {
+          if (errSessao) return res.status(500).json({ error: errSessao.message });
+          res.json({ usuario: row.nome, token });
+        });
       }
     );
   });
 });
 
-// Criar/atualizar PIN (salva com hash bcrypt)
-router.post('/pins', async (req, res) => {
-  const { usuario, pin } = req.body;
-  try {
-    const hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
-    db.run(
-      'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
-      [usuario, hash, hash],
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        publish('pin.salvo', { usuario }, { origem: req.query.clientId, usuario: req.query.usuario });
-        res.json({ success: true });
-      }
-    );
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+// Criar/atualizar PIN (salva com hash bcrypt).
+//  - Usuário ainda sem PIN: qualquer um cria (é o primeiro acesso, como sempre foi).
+//  - Usuário com PIN: só troca com sessão do próprio usuário ou de um owner. Antes, esta
+//    rota era aberta e sobrescrevia o PIN de qualquer pessoa, inclusive owner.
+router.post('/pins', (req, res) => {
+  const { usuario, pin } = req.body || {};
+  if (typeof usuario !== 'string' || !usuario.trim() || !/^\d{4}$/.test(String(pin || ''))) {
+    return res.status(400).json({ error: 'Usuário e PIN de 4 dígitos são obrigatórios.' });
   }
+
+  const gravar = async () => {
+    try {
+      const hash = await bcrypt.hash(String(pin), BCRYPT_ROUNDS);
+      db.run(
+        'INSERT INTO pins (usuario, pin) VALUES (?, ?) ON CONFLICT(usuario) DO UPDATE SET pin = ?',
+        [usuario, hash, hash],
+        function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          publish('pin.salvo', { usuario }, { origem: req.query.clientId, usuario: req.query.usuario });
+          res.json({ success: true });
+        }
+      );
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  };
+
+  db.get('SELECT usuario FROM pins WHERE usuario = ?', [usuario], (err, existente) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!existente) return gravar();
+    lerSessao(req, (errSessao, sessao) => {
+      if (errSessao) return res.status(500).json({ error: errSessao.message });
+      if (!sessao) return res.status(401).json({ error: 'Sessão expirada. Entre novamente para trocar o PIN.' });
+      const proprio = sessao.usuario.trim().toLowerCase() === usuario.trim().toLowerCase();
+      if (!proprio && sessao.role !== 'owner') {
+        return res.status(403).json({ error: 'Acesso negado. Só o próprio usuário ou um owner troca este PIN.' });
+      }
+      gravar();
+    });
+  });
 });
 
 // Deletar / Resetar PIN de usuário
-router.delete('/pins/:usuario', (req, res) => {
+router.delete('/pins/:usuario', exigirSessao(['owner']), (req, res) => {
   const { usuario } = req.params;
   db.run('DELETE FROM pins WHERE usuario = ?', [usuario], function(err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -237,7 +288,11 @@ router.get('/colaboradores', (req, res) => {
   });
 });
 
-router.post('/colaboradores', (req, res) => {
+// Cadastro/edição de colaborador (inclui o papel). Antes era aberto: bastava um POST
+// { nome: "Alexandra", role: "owner" } para promover qualquer pessoa. Agora exige
+// sessão de owner ou consultora_dashboard (quem importa o DISC), e mexer em owner —
+// criar um ou alterar o papel de um existente — é só de owner.
+router.post('/colaboradores', exigirSessao(['owner', 'consultora_dashboard']), (req, res) => {
   const { nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao } = req.body;
   if (!nome || !role) {
     return res.status(400).json({ error: 'Nome e Perfil (role) são obrigatórios.' });
@@ -245,23 +300,33 @@ router.post('/colaboradores', (req, res) => {
   const nomeTrim = nome.trim();
   const criadoEm = new Date().toISOString();
 
-  db.run(
-    `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, criadoEm)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(nome) DO UPDATE SET
-       role = excluded.role,
-       unidade = excluded.unidade,
-       cpf = excluded.cpf,
-       dataNascimento = excluded.dataNascimento,
-       telefone = excluded.telefone,
-       dataAdmissao = excluded.dataAdmissao`,
-    [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      publish('colaborador.salvo', { nome: nomeTrim, role, unidade, cpf, dataNascimento, telefone, dataAdmissao }, { origem: req.query.clientId, usuario: req.query.usuario });
-      res.json({ success: true, nome: nomeTrim, role });
+  db.get('SELECT role FROM colaboradores WHERE nome = ?', [nomeTrim], (errAtual, atual) => {
+    if (errAtual) return res.status(500).json({ error: errAtual.message });
+    if ((role === 'owner' || (atual && atual.role === 'owner')) && req.sessao.role !== 'owner') {
+      return res.status(403).json({ error: 'Acesso negado. Só um owner cria ou altera owners.' });
     }
-  );
+    salvarColaborador();
+  });
+
+  function salvarColaborador() {
+    db.run(
+      `INSERT INTO colaboradores (nome, role, unidade, cpf, dataNascimento, telefone, dataAdmissao, criadoEm)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(nome) DO UPDATE SET
+         role = excluded.role,
+         unidade = excluded.unidade,
+         cpf = excluded.cpf,
+         dataNascimento = excluded.dataNascimento,
+         telefone = excluded.telefone,
+         dataAdmissao = excluded.dataAdmissao`,
+      [nomeTrim, role, unidade || null, cpf || null, dataNascimento || null, telefone || null, dataAdmissao || null, criadoEm],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        publish('colaborador.salvo', { nome: nomeTrim, role, unidade, cpf, dataNascimento, telefone, dataAdmissao }, { origem: req.query.clientId, usuario: req.query.usuario });
+        res.json({ success: true, nome: nomeTrim, role });
+      }
+    );
+  }
 });
 
 // Redefinição excepcional de biometria — apenas Admin/Owner. Limpa o

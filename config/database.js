@@ -711,6 +711,16 @@ function runInitDdl(onSuccess) {
           usuario TEXT,
           usadoEm TEXT NOT NULL
         )`,
+        // Sessões do servidor (Bearer). Emitidas por POST /auth/verify (PIN certo) e
+        // POST /auth/sso (Hub de Gestão); só o SHA-256 do token fica no banco. Servem
+        // para as rotas que mexem em PIN e em papéis não confiarem no nome que o
+        // navegador diz ser (ver routes/middleware/sessao.js).
+        `CREATE TABLE IF NOT EXISTS sessoes_auth (
+          token_hash TEXT PRIMARY KEY,
+          usuario TEXT NOT NULL,
+          criado_em TEXT NOT NULL,
+          expira_em TEXT NOT NULL
+        )`,
         `CREATE TABLE IF NOT EXISTS email_queue (
           id TEXT PRIMARY KEY,
           target_emails TEXT NOT NULL,

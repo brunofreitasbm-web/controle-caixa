@@ -6,11 +6,37 @@
 let API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
+const AUTH_TOKEN_KEY = "cacaushow_auth_token";
 const STORAGE_KEY = "cacaushow_controle_caixa_v1";
 const USER_KEY = "cacaushow_current_user";
 const PIN_KEY = "cacaushow_pins_v1";
 const CONFIG_KEY = "cacaushow_config";
 const THEME_KEY = "cacaushow_theme";
+// Token de sessão do servidor (emitido em /auth/verify e /auth/sso). Vai como Bearer em
+// toda chamada à própria API; as rotas de PIN e de papéis dependem dele no servidor.
+(function instalarTokenNaApi() {
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    try {
+      const url = typeof input === "string" ? input : (input && input.url) || "";
+      const token = localStorage.getItem(AUTH_TOKEN_KEY);
+      if (token && url.startsWith(API_BASE)) {
+        const headers = new Headers((init && init.headers) || (typeof input !== "string" && input.headers) || {});
+        if (!headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
+        init = { ...(init || {}), headers };
+      }
+    } catch (_e) { /* sem token: segue como antes */ }
+    return fetchOriginal(input, init);
+  };
+})();
+function guardarTokenSessao(token) {
+  try {
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } catch (_e) { /* storage indisponível: o app funciona, só sem as rotas de owner */ }
+}
+function limparTokenSessao() {
+  try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch (_e) {}
+}
 const RISCO_DIAS = 2; // envelope aguardando retirada por mais de N dias = alerta
 
 // O localStorage é só espelho da API (fonte da verdade). Estourar a quota (~5MB,
@@ -776,6 +802,7 @@ function getDestinatariosNotificacao(tipo) {
 // esta página com #sso=<ticket> (HMAC, 60s, uso único — ver POST /api/auth/sso).
 // O servidor confere o ticket e devolve o nome; daqui em diante é igual a um
 // login por PIN de Owner (sessão salva, renderApp entra direto).
+let mensagemEntradaHub = "";
 async function consumirTicketHubGestao() {
   const m = window.location.hash.match(/^#sso=([^&]+)/);
   if (!m) return;
@@ -789,10 +816,12 @@ async function consumirTicketHubGestao() {
     const result = await res.json().catch(() => ({}));
     if (!res.ok || !result.usuario) {
       console.error("Entrada pelo Hub de Gestão recusada:", result.error || res.status);
+      mensagemEntradaHub = result.error || "Não foi possível entrar pelo Hub de Gestão.";
       return;
     }
     const user = USERS.find(u => u.nome.toLowerCase() === String(result.usuario).toLowerCase());
     if (!user) return;
+    guardarTokenSessao(result.token);
     currentUser = user;
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
     localStorage.setItem("ultimo_usuario_login", user.nome);
@@ -886,6 +915,7 @@ async function inicializarDados() {
 
   await consumirTicketHubGestao();
   renderApp();
+  if (mensagemEntradaHub) showToast(mensagemEntradaHub, "erro");
   // Sinaliza que os dados do servidor foram carregados — DOMContentLoaded vai renderizar
   window._nfsServerLoaded = true;
   if (typeof renderNfCardsGallery === 'function') {
@@ -1086,6 +1116,9 @@ async function salvarPinAPI(usuario, pin) {
         body: JSON.stringify({ usuario, pin })
       });
       if (res.ok) return true;
+      // Servidor recusou (sem sessão / sem permissão): não guarda o PIN novo só no
+      // aparelho, senão a tela diria "alterado" com o servidor ainda no PIN antigo.
+      if (res.status === 401 || res.status === 403) return null;
     } catch (e) {
       console.error("Erro ao salvar PIN na API:", e);
     }
@@ -1516,6 +1549,7 @@ loginEntrarBtn.addEventListener("click", async () => {
           mostrarErroLogin("PIN incorreto.");
           return;
         }
+        guardarTokenSessao(result.token);
       } catch (e) {
         if (pins[nome] && pins[nome] !== '****' && pinDigitado !== pins[nome]) {
           mostrarErroLogin("PIN incorreto.");
@@ -1545,6 +1579,7 @@ function mostrarErroLogin(msg) {
 document.getElementById("btn-trocar-usuario").addEventListener("click", () => {
   currentUser = null;
   localStorage.removeItem(USER_KEY);
+  limparTokenSessao();
   resetLoginForm();
   appEl.classList.add("hidden");
   loginOverlay.classList.remove("hidden");
@@ -1945,6 +1980,7 @@ function renderApp() {
     const nomeSalvo = currentUser.nome;
     currentUser = null;
     localStorage.removeItem(USER_KEY);
+    limparTokenSessao();
     loginOverlay.classList.remove("hidden");
     selecionarUsuarioLogin(nomeSalvo);
   } else {
@@ -1983,7 +2019,8 @@ document.getElementById("trocar-pin-salvar").addEventListener("click", async () 
   if (!pinValido(novo)) { erro("O novo PIN deve ter exatamente 4 dígitos."); return; }
   if (novo !== confirma) { erro("Os novos PINs não conferem."); return; }
 
-  await salvarPinAPI(currentUser.nome, novo);
+  const salvo = await salvarPinAPI(currentUser.nome, novo);
+  if (salvo === null) { erro("Sessão expirada. Entre novamente com o PIN atual para trocá-lo."); return; }
   modalTrocarPin.classList.add("hidden");
   showModal("PIN alterado com sucesso!", { icon: "✅", title: "Sucesso", btnText: "Fechar" });
 });
@@ -5921,6 +5958,7 @@ document.getElementById("session-unlock").addEventListener("click", async () => 
       });
       const result = await res.json();
       pinCorreto = result.valid;
+      if (result.valid) guardarTokenSessao(result.token);
     } catch (_e) {
       // Fallback local
       pinCorreto = pins[currentUser.nome] && (pins[currentUser.nome] === '****' || pinDigitado === pins[currentUser.nome]);
@@ -5944,6 +5982,7 @@ document.getElementById("session-unlock").addEventListener("click", async () => 
 document.getElementById("session-logout").addEventListener("click", () => {
   currentUser = null;
   localStorage.removeItem(USER_KEY);
+  limparTokenSessao();
   resetLoginForm();
   document.getElementById("session-overlay").classList.add("hidden");
   appEl.classList.add("hidden");
