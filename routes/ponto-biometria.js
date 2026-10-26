@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
+const { exigirSessaoTransicao } = require('./middleware/sessao');
 
 // Espelha FACE_DETECTION_MIN_CONFIDENCE do frontend (webapp/app.js) — o
 // servidor não roda o modelo, mas exige que o score reportado pelo cliente
@@ -9,8 +10,14 @@ const FACE_DETECTION_MIN_CONFIDENCE = 0.85;
 const MAX_TENTATIVAS = 3;
 const BLOQUEIO_HORAS = 24;
 
-router.get('/biometria/:usuario', (req, res) => {
+// O vetor facial é dado biométrico: com sessão, só o próprio colaborador (ou um owner) lê. O
+// aparelho só pede o do usuário logado. Sem sessão só passa no modo de transição
+// (CACAU_EXIGIR_SESSAO=1 fecha de vez).
+router.get('/biometria/:usuario', exigirSessaoTransicao(), (req, res) => {
   const { usuario } = req.params;
+  if (req.sessao && req.sessao.role !== 'owner' && req.sessao.usuario.trim().toLowerCase() !== String(usuario).trim().toLowerCase()) {
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
 
   db.get('SELECT embedding FROM ponto_biometria WHERE usuario = ?', [usuario], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -24,9 +31,12 @@ router.post('/biometria', (req, res) => {
     return res.status(400).json({ error: 'Usuário e embedding são obrigatórios.' });
   }
 
-  db.get('SELECT nome FROM colaboradores WHERE nome = ?', [usuario], (errColab, colab) => {
+  db.get('SELECT nome, ativo FROM colaboradores WHERE nome = ?', [usuario], (errColab, colab) => {
     if (errColab) return res.status(500).json({ error: errColab.message });
     if (!colab) return res.status(404).json({ error: 'Colaborador não encontrado para cadastrar biometria.' });
+    if (colab.ativo !== null && colab.ativo !== undefined && Number(colab.ativo) === 0) {
+      return res.status(403).json({ error: 'Acesso desativado. Fale com a gestão.' });
+    }
 
     const agora = new Date().toISOString();
 

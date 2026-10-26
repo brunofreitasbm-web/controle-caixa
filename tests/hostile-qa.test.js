@@ -146,9 +146,11 @@ test('QA Hostil #4 - Concorrência e disparo simultâneo de requisições de cai
 });
 
 // --------------------------------------------------------------------------
-// 5. QA HOSTIL: Endpoint de Divergência de Fundo de Caixa
+// 5. QA HOSTIL: Não existe endpoint avulso de divergência
+// A divergência de fundo de caixa é detectada e notificada dentro de POST /registros
+// (routes/caixa.js); não há rota /divergencia. Quem a chama recebe 404, sem crash.
 // --------------------------------------------------------------------------
-test('QA Hostil #5 - Divergência de fundo de caixa sem SMTP ativo responde sem crash', async () => {
+test('QA Hostil #5 - /divergencia não existe e responde 404 sem crash', async () => {
   const res = await request('/divergencia', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +162,7 @@ test('QA Hostil #5 - Divergência de fundo de caixa sem SMTP ativo responde sem 
       diferenca: -50
     })
   });
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 404);
 });
 
 // --------------------------------------------------------------------------

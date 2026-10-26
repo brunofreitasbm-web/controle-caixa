@@ -5,6 +5,7 @@ const { publish } = require('../config/realtime');
 const { enviarEmailGenerico } = require('../config/notifications');
 const { registrarLog } = require('../config/logger');
 const { validarDataUrl } = require('../config/data-url');
+const { nomesInativos } = require('./middleware/ativo');
 
 router.post('/sync', (req, res) => {
   const records = req.body.records || [];
@@ -28,6 +29,20 @@ router.post('/sync', (req, res) => {
     return res.status(400).json({ success: false, error: 'Foto inválida em um ou mais registros.', invalidos: fotosInvalidas });
   }
 
+  // Colaborador desligado (Hub ou owner) não registra ponto. Os registros dele são recusados e
+  // devolvidos em `bloqueados`; os dos demais no mesmo lote seguem normalmente.
+  return nomesInativos(records.map(r => r && r.usuario), (errAtivo, inativos) => {
+    if (errAtivo) return res.status(500).json({ success: false, errors: [errAtivo.message] });
+    if (inativos.size === 0) return gravarRegistros(records);
+    const aceitos = records.filter(r => !(r && inativos.has(String(r.usuario || '').trim())));
+    const bloqueados = records.filter(r => r && inativos.has(String(r.usuario || '').trim())).map(r => r.id);
+    if (aceitos.length === 0) {
+      return res.status(403).json({ success: false, error: 'Acesso desativado. Fale com a gestão.', bloqueados });
+    }
+    return gravarRegistros(aceitos, bloqueados);
+  });
+
+  function gravarRegistros(records, bloqueados) {
   const serverTime = new Date();
   const serverTimeIso = serverTime.toISOString();
 
@@ -74,9 +89,12 @@ router.post('/sync', (req, res) => {
       publish('ponto.registro', {
         registros: records.map(x => ({ id: x.id, usuario: x.usuario, tipo: x.tipo, operacao: x.operacao || null, timestamp: x.timestamp }))
       }, { origem: req.body.clientId, usuario: records[0] && records[0].usuario });
-      return res.json({ success: true, count: records.length });
+      return res.json(bloqueados && bloqueados.length
+        ? { success: true, count: records.length, bloqueados }
+        : { success: true, count: records.length });
     }
   );
+  }
 });
 
 router.post('/ajuste', (req, res) => {
@@ -89,6 +107,9 @@ router.post('/ajuste', (req, res) => {
     return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
   }
 
+  nomesInativos([usuario], (errAtivo, inativos) => {
+  if (errAtivo) return res.status(500).json({ error: errAtivo.message });
+  if (inativos.size > 0) return res.status(403).json({ error: 'Acesso desativado. Fale com a gestão.' });
   const criadoEm = new Date().toISOString();
   db.run(
     'INSERT INTO ponto_ajustes (id, usuario, data, tipo, motivo, comprovante, status, criadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -100,6 +121,7 @@ router.post('/ajuste', (req, res) => {
       res.json({ success: true });
     }
   );
+  });
 });
 
 router.get('/historico', (req, res) => {
