@@ -41,4 +41,4 @@ jobs:
       - run: npm run build --if-present
       # --test-force-exit encerra o processo ao fim dos testes, mesmo com
       # handle aberto (servidor, cron, conexao de banco).
-      - run: node --test --test-force-exit tests/hostile-qa.test.js
+      - run: node --test --test-force-exit tests/hostile-qa.test.js tests/sso-gestao.test.js tests/sessao-auth.test.js
