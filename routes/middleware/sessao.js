@@ -27,13 +27,14 @@ function lerSessao(req, cb) {
   const m = /^Bearer\s+([a-f0-9]{64})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return cb(null, null);
   db.get(
-    `SELECT s.usuario AS usuario, s.expira_em AS expira_em, c.role AS role
+    `SELECT s.usuario AS usuario, s.expira_em AS expira_em, c.role AS role, c.ativo AS ativo
        FROM sessoes_auth s LEFT JOIN colaboradores c ON c.nome = s.usuario
       WHERE s.token_hash = ?`,
     [hashToken(m[1])],
     (err, row) => {
       if (err) return cb(err);
       if (!row || new Date(row.expira_em).getTime() < Date.now()) return cb(null, null);
+      if (row.ativo !== null && row.ativo !== undefined && Number(row.ativo) === 0) return cb(null, null); // desligado pelo Hub: a sessão deixa de valer
       cb(null, { usuario: row.usuario, role: row.role || null });
     },
   );

@@ -111,10 +111,17 @@ function checkVerifyRateLimit(key) {
 // o conhece só lê valid/hasPin, como antes). O PIN em si não é tocado aqui.
 function responderVerify(res, usuario, match) {
   if (!match) return res.json({ valid: false, hasPin: true });
-  criarSessao(String(usuario).trim(), (err, token) => {
-    // Falha ao gravar a sessão não pode impedir o login por PIN.
-    if (err) console.error('Erro ao criar sessão:', err.message);
-    res.json({ valid: true, hasPin: true, token: token || null });
+  // Desligado pelo Hub: o PIN continua guardado, só o acesso fica bloqueado. A resposta só
+  // diz "inativo" a quem acertou o PIN, para não revelar quem está desligado a quem chuta.
+  db.get('SELECT ativo FROM colaboradores WHERE nome = ?', [String(usuario).trim()], (errAtivo, colab) => {
+    if (!errAtivo && colab && colab.ativo !== null && colab.ativo !== undefined && Number(colab.ativo) === 0) {
+      return res.json({ valid: false, hasPin: true, inativo: true });
+    }
+    criarSessao(String(usuario).trim(), (err, token) => {
+      // Falha ao gravar a sessão não pode impedir o login por PIN.
+      if (err) console.error('Erro ao criar sessão:', err.message);
+      res.json({ valid: true, hasPin: true, token: token || null });
+    });
   });
 }
 
@@ -190,9 +197,12 @@ router.post('/auth/sso', (req, res) => {
     return res.status(401).json({ error: 'Ticket expirado ou inválido.' });
   }
 
-  db.get('SELECT nome, role FROM colaboradores WHERE LOWER(nome) = LOWER(?)', [payload.u.trim()], (err, row) => {
+  db.get('SELECT nome, role, ativo FROM colaboradores WHERE LOWER(nome) = LOWER(?)', [payload.u.trim()], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(403).json({ error: 'Acesso negado: usuário não cadastrado no Cacau Show.' });
+    if (row.ativo !== null && row.ativo !== undefined && Number(row.ativo) === 0) {
+      return res.status(403).json({ error: 'Acesso negado: este usuário está desativado no Cacau Show.' });
+    }
 
     // O nível vem do Hub (n). O papel dentro do Cacau continua sendo o do cadastro em
     // colaboradores: o ticket só decide se a pessoa pode entrar, nunca a eleva.
@@ -223,6 +233,87 @@ router.post('/auth/sso', (req, res) => {
           if (errSessao) return res.status(500).json({ error: errSessao.message });
           res.json({ usuario: row.nome, token });
         });
+      }
+    );
+  });
+});
+
+// Desligar / religar pelo Hub de Gestão (POST /api/auth/hub/acesso).
+// Ticket HMAC-SHA256 como o do /auth/sso, mas com outro `aud` ("hub-operacoes-acesso") e uma
+// ação em `a` ("desligar" | "religar"), para um ticket de entrada não servir de ordem de
+// bloqueio. Só mexe em colaboradores.ativo e nas sessões do servidor. NÃO toca em PIN, em
+// biometria, em ponto nem em nenhum registro: reativar devolve exatamente o que havia.
+router.post('/auth/hub/acesso', (req, res) => {
+  const secret = process.env.GESTAO_SSO_SECRET_CACAU;
+  if (!secret) return res.status(503).json({ error: 'Integração com o Hub de Gestão não configurada.' });
+
+  const ticket = typeof req.body?.ticket === 'string' ? req.body.ticket : '';
+  const [payloadB64, sigB64] = ticket.split('.');
+  if (!payloadB64 || !sigB64) return res.status(400).json({ error: 'Ticket inválido.' });
+  const esperado = crypto.createHmac('sha256', secret).update(payloadB64).digest();
+  const recebido = base64urlDecode(sigB64);
+  if (recebido.length !== esperado.length || !crypto.timingSafeEqual(recebido, esperado)) {
+    return res.status(401).json({ error: 'Ticket inválido.' });
+  }
+  let payload;
+  try {
+    payload = JSON.parse(base64urlDecode(payloadB64).toString('utf8'));
+  } catch {
+    return res.status(400).json({ error: 'Ticket inválido.' });
+  }
+  const agora = Math.floor(Date.now() / 1000);
+  if (payload.aud !== 'hub-operacoes-acesso' || typeof payload.u !== 'string' || typeof payload.jti !== 'string'
+      || typeof payload.exp !== 'number' || payload.exp < agora
+      || (payload.a !== 'desligar' && payload.a !== 'religar')) {
+    return res.status(401).json({ error: 'Ticket expirado ou inválido.' });
+  }
+
+  db.get('SELECT nome, role, ativo FROM colaboradores WHERE LOWER(nome) = LOWER(?)', [payload.u.trim()], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    // Quem não existe no Cacau não tem o que bloquear: não é erro.
+    if (!row) return res.json({ ok: true, encontrado: false, mudou: false });
+
+    const ativoAgora = !(row.ativo !== null && row.ativo !== undefined && Number(row.ativo) === 0);
+    const desligar = payload.a === 'desligar';
+    if (desligar === !ativoAgora) return res.json({ ok: true, encontrado: true, mudou: false });
+
+    const aplicar = () => {
+      // Queima o jti antes de agir: o mesmo ticket não vale duas vezes.
+      db.all(
+        'INSERT INTO sso_tickets_usados (jti, usuario, usadoEm) VALUES (?, ?, ?) ON CONFLICT (jti) DO NOTHING RETURNING jti',
+        [payload.jti, row.nome, new Date().toISOString()],
+        (err2, rows) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+          if (!rows || rows.length === 0) return res.status(401).json({ error: 'Ticket já usado.' });
+          db.run('UPDATE colaboradores SET ativo = ? WHERE nome = ?', [desligar ? 0 : 1, row.nome], (err3) => {
+            if (err3) return res.status(500).json({ error: err3.message });
+            const concluir = () => {
+              db.run(
+                'INSERT INTO logs_auditoria (data, usuario, acao, descricao) VALUES (?, ?, ?, ?)',
+                [new Date().toISOString(), row.nome, desligar ? 'ACESSO_DESLIGADO_HUB' : 'ACESSO_RELIGADO_HUB', 'Alterado pelo Hub de Gestão'],
+                () => {},
+              );
+              res.json({ ok: true, encontrado: true, mudou: true });
+            };
+            // Só as SESSÕES do servidor caem; a tabela `pins` não é tocada.
+            if (desligar) db.run('DELETE FROM sessoes_auth WHERE usuario = ?', [row.nome], () => concluir());
+            else concluir();
+          });
+        }
+      );
+    };
+
+    if (!(desligar && row.role === 'owner')) return aplicar();
+    // Nunca deixa o sistema sem nenhum owner ativo.
+    db.get(
+      "SELECT COUNT(*) AS n FROM colaboradores WHERE role = 'owner' AND COALESCE(ativo, 1) <> 0 AND nome <> ?",
+      [row.nome],
+      (errN, outros) => {
+        if (errN) return res.status(500).json({ error: errN.message });
+        if (!outros || Number(outros.n) === 0) {
+          return res.status(409).json({ error: 'Este é o último owner ativo do Cacau Show; não dá para desligar.' });
+        }
+        aplicar();
       }
     );
   });

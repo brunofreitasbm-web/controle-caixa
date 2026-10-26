@@ -1546,7 +1546,7 @@ loginEntrarBtn.addEventListener("click", async () => {
           return;
         }
         if (!result.valid) {
-          mostrarErroLogin("PIN incorreto.");
+          mostrarErroLogin(result.inativo ? "Acesso desativado. Fale com um owner." : "PIN incorreto.");
           return;
         }
         guardarTokenSessao(result.token);
