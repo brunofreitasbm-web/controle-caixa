@@ -238,10 +238,10 @@ router.post('/auth/sso', (req, res) => {
   });
 });
 
-// Desligar / religar pelo Hub de Gestão (POST /api/auth/hub/acesso).
+// Desligar / religar / consultar pelo Hub de Gestão (POST /api/auth/hub/acesso).
 // Ticket HMAC-SHA256 como o do /auth/sso, mas com outro `aud` ("hub-operacoes-acesso") e uma
-// ação em `a` ("desligar" | "religar"), para um ticket de entrada não servir de ordem de
-// bloqueio. Só mexe em colaboradores.ativo e nas sessões do servidor. NÃO toca em PIN, em
+// ação em `a` ("desligar" | "religar" | "consultar"), para um ticket de entrada não servir de ordem
+// de bloqueio. Só mexe em colaboradores.ativo e nas sessões do servidor. NÃO toca em PIN, em
 // biometria, em ponto nem em nenhum registro: reativar devolve exatamente o que havia.
 router.post('/auth/hub/acesso', (req, res) => {
   const secret = process.env.GESTAO_SSO_SECRET_CACAU;
@@ -264,7 +264,7 @@ router.post('/auth/hub/acesso', (req, res) => {
   const agora = Math.floor(Date.now() / 1000);
   if (payload.aud !== 'hub-operacoes-acesso' || typeof payload.u !== 'string' || typeof payload.jti !== 'string'
       || typeof payload.exp !== 'number' || payload.exp < agora
-      || (payload.a !== 'desligar' && payload.a !== 'religar')) {
+      || (payload.a !== 'desligar' && payload.a !== 'religar' && payload.a !== 'consultar')) {
     return res.status(401).json({ error: 'Ticket expirado ou inválido.' });
   }
 
@@ -274,6 +274,20 @@ router.post('/auth/hub/acesso', (req, res) => {
     if (!row) return res.json({ ok: true, encontrado: false, mudou: false });
 
     const ativoAgora = !(row.ativo !== null && row.ativo !== undefined && Number(row.ativo) === 0);
+
+    // "consultar": só leitura. O Hub confere, ao cadastrar a pessoa, se o usuário existe no Cacau e
+    // está ativo (o Hub NÃO cria colaborador do Cacau). Não muda nada; o jti é queimado como nas outras.
+    if (payload.a === 'consultar') {
+      return db.all(
+        'INSERT INTO sso_tickets_usados (jti, usuario, usadoEm) VALUES (?, ?, ?) ON CONFLICT (jti) DO NOTHING RETURNING jti',
+        [payload.jti, row.nome, new Date().toISOString()],
+        (errC, rowsC) => {
+          if (errC) return res.status(500).json({ error: errC.message });
+          if (!rowsC || rowsC.length === 0) return res.status(401).json({ error: 'Ticket já usado.' });
+          res.json({ ok: true, encontrado: true, mudou: false, ativo: ativoAgora, role: row.role });
+        }
+      );
+    }
     const desligar = payload.a === 'desligar';
     if (desligar === !ativoAgora) return res.json({ ok: true, encontrado: true, mudou: false });
 
