@@ -145,3 +145,23 @@ test('nunca desliga o último owner ativo', async () => {
   assert.equal((await acesso({ u: 'TDOwner' })).body.mudou, true);
   assert.equal((await acesso({ u: 'TDOwner', a: 'religar' })).body.mudou, true);
 });
+
+test('consultar só lê: devolve papel e estado, não muda nada e queima o ticket', async () => {
+  const jti = crypto.randomUUID();
+  const r = await acesso({ a: 'consultar', u: 'TDCons', jti });
+  assert.equal(r.status, 200);
+  assert.deepEqual(
+    { encontrado: r.body.encontrado, mudou: r.body.mudou, ativo: r.body.ativo, role: r.body.role },
+    { encontrado: true, mudou: false, ativo: true, role: 'consultora' },
+  );
+  assert.equal((await acesso({ a: 'consultar', u: 'TDCons', jti })).status, 401); // mesmo jti
+
+  // Não muda o estado: continua entrando com o mesmo PIN.
+  assert.equal((await verify('TDCons', '2222')).body.valid, true);
+  assert.equal((await acesso({ a: 'consultar', u: 'NinguemAssim' })).body.encontrado, false);
+
+  // Desligado aparece como inativo.
+  await acesso({ u: 'TDOutro' });
+  assert.equal((await acesso({ a: 'consultar', u: 'TDOutro' })).body.ativo, false);
+  await acesso({ u: 'TDOutro', a: 'religar' });
+});
