@@ -3,6 +3,18 @@
 // Banco de dados centralizado via API. Fallback para LocalStorage se offline.
 // ==========================================================================
 
+// Escapa texto vindo do servidor antes de entrar em innerHTML. Nomes, observações
+// e afins são digitados por usuários: sem isto, um registro com <script> roda
+// no navegador de quem abrir a tela.
+function escapeHtml(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 let API_BASE = window.location.protocol === "file:"
   ? "http://localhost:5000/api"
   : "/api";
@@ -3635,17 +3647,17 @@ function renderFaDashboard() {
 
       tr.innerHTML = `
         <td style="text-align: center;">
-          ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+          ${podeRetirar ? `<input type="checkbox" class="chk-fa-pendente" data-id="${escapeHtml(r.id)}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
         <td>${opChip(r.loja)}</td>
-        <td>${r.consultor}</td>
+        <td>${escapeHtml(r.consultor)}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
         <td><span class="dias-badge ${risco ? "risco" : ""}">${dias}d</span></td>
         <td>${fotoCelula(r)}</td>
         <td>${avisoCelula(r)}</td>
         <td>${podeRetirar
-          ? `<button class="btn-retirar fa-btn-retirar" data-id="${r.id}">Marcar retirado</button>`
+          ? `<button class="btn-retirar fa-btn-retirar" data-id="${escapeHtml(r.id)}">Marcar retirado</button>`
           : `<span class="retirada-bloqueada">🔒 Só Bruno ou Isabella</span>`}</td>
       `;
       tbody.appendChild(tr);
@@ -3773,13 +3785,13 @@ function renderFaHistorico() {
     const tr = document.createElement("tr");
     let retiradaTexto = "—";
     if (r.dataRetirada) {
-      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${r.retiradoPor}`;
-      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${r.confirmadoPorApp})`;
+      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${escapeHtml(r.retiradoPor)}`;
+      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${escapeHtml(r.confirmadoPorApp)})`;
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
       <td>${opChip(r.loja)}</td>
-      <td>${r.consultor}</td>
+      <td>${escapeHtml(r.consultor)}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
       <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
@@ -3787,7 +3799,7 @@ function renderFaHistorico() {
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
       <td>${fotoCelula(r)}</td>
-      ${isBruno ? `<td><button class="btn-excluir fa-btn-excluir" data-id="${r.id}">Excluir</button></td>` : ""}
+      ${isBruno ? `<td><button class="btn-excluir fa-btn-excluir" data-id="${escapeHtml(r.id)}">Excluir</button></td>` : ""}
     `;
     tbody.appendChild(tr);
   });
@@ -5177,17 +5189,17 @@ function renderDashboard() {
 
       tr.innerHTML = `
         <td style="text-align: center;">
-          ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${r.id}" ${isSelected ? "checked" : ""}>` : ""}
+          ${podeRetirar ? `<input type="checkbox" class="chk-pendente" data-id="${escapeHtml(r.id)}" ${isSelected ? "checked" : ""}>` : ""}
         </td>
         <td>${opChip(r.loja)}</td>
-        <td>${r.consultor}</td>
+        <td>${escapeHtml(r.consultor)}</td>
         <td>${formatDataHora(r.dataOperacao)}</td>
         <td>${formatBRL(r.valorEnvelope)}</td>
         <td><span class="dias-badge ${risco ? "risco" : ""}">${dias}d</span></td>
         <td>${fotoCelula(r)}</td>
         <td>${avisoCelula(r)}</td>
         <td>${podeRetirar
-          ? `<button class="btn-retirar" data-id="${r.id}">Marcar retirado</button>`
+          ? `<button class="btn-retirar" data-id="${escapeHtml(r.id)}">Marcar retirado</button>`
           : `<span class="retirada-bloqueada">🔒 Só Bruno, Isabella ou Alexandra</span>`}</td>
       `;
       tbody.appendChild(tr);
@@ -5293,7 +5305,7 @@ function fotoCelula(r) {
   const temFoto = r.temFoto || r.temfoto;
   if (temFoto) {
     const placeholderSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'><rect width='36' height='36' fill='%23f1f5f9' rx='6'/><text x='50%' y='50%' font-size='14' fill='%2364748b' text-anchor='middle' dy='.3em'>📷</text></svg>`;
-    return `<img class="thumb-btn thumb-lazy" src="${placeholderSvg}" data-id="${r.id}" alt="foto envelope">`;
+    return `<img class="thumb-btn thumb-lazy" src="${placeholderSvg}" data-id="${escapeHtml(r.id)}" alt="foto envelope">`;
   }
   return `<span class="no-photo">sem foto</span>`;
 }
@@ -5685,15 +5697,15 @@ function renderHistorico() {
     const tr = document.createElement("tr");
     let retiradaTexto = "—";
     if (r.dataRetirada) {
-      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${r.retiradoPor}`;
-      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${r.confirmadoPorApp}`;
-      if (r.autorizadoPor) retiradaTexto += `, autorizado por ${r.autorizadoPor}`;
+      retiradaTexto = `${formatDataHora(r.dataRetirada)} · ${escapeHtml(r.retiradoPor)}`;
+      if (r.confirmadoPorApp) retiradaTexto += ` (confirmado por ${escapeHtml(r.confirmadoPorApp)}`;
+      if (r.autorizadoPor) retiradaTexto += `, autorizado por ${escapeHtml(r.autorizadoPor)}`;
       if (r.confirmadoPorApp) retiradaTexto += `)`;
     }
     tr.innerHTML = `
       <td>${formatDataHora(r.dataOperacao)}</td>
       <td>${opChip(r.loja)}</td>
-      <td>${r.consultor}</td>
+      <td>${escapeHtml(r.consultor)}</td>
       <td>${formatBRL(r.fundoCaixa)}</td>
       <td>${r.valorEnvelope != null ? formatBRL(r.valorEnvelope) : "—"}</td>
       <td>${r.valorFaturado != null ? formatBRL(r.valorFaturado) : "—"}</td>
@@ -5701,7 +5713,7 @@ function renderHistorico() {
       <td>${retiradaTexto}</td>
       <td>${avisoCelula(r)}</td>
       <td>${fotoCelula(r)}</td>
-      ${isBruno ? `<td><button class="btn-excluir" data-id="${r.id}">Excluir</button></td>` : ""}
+      ${isBruno ? `<td><button class="btn-excluir" data-id="${escapeHtml(r.id)}">Excluir</button></td>` : ""}
     `;
     tbody.appendChild(tr);
   });

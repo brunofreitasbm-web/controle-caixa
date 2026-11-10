@@ -5,3 +5,11 @@ database.db
 frontend/dist/
 .vercel/
 .vercel
+
+# Dados reais (backups, exports, bancos locais) — nunca versionar
+*.db
+*.db.bak*
+Backup/
+registros.json
+controle_caixa_*.csv
+Envelopes Facaamigos.csv

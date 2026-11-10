@@ -223,6 +223,8 @@ router.put('/registros/:id', (req, res) => {
   
   Object.keys(r).forEach(key => {
     if (key === 'id' || !COLUNAS_PERMITIDAS.has(key)) return;
+    // Exclusão lógica só pelo DELETE (que confere quem pede); nunca por edição genérica.
+    if (key === 'deletadoEm') return;
     fields.push(`${key} = ?`);
     if (key === 'mensagemGerada') {
       values.push(r[key] ? 1 : 0);
