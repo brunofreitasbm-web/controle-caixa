@@ -29,6 +29,30 @@ function normalizarSolicitacao(row) {
   return { ...s, registroIds };
 }
 
+// Trava de força bruta do PIN de autorização: um PIN de 4 dígitos tem só 10 mil
+// combinações, então sem limite ele cai em minutos. 5 erros seguidos bloqueiam
+// o usuário por 15 minutos; acerto zera a contagem. (Em memória por instância.)
+const PIN_MAX_ERROS = 5;
+const PIN_BLOQUEIO_MS = 15 * 60 * 1000;
+const pinErros = new Map();
+
+function pinBloqueado(usuario) {
+  const chave = String(usuario || '').trim().toLowerCase();
+  const e = pinErros.get(chave);
+  if (!e) return false;
+  if (Date.now() > e.ate) { pinErros.delete(chave); return false; }
+  return e.erros >= PIN_MAX_ERROS;
+}
+
+function registrarPin(usuario, acertou) {
+  const chave = String(usuario || '').trim().toLowerCase();
+  if (acertou) { pinErros.delete(chave); return; }
+  const agora = Date.now();
+  const e = pinErros.get(chave);
+  if (!e || agora > e.ate) pinErros.set(chave, { erros: 1, ate: agora + PIN_BLOQUEIO_MS });
+  else e.erros += 1;
+}
+
 /**
  * Verifica o PIN de um owner (mesma lógica de /auth/verify, incluindo
  * migração de PIN antigo em texto puro para hash bcrypt).
@@ -115,8 +139,13 @@ router.post('/solicitacoes-retirada/:id/autorizar', requireOwner, async (req, re
 
   if (!pin) return res.status(400).json({ error: 'PIN é obrigatório.' });
 
+  if (pinBloqueado(actorUsuario)) {
+    return res.status(429).json({ error: 'Muitas tentativas de PIN. Aguarde 15 minutos.' });
+  }
+
   try {
     const pinValido = await verificarPin(actorUsuario, pin);
+    registrarPin(actorUsuario, pinValido);
     if (!pinValido) {
       return res.status(401).json({ error: 'PIN inválido.' });
     }

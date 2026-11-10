@@ -10,6 +10,10 @@ const { publish } = require('../config/realtime');
 
 const BCRYPT_ROUNDS = 10;
 
+// Chaves de `configuracoes` que são estado interno do servidor: não são devolvidas
+// por GET /config nem aceitas em POST /config.
+const CONFIG_CHAVES_INTERNAS = new Set(['vapid_keys', 'schema_version']);
+
 // 0. Obter logs (apenas Owners e Alexandra)
 router.get('/logs', exigirSessaoTransicao(), (req, res) => {
   // Com sessão, quem pede é quem o servidor diz que é, não o nome que veio na URL.
@@ -30,7 +34,11 @@ router.get('/config', (req, res) => {
   db.all('SELECT * FROM configuracoes', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const config = {};
-    rows.forEach(r => config[r.chave] = r.valor);
+    rows.forEach(r => {
+      // Chaves internas do servidor (ex.: par VAPID com a chave privada) nunca saem pela API.
+      if (CONFIG_CHAVES_INTERNAS.has(r.chave)) return;
+      config[r.chave] = r.valor;
+    });
     res.json(config);
   });
 });
@@ -38,6 +46,9 @@ router.get('/config', (req, res) => {
 // Salvar configuração
 router.post('/config', exigirSessaoTransicao(), (req, res) => {
   const { chave, valor } = req.body;
+  if (typeof chave !== 'string' || !chave.trim() || CONFIG_CHAVES_INTERNAS.has(chave)) {
+    return res.status(403).json({ error: 'Esta configuração não pode ser alterada pela API.' });
+  }
   db.run(
     'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
     [chave, valor, valor],

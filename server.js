@@ -52,13 +52,23 @@ app.use(express.json({ limit: '15mb' }));
 // resposta antes disso — só dava pra inferir custo olhando o lado do banco
 // (pg_stat_statements). Loga qualquer request que passe do limiar, pra dar
 // visibilidade real de qual tela pesa mais no dia a dia.
+// Comparação em tempo constante para segredos (hash iguala o tamanho dos dois lados).
+function segredoIgual(recebido, esperado) {
+  if (typeof recebido !== 'string' || typeof esperado !== 'string' || !recebido || !esperado) return false;
+  const nodeCrypto = require('crypto');
+  const a = nodeCrypto.createHash('sha256').update(recebido).digest();
+  const b = nodeCrypto.createHash('sha256').update(esperado).digest();
+  return nodeCrypto.timingSafeEqual(a, b);
+}
+
 const LIMIAR_REQUEST_LENTA_MS = 500;
 app.use((req, res, next) => {
   const inicio = Date.now();
   res.on('finish', () => {
     const duracaoMs = Date.now() - inicio;
     if (duracaoMs >= LIMIAR_REQUEST_LENTA_MS) {
-      console.warn(`[perf] ${req.method} ${req.originalUrl} — ${duracaoMs}ms (status ${res.statusCode})`);
+      // Só o caminho: a query string pode carregar segredo (?secret=) e nomes de usuário.
+      console.warn(`[perf] ${req.method} ${String(req.originalUrl).split('?')[0]} — ${duracaoMs}ms (status ${res.statusCode})`);
     }
   });
   next();
@@ -189,8 +199,8 @@ app.get('/api/cron/backup-mensal', async (req, res) => {
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization'];
     const secretQuery = req.query.secret;
-    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
-    const validQuery = secretQuery === process.env.CRON_SECRET;
+    const validHeader = segredoIgual(auth, `Bearer ${process.env.CRON_SECRET}`);
+    const validQuery = segredoIgual(secretQuery, process.env.CRON_SECRET);
     if (!validHeader && !validQuery) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }
@@ -404,8 +414,8 @@ app.get('/api/cron/ia-tick', async (req, res) => {
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization'];
     const secretQuery = req.query.secret;
-    const validHeader = auth === `Bearer ${process.env.CRON_SECRET}`;
-    const validQuery = secretQuery === process.env.CRON_SECRET;
+    const validHeader = segredoIgual(auth, `Bearer ${process.env.CRON_SECRET}`);
+    const validQuery = segredoIgual(secretQuery, process.env.CRON_SECRET);
     if (!validHeader && !validQuery) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }

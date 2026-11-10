@@ -1,0 +1,10 @@
+# Sem este arquivo, a Vercel publica como estático qualquer arquivo da raiz.
+# Dados reais (backups, bancos, exports e planilhas) ficam fora do deploy.
+Backup/
+*.db
+*.db.bak*
+registros.json
+controle_caixa_*.csv
+Envelopes Facaamigos.csv
+*.xlsx
+tests/

@@ -16,7 +16,7 @@ const PALAVRA_CHAVE_VENCIMENTO = /valid(ade|o|a)|vencimento|vence\b|vig[eê]ncia
 
 async function extrairLinhasPDF(buffer) {
   const data = new Uint8Array(buffer);
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
   const linhas = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {
