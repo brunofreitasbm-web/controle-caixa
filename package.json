@@ -9,16 +9,16 @@
     "test": "node --test --test-force-exit --test-concurrency=1 tests/hostile-qa.test.js tests/sso-gestao.test.js tests/sessao-auth.test.js tests/desligar-hub.test.js tests/usuarios-fechados.test.js tests/seguranca-onda1.test.js"
   },
   "dependencies": {
-    "@vercel/speed-insights": "^2.0.0",
+    "@vercel/speed-insights": "^2.1.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
-    "multer": "^2.2.0",
+    "multer": "^2.5.0",
     "node-cron": "^4.6.0",
     "nodemailer": "^9.0.3",
     "pdfjs-dist": "^2.16.105",
-    "pg": "^8.12.0",
+    "pg": "^8.23.1",
     "sqlite3": "^5.1.7",
     "web-push": "^3.6.7"
   },
